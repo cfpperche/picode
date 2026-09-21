@@ -67,16 +67,39 @@ type Store struct {
 	Items    int    `json:"items"`
 }
 
-// Item is one memory file.
+// Item is one memory file. Beyond what the file says about itself, an item
+// carries what only the whole folder can answer: whether the index the CLI
+// loads at session start still points at it, how many other memories cite it,
+// and which of its own citations lead nowhere (2026-09-20).
 type Item struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Kind      string `json:"kind,omitempty"`
-	Summary   string `json:"summary,omitempty"`
-	Bytes     int64  `json:"bytes"`
-	Modified  string `json:"modified"`
-	Index     bool   `json:"index,omitempty"`
-	Generated bool   `json:"generated,omitempty"`
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Kind     string `json:"kind,omitempty"`
+	Summary  string `json:"summary,omitempty"`
+	Bytes    int64  `json:"bytes"`
+	Modified string `json:"modified"`
+	// ModifiedFrom says which clock this is: "memory" when the CLI wrote the
+	// time into the file itself, "file" when it is only the filesystem's.
+	ModifiedFrom string   `json:"modifiedFrom,omitempty"`
+	Session      string   `json:"session,omitempty"`
+	Index        bool     `json:"index,omitempty"`
+	Generated    bool     `json:"generated,omitempty"`
+	Indexed      *bool    `json:"indexed,omitempty"`
+	CitedBy      *int     `json:"citedBy,omitempty"`
+	Broken       []string `json:"broken,omitempty"`
+}
+
+// IndexHealth measures the file the CLI loads at the start of every session
+// against the limits that CLI actually applies. Claude Code reads the first
+// 200 lines or 25 KB of MEMORY.md, whichever comes first, and silently drops
+// the rest — a limit a reader cannot see from the CLI itself.
+type IndexHealth struct {
+	Exists    bool     `json:"exists"`
+	Lines     int      `json:"lines"`
+	Bytes     int      `json:"bytes"`
+	LineLimit int      `json:"lineLimit,omitempty"`
+	ByteLimit int      `json:"byteLimit,omitempty"`
+	Dangling  []string `json:"dangling,omitempty"`
 }
 
 // Report is what the Memory pane renders.
@@ -111,6 +134,13 @@ type spec struct {
 	toggle string
 	clear  string
 	stores []storeSpec
+	// indexLinks marks a CLI whose index names its memories with links, which
+	// is what makes "in the index" and "cited by" answerable. Where a CLI has
+	// no such convention the columns are absent, not zero.
+	indexLinks bool
+	// The limits that CLI applies to the index it loads at session start.
+	indexLines int
+	indexBytes int
 }
 
 // For returns the declaration for cli, or nil when PiCode has none.
@@ -161,11 +191,33 @@ func Describe(cli string, p Paths) (Report, error) {
 // List returns the items of one store, newest first. The index file, when the
 // store has one, sorts to the top: it is what the CLI loads every session.
 func List(cli string, p Paths, scope string) ([]Item, error) {
+	items, _, err := Survey(cli, p, scope)
+	return items, err
+}
+
+// Survey lists a store and, where the CLI declares an index convention, the
+// citation graph and the index's own health. A memory nothing points at, a
+// citation that leads nowhere and an index past the size its CLI will read are
+// all invisible from the file alone.
+func Survey(cli string, p Paths, scope string) ([]Item, IndexHealth, error) {
+	s := For(cli)
+	if s == nil {
+		return nil, IndexHealth{}, fmt.Errorf("PiCode has no memory driver for %q", cli)
+	}
 	dir, err := storeDir(cli, p, scope)
 	if err != nil {
-		return nil, err
+		return nil, IndexHealth{}, err
 	}
-	return list(dir)
+	items, err := list(dir)
+	if err != nil {
+		return nil, IndexHealth{}, err
+	}
+	if !s.indexLinks {
+		// No declared index convention: counting citations would report zero
+		// for every row, which reads as a finding rather than an absence.
+		return items, IndexHealth{}, nil
+	}
+	return survey(dir, items, s)
 }
 
 // Read returns one memory's text. id is a path relative to the store and is
@@ -243,6 +295,9 @@ func Delete(cli string, p Paths, scope, id string) error {
 		return fmt.Errorf("PiCode has no memory driver for %q", cli)
 	}
 	if s.tier != TierEditable {
+		if s.clear == "" {
+			return fmt.Errorf("%s keeps this memory itself", cli)
+		}
 		return fmt.Errorf("%s keeps this memory itself; clear it with: %s", cli, s.clear)
 	}
 	dir, err := storeDir(cli, p, scope)
@@ -356,14 +411,22 @@ func list(dir string) ([]Item, error) {
 			continue
 		}
 		item := Item{
-			ID:       name,
-			Title:    titleOf(name),
-			Bytes:    info.Size(),
-			Modified: info.ModTime().UTC().Format(time.RFC3339),
-			Index:    isIndex(name),
+			ID:           name,
+			Title:        titleOf(name),
+			Bytes:        info.Size(),
+			Modified:     info.ModTime().UTC().Format(time.RFC3339),
+			ModifiedFrom: "file",
+			Index:        isIndex(name),
 		}
 		if head, ok := peek(filepath.Join(dir, name)); ok {
-			item.Kind, item.Summary, item.Generated = describeHead(head)
+			var modified, session string
+			item.Kind, item.Summary, modified, session, item.Generated = describeHead(head)
+			item.Session = session
+			// The CLI's own timestamp beats the filesystem's: a file copied or
+			// touched keeps the time the memory was actually written.
+			if modified != "" {
+				item.Modified, item.ModifiedFrom = modified, "memory"
+			}
 		}
 		items = append(items, item)
 	}
@@ -402,7 +465,7 @@ func peek(path string) (string, bool) {
 // Claude Code writes YAML frontmatter with `description` and a `type` under
 // `metadata`; the other CLIs write plain markdown, where the first heading and
 // the first paragraph carry the same information.
-func describeHead(head string) (kind, summary string, generated bool) {
+func describeHead(head string) (kind, summary, modified, session string, generated bool) {
 	generated = generatedBanner(head)
 	body := head
 	if strings.HasPrefix(head, "---") {
@@ -423,6 +486,10 @@ func describeHead(head string) (kind, summary string, generated bool) {
 					if summary == "" {
 						summary = value
 					}
+				case "modified":
+					modified = strings.Trim(value, `"'`)
+				case "originSessionId":
+					session = strings.Trim(value, `"'`)
 				}
 			}
 		}
@@ -437,7 +504,7 @@ func describeHead(head string) (kind, summary string, generated bool) {
 			break
 		}
 	}
-	return kind, clip(mask(summary)), generated
+	return kind, clip(mask(summary)), modified, session, generated
 }
 
 // generatedBanner reports the "do not edit" marker Grok and Codex put at the
@@ -450,7 +517,10 @@ func generatedBanner(head string) bool {
 	return strings.Contains(lower, "do not edit this file") || strings.Contains(lower, "generated by grok")
 }
 
-func isIndex(name string) bool { return strings.EqualFold(name, "MEMORY.md") }
+// indexName is the file every store with an index convention uses.
+const indexName = "MEMORY.md"
+
+func isIndex(name string) bool { return strings.EqualFold(name, indexName) }
 
 func titleOf(name string) string {
 	base := strings.TrimSuffix(name, filepath.Ext(name))

@@ -2,6 +2,9 @@
 
 ## Next
 
+- Memory table slice 4 — the cross-project view for Claude Code's 37 stores,
+  and with it TanStack Table v9 plus virtualization. The only slice that adds
+  a dependency; the owner's call (`docs/plans/memory-table.md`).
 - Omp Fatia 2 (sessions): the gate is one real omp session on disk (needs auth on this machine); `ResumeArgs: ["--resume", id]` per its `--help`. Plan: `docs/plans/omp-cli.md`.
 - Physical iPhone/PWA/IME acceptance for the native panes is external; mobile package configuration is desktop-only by design (`docs/plans/cli-native-packages.md`).
 
@@ -14,6 +17,20 @@
   now a line in `piRows.js` plus its field in `internal/pisettings` — the
   resolver follows the table on its own.
 
+- **Codex has no memory-clear command PiCode can name.** The spec carried
+  `codex`, which the read-only notice offered as "the vendor's own command";
+  `codex` on its own does nothing to a memory, so the field is now empty and
+  the pane shows the note alone (visual review 2026-09-20). Whoever confirms
+  how Codex clears its memories puts it back.
+- **The bulk-delete bar does not follow the scroll.** On a 55-row table a
+  selection made near the bottom leaves the Delete button thousands of pixels
+  up. Sticky needs a top offset for the app's fixed header, which no token
+  names today; nobody has measured whether it is worth one.
+- **Deleting a memory leaves its row in `MEMORY.md`.** The confirm says so and
+  the dangling row is reported on the next load, which is honest but not
+  finished: whether PiCode should edit the index is ADR-0163's line about not
+  writing what it does not own, and it is the owner's call
+  (`docs/plans/memory-table.md`).
 - **The Memory pane has no toggle and the 409 has no Replace control.** The
   docs now describe both honestly — the pane links to Settings, and `force`
   exists in the API with nothing sending it. Whoever wants the controls ships

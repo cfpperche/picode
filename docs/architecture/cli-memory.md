@@ -25,6 +25,10 @@ that happens to exist never promotes a CLI into an editor.
 `index.sqlite`; Codex's folder is a git baseline with `memories_*.sqlite`
 beside it. Writing either would corrupt state PiCode does not own, so `Write`
 and `Delete` refuse on those tiers and the refusal names `grok memory clear`.
+Codex has no such command, so its spec carries none: the pane used to put
+`codex` on the clipboard as "the vendor's own command", and `codex` on its own
+does nothing to a memory. A wrong command copied to the clipboard is worse
+than the note alone.
 Inside `editable`, a single file that still carries a generated banner is
 refused on its own (`generatedBanner`), and the index file is never deletable:
 it is the map to everything else.
@@ -82,6 +86,38 @@ Memory text never reaches the change feed. `cli.memory` carries the CLI id and
 nothing else (ADR-0048 gets the event, not the content), and nothing is copied
 into SQLite.
 
+## The survey: what no single file can answer
+
+`List` reads one file at a time and can only report what is inside it.
+`Survey` (`internal/climemory/survey.go`) reads the folder and answers the
+three questions a memory store actually raises:
+
+| Field | Question | How |
+|---|---|---|
+| `indexed` | does the index the CLI loads at session start still name this file? | every `(name.md)` link in `MEMORY.md` |
+| `citedBy` | how many other memories point at this one? | every `[[wikilink]]` in the other files |
+| `broken` | does this memory cite something that is gone? | the same links, against the files on disk |
+| `index.dangling` | does the index name a file that is gone? | the index's links, against the same list |
+| `index.lines` / `index.bytes` | how much of the index the CLI will actually read | counted, against the limits in the spec |
+
+Each is a pointer (`*bool`, `*int`), so a CLI with no index convention reports
+**absence** rather than a zero that would read as a finding. Only Claude Code
+declares `indexLinks` today, with the limits its own memory instructions state:
+**200 lines or 25 KB of `MEMORY.md`, whichever comes first**. Past that the
+rest is dropped silently at the next session — the one fact about a memory
+store that cannot be seen from the CLI, and the reason the pane carries a
+budget meter.
+
+The citation pass is bounded like every other read here: the first 32 KB of
+each file (`linkScanCap`), ordinary files only, self-citations ignored and each
+target counted once per file. Measured on this repository's own store the day
+it shipped: 54 memories, 1 broken link, 23 cited by nothing, the index at 41 %
+of its byte budget.
+
+`modified` prefers the date the CLI wrote into the file's frontmatter and falls
+back to the filesystem's; `modifiedFrom` says which, because a date a backup
+touched is not evidence of anything.
+
 ## The pane's copy
 
 Chrome carries state and the next action. The read-only tier says one sentence
@@ -92,6 +128,35 @@ switcher and the filter share `--ctl-h` on one row, and an opened row drops its
 own one-line preview so the same sentence is not printed twice. An editable
 memory is a visibly focusable field with its file named above it — it used to
 be pixel-identical to the read-only box, so nothing said it could be typed in.
+
+## The table (desktop) and the same data on a phone
+
+The desktop pane is a real `<table>`: the header cells carry `aria-sort` and a
+screen reader names the column as it reads each cell, which an ARIA grid built
+out of divs would have to re-declare. It is `table-layout: fixed` — auto layout
+sizes a table to its widest cell, and one long description pushed every number
+column off the right edge. The columns come from `columnsFor()`, which drops
+Cited by entirely for a CLI with no citation graph. Under 720px the two number
+columns go and Health halves its width; the reading is what stays.
+
+The phone app shows the same fields stacked under the title as one meta line,
+with a native `<select>` for the sort: five columns do not fit 390px, and the
+columns are the data, not the layout (ADR-0072 keeps the two apps free to
+differ). Both share the pure logic in `web/shared/domain/memoryTable.js` —
+columns, sorting, facets, the budget and the delete's blast radius — which is
+tested without a DOM.
+
+The index row is pinned to the top of every sort: it is the file the CLI
+actually loads, not one row among many. A kind filter never hides it either.
+
+**Selection and bulk delete.** Only `editable` rows are selectable, never the
+index and never a file the CLI regenerates. The confirm names the blast radius
+in the reader's own store — how many citations in other memories the delete
+breaks, and how many rows in the index will be left pointing at nothing — and a
+delete that stops part-way says how far it got. Deleting a memory does **not**
+edit the index: the rows it leaves behind come straight back as
+`index.dangling` on the next load, which is the honest outcome and visible one
+line up.
 
 ## Two writers
 
@@ -121,7 +186,7 @@ runtime capability, so neither has a key to link to.
 
 | Route | Does |
 |---|---|
-| `GET /api/cli-memory?cli=&workspace=&scope=` | the report, one store's items, and the running terminals |
+| `GET /api/cli-memory?cli=&workspace=&scope=` | the report, one store's surveyed items, the index's health, and the running terminals |
 | `GET /api/cli-memory/item?cli=&scope=&id=` | one memory's text, masked |
 | `PUT /api/cli-memory/item` | replace one memory (`editable` only) |
 | `DELETE /api/cli-memory/item?cli=&scope=&id=` | remove one memory (`editable` only, never the index) |

@@ -3,11 +3,26 @@ import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import { cliMemoryHash, memoryEmptyLine, memoryKindLabel } from "@picode/shared/domain/cliNative.js";
+import { agoLabel, blastRadius, bytesLabel, columnsFor, facets, filterItems, health, indexBudget, sortItems } from "@picode/shared/domain/memoryTable.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 
 // What an agent CLI has remembered between sessions (ADR-0163). The pane can
 // do exactly what the CLI's tier allows: read everything, edit and delete only
 // where the vendor treats these files as the user's.
+//
+// The desktop pane puts the survey in table columns. A phone has no room for
+// five columns, so the same numbers ride under the title as one meta line and
+// the sort is a native select — the columns are the data, not the layout
+// (ADR-0072 keeps the two apps free to differ here).
+
+const SORTS = [
+  { value: "modified:desc", label: "Recently changed", needs: "" },
+  { value: "modified:asc", label: "Oldest first", needs: "" },
+  { value: "title:asc", label: "Name", needs: "" },
+  { value: "bytes:desc", label: "Largest", needs: "" },
+  { value: "citedBy:desc", label: "Most cited", needs: "survey" },
+  { value: "citedBy:asc", label: "Least cited", needs: "survey" },
+];
 
 export default function CliMemory({ route, workspaceId = "" }) {
   const cli = route.id;
@@ -18,6 +33,13 @@ export default function CliMemory({ route, workspaceId = "" }) {
   const [scope, setScope] = useState(route.scope || "");
   const [open, setOpen] = useState("");
   const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState("modified:desc");
+  const [kinds, setKinds] = useState([]);
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState([]);
+  const [confirmBulk, setConfirmBulk] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState("");
 
   const load = useCallback(() => {
     const query = new URLSearchParams({ cli });
@@ -68,14 +90,49 @@ export default function CliMemory({ route, workspaceId = "" }) {
   const report = data?.report || {};
   const stores = report.stores || [];
   const active = stores.find((s) => s.scope === (data?.scope || scope)) || stores[0];
-  const items = (data?.items || []).filter((item) => {
-    if (!filter.trim()) return true;
-    const needle = filter.trim().toLowerCase();
-    return (item.title + " " + (item.summary || "") + " " + item.id).toLowerCase().includes(needle);
-  });
   const editable = report.tier === "editable";
+  const all = data?.items || [];
+  const [sortKey, sortDir] = sort.split(":");
+  const items = sortItems(filterItems(all, { text: filter, kinds }), { key: sortKey, dir: sortDir });
+  const survey = columnsFor(all).some((c) => c.id === "citedBy");
+  const kindFacets = facets(all);
+  const budget = indexBudget(data?.index);
+  const indexItem = all.find((i) => i.index);
   const running = data?.running || [];
   const empty = memoryEmptyLine(report, active);
+  const narrowed = Boolean(filter.trim() || kinds.length);
+
+  const selectable = editable ? items.filter((i) => !i.index && !i.generated) : [];
+  const chosen = selectable.filter((i) => picked.includes(i.id));
+  const allChosen = selectable.length > 0 && chosen.length === selectable.length;
+  const citedTotal = chosen.reduce((n, i) => n + (i.citedBy || 0), 0);
+  const stillIndexed = chosen.filter((i) => i.indexed).length;
+
+  const leaveSelect = () => { setSelecting(false); setPicked([]); setConfirmBulk(false); };
+
+  const removeChosen = async () => {
+    setBulkBusy(true);
+    setBulkError("");
+    let done = 0;
+    let failure = "";
+    for (const item of chosen) {
+      try {
+        const query = new URLSearchParams({ cli, scope: active?.scope || "", id: item.id });
+        if (workspaceId) query.set("workspace", workspaceId);
+        await api("/api/cli-memory/item?" + query, { method: "DELETE" });
+        done++;
+      } catch (err) {
+        // Say how far it got: a partial delete the reader cannot see is a lie
+        // about what is still on disk.
+        failure = err.message;
+        break;
+      }
+    }
+    setBulkBusy(false);
+    leaveSelect();
+    if (failure) setBulkError(done ? "Deleted " + done + " of " + chosen.length + ", then stopped: " + failure : failure);
+    setReload((n) => n + 1);
+  };
 
   // A CLI with no memory is one line and, where there is one, the action that
   // would change it. Never an empty well.
@@ -95,12 +152,12 @@ export default function CliMemory({ route, workspaceId = "" }) {
                 role="radio"
                 aria-checked={s.scope === active?.scope}
                 href={cliMemoryHash(cli, { workspaceId, scope: s.scope })}
-                onClick={() => { setScope(s.scope); setOpen(""); }}
+                onClick={() => { setScope(s.scope); setOpen(""); leaveSelect(); }}
               >{s.label}</a>
             ))}
           </div>
         ) : <span />}
-        {(data?.items || []).length || filter.trim() ? (
+        {all.length || filter.trim() ? (
           <div className="cli-memory-filter">
             <input
               className="set-text"
@@ -108,11 +165,26 @@ export default function CliMemory({ route, workspaceId = "" }) {
               placeholder="Filter"
               value={filter}
               aria-label="Filter memories"
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={(e) => { setFilter(e.target.value); setPicked([]); }}
             />
           </div>
         ) : <span />}
       </div>
+
+      {all.length > 1 ? (
+        <div className="cli-memory-tools" data-align-row>
+          <select className="set-text" aria-label="Sort memories" value={sort} onChange={(e) => setSort(e.target.value)}>
+            {SORTS.filter((s) => !s.needs || survey).map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+          {selectable.length || selecting ? (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => (selecting ? leaveSelect() : setSelecting(true))}>
+              {selecting ? "Done" : "Select"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {active?.path ? <p className="settings-file">Kept in {active.path}</p> : null}
 
@@ -130,6 +202,60 @@ export default function CliMemory({ route, workspaceId = "" }) {
         </div>
       ) : null}
 
+      {budget ? (
+        <IndexBudget
+          cli={cli}
+          budget={budget}
+          onOpenIndex={indexItem ? () => setOpen(indexItem.id) : null}
+        />
+      ) : null}
+
+      {kindFacets.length > 1 ? (
+        <div className="cli-memory-facets" role="group" aria-label="Filter by kind">
+          {kindFacets.map((f) => (
+            <button
+              key={f.kind}
+              type="button"
+              className={"cli-memory-facet" + (kinds.includes(f.kind) ? " is-on" : "")}
+              aria-pressed={kinds.includes(f.kind)}
+              onClick={() => { setPicked([]); setKinds((prev) => (prev.includes(f.kind) ? prev.filter((k) => k !== f.kind) : [...prev, f.kind])); }}
+            >
+              {memoryKindLabel(f.kind) || f.kind}
+              <span className="cli-memory-facet-n">{f.count}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {bulkError ? <div className="cli-notice is-error" role="alert"><span>{bulkError}</span></div> : null}
+
+      {selecting && selectable.length ? (
+        <div className="cli-memory-bulk" role="status">
+          {/* The cost of the delete is a sentence, not a control: it sits
+              above the row so the row stays one line of controls at one
+              height, which is what the align auditor holds it to. */}
+          {confirmBulk ? <p className="cli-memory-bulk-warn">{blastRadius(chosen.length, citedTotal, stillIndexed)}</p> : null}
+          <div className="cli-memory-bulk-row" data-align-row>
+            <span className="cli-memory-bulk-n">{chosen.length ? chosen.length + " selected" : "Tap to select"}</span>
+            {confirmBulk ? (
+              <>
+                <button type="button" className="btn btn-danger btn-sm" disabled={bulkBusy} onClick={removeChosen}>
+                  {bulkBusy ? "Deleting…" : "Delete " + chosen.length + " for good"}
+                </button>
+                <button type="button" className="btn btn-ghost btn-sm" disabled={bulkBusy} onClick={() => setConfirmBulk(false)}>Cancel</button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPicked(allChosen ? [] : selectable.map((i) => i.id))}>
+                  {allChosen ? "Clear all" : "Select all"}
+                </button>
+                <button type="button" className="btn btn-ghost btn-sm" disabled={!chosen.length} onClick={() => setConfirmBulk(true)}>Delete selected</button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {data?.itemsError ? (
         <div className="cli-notice" role="status">
           <span>{data.itemsError}</span>
@@ -137,8 +263,10 @@ export default function CliMemory({ route, workspaceId = "" }) {
         </div>
       ) : items.length === 0 ? (
         <div className="cli-notice" role="status">
-          <span>{filter.trim() ? "No memory matches this filter." : empty.line}</span>
-          {!filter.trim() && empty.action === "settings" ? (
+          <span>{narrowed ? "No memory matches this filter." : empty.line}</span>
+          {narrowed ? (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setFilter(""); setKinds([]); }}>Clear filters</button>
+          ) : empty.action === "settings" ? (
             <a className="btn btn-ghost btn-sm" href={cliSettingsHash(cli)}>Open settings</a>
           ) : null}
         </div>
@@ -149,9 +277,13 @@ export default function CliMemory({ route, workspaceId = "" }) {
               key={item.id}
               cli={cli}
               item={item}
+              survey={survey}
               scope={active?.scope || ""}
               workspaceId={workspaceId}
               editable={editable && !item.generated}
+              pickable={selecting && selectable.some((i) => i.id === item.id)}
+              picked={picked.includes(item.id)}
+              onPick={() => setPicked((prev) => (prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]))}
               open={open === item.id}
               onToggle={() => setOpen(open === item.id ? "" : item.id)}
               onChanged={() => setReload((n) => n + 1)}
@@ -159,6 +291,41 @@ export default function CliMemory({ route, workspaceId = "" }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// The index is the file the CLI reads at the start of every session, and it
+// reads only so much of it. Past the limit the rest is dropped in silence,
+// which is the one thing about a memory store nobody can see from the CLI.
+function IndexBudget({ cli, budget, onOpenIndex }) {
+  const limited = Boolean(budget.byteLimit || budget.lineLimit);
+  const label = terminalCliLabel(cli);
+  const tone = budget.over ? " is-over" : budget.near ? " is-near" : "";
+  return (
+    <div className={"cli-memory-budget" + tone} role="status">
+      {limited ? (
+        <div className="cli-memory-budget-bar" aria-hidden="true"><span style={{ width: budget.percent + "%" }} /></div>
+      ) : null}
+      <div className="cli-memory-budget-text">
+        <span>
+          {limited ? (
+            <>
+              The index is at <strong>{budget.percent}%</strong> of what {label} reads each session
+              {" — "}{budget.lines} of {budget.lineLimit} lines, {bytesLabel(budget.bytes)} of {bytesLabel(budget.byteLimit)}.
+              {budget.over ? " Everything past the limit is dropped: shorten it." : budget.near ? " Near the limit; shorten it before it starts dropping lines." : ""}
+            </>
+          ) : (
+            <>The index is {budget.lines} lines, {bytesLabel(budget.bytes)}.</>
+          )}
+          {budget.dangling.length ? (
+            <> {budget.dangling.length === 1 ? "One row points at a file that is gone" : budget.dangling.length + " rows point at files that are gone"} ({budget.dangling.join(", ")}).</>
+          ) : null}
+        </span>
+        {onOpenIndex ? (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onOpenIndex}>Open the index</button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -187,7 +354,7 @@ function CopyCommand({ command }) {
   );
 }
 
-function MemoryRow({ cli, item, scope, workspaceId, editable, open, onToggle, onChanged }) {
+function MemoryRow({ cli, item, survey, scope, workspaceId, editable, pickable, picked, onPick, open, onToggle, onChanged }) {
   const [body, setBody] = useState(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -237,13 +404,42 @@ function MemoryRow({ cli, item, scope, workspaceId, editable, open, onToggle, on
   };
 
   const kind = memoryKindLabel(item.kind);
+  const chips = health(item);
+  const meta = [agoLabel(item.modified), bytesLabel(item.bytes)];
+  // Zero is the finding, so it is printed rather than hidden: nothing else
+  // in this row says a memory is a candidate to merge or drop.
+  if (survey && !item.index && item.citedBy !== undefined) meta.push(item.citedBy ? "cited by " + item.citedBy : "cited by nothing");
   return (
-    <li className={"cli-memory-item" + (open ? " is-open" : "")}>
-      <button type="button" className="cli-memory-head" aria-expanded={open} onClick={onToggle}>
+    <li className={"cli-memory-item" + (open ? " is-open" : "") + (pickable ? " is-pickable" : "")}>
+      {pickable ? (
+        <input
+          type="checkbox"
+          className="cli-memory-pick"
+          checked={picked}
+          aria-label={"Select " + item.title}
+          onChange={onPick}
+        />
+      ) : null}
+      {/* In select mode the whole row is the target: a 20px checkbox is not a
+          thumb-sized one, and tapping a row to select is what a phone list
+          does everywhere else. */}
+      <button
+        type="button"
+        className="cli-memory-head"
+        aria-expanded={pickable ? undefined : open}
+        aria-pressed={pickable ? picked : undefined}
+        onClick={pickable ? onPick : onToggle}
+      >
         <span className="cli-memory-title">{item.title}</span>
         {item.index ? <span className="cli-memory-tag">Loaded every session</span> : null}
         {kind ? <span className="cli-memory-tag">{kind}</span> : null}
         {item.summary && !open ? <span className="cli-memory-sum">{item.summary}</span> : null}
+        <span className="cli-memory-meta">
+          {meta.filter(Boolean).join(" · ")}
+          {chips.map((chip) => (
+            <span key={chip.id} className={"cli-memory-chip is-" + chip.tone}>{chip.label}</span>
+          ))}
+        </span>
       </button>
       {open ? (
         <div className="cli-memory-body">

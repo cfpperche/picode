@@ -481,7 +481,7 @@ func firstLineOf(s string) string {
 // shape the regex no longer matched, and the prefix was published.
 func TestSummaryIsMaskedBeforeItIsClipped(t *testing.T) {
 	long := strings.Repeat("x", summaryRunes-10) + " AKIAIOSFODNN7EXAMPLE tail"
-	_, summary, _ := describeHead(long)
+	_, summary, _, _, _ := describeHead(long)
 	if strings.Contains(summary, "AKIA") {
 		t.Fatalf("a credential survived the clip: %q", summary)
 	}
@@ -543,5 +543,111 @@ func TestRelocatedStoreStaysInsideTheHome(t *testing.T) {
 	}
 	if rep.Stores[0].Path != inside || !rep.Stores[0].Exists {
 		t.Fatalf("want the moved folder, got %#v", rep.Stores[0])
+	}
+}
+
+// TestSurveyAnswersWhatOneFileCannot is the audit the table exists for: a
+// memory the index no longer names, a citation that leads nowhere, and how
+// many memories point at each one. All three were measured on the owner's own
+// corpus before this shipped (54 memories, one broken link, 23 cited by
+// nothing).
+func TestSurveyAnswersWhatOneFileCannot(t *testing.T) {
+	home, cwd := t.TempDir(), t.TempDir()
+	dir := filepath.Join(home, ".claude", "projects", slugify(cwd), "memory")
+	seed(t, filepath.Join(dir, "MEMORY.md"), strings.Join([]string{
+		"- [Scratch](scratch.md) — how to dogfood",
+		"- [Exit codes](exit-codes.md) — verify by exit code",
+		"- [Gone](gone.md) — a row whose file was deleted",
+		"",
+	}, "\n"))
+	seed(t, filepath.Join(dir, "scratch.md"), "---\nname: scratch\nmetadata:\n  type: feedback\n  modified: 2026-09-01T10:00:00.000Z\n  originSessionId: abc-123\n---\n\nUse an isolated HOME. See [[exit-codes]].\n")
+	seed(t, filepath.Join(dir, "exit-codes.md"), "---\nname: exit-codes\n---\n\nCheck $?. See [[scratch]] and [[never-written]].\n")
+	// On disk but absent from the index: the CLI never loads it.
+	seed(t, filepath.Join(dir, "orphan.md"), "---\nname: orphan\n---\n\nNobody points here.\n")
+
+	items, health, err := Survey("claude-code", Paths{Home: home, Cwd: cwd}, "workspace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	by := map[string]Item{}
+	for _, item := range items {
+		by[item.ID] = item
+	}
+
+	if got := by["scratch.md"]; got.CitedBy == nil || *got.CitedBy != 1 {
+		t.Errorf("scratch.md is cited once: %v", got.CitedBy)
+	}
+	if got := by["orphan.md"]; got.CitedBy == nil || *got.CitedBy != 0 {
+		t.Errorf("orphan.md is cited by nothing: %v", got.CitedBy)
+	}
+	if got := by["orphan.md"]; got.Indexed == nil || *got.Indexed {
+		t.Errorf("orphan.md is not in the index: %v", got.Indexed)
+	}
+	if got := by["scratch.md"]; got.Indexed == nil || !*got.Indexed {
+		t.Errorf("scratch.md is in the index: %v", got.Indexed)
+	}
+	if got := by["exit-codes.md"]; len(got.Broken) != 1 || got.Broken[0] != "never-written" {
+		t.Errorf("exit-codes.md cites something that is gone: %v", got.Broken)
+	}
+	if got := by["scratch.md"]; len(got.Broken) != 0 {
+		t.Errorf("scratch.md cites nothing broken: %v", got.Broken)
+	}
+	// The CLI's own clock wins over the filesystem's.
+	if got := by["scratch.md"]; got.Modified != "2026-09-01T10:00:00.000Z" || got.ModifiedFrom != "memory" {
+		t.Errorf("the memory's own timestamp should win: %q %q", got.Modified, got.ModifiedFrom)
+	}
+	if got := by["orphan.md"]; got.ModifiedFrom != "file" {
+		t.Errorf("a memory with no timestamp falls back to the file: %q", got.ModifiedFrom)
+	}
+	if got := by["scratch.md"]; got.Session != "abc-123" {
+		t.Errorf("the session that wrote it: %q", got.Session)
+	}
+
+	if !health.Exists || health.Lines != 3 {
+		t.Errorf("index health: %#v", health)
+	}
+	if health.LineLimit != 200 || health.ByteLimit != 25<<10 {
+		t.Errorf("Claude Code reads 200 lines or 25 KB: %#v", health)
+	}
+	if len(health.Dangling) != 1 || health.Dangling[0] != "gone.md" {
+		t.Errorf("an index row whose file is gone: %v", health.Dangling)
+	}
+}
+
+// TestSurveyIsAbsentWhereACLIHasNoIndex: a CLI without the convention reports
+// nothing rather than zero, because zero reads as a finding.
+func TestSurveyIsAbsentWhereACLIHasNoIndex(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, ".hermes", "memories")
+	seed(t, filepath.Join(dir, "MEMORY.md"), "The owner runs make close.\n")
+	seed(t, filepath.Join(dir, "USER.md"), "Writes in Portuguese. See [[nothing]].\n")
+	items, health, err := Survey("hermes", Paths{Home: home}, "global")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range items {
+		if item.Indexed != nil || item.CitedBy != nil || item.Broken != nil {
+			t.Errorf("%s should carry no index columns: %#v", item.ID, item)
+		}
+	}
+	if health.Exists {
+		t.Errorf("hermes declares no index convention: %#v", health)
+	}
+}
+
+// TestSurveyIgnoresASelfCitation: a memory naming itself is not a citation.
+func TestSurveyIgnoresASelfCitation(t *testing.T) {
+	home, cwd := t.TempDir(), t.TempDir()
+	dir := filepath.Join(home, ".claude", "projects", slugify(cwd), "memory")
+	seed(t, filepath.Join(dir, "MEMORY.md"), "- [Self](self.md)\n")
+	seed(t, filepath.Join(dir, "self.md"), "See [[self]] and [[self]] again.\n")
+	items, _, err := Survey("claude-code", Paths{Home: home, Cwd: cwd}, "workspace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range items {
+		if item.ID == "self.md" && item.CitedBy != nil && *item.CitedBy != 0 {
+			t.Fatalf("a memory does not cite itself: %v", *item.CitedBy)
+		}
 	}
 }

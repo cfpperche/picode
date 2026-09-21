@@ -179,12 +179,17 @@ func handleCLIMemoryGet(deps Deps) http.HandlerFunc {
 			}
 		}
 		if scope != "" {
-			items, err := climemory.List(cli, p, scope)
+			body["scope"] = scope
+			items, health, err := climemory.Survey(cli, p, scope)
 			if err == nil {
-				body["scope"] = scope
 				body["items"] = items
+				// The index the CLI loads every session, measured against the
+				// limits that CLI applies — a reader cannot see them anywhere
+				// else (2026-09-20).
+				if health.Exists {
+					body["index"] = health
+				}
 			} else {
-				body["scope"] = scope
 				body["itemsError"] = err.Error()
 			}
 		}
