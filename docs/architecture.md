@@ -114,13 +114,11 @@ on a non-English Windows. The difference between what the file holds and what
 the distro uses is space Windows keeps for data the distro has already freed:
 invisible in Explorer, and unavailable to WSL while the file is not sparse —
 which is the state a permanently running distro stays in, since both the
-compaction and the sparse conversion need the distro stopped. The shell's tray
-icon shows that as one line refreshed every five minutes and warns in words
-below 20 GB free; with no balloon API, the tooltip is the alert surface. Both
-disk commands only read.
+compaction and the sparse conversion need the distro stopped. The Management
+window's Disk tab shows that as one line; both disk commands only read.
 
-The one action is `picode-desktop disk-compact`, and the shell's tray menu
-carries it as **Give back ≈N GB…**. It refuses to run blind: first the server's readiness
+The one action is `picode-desktop disk-compact`, and the Management window's
+Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an
 explicit confirmation that names the cost — stopping the distro ends every
 agent, terminal and tmux session in it. The flow stops the distro, converts

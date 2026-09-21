@@ -63,6 +63,42 @@ func Set(action string, keys []string) error {
 			}
 		}
 	}
+	return patchDoc(func(doc map[string]any) bool {
+		if keys == nil {
+			delete(doc, action)
+		} else {
+			doc[action] = keys
+		}
+		return true
+	})
+}
+
+// ResetKnown removes every override whose action this catalog knows, in one
+// write, and returns how many it removed. A key the file carries but the
+// catalog does not stays — the same rule Set keeps for one action, so the
+// pane's "Reset all" cannot throw away a binding written by a pi version
+// PiCode has not read yet. A no-op writes nothing (no file is created just to
+// hold an empty object).
+func ResetKnown() (int, error) {
+	removed := 0
+	err := patchDoc(func(doc map[string]any) bool {
+		for _, a := range Catalog {
+			if _, ok := doc[a.ID]; ok {
+				delete(doc, a.ID)
+				removed++
+			}
+		}
+		return removed > 0
+	})
+	if err != nil {
+		return 0, err
+	}
+	return removed, nil
+}
+
+// patchDoc is the one place a keybindings write happens (Set, ResetKnown):
+// read the file, let edit change the decoded object, write it back whole.
+func patchDoc(edit func(map[string]any) bool) error {
 	path := File()
 	if path == "" {
 		return fmt.Errorf("no home directory")
@@ -76,10 +112,8 @@ func Set(action string, keys []string) error {
 	} else if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if keys == nil {
-		delete(doc, action)
-	} else {
-		doc[action] = keys
+	if !edit(doc) {
+		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err

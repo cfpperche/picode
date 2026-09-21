@@ -242,8 +242,16 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     try {
       const started = await api("/api/credentials/signin", json("POST", { cli }));
       // The terminal the server opened is the whole point of the flow: keep
-      // its id so the strip can lead to it (2026-09-21).
-      setSignin({ hint: started.hint || "", error: "", terminalId: started.terminalId || "" });
+      // its id so the strip can lead to it (2026-09-21). priorId is the account
+      // already in the file: Check now must not toast success while that same
+      // account is still what the file holds.
+      const launchError = started.terminal && started.terminal.launchError;
+      setSignin({
+        hint: started.hint || "",
+        error: launchError ? String(launchError) : "",
+        terminalId: started.terminalId || "",
+        stamp: started.stamp || "",
+      });
     } catch (ex) {
       toastError(ex);
     } finally {
@@ -257,6 +265,15 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     setBusy("check");
     try {
       let row = await api("/api/credentials/import", json("POST", { cli }));
+      // The file still holds the account that was there when Sign in was
+      // clicked. Closing the strip here is a lie: no second account arrived.
+      if (signin && signin.stamp && row.stamp === signin.stamp) {
+        setSignin((prev) => ({
+          ...(prev || {}),
+          error: "That's still the account already saved. Sign into the other one in the terminal, then check again.",
+        }));
+        return;
+      }
       // A store that carries no account name would have this sign-in replace
       // the row already there. Ask, then keep both.
       if (row.created === false && !row.identity) {

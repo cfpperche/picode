@@ -26,12 +26,29 @@
 #m-app .m-more-page :is(.reach-ctl, .folder-field-wrap, .pkg-by-source) { gap: 8px; min-width: 0; }
 #m-app .m-more-page :is(.reach-ctl, .pkg-by-source) > input { flex: 1; min-width: 0; margin: 0; }
 #m-app .m-more-page .pkg-by-source .btn { flex: none; height: var(--ctl-h); }
-#m-app .m-more-page .key-row { display: block; padding: 8px 0; }
-#m-app .m-more-page .key-label { display: block; padding: 0 0 4px; min-width: 0; }
-#m-app .m-more-page .key-keys { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; gap: 8px; padding: 4px 0; }
-#m-app .m-more-page .key-keys > * { flex: none; min-height: var(--ctl-h); height: var(--ctl-h); }
-#m-app .m-more-page .key-x { height: 28px; width: 28px; }
-#m-app .m-more-page .key-chip { padding-right: 0; }
+/* The Keyboard pane on the phone: the label and the row's own actions share
+   the first line, the chords wrap under them — a horizontal scroll strip hid
+   every chord past the second — and the keycap grows to a touch row. */
+#m-app .m-more-page .key-pane { --kbd-h: 28px; }
+/* The phone shell scrolls its own page (not `#agent-clis-view`), and the pane
+   is a short hop from the top there: the bar stays in flow rather than guessing
+   a second scroller's offset. */
+#m-app .m-more-page .key-bar { position: static; padding: 0 0 10px; }
+#m-app .m-more-page .key-filter { flex: 1 1 100%; }
+#m-app .m-more-page .key-count { margin-left: 0; }
+#m-app .m-more-page .key-facets { overflow-x: auto; scrollbar-width: thin; max-width: 100%; }
+#m-app .m-more-page .key-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name actions" "keys keys" "note note";
+  row-gap: 6px; padding: 8px 0 8px 8px;
+}
+#m-app .m-more-page .key-name { grid-area: name; }
+#m-app .m-more-page .key-keys { grid-area: keys; justify-content: flex-start; }
+#m-app .m-more-page .key-actions { grid-area: actions; }
+#m-app .m-more-page .key-note { grid-area: note; }
+#m-app .m-more-page .key-chip kbd { font-size: 12px; }
+#m-app .m-more-page .key-x { height: 20px; width: 20px; opacity: 1; }
+#m-app .m-more-page .key-act { height: 28px; opacity: 1; }
 #m-app .m-more-page .rx-switch { position: relative; }
 #m-app .m-more-page .rx-switch::before { content: ""; position: absolute; inset: -12px -4px; }
 #m-app .m-more-page .pkg-scope { max-width: 100%; overflow-x: auto; padding: 4px 0; }
