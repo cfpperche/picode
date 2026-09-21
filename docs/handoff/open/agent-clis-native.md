@@ -70,3 +70,15 @@
 - Agent CLIs is not in `SURFACE_PROFILES`, so no docs-shots capture covers it.
 - A launch that failed inside tmux (session start refused after the row exists) keeps a covering test since Fatia 3a: the pre-flight still rejects the reachable failures first, and the dead-socket attempt persists without leaking a session.
 - Muse Code and Antigravity are full session citizens since Fatias 1–4 (Reader via `muse export` / brain `transcript.jsonl`, native Writer + Prompter both ways, handoff source and target). Remaining asymmetry: Antigravity reports Working/Ready through its title reporter (needs-you never — no approval signal); Muse Code stays honestly Open (R3233 hooks exist but scrub the hook env to PATH, so no per-terminal attribution; Fatia 6).
+
+- **`scripts/qa-cli-settings.mjs` went stale in the native-settings landing, and
+  one row of it is still stale.** Repaired where the Keyboard pane needed it
+  (2026-09-21): `layerOf()` reads `[data-layer]` on the body wrapper (the marker
+  moved off the section), `#g-compact` is `#g-compactionEnabled`, the
+  "unsupported CLI" row waits on the pane instead of the "in development"
+  notice no managed CLI shows any more, the audited captures settle
+  bottom-anchored overlays first, and a failing run now records the rows that
+  passed. What is left: the post-loop untrusted/trust/free-agent matrix stops
+  at a `ready()` that waits for a `.settings-section` a blocked project layer
+  does not render — its owner should re-point that row
+  (`docs/handoff/2026-09-21-keyboard-ui.md`).

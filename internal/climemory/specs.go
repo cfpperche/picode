@@ -44,7 +44,7 @@ var catalog = []spec{
 		// vendor's own command", and `codex` on its own does nothing to a
 		// memory (visual review, 2026-09-20). Codex clears these from inside
 		// its own session, and inventing a flag here would be worse than the
-		// note alone. Open question in docs/handoff/open/cli-native-config.md.
+		// note alone. Open question in docs/handoff/open/agent-clis-native.md.
 		clear: "",
 		stores: []storeSpec{{
 			scope: "global",

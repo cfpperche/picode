@@ -76,13 +76,6 @@ impl TaskEnsure {
             false
         }
     }
-
-    /// Forgets the registration after a deliberate terminate (the compact:
-    /// the task's sleep died with the distro and the definition may need
-    /// rebuilding, not just re-running).
-    pub fn forget(&mut self) {
-        self.registered_action = None;
-    }
 }
 
 #[cfg(windows)]
@@ -173,13 +166,6 @@ pub fn start(distro: &str) -> io::Result<Child> {
         eprintln!("keepalive: supervision failed ({e}); the child still holds the distro");
     }
     Ok(child)
-}
-
-/// Stops a keepalive started here: the polite path for the post-compact
-/// re-arm. The job object stays the guarantee for every other death.
-pub fn stop(child: &mut Child) {
-    let _ = child.kill();
-    let _ = child.wait();
 }
 
 fn wsl_exe() -> &'static str {
@@ -323,19 +309,5 @@ mod tests {
                 "--headless wsl.exe --exec /bin/sleep infinity".to_string()
             )
         );
-    }
-
-    #[test]
-    fn taskensure_latches_the_registered_action_and_forgets_on_demand() {
-        let mut t = TaskEnsure::default();
-        assert!(t.registered_action.is_none());
-        let (execute, arguments) = task_action(Some("Ubuntu"));
-        t.registered_action = Some(format!("{execute} {arguments}"));
-        assert_eq!(
-            t.registered_action.as_deref(),
-            Some("C:\\Windows\\System32\\conhost.exe --headless wsl.exe -d Ubuntu --exec /bin/sleep infinity")
-        );
-        t.forget();
-        assert!(t.registered_action.is_none());
     }
 }

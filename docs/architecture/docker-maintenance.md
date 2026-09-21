@@ -50,4 +50,4 @@ and high memory. No dependency topology or root cause is inferred from names.
 Restart-loop previews allow advancing counters/timestamps while preserving the
 exact identity and restarting precondition. Memory verification uses the reviewed
 threshold. No automatic repair, backup/restore, blanket prune or remote Engine
-access is enabled. API/package details: [Docker guide](../docs-site/guide/docker.md).
+access is enabled. API/package details: [Docker guide](../../docs-site/guide/docker.md).

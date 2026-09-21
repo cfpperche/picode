@@ -5,9 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Agent contract:** every commit with a user-visible change MUST add an entry
-to the `[Unreleased]` section. The repository's official language is English
-(see `AGENTS.md`); changelog entries included.
+**Agent contract:** this file is assembled, never typed into (ADR-0105). A
+commit with a user-visible change writes one fragment,
+`docs/changelog.d/<branch-slug>.md`, with Keep a Changelog sections (`### Added`,
+`### Fixed`, …) inside it; `make changelog` folds every fragment into
+`[Unreleased]` on `main` before a release. The pre-commit hook refuses a direct
+edit to the entries here, so the fragment is not a convention — it is the only
+way in. The repository's official language is English (see `AGENTS.md`);
+changelog entries included.
 
 ## [Unreleased]
 

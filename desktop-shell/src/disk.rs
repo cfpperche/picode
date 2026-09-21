@@ -163,10 +163,3 @@ pub fn disk_compact_dry_run() -> Result<CompactOutcome, String> {
     let text = run_cli(&["disk-compact", "--json", "--dry-run"])?;
     parse_outcome(&text)
 }
-
-/// The tray's disk verdict: one `disk --json` folded to the line facts. A
-/// failed half reads as unread, never as a zero.
-pub fn line_facts() -> Result<crate::diskline::Facts, String> {
-    let text = run_cli(&["disk", "--json"])?;
-    crate::diskline::parse_report(&text)
-}

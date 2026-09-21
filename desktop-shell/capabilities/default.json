@@ -3,8 +3,7 @@
   "identifier": "window-frame",
   "description": "The windows are undecorated: the UI's own chrome drags and closes them. The daemon's origin is listed under remote because the main window loads the served UI \u2014 without it every window.* call from that page is refused by the ACL, which is exactly why the first injected buttons were dead.",
   "windows": [
-    "main",
-    "management"
+    "main"
   ],
   "permissions": [
     "core:default",
@@ -66,9 +65,6 @@
     ]
   },
   "webviews": [
-    "main-titlebar",
-    "main-content",
-    "management-titlebar",
-    "management-content"
+    "main-content"
   ]
 }

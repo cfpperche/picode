@@ -29,6 +29,24 @@ would miss OS aliases such as macOS `/var` → `/private/var`.
 | either live data root, or any descendant | existing, missing, direct, or reached through a symlinked ancestor | refuse |
 | outside both live trees | canonical roots differ | allow |
 
+**A restore is a swap, never a delete followed by a copy.**
+`Store.ReplaceFrom` already stashed the live database and rolled back on
+failure; the two halves beside it did not. Pin attachments and pi's session
+tree were `RemoveAll`'d and then walked into place, *after* the database had
+been swapped, so a copy that died halfway — a full disk, one unreadable file
+— destroyed the live files with no way back. Both now build the replacement
+beside the target and `os.Rename` it into place (same filesystem, so the
+rename is atomic), putting the live tree back if the final rename fails
+(`swapTree` / `swapRegular`, `internal/backup/restore.go`).
+
+The credential vault a restore replaces is kept once as
+`credentials.json.replaced`, the same promise ADR-0166 makes when activating
+a CLI credential: a snapshot carries the vault but never the key that opens
+it, so a vault restored where the local key has since changed cannot be
+decrypted, and the live one has to still be on disk. Pi's own files are
+restored atomically but leave nothing behind — debris in a directory another
+tool owns is not ours to write.
+
 ## Delivery declarations
 
 Migration 063 adds `delivery_intents` and `delivery_requests` for ADR-0171. The

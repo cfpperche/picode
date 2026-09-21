@@ -79,6 +79,7 @@ export default defineConfig({
               { text: "Delivery requests", link: "/guide/delivery" },
               { text: "Inbox tools", link: "/guide/inbox-tools" },
               { text: "Checklist", link: "/guide/checklist" },
+              { text: "Pins and reminders", link: "/guide/pins" },
               { text: "Compact earlier", link: "/guide/compact" },
               { text: "Diff panel", link: "/guide/diff-panel" },
               { text: "Web apps", link: "/guide/web-apps" },
@@ -96,6 +97,7 @@ export default defineConfig({
               { text: "Integrations", link: "/guide/integrations" },
               { text: "tmux sessions", link: "/guide/tmux" },
               { text: "CLI activity reporting", link: "/guide/terminal-status" },
+              { text: "Dev servers", link: "/guide/dev-servers" },
               { text: "Keyboard and browser keys", link: "/guide/keyboard" },
             ],
           },
@@ -122,6 +124,7 @@ export default defineConfig({
           { text: "Settings", link: "/guide/settings" },
           { text: "Providers", link: "/guide/providers" },
           { text: "Model roles", link: "/guide/roles" },
+          { text: "Backup and restore", link: "/guide/backup" },
         ],
       },
       {
