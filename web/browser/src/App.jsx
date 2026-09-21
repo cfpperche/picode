@@ -3653,6 +3653,14 @@ export default function App({ shellChrome = false } = {}) {
         }
       }}>
       <Sidebar
+        onOpenDocs={() => {
+          // The work browser tab hosts pages only in the shell (WebView2);
+          // in a plain browser the docs keep going to the system browser,
+          // which is where this same link landed before. Same test
+          // webappOpenPlan makes: the Tauri bridge, not the boot flag.
+          if (shellChrome && window.__TAURI__) openWebTabRef.current("https://cfpperche.github.io/picode/");
+          else window.open("https://cfpperche.github.io/picode/", "_blank", "noopener,noreferrer");
+        }}
         inShell={shellChrome}
         tab={sideTab}
         selectTab={selectSideTab}
