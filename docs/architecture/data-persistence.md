@@ -46,3 +46,10 @@ it, so a vault restored where the local key has since changed cannot be
 decrypted, and the live one has to still be on disk. Pi's own files are
 restored atomically but leave nothing behind — debris in a directory another
 tool owns is not ours to write.
+
+## Delivery declarations
+
+Migration 063 adds `delivery_intents` and `delivery_requests` for ADR-0171. The
+store commits each declaration, original retry receipt and `delivery.changed`
+event atomically. These are agent declarations, not gate or deploy evidence.
+See [delivery architecture](delivery.md) for scope, ownership and limits.

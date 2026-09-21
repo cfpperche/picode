@@ -25,6 +25,31 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		want []string
 	}
 	cases := []tc{
+		{"ApplyDelivery/register", func(s *Store) { s.OnEvent = recorder(s); deliveryFixture(t, s) }, []string{"delivery.changed"}},
+		{"ApplyDelivery/update", func(s *Store) {
+			d := deliveryFixture(t, s)
+			s.OnEvent = recorder(s)
+			_, err := s.ApplyDelivery("repo", "agent", DeliveryMutation{Action: "update", RequestID: "u", ID: d.ID, ExpectedVersion: 1, Title: d.Title, Branch: d.Branch, Revision: d.Revision, Target: d.Target})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.changed"}},
+		{"ApplyDelivery/review", func(s *Store) {
+			d := deliveryFixture(t, s)
+			s.OnEvent = recorder(s)
+			_, err := s.ApplyDelivery("repo", "agent", DeliveryMutation{Action: "request-review", RequestID: "r", ID: d.ID, ExpectedVersion: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.changed"}},
+		{"ApplyDelivery/withdraw", func(s *Store) {
+			d := deliveryFixture(t, s)
+			s.OnEvent = recorder(s)
+			_, err := s.ApplyDelivery("repo", "agent", DeliveryMutation{Action: "withdraw-review", RequestID: "w", ID: d.ID, ExpectedVersion: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.changed"}},
 		{"EnsureAgentTerminal", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "pi", "")
 			s.OnEvent = recorder(s)

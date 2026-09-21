@@ -1,8 +1,10 @@
 # Delivery flow — execution baseline
 
 Status: scope and sequence fixed for planning on 2026-09-21 at the owner's
-request after the benchmark study. D0 design is complete; product implementation has not started. This records
-an execution baseline, not authorization to change accepted ADRs or deploy.
+request after the benchmark study. D0 design and the D1a common agent declaration interface are implemented.
+On 2026-09-21 the owner approved adding that interface before the observation
+screen (ADR-0171). Observation, execution queues and deployment remain separate
+slices; this baseline is not deployment authorization.
 
 Evidence: [delivery-governance study](../benchmarks/2026-09-21-delivery-governance.md).
 
@@ -19,7 +21,7 @@ actually serving each observed environment, without opening agent terminals.
 - Separate integration and publication lifecycles; many changes may share one
   deployment. Cancellation and abandonment are not successful delivery.
 - Evidence, observation time, blocker and next action for each relevant state.
-- Read-only observation first; explicit governance follows in separate slices.
+- Common agent declarations and read-only observation first; execution governance follows in separate slices.
 - PiCode's own repository is the first measured workflow. The product model must
   allow other projects to use different integration and publication providers.
 - Desktop and mobile share headless semantics; each retains its own presentation.
@@ -72,7 +74,21 @@ rite. Check off a slice only with linked evidence. D0 receipts: [inventory](deli
 Exit: every displayed fact has a source and unknown behavior; an implementation
 contract and decision table exist. No new execution authority is introduced.
 
-### D1 — Observe integration
+### D1a — Common agent declarations
+
+- [x] Implement `picode delivery` and optional MCP over one contract: register,
+  update, request/withdraw review, show, list and capabilities.
+- [x] Derive project and actor from the PiCode launch; bind intent to a revision;
+  persist retry receipts, optimistic versions and feed events atomically.
+- [x] Test common paths for all nine catalog identifiers and a generic terminal;
+  real authenticated vendor acceptance remains separate, recorded in the open topic.
+
+Contract and decision table: [agent interface](delivery-agent-interface.md).
+This adds durable intent, not test evidence, a browser surface, queue enrollment,
+human approval or execution authority. The owner-approved insertion avoids
+requiring a different registration mechanism for every CLI.
+
+### D1b — Observe integration
 
 - [ ] Implement read-only project changes with revision, branch/base relation,
   known validation, attribution links and explicit blockers.
@@ -178,5 +194,6 @@ remains a separately authorized owner operation.
 
 Any expansion or reordering is recorded here with its reason and owner decision.
 D0 is documented in the linked inventory and surface contract. The next task is
-D1, after the owner decision on proposed ADR-0170, in a fresh session. D1–D5 are
-not implemented; D0 changed documentation only and performed no deployment.
+D1b, after the owner decision on proposed ADR-0170, in a fresh session. D1b–D5
+are not implemented; D1a is the common declaration interface under ADR-0171.
+No deployment was performed.

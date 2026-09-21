@@ -120,7 +120,7 @@ func TestManagedCLIHTTPDefaultsPiCodeTools(t *testing.T) {
 		t.Fatal(err)
 	}
 	res.Body.Close()
-	if got := launchToolNames(t, ts, claude.TerminalID); strings.Join(got, ",") != "computer,browser,inbox,checklist" {
+	if got := launchToolNames(t, ts, claude.TerminalID); strings.Join(got, ",") != "computer,browser,inbox,checklist,delivery" {
 		t.Fatalf("claude tools = %v", got)
 	}
 
