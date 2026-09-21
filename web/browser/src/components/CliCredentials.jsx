@@ -193,6 +193,10 @@ export default function CliCredentials({ hidden, cli, add = false }) {
   }
 
   const total = providers.reduce((n, p) => n + ((p.accounts || []).length), 0);
+  // With one provider, the header's Add already says everything a second
+  // button would: the same dialog, the same preselection. It is only when a
+  // CLI has several that a per-provider Add earns its place.
+  const multiProvider = providers.length > 1;
 
   return (
     <PageFrame id="cli-credentials-view" title="Providers" hidden={hidden} embedded>
@@ -247,7 +251,7 @@ export default function CliCredentials({ hidden, cli, add = false }) {
                 <div className="cred-provider-head">
                   <h3 className="cred-provider-name">{name}</h3>
                   {name === p.id ? null : <span className="cred-provider-id">{p.id}</span>}
-                  {rows.length ? (
+                  {rows.length && multiProvider ? (
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id)}>Add API key</button>
                   ) : null}
                 </div>
@@ -296,7 +300,9 @@ export default function CliCredentials({ hidden, cli, add = false }) {
                 ) : (
                   <p className="cred-empty">
                     <span>{name + " · No accounts yet."}</span>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id)}>Add API key</button>
+                    {multiProvider ? (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id)}>Add API key</button>
+                    ) : null}
                   </p>
                 )}
               </div>
