@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -203,10 +204,15 @@ func TestProcessStartedAt(t *testing.T) {
 // stubDevServers replaces the three seams for one test: who owns a port, what
 // a port answers, and which ports are listening right now. By default every
 // port in the fixture is listening — a silent port is one nobody owns.
-func stubDevServers(t *testing.T, owners map[int]devServerOwner, answers map[int]devServerProbe) *int {
+// The probe counter is atomic because resolve() probes ports in
+// parallel (sixteen at a time, by design): a plain int++ here is a data
+// race between the stub's own goroutines, which is what the race
+// detector reported on the macOS runner — in the fixture, not in the
+// product code it stands in for.
+func stubDevServers(t *testing.T, owners map[int]devServerOwner, answers map[int]devServerProbe) *atomic.Int64 {
 	t.Helper()
 	prevOwners, prevProbe, prevListening := devServerOwnersOfDeps, openDevServerProbe, devServerListening
-	calls := 0
+	var calls atomic.Int64
 	devServerOwnersOfDeps = func(context.Context, Deps) (map[int]devServerOwner, bool) { return owners, true }
 	devServerListening = func() map[int]string {
 		out := map[int]string{}
@@ -219,7 +225,7 @@ func stubDevServers(t *testing.T, owners map[int]devServerOwner, answers map[int
 		return out
 	}
 	openDevServerProbe = func(_ context.Context, port int) devServerProbe {
-		calls++
+		calls.Add(1)
 		if probe, ok := answers[port]; ok {
 			return probe
 		}
@@ -306,7 +312,7 @@ func TestDevServersDecisionTable(t *testing.T) {
 			t.Fatalf("unanswered candidate was reported: %+v", s)
 		}
 	}
-	first := *calls
+	first := calls.Load()
 	if first < 2 {
 		t.Fatalf("probes=%d, want at least the two listeners", first)
 	}
@@ -315,8 +321,8 @@ func TestDevServersDecisionTable(t *testing.T) {
 	if got := devServers(context.Background(), deps, false); len(got.Servers) != 3 {
 		t.Fatalf("cached list=%+v", got)
 	}
-	if *calls != first {
-		t.Fatalf("a poll inside the TTL probed again: %d → %d", first, *calls)
+	if got := calls.Load(); got != first {
+		t.Fatalf("a poll inside the TTL probed again: %d → %d", first, got)
 	}
 }
 
@@ -441,9 +447,9 @@ func TestDevServerUnreadableOwners(t *testing.T) {
 // asks again.
 func TestDevServerCacheResolve(t *testing.T) {
 	prev := openDevServerProbe
-	var calls int
+	var calls atomic.Int64
 	openDevServerProbe = func(_ context.Context, port int) devServerProbe {
-		calls++
+		calls.Add(1)
 		if port == 5173 {
 			return devServerProbe{scheme: "http", kind: devServerKindPage, title: "Acme", tool: "dev"}
 		}
@@ -454,8 +460,8 @@ func TestDevServerCacheResolve(t *testing.T) {
 	cache := newDevServerCache()
 	ports := []int{5173, 3000}
 	facts := cache.resolve(context.Background(), ports, false)
-	if calls != 2 {
-		t.Fatalf("probes=%d want one per port", calls)
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("probes=%d want one per port", got)
 	}
 	if facts[5173].kind != devServerKindPage || facts[5173].title != "Acme" || facts[5173].tool != "dev" {
 		t.Fatalf("5173 facts=%+v", facts[5173])
@@ -465,12 +471,12 @@ func TestDevServerCacheResolve(t *testing.T) {
 	}
 	// Inside the TTL nothing is probed again, an explicit refresh probes both.
 	cache.resolve(context.Background(), ports, false)
-	if calls != 2 {
-		t.Fatalf("a poll inside the TTL probed again: %d", calls)
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("a poll inside the TTL probed again: %d", got)
 	}
 	cache.resolve(context.Background(), ports, true)
-	if calls != 4 {
-		t.Fatalf("refresh probes=%d want 4", calls)
+	if got := calls.Load(); got != 4 {
+		t.Fatalf("refresh probes=%d want 4", got)
 	}
 }
 
@@ -481,11 +487,11 @@ func TestDevServerCacheResolve(t *testing.T) {
 func TestDevServerCacheRetriesSilentPort(t *testing.T) {
 	prevProbe, prevRetry := openDevServerProbe, devServerRetryTTL
 	devServerRetryTTL = 0
-	var calls int
-	answering := false
+	var calls atomic.Int64
+	var answering atomic.Bool
 	openDevServerProbe = func(context.Context, int) devServerProbe {
-		calls++
-		if answering {
+		calls.Add(1)
+		if answering.Load() {
 			return devServerProbe{scheme: "http", kind: devServerKindPage, title: "Acme", tool: "dev"}
 		}
 		return devServerProbe{kind: devServerKindOpaque}
@@ -496,18 +502,18 @@ func TestDevServerCacheRetriesSilentPort(t *testing.T) {
 	ports := []int{5173}
 	cache.resolve(context.Background(), ports, false)
 	cache.resolve(context.Background(), ports, false)
-	if calls != 2 {
-		t.Fatalf("silent port was not retried: calls=%d", calls)
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("silent port was not retried: calls=%d", got)
 	}
 	// Once it answers, the next poll trusts the long TTL.
-	answering = true
+	answering.Store(true)
 	facts := cache.resolve(context.Background(), ports, false)
 	if facts[5173].kind != devServerKindPage || facts[5173].title != "Acme" {
 		t.Fatalf("facts=%+v", facts[5173])
 	}
-	after := calls
+	after := calls.Load()
 	cache.resolve(context.Background(), ports, false)
-	if calls != after {
-		t.Fatalf("an answered port was re-probed inside the TTL: %d → %d", after, calls)
+	if got := calls.Load(); got != after {
+		t.Fatalf("an answered port was re-probed inside the TTL: %d → %d", after, got)
 	}
 }

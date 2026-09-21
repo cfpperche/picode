@@ -6938,6 +6938,23 @@
         ]
       }
     },
+    "/api/packages/report": {
+      "get": {
+        "operationId": "getApiPackagesReport",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "packages"
+        ]
+      }
+    },
     "/api/packages/update": {
       "post": {
         "operationId": "postApiPackagesUpdate",

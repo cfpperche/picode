@@ -109,8 +109,11 @@ func handleProviderLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCustomProviderPut creates or updates one custom provider definition
-// (ADR-0129). The definition merges into pi's models.json; the key, when
-// present, goes to auth.json like any native sign-in — never into models.json.
+// (ADR-0129). For pi the definition merges into models.json and the key,
+// when present, goes to auth.json like any native sign-in — never into
+// models.json. For omp (the owner's amendment to ADR-0169) the definition
+// and its key merge into omp's models.yml, the one channel a custom id has
+// there; the key is never returned by any read.
 func handleCustomProviderPut(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
@@ -122,6 +125,7 @@ func handleCustomProviderPut(w http.ResponseWriter, r *http.Request) {
 		ChatTemplateArgs   map[string]any        `json:"chatTemplateArgs"`
 		Models             []catalog.CustomModel `json:"models"`
 		Key                string                `json:"key"`
+		CLI                string                `json:"cli"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -144,23 +148,45 @@ func handleCustomProviderPut(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if err := catalog.UpsertCustomProvider(id, def); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if key := strings.TrimSpace(req.Key); key != "" {
-		if err := catalog.PutAPIKey(id, key); err != nil {
+	switch strings.TrimSpace(req.CLI) {
+	case "omp":
+		if err := catalog.OMPUpsertCustomProvider(id, def, req.Key); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		writeJSON(w, http.StatusOK, map[string]any{"id": id, "custom": true})
+	case "", "pi":
+		if err := catalog.UpsertCustomProvider(id, def); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if key := strings.TrimSpace(req.Key); key != "" {
+			if err := catalog.PutAPIKey(id, key); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"id": id, "custom": true})
+	default:
+		writeErr(w, http.StatusBadRequest, "This CLI has no custom provider surface.")
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"id": id, "custom": true})
 }
 
 // handleCustomProviderDelete removes the definition, the active auth.json
-// credential and any vault rows. Built-in overrides are refused, not deleted.
+// credential and any vault rows. For omp it removes the definition and its
+// models.yml key; there is no vault row to forget. Built-in overrides are
+// refused, not deleted.
 func handleCustomProviderDelete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	cli := strings.TrimSpace(r.URL.Query().Get("cli"))
+	if cli == "omp" {
+		if err := catalog.OMPRemoveCustomProvider(id); err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"id": id, "removed": true})
+		return
+	}
 	if err := catalog.RemoveCustomProvider(id); err != nil {
 		writeErr(w, http.StatusNotFound, err.Error())
 		return

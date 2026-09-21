@@ -5,6 +5,20 @@
 - [x] The handoff board sat at its cap and failed `make close` until a paid debt was pruned — superseded by ADR-0145 (bounded view: 2 bullets per topic, 7-day notes, open debts only, over target warns).
 
 ## Debts
+- [ ] **`TestStopIdleFencesConversationAndCommands` fails on the GitHub
+  ubuntu runner and nobody can say why.** It reports "agent has an action in
+  progress" at the one assertion where `StopIdle` must *succeed*
+  (`internal/rpc/runtime_test.go`), after 3.57s — four times the 0.85s it
+  takes locally. `StopIdle` gates on `commandMu.TryLock()`, so "idle" is an
+  instantaneous condition, and the obvious theory is a background holder on
+  a loaded runner. **That theory is not supported**: 36 rounds under three
+  parallel loops are green here, no production code calls `send`, `ReplyUI`,
+  `GetState` or `Interrupt` from a goroutine, and the test starts none of its
+  own (all checked 2026-09-21, feat/ci-env-tests). It was deliberately left
+  alone — a bounded retry would turn the gate green without anyone
+  understanding it, which is the failure the other four fixes in that branch
+  were about. Whoever reproduces it owns the fix.
+
 - [ ] **Should `/pair` be guarded-and-exempt instead of unguarded?** Today
   `guarded()` covers `/api/`, `/ws/` and `/mcp/communication` only, so the
   pairing page and form never reach the Host or Origin checks. An unreachable

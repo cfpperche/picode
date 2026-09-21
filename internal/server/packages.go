@@ -10,12 +10,14 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/pipkg"
+	"github.com/cfpperche/picode/internal/pkgs"
 	"github.com/cfpperche/picode/internal/store"
 )
 
 func registerPackageRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/packages", handleListPackages(deps))
 	mux.HandleFunc("GET /api/packages/gallery", handlePackageGallery)
+	mux.HandleFunc("GET /api/packages/report", handlePackageReport(deps))
 	mux.HandleFunc("GET /api/packages/updates", handlePackageUpdates(deps))
 	mux.HandleFunc("POST /api/packages", handleInstallPackage(deps))
 	mux.HandleFunc("POST /api/packages/update", handleUpdatePackage(deps))
@@ -23,8 +25,31 @@ func registerPackageRoutes(mux Registrar, deps Deps) {
 	registerPackageConfigRoutes(mux, deps)
 }
 
+// packageReadDriver resolves the driver a read answers from — the ?cli=
+// parameter, Pi when absent — writing the refusal itself when no driver
+// exists. A read that needs more than a roster gates on the driver's Caps.
+func packageReadDriver(w http.ResponseWriter, r *http.Request) (pkgs.Driver, bool) {
+	cli := strings.TrimSpace(r.URL.Query().Get("cli"))
+	if !pkgs.Known(cli) {
+		writeErr(w, http.StatusBadRequest,
+			"no packages driver for "+cli+" — use "+strings.Join(pkgs.CLIs(), ", "))
+		return nil, false
+	}
+	return pkgs.DriverFor(cli), true
+}
+
+// handlePackageUpdates is the badge read: the driver answers what its catalog
+// has moved ahead of, and Pi's payload keeps the shape the pane parses.
 func handlePackageUpdates(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		driver, ok := packageReadDriver(w, r)
+		if !ok {
+			return
+		}
+		if !driver.Caps().Update {
+			writeErr(w, http.StatusBadRequest, driver.ID()+": "+pkgs.ErrNoUpdateCheck.Error())
+			return
+		}
 		dir, err := packageProjectDir(deps, r.URL.Query().Get("workspace"))
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
@@ -32,12 +57,12 @@ func handlePackageUpdates(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 		defer cancel()
-		rep, err := pipkg.CheckUpdates(ctx, pipkg.UserDir(), dir)
+		rows, err := driver.CheckUpdates(ctx, pkgs.Query{WorkspacePath: dir})
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, rep)
+		writeJSON(w, http.StatusOK, pkgs.LegacyUpdates(rows))
 	}
 }
 
@@ -52,7 +77,7 @@ func handlePackageGallery(w http.ResponseWriter, r *http.Request) {
 
 func handleListPackages(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rep, err := loadPackageReport(deps, r.URL.Query().Get("workspace"), r.URL.Query().Get("agent"))
+		rep, err := loadPackageReport(r.Context(), deps, r.URL.Query().Get("workspace"), r.URL.Query().Get("agent"))
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
 			return
@@ -61,29 +86,32 @@ func handleListPackages(deps Deps) http.HandlerFunc {
 	}
 }
 
-func loadPackageReport(deps Deps, workspaceID, agentID string) (pipkg.Report, error) {
+// loadPackageReport is GET /api/packages: Pi's driver reads the settings and
+// the agent row, and the unified report is mapped back to the JSON the pane
+// parses. One source of truth, the same bytes (ADR-0176 slice 1c).
+func loadPackageReport(ctx context.Context, deps Deps, workspaceID, agentID string) (pipkg.Report, error) {
 	dir, err := packageProjectDir(deps, workspaceID)
 	if err != nil {
 		return pipkg.Report{}, err
 	}
-	rep, err := pipkg.List(pipkg.UserDir(), dir)
-	if err != nil {
-		return pipkg.Report{}, err
-	}
-	if agentID == "" || deps.Store == nil {
-		return rep, nil
-	}
-	a, err := deps.Store.GetAgent(agentID)
-	if err != nil {
-		// A terminal id (or a stale agent) must not hide machine packages.
-		if errors.Is(err, store.ErrNotFound) {
-			return rep, nil
+	q := pkgs.Query{WorkspacePath: dir}
+	if agentID != "" && deps.Store != nil {
+		a, err := deps.Store.GetAgent(agentID)
+		switch {
+		case err == nil:
+			q.AgentSources = a.Packages
+			q.AgentIsolated = a.PackagesIsolated
+		case errors.Is(err, store.ErrNotFound):
+			// A terminal id (or a stale agent) must not hide machine packages.
+		default:
+			return pipkg.Report{}, err
 		}
+	}
+	rep, err := pkgs.DriverFor("pi").List(ctx, q)
+	if err != nil {
 		return pipkg.Report{}, err
 	}
-	rep = pipkg.WithAgent(rep, a.Packages)
-	rep.Isolated = a.PackagesIsolated
-	return rep, nil
+	return rep.Legacy(), nil
 }
 
 type packageMutateReq struct {
@@ -101,7 +129,7 @@ func handleInstallPackage(deps Deps) http.HandlerFunc {
 			return
 		}
 		if req.Scope == "agent" {
-			rep, err := mutateAgentPackage(deps, req.AgentID, req.Source, true)
+			rep, err := mutateAgentPackage(r.Context(), deps, req.AgentID, req.Source, true)
 			if err != nil {
 				writeErr(w, statusForStore(err), err.Error())
 				return
@@ -120,7 +148,7 @@ func handleInstallPackage(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		rep, err := loadPackageReport(deps, req.WorkspaceID, req.AgentID)
+		rep, err := loadPackageReport(r.Context(), deps, req.WorkspaceID, req.AgentID)
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 			return
@@ -152,7 +180,7 @@ func handleUpdatePackage(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		rep, err := loadPackageReport(deps, req.WorkspaceID, req.AgentID)
+		rep, err := loadPackageReport(r.Context(), deps, req.WorkspaceID, req.AgentID)
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 			return
@@ -183,7 +211,7 @@ func handleRemovePackage(deps Deps) http.HandlerFunc {
 			}
 		}
 		if scope == "agent" {
-			rep, err := mutateAgentPackage(deps, agentID, source, false)
+			rep, err := mutateAgentPackage(r.Context(), deps, agentID, source, false)
 			if err != nil {
 				writeErr(w, statusForStore(err), err.Error())
 				return
@@ -203,7 +231,7 @@ func handleRemovePackage(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		rep, err := loadPackageReport(deps, wsID, agentID)
+		rep, err := loadPackageReport(r.Context(), deps, wsID, agentID)
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 			return
@@ -212,7 +240,7 @@ func handleRemovePackage(deps Deps) http.HandlerFunc {
 	}
 }
 
-func mutateAgentPackage(deps Deps, agentID, source string, add bool) (pipkg.Report, error) {
+func mutateAgentPackage(ctx context.Context, deps Deps, agentID, source string, add bool) (pipkg.Report, error) {
 	if deps.Store == nil || strings.TrimSpace(agentID) == "" {
 		return pipkg.Report{}, errNeedAgent
 	}
@@ -238,7 +266,7 @@ func mutateAgentPackage(deps Deps, agentID, source string, add bool) (pipkg.Repo
 		return pipkg.Report{}, err
 	}
 	wsID := a.WorkspaceID
-	return loadPackageReport(deps, wsID, agentID)
+	return loadPackageReport(ctx, deps, wsID, agentID)
 }
 
 func packageProjectDir(deps Deps, id string) (string, error) {

@@ -139,19 +139,19 @@ export const CUSTOM_PROVIDER_APIS = [
     value: "openai-completions",
     label: "OpenAI Chat Completions (most gateways)",
     placeholder: "Base URL — e.g. https://api.example.com/v1",
-    urlHint: "The API root — pi appends the route.",
+    urlHint: "The API root — the route is appended to it.",
   },
   {
     value: "openai-responses",
     label: "OpenAI Responses",
     placeholder: "Base URL — e.g. https://api.example.com/v1",
-    urlHint: "The API root — pi appends the route.",
+    urlHint: "The API root — the route is appended to it.",
   },
   {
     value: "anthropic-messages",
     label: "Anthropic Messages",
     placeholder: "Base URL — e.g. https://api.anthropic.com/v1",
-    urlHint: "pi appends /messages — usually ending in /v1.",
+    urlHint: "The route /messages is appended — the root usually ends in /v1.",
   },
   {
     value: "google-generative-ai",
@@ -212,6 +212,11 @@ export const CUSTOM_THINKING_FORMATS = [
 export const THINKING_FORMAT_NEEDS = Object.fromEntries(
   CUSTOM_THINKING_FORMATS.map((f) => [f.value, f.needs]),
 );
+
+// OMP_THINKING_FORMATS is the subset omp's own compat table documents
+// (models.yml, read 2026-09-21 from omp 18.2.8). pi's other formats are pi's
+// wire code; omp's form does not offer what omp would send wrong.
+export const OMP_THINKING_FORMATS = new Set(["openai", "openrouter", "zai", "qwen", "qwen-chat-template"]);
 
 // CHAT_TEMPLATE_VARS are the pi-controlled values a kwargs/args entry may
 // reference instead of a literal; anything else is the provider's own key.

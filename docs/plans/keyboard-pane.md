@@ -232,10 +232,11 @@ editor that hides rows lies about it.
 |---|---|---|
 | **P0 — the pane** | Row anatomy, keycap tokens, sticky groups, facets, `⌨` filter-by-key, inline capture, shared-key index, reserved-chord warn, platform alternates, modified bar, a11y, mobile column fix, copy; `.key-row`/`data-align-row` hooks kept so `qa-cli-settings.mjs` still drives it | `web/{browser,mobile}/src/components/PiKeys.jsx`, both `styles/app.css` + `mobile-settings.css`, `internal/server/pi_keys.go` (report gains `file`/`platform`/`reload`), `internal/pikeys/catalog.go` (+`app.thinking.save`, platform alternates), `docs-site/guide/keyboard.md`, `docs/architecture/cli-settings.md` |
 | **P1 — the envelope** | One report shape for every CLI, `/api/pi-keys` wrapped into it; `web/shared/domain/cliKeys.js` table + seam test; `make keys-drift` | `internal/server/pi_keys.go`, new `web/shared/domain/cliKeys.js`, `web/shared/domain/cliKeys.test.js`, `scripts/` |
-| **P2 — the engine + Omp + Hermes** | `internal/clikeys` (declaration, adapters, refusals, `/api/cli-keys`), primitives exported from `clisettings`, `omp` full editor (same shape as pi), `hermes` three rows | `internal/clikeys/*`, `internal/clisettings/*` (export only), `internal/server/cli_native.go`, `web/shared/domain/cliLaunch.js` (`cliPanes`), both `CliSettings.jsx`, new `KeyboardPane.jsx` |
+| **P2a — the pane answers for every CLI** ✅ shipped 2026-09-21 | the pane takes its CLI from the route and lets the registry decide: the editor where one exists, one line + one action where none does; Hermes' three rebindable keys become rows in its Settings pane | both `CliSettings.jsx`, new `CliKeyboard.jsx` (both apps), `web/shared/domain/cliKeys.js`, `internal/clisettings/specs.go` |
+| **P2b — the engine + Omp** | `internal/clikeys` (declaration, adapters, refusals, `/api/cli-keys`), primitives exported from `clisettings`, `omp` full editor (same shape as pi), `hermes` three rows | `internal/clikeys/*`, `internal/clisettings/*` (export only), `internal/server/cli_native.go`, `web/shared/domain/cliLaunch.js` (`cliPanes`), both `CliSettings.jsx`, new `KeyboardPane.jsx` |
 | **P3 — Codex + Antigravity** | Nested TOML and flat JSON adapters; catalogs from the vendor schema and from the shipped file; restart/live notes measured | `internal/clikeys/codex.go`, `agy.go`, their golden files |
 | **P4 — Claude Code + OpenCode** | Inverted-context adapter (context column + context facet), `tui.json` with read-only `<leader>` sequences and the project layer | `internal/clikeys/claude.go`, `opencode.go` |
-| **P5 — the honest non-editors** | Grok and Muse: one line + one action; the placeholder sentence `"…are in development — coming soon."` disappears from the codebase | both `CliSettings.jsx`, `docs-site/guide/settings.md` |
+| **P5 — the honest non-editors** ✅ shipped with P2a 2026-09-21 | Grok, Muse, Hermes and the four adapters still to come: one line + one action; the placeholder sentence is gone from the Keyboard pane | both `CliSettings.jsx`, new `CliKeyboard.jsx`, `web/shared/domain/cliKeys.js`, `docs-site/guide/keyboard.md` |
 
 Each phase ends with the rite; P0 ships alone and is the one the owner can
 judge by eye.
@@ -271,9 +272,43 @@ Two things it added beyond the plan, both because the work asked for them:
   shipped yet" instead of promising one, which is what P5 was going to have to
   invent copy for anyway.
 
-P2 is next: the adapters, Omp first, and the ADR above. Its inputs were measured
-before the first line of the adapter, so the next session starts with no
-unknowns — and the first measurement corrected this plan.
+## P2a shipped (2026-09-21, `feat/keyboard-guests`)
+
+The pane now answers for every CLI the registry knows, which is P5 of this plan
+plus the half of P2 that needed no writer. A row whose map PiCode can edit — Pi
+today — falls through to its own editor unchanged; every other row draws its own
+answer from `blockNote()`: one state line and one action, and the pickup sentence
+only when there is a map to pick up. `CliKeyboard.jsx` (one file per app, the
+same markup) is the whole of it; `noteIsExternal()` picks how the action opens,
+and the harness asserts both kinds — a vendor's page in a new tab, an in-app
+route in the tab — because a note whose action does nothing is not an action.
+
+With it: **Hermes stopped being a "wait"**. It keeps no key map file at all, so
+its three rebindable keys are declared rows in its Settings pane (group
+**Keyboard**), with defaults and value ranges read from the CLI's own
+`hermes_cli/config_defaults.py`: `voice.record_key` (`ctrl+b`), `copy_shortcut`
+(`auto | ctrl_c | ctrl_shift_c | disabled`), `display.busy_input_mode`
+(`interrupt | queue | steer`). Its registry row stays `planned` — there is
+nothing for a key-map writer to do — and `Keymap: Partial` is what says so; the
+refusal names it too ("keeps no key map file; the keys it does allow are in
+Settings"). One state vocabulary, two facts told apart by shape.
+
+The placeholder sentence `"…are in development — coming soon"` is gone from this
+pane. It promised a feature instead of describing the CLI, and it was wrong for
+seven of the nine rows the moment the registry existed.
+
+Two harness findings while proving it, both in `scripts/qa-cli-settings.mjs`:
+a stale assertion the P0 period fix had invalidated (`/keybindings\.json$/` could
+never match `/keybindings.json.`), and the app's toast stack sitting on the
+phone's bottom edge at capture time — the guest captures now wait for it to
+leave, which also let two rows recorded red on 2026-09-20 (the mobile trust
+matrix) pass. One red row remains, the blocked-project-layer `ready()` named in
+`docs/handoff/open/agent-clis-native.md`; it is not this pane's.
+
+P2b is next: the adapters, Omp first, with the ADR above already accepted.
+Everything it needs was measured before the first line of the adapter, so the
+next session starts with no unknowns — and the first measurement corrected this
+plan (see below).
 
 ## P2's inputs (measured 2026-09-21)
 

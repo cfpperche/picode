@@ -99,8 +99,11 @@ func handlePutCLIKeys(w http.ResponseWriter, r *http.Request) {
 		// Refused and planned are different facts with the same answer here:
 		// nothing is written, and the message says which one it is.
 		msg := "PiCode cannot write " + cli.Label + "'s key map yet"
-		if cli.State == clikeys.Refused {
+		switch {
+		case cli.State == clikeys.Refused:
 			msg = cli.Label + " does not allow its keys to be remapped"
+		case cli.Keymap == clikeys.Partial:
+			msg = cli.Label + " keeps no key map file; the keys it does allow are in Settings"
 		}
 		writeErr(w, http.StatusBadRequest, msg)
 		return

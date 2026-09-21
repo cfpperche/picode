@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -39,8 +40,8 @@ func rolesStatePath(agentID string) string {
 // package list. An uninstalled package leaves the state file orphaned on
 // disk — without this gate the chip would outlive the extension. Fails
 // open: a listing error must not hide live state.
-func agentHasRolesPackage(deps Deps, agent store.Agent) bool {
-	rep, err := loadPackageReport(deps, agent.WorkspaceID, agent.ID)
+func agentHasRolesPackage(ctx context.Context, deps Deps, agent store.Agent) bool {
+	rep, err := loadPackageReport(ctx, deps, agent.WorkspaceID, agent.ID)
 	if err != nil {
 		return true
 	}
@@ -63,7 +64,7 @@ func handleAgentRoleState(deps Deps) http.HandlerFunc {
 			return
 		}
 		none := map[string]any{"state": nil}
-		if !agentHasRolesPackage(deps, agent) {
+		if !agentHasRolesPackage(r.Context(), deps, agent) {
 			writeJSON(w, http.StatusOK, none)
 			return
 		}
