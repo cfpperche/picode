@@ -1,3 +1,4 @@
+import Delivery from "./Delivery.jsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { useDebounced } from "../lib/useDebounced.js";
@@ -58,11 +59,12 @@ function clampDetail(n) {
 // The graph of one repository (ADR-0022). The owner in `owner` is what the
 // server reads through; the repository it answers with is what the tab is.
 
-export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu, actionTick = 0, done = null, onUndo, workspaces = [], freeAgents = [], terminals = [], onPickWorkspace }) {
+function HistoryGraphSurface({ owner, hidden, onKey, onClose, onMenu, actionTick = 0, done = null, onUndo, workspaces = [], freeAgents = [], terminals = [], onPickWorkspace, deliveryRevision = "" }) {
   const [graph, setGraph] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState("");
+  useEffect(() => { if (deliveryRevision) setSelected(deliveryRevision); }, [deliveryRevision]);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [selectedBranches, setSelectedBranches] = useState([]);
   const [showRemoteBranches, setShowRemoteBranches] = useState(
@@ -519,4 +521,21 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
       )}
     </section>
   );
+}
+
+export default function GitGraphSurface(props) {
+  const [view,setView]=useState(() => props.owner?.view === "delivery" ? "delivery" : "history");
+  const [revision,setRevision]=useState("");
+  useEffect(() => setView(props.owner?.view === "delivery" ? "delivery" : "history"), [props.owner?.view]);
+  const selectView = v => { setView(v); props.onView?.(v === "delivery" ? "delivery" : ""); };
+  if(!props.owner)return null;
+  return <div className="gg-surface" hidden={!!props.hidden}>
+    <nav className="delivery-tabs" aria-label="Git views">
+      {view === "delivery" && props.workspaces?.length > 1 ? <WorkspacePicker options={pickerOptions(props.workspaces, { reposOnly: true })} value={workspaceForOwner(props.owner,props)?.id || ""} label={triggerLabel(workspaceForOwner(props.owner,props),"Project")} onPick={props.onPickWorkspace} ariaLabel="Delivery project"/> : null}
+      <button className="btn" aria-current={view==="history"?"page":undefined} onClick={()=>selectView("history")}>History</button>
+      <button className="btn" aria-current={view==="delivery"?"page":undefined} onClick={()=>selectView("delivery")}>Delivery</button>
+    </nav>
+    <HistoryGraphSurface {...props} hidden={props.hidden||view!=="history"} deliveryRevision={revision}/>
+    {view==="delivery"?<Delivery key={props.owner.kind+":"+props.owner.id} owner={props.owner} hidden={props.hidden} onHistory={sha=>{setRevision(sha||"");selectView("history");}}/>:null}
+  </div>;
 }

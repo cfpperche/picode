@@ -15,6 +15,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Preserve the command result even when evidence cannot be written (ADR-0170).
+delivery_receipt=$(node scripts/delivery-receipts.mjs start scoped || true)
+trap 'delivery_rc=$?; node scripts/delivery-receipts.mjs finish "$delivery_receipt" "$delivery_rc" || true; exit "$delivery_rc"' EXIT
+
 # Say which tree and branch this is (AGENTS.md §5): a session that edits the
 # wrong checkout wastes its own work and confuses everyone else's status.
 printf 'ci-scoped: %s on %s\n' "$(pwd)" "$(git branch --show-current 2>/dev/null || echo '(no git)')"

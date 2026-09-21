@@ -270,16 +270,16 @@ export function go(name, agentId, extra = {}) {
 // Git graph (ADR-0022). The hash names the *owner* that asked, because the
 // owner is what authorises the read; the tab id names the *repository*, so two
 // agents in two worktrees of one repo land on the same tab.
-export function gitHash(kind, id) {
-  return "#/git/" + ownerLetter(kind) + "/" + encodeURIComponent(id || "");
+export function gitHash(kind, id, view = "") {
+  return "#/git/" + ownerLetter(kind) + "/" + encodeURIComponent(id || "") + (view === "delivery" ? "?view=delivery" : "");
 }
 
 export function gitRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
-  const m = /^\/git\/(t|a|w)\/([^/]+)$/.exec(h);
+  const m = /^\/git\/(t|a|w)\/([^/]+)$/.exec(h.split("?")[0]);
   if (!m) return null;
   try {
-    return { kind: ownerKind(m[1]), id: decodeURIComponent(m[2]) };
+    return { kind: ownerKind(m[1]), id: decodeURIComponent(m[2]), ...(new URLSearchParams(h.split("?")[1] || "").get("view") === "delivery" ? { view: "delivery" } : {}) };
   } catch {
     return null;
   }

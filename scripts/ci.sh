@@ -10,6 +10,10 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# Preserve the command result even when evidence cannot be written (ADR-0170).
+delivery_receipt=$(node scripts/delivery-receipts.mjs start full-ci || true)
+trap 'delivery_rc=$?; node scripts/delivery-receipts.mjs finish "$delivery_receipt" "$delivery_rc" || true; exit "$delivery_rc"' EXIT
+
 mkdir -p var
 log=var/ci-last.log
 make --no-print-directory -j4 --output-sync=target ci-gates 2>&1 | tee "$log"

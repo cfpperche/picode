@@ -568,6 +568,32 @@
         ]
       }
     },
+    "/api/agents/{id}/delivery": {
+      "get": {
+        "operationId": "getApiAgentsDelivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agents"
+        ]
+      }
+    },
     "/api/agents/{id}/drop": {
       "post": {
         "operationId": "postApiAgentsDrop",
@@ -8966,6 +8992,32 @@
         ]
       }
     },
+    "/api/terminals/{id}/delivery": {
+      "get": {
+        "operationId": "getApiTerminalsDelivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
     "/api/terminals/{id}/drop": {
       "post": {
         "operationId": "postApiTerminalsDrop",
@@ -10496,6 +10548,32 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/api/workspaces/{id}/delivery": {
+      "get": {
+        "operationId": "getApiWorkspacesDelivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success"
