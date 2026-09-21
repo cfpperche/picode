@@ -1,36 +1,15 @@
 # Packages and manifests
 
-- [ ] **Muse Code: the management surface is measured; the app's built-in
-  plugins are not in it.** Measured 2026-09-21 (Muse Code 1.3.0) with the CLI
-  and, for the first time, its TUI: the roster (`testdata/muse.list.json`), the
-  catalog (`testdata/muse.available.json` — installable spec `name@marketplace`,
-  resolved path, `status`), the marketplace sources
-  (`testdata/muse.marketplaces.json`) and `inspect` are all pinned, and the
-  live harness installs from a marketplace end to end. Two facts a future
-  promotion may want:
-  (a) the catalog does not say what is installed, so `catalogNeedsRoster` joins
-  it with the CLI's roster (implemented);
-  (b) **the TUI's `/plugins` panel lists a built-in first-party plugin
-  (`TBH Reminders`, `built-in`/`product`) that no CLI command reports** — not
-  `plugins list --json`, not `--available`, and not the store's own
-  `installed.json`; the bundles live in `~/.local/share/muse/plugins/cache/builtin/`
-  (`muse-core`, `threejs`). PiCode therefore manages what the vendor's own store
-  manages, and shows nothing it cannot change. Showing the built-ins would mean
-  reading the app's internal bundle and offering rows that cannot be removed.
-- [ ] **A consent refusal shows the vendor's words but no copy button.**
-  Plan §6 said "refusal verbatim + copyable command"; v1 ships the verbatim
-  half. Grok is where it bites: `grok plugin install <local dir>` refuses
-  without `--trust`, which PiCode never passes (ADR-0167), so the row carries
-  the vendor's refusal and the user retypes the command. The command is already
-  known server-side (`clipkgs.Argv`); returning it with a refusal is the work.
-- [ ] **Reads and the OpenCode splice disagree about a `plugin` string.**
-  `opencodeModules` reads `"plugin": "pkg"` as one module (the vendor's schema
-  says array), while `removeArrayElement` refuses to splice it (409). Honest,
-  but a user who hand-wrote the string form cannot remove it from the pane.
-
 ## Next
 
-- Package config descriptors (ADR-0119; C0–C5 shipped). Backlog (owner): upstream `picode.config` proposal. Plan: `docs/plans/package-config-manifest.md`.
+- Package config descriptors (ADR-0119; C0–C5 shipped). Backlog (owner):
+  upstream `picode.config` proposal. Plan: `docs/plans/package-config-manifest.md`.
+- **Omp's marketplace availability list is unverified**: `omp plugin marketplace
+  list --json` printed prose for the empty case (2026-09-20), so the pane
+  manages marketplace *sources* for Omp and offers no catalog tab. Measure a
+  configured marketplace before promoting `available` in its declaration. Muse
+  is the precedent for how this goes wrong: its catalog *was* measurable, and
+  only the TUI showed it.
 
 ## Debts
 
@@ -44,37 +23,39 @@
   Whoever builds the availability signal promotes the action in
   `internal/clipkgs/specs.go` — the argv builders already exist for Claude
   Code, Grok, Hermes, Muse and Omp.
-- [ ] **Four vendors' non-empty plugin-list JSON is parsed tolerantly, not from
-  a measured sample.** Grok, Muse and Omp ship no plugin on this machine, and
-  Antigravity prints prose with no `--json` (its subcommands read a leading
-  flag as the plugin name — `agy plugin uninstall --help` really tried to
-  uninstall `--help`, measured 2026-09-20). `internal/clipkgs/live_test.go`
-  (`PICODE_PKGS_LIVE=1`) is where each shape is pinned; until a real install
-  runs there, `parseVendorRows` maps field names by candidate and refuses a
-  shape it cannot read instead of reporting an empty list.
-
-- [ ] **Muse Code's plugin roster is still read tolerantly.** The installed
-  build (Muse Code 1.3.0) exits 2 with "plugins are not available in this
-  build" for every plugin verb, so its non-empty JSON could not be observed;
-  `parseVendorRows` maps field names by candidate and refuses an unknown shape.
-  Grok, Omp, Hermes, Claude Code, Codex, Antigravity and OpenCode were all
-  measured non-empty offline (fixtures in `internal/clipkgs/testdata/`, harness
-  in `live_test.go`, `PICODE_PKGS_LIVE=1`). Re-run the harness on a Muse build
-  that ships plugins and pin the row shape.
-- [ ] **A consent refusal shows the vendor's words but no copy button.**
-  Plan §6 said "refusal verbatim + copyable command"; v1 ships the verbatim
-  half. Grok is where it bites: `grok plugin install <local dir>` refuses
+- [ ] **A consent refusal shows the vendor's words but no copy button.** Plan
+  §6 said "refusal verbatim + copyable command"; v1 ships the verbatim half.
+  Grok is where it bites: `grok plugin install <git URL|local dir>` refuses
   without `--trust`, which PiCode never passes (ADR-0167), so the row carries
-  the vendor's refusal and the user retypes the command. The command is already
-  known server-side (`clipkgs.Argv`); returning it with a refusal is the work.
+  the vendor's refusal and the user retypes the command — an Install button
+  that cannot succeed from the pane. The command is already known server-side
+  (`clipkgs.Argv`); returning it beside the refusal, and saying the answer has
+  to be given in a terminal, is the work. Claude's marketplace-declared
+  command (`--accept-command`, a sha256 only a person should confirm) is the
+  second case.
 - [ ] **Reads and the OpenCode splice disagree about a `plugin` string.**
   `opencodeModules` reads `"plugin": "pkg"` as one module (the vendor's schema
   says array), while `removeArrayElement` refuses to splice it (409). Honest,
   but a user who hand-wrote the string form cannot remove it from the pane.
+- [ ] **Muse Code's built-in first-party plugins are outside every surface
+  PiCode may read.** Its TUI `/plugins` panel lists one (`TBH Reminders`,
+  `built-in`/`product`) that no CLI command reports — not `plugins list
+  --json`, not `--available`, not the store's own `installed.json`; the
+  bundles live under `~/.local/share/muse/plugins/cache/builtin/`. PiCode
+  therefore manages what the vendor's store manages and shows nothing it
+  cannot change. Promoting these would mean reading the app's internal bundle
+  and offering rows that cannot be removed — a vendor-side change, not a
+  PiCode one.
 
-## Next
-
-- Omp's marketplace availability list is unverified: `omp plugin marketplace
-  list --json` printed prose for the empty case on 2026-09-20, so the pane
-  manages marketplace *sources* for Omp and offers no catalog tab. Measure a
-  configured marketplace before promoting `available` in its declaration.
+- [x] **Four vendors' non-empty plugin-list JSON was read tolerantly.** Paid
+  2026-09-21: every guest is now measured non-empty against the real binary —
+  Grok, Omp, Hermes, Claude Code, Codex, Antigravity, OpenCode and Muse — with
+  fixtures in `internal/clipkgs/testdata/` and the gated live harness
+  (`PICODE_PKGS_LIVE=1`). The tolerant reader stays only as a fallback that
+  refuses a shape it does not recognize.
+- [x] **Muse Code's plugin roster was read tolerantly.** Paid 2026-09-21
+  (`parseMuse`/`museRecordRow`, fixture `testdata/muse.list.json`, live harness
+  installs a bundle and reads the row back). The earlier "its build refuses
+  every plugin verb" reading was the vendor's per-machine feature gate measured
+  with a fresh HOME — the harness now seeds that config from the machine's own
+  cache.
