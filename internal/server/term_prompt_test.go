@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
@@ -335,6 +336,103 @@ func TestTerminalPromptDecisionTable(t *testing.T) {
 		code, page := postRaw(t, ts, "/api/terminals/"+term.ID+"/type", `{"text":"git status"}`)
 		if code != http.StatusConflict || page["reason"] != "cli" {
 			t.Fatalf("%d %v", code, page)
+		}
+	})
+}
+
+// identityHarness is promptHarness with the pieces the interactive agent
+// branch needs: the TUI reply registry (deliverToInteractiveAgent refuses
+// without it) and a data dir.
+func identityHarness(t *testing.T) (*store.Store, *httptest.Server) {
+	t.Helper()
+	st := testStore(t)
+	deps := Deps{
+		Store: st, Tmux: tmux.New(), DataDir: t.TempDir(),
+		Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
+		Replies: NewTuiReplies(),
+	}
+	ts := httptest.NewServer(New("127.0.0.1:0", deps).Handler)
+	t.Cleanup(ts.Close)
+	return st, ts
+}
+
+// TestPromptDoorIdentityWire pins ADR-0143's identity rows on the prompt
+// door's wire — the board debt's "agent+term together": the door is
+// addressed by terminal id, but a terminal bound to a managed pi agent is
+// that agent's principal, so the agent branch answers (routeBoundPi), and a
+// stopped or unknown principal gets a named error, never a silent
+// fallthrough into the wrong door.
+func TestPromptDoorIdentityWire(t *testing.T) {
+	t.Run("unknown terminal id", func(t *testing.T) {
+		_, ts, _ := promptHarness(t)
+		code, page := postRaw(t, ts, "/api/terminals/nope/prompt", `{"message":"hi"}`)
+		if code != http.StatusNotFound || !strings.Contains(page["error"].(string), "not found") {
+			t.Fatalf("unknown term = %d %v", code, page)
+		}
+	})
+
+	t.Run("stopped terminal", func(t *testing.T) {
+		// A real tmux with no session for this terminal: the honest named
+		// row, 409 closed — the shim's row (above, in the decision table)
+		// only covers the unclassified tmux failure.
+		_, ts, term := promptHarness(t)
+		code, page := postRaw(t, ts, "/api/terminals/"+term.ID+"/prompt", `{"message":"hi"}`)
+		if code != http.StatusConflict || page["reason"] != "closed" {
+			t.Fatalf("stopped term = %d %v", code, page)
+		}
+	})
+
+	t.Run("bound agent stopped: the terminal route refuses", func(t *testing.T) {
+		st, ts := identityHarness(t)
+		dir := t.TempDir()
+		_, agent, err := storeWorkspaceWithAgent(st, "App", dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, err := st.EnsureAgentTerminal(agent.ID, dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The terminal exists and carries a pi launch, but the agent is not
+		// in a terminal session: the agent branch answers and refuses — the
+		// request never falls through to paste into a dead pane.
+		code, page := postRaw(t, ts, "/api/terminals/"+*a.TerminalID+"/prompt", `{"message":"hi"}`)
+		if code != http.StatusConflict || !strings.Contains(page["error"].(string), "not running in a terminal") {
+			t.Fatalf("stopped bound agent = %d %v", code, page)
+		}
+	})
+
+	t.Run("agent delivers through its bound terminal", func(t *testing.T) {
+		st, ts := identityHarness(t)
+		manager := tmux.New()
+		dir := t.TempDir()
+		_, agent, err := storeWorkspaceWithAgent(st, "App", dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, err := st.EnsureAgentTerminal(agent.ID, dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := tmux.ShellSessionName(*a.TerminalID)
+		ctx := context.Background()
+		if err := manager.NewSessionEnv(ctx, name, dir, nil, "/bin/sh", "-c", "sleep 300"); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = manager.KillSession(ctx, name) })
+
+		// The same principal, named by terminal: the agent branch wins and
+		// the paste lands in the terminal's live session.
+		code, page := postRaw(t, ts, "/api/terminals/"+*a.TerminalID+"/prompt", `{"message":"hello tui"}`)
+		if code != http.StatusOK || page["typed"] != true {
+			t.Fatalf("bound delivery = %d %v", code, page)
+		}
+		pane, err := manager.CaptureTail(ctx, name, 20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(pane, "hello tui") {
+			t.Fatalf("pane = %q", pane)
 		}
 	})
 }

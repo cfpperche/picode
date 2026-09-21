@@ -11,8 +11,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -130,6 +132,82 @@ func TestPolicySaveRefusesBadTierAndUnknownAgent(t *testing.T) {
 				t.Fatalf("status %d, want %d", resp.StatusCode, row.want)
 			}
 		})
+	}
+}
+
+// TestPolicySaveTerminalWireRows pins ADR-0143's terminal-principal rows on
+// the grants API's wire — the debt the work-browser board carries: the
+// resolver's decision rows were covered (TestResolveCallerIsTheHouseIdentity),
+// these were not. A known terminal saves under the term:<id> key and shows
+// up as the listing's terminal row; an unknown one is a 404 that names it;
+// agent+term together is refused — one principal per request, so a term id
+// can never widen an agent's grant or the other way round.
+func TestPolicySaveTerminalWireRows(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	ws, err := st.AddWorkspace("main", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	scout, err := st.AddAgent(ws.ID, "scout", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	term, err := st.CreateTerminal("cli", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetTerminalLaunch(term.ID, "pi", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st}).Handler)
+	t.Cleanup(ts.Close)
+
+	code, page := postRaw(t, ts, "/api/browser/policy", `{"term":"`+term.ID+`","tier":"act"}`)
+	if code != http.StatusOK || page["saved"] != true || page["termId"] != term.ID {
+		t.Fatalf("known term = %d %v", code, page)
+	}
+	var termRow map[string]any
+	for _, p := range listPolicies(t, ts) {
+		if g := p.(map[string]any); g["kind"] == "terminal" && g["termId"] == term.ID {
+			termRow = g
+		}
+	}
+	if termRow == nil || termRow["tier"] != "act" || termRow["saved"] != true {
+		t.Fatalf("terminal row did not carry the grant: %v", termRow)
+	}
+
+	refusals := []struct {
+		name  string
+		body  string
+		want  int
+		inErr string
+	}{
+		{"unknown term", `{"term":"no-such-term","tier":"read"}`, http.StatusNotFound, "unknown terminal"},
+		{"agent+term together", `{"agent":"` + scout.ID + `","term":"` + term.ID + `","tier":"read"}`, http.StatusBadRequest, "not both"},
+	}
+	for _, row := range refusals {
+		t.Run(row.name, func(t *testing.T) {
+			code, page := postRaw(t, ts, "/api/browser/policy", row.body)
+			if code != row.want || !strings.Contains(page["error"].(string), row.inErr) {
+				t.Fatalf("%s = %d %v, want %d with %q", row.name, code, page, row.want, row.inErr)
+			}
+		})
+	}
+
+	// The refusals saved nothing: the agent row is still the untouched
+	// default, and no phantom row exists for the refused term.
+	for _, p := range listPolicies(t, ts) {
+		g := p.(map[string]any)
+		if g["agentId"] == scout.ID && (g["saved"] != false || g["tier"] != "read") {
+			t.Fatalf("refusal leaked a grant onto the agent: %v", g)
+		}
+		if g["kind"] == "terminal" && g["termId"] == "no-such-term" {
+			t.Fatalf("refused term id grew a row: %v", g)
+		}
 	}
 }
 
