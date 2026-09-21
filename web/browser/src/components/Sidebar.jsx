@@ -4,7 +4,7 @@ import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import RailTabs from "./RailTabs.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./ShareDrawer.jsx";
-import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconGit, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid } from "./Icons.jsx";
+import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconGit, IconX, IconChevronRight, IconPin, IconSession, IconGrid } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
@@ -177,7 +177,6 @@ export default function Sidebar({
         <div className="pins-head">
           <span className="pins-title">Terminals</span>
           <button type="button" className="ws-icon-btn" title="New terminal" onClick={() => onNewTerm && onNewTerm()}><IconPlus /></button>
-          <button type="button" className="ws-icon-btn" title="Terminal defaults" onClick={() => { location.hash = "#/termset"; }}><IconSettings /></button>
         </div>
         <div className="side-scroll">
         {freeTerminals(terminals).length === 0 ? (

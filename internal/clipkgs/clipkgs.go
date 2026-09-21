@@ -186,6 +186,12 @@ type spec struct {
 	// flag on its list command. It is a separate fact from `roster` because
 	// the flag, not the command, is what the Marketplace tab needs.
 	available bool
+	// catalogNeedsRoster marks a CLI whose marketplace rows do not say whether
+	// the plugin is installed (Muse: an installed plugin keeps reading
+	// `status: "available"`). Available() then joins the catalog with the CLI's
+	// own roster, so the pane offers Install only for what is missing. The fact
+	// comes from the vendor, not from PiCode: the join reads the CLI's own list.
+	catalogNeedsRoster bool
 }
 
 func (s *spec) scope(scope string) (Scope, error) {
@@ -390,8 +396,31 @@ func Available(ctx context.Context, cli string, p Paths, scope string) (Report, 
 	if err != nil {
 		return Report{}, err
 	}
+	if s.catalogNeedsRoster {
+		installed, _, err := s.roster(ctx, p, scope, false)
+		if err != nil {
+			return Report{}, err
+		}
+		markInstalled(rows, installed)
+	}
 	putList(key, rows, note)
 	return report(s, rows, note), nil
+}
+
+// markInstalled flags the catalog rows the CLI already has, by id or name.
+// A catalog that does not say so itself (Muse) would otherwise offer Install
+// for a plugin that is installed.
+func markInstalled(catalog, installed []Row) {
+	have := make(map[string]bool, len(installed)*2)
+	for _, r := range installed {
+		have[strings.ToLower(r.ID)] = true
+		have[strings.ToLower(r.Name)] = true
+	}
+	for i := range catalog {
+		if have[strings.ToLower(catalog[i].ID)] || have[strings.ToLower(catalog[i].Name)] {
+			catalog[i].Installed = true
+		}
+	}
 }
 
 // Run executes one verb through the vendor binary, on the user's behalf and
