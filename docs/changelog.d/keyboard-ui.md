@@ -14,12 +14,24 @@
 ### Changed
 
 - **Keyboard** is rebuilt (Agent CLIs → a CLI → **Keyboard**). One row per
-  action at 32px, the chord drawn as a keycap (mono, 24px — it used to be a
-  36px box the height of a form control), the row's own **Add key** and
-  **Reset** in a fixed column instead of an Add button chasing the chips, and
-  a toolbar with the filter, a **Key** filter and facets that count:
-  **Changed**, **Shared**, **Off**. A key two actions share is reported, not
-  called a conflict — 52 of pi's 90 actions share one on purpose.
+  action, the chord drawn as a keycap (mono, 24px — it used to be a 36px box
+  the height of a form control), the row's own **Add key** and **Reset** in a
+  fixed column at the right edge, and a toolbar with the filter, a **Key**
+  filter and facets that count: **Changed**, **Shared**, **Off**. A key two
+  actions share is reported, not called a conflict — 52 of pi's 90 actions
+  share one on purpose.
+- **The row is the action, its chords, and what they mean, on one line.** The
+  label is bounded and the keycaps follow it (they used to sit at the far edge
+  of a 1240px card, hundreds of pixels from the action they belong to), the
+  note about a shared or browser-kept key sits between them and the row's own
+  actions, and a row is 32px — 48 with a note. 90 rows are ~3 200px of list,
+  not the six screens of air an earlier build drew with the label, the keycap
+  and the note each on its own line.
+- **The toolbar holds one line.** Only the filter field gives up width when the
+  pane narrows; the facets keep their labels and the row count and **Reset all**
+  stay on that line. On a phone the bar wraps instead — filter beside the
+  button, facets on their own row — and the count is left to the chips, which
+  already carry it.
 - A row that differs from pi's default wears the accent bar the settings rows
   already use, and the pane names the file it writes
   (`~/.pi/agent/keybindings.json`).
