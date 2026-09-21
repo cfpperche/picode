@@ -15,8 +15,8 @@ reviewed by the owner against the reference, one item at a time.
   (`settle`, `read_still`) and the hide/restore table to `coverDecision`
   (`previewStill.js`), both host-tested; a still is served only with
   non-empty pixels, and a tab gone mid-capture no longer reports as a
-  timeout. The COM calls and the on-screen hide/restore themselves stay the
-  owner's live run on Windows.
+  timeout. The COM calls and the on-screen hide/restore were **accepted by
+  the owner on Windows (2026-09-20)** — nothing left open on this row.
 - **Responsive width:** implement the native device-toolbar half (bounds,
   width/height presets, zoom, reset, per-tab state); CDP emulation needs an ADR.
 - **Prompt endpoints:** finish wire tests for agent→terminal, stopped terminal,
@@ -368,9 +368,10 @@ gallery hit is worth a look before anyone installs it expecting this one.
   boundary: the capture's decision rows (valid, empty, failed, not painted,
   timeout, tab gone) live in `desktop-shell/src/preview.rs` and the
   hide/restore table in `coverDecision` (`lib/previewStill.js`), both
-  host-tested with the non-empty-pixels rule pinned. The COM calls, the
-  file stream and the on-screen stacking remain owner-verified on Windows
-  (the architecture doc's evidence table says which layer proves what).
+  host-tested with the non-empty-pixels rule pinned. **Accepted on Windows
+  (owner, 2026-09-20)**: the live capture and the on-screen hide/restore
+  passed the owner's run — this debt is fully paid (the architecture doc's
+  evidence table keeps saying which layer proves what).
 - **Device toolbar** — the reference menu entry still missing; the owner's
   call is the native half first ("Responsive width": bounds + zoom, no ADR),
   with CDP device emulation a later ADR (2026-09-19).
