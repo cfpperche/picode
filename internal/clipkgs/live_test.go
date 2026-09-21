@@ -434,17 +434,35 @@ func liveSeedMuseGate(t *testing.T, sandboxHome string) bool {
 // directory it lives in, and one capability — a plugin whose manifest declares
 // no capability is refused at install with "no supported behavior
 // capabilities".
-func liveMuseBundle(t *testing.T, dir string) string {
+func liveMuseBundle(t *testing.T, dir, name, version string) string {
 	t.Helper()
 	liveWrite(t, filepath.Join(dir, ".muse-plugin", "plugin.json"), `{
   "schemaVersion": 1,
-  "name": "picode-probe",
-  "version": "0.1.0",
+  "name": "`+name+`",
+  "version": "`+version+`",
   "description": "PiCode live probe",
   "compat": {"manifestDir": ".muse-plugin"},
   "capabilities": {"skills": [{"id": "probe", "path": "skills/probe/SKILL.md"}]}
 }`)
 	liveWrite(t, filepath.Join(dir, "skills", "probe", "SKILL.md"), "# PiCode live probe\n")
+	return dir
+}
+
+// liveMuseMarketplace writes the marketplace Muse accepts: a catalog in
+// Claude's format (its plugin-store reader probes `.claude-plugin/marketplace.json`,
+// measured 2026-09-21) whose entries point at Muse-format bundles.
+func liveMuseMarketplace(t *testing.T, dir string) string {
+	t.Helper()
+	liveWrite(t, filepath.Join(dir, ".claude-plugin", "marketplace.json"), `{
+  "name": "`+liveFixtureName+`",
+  "owner": {"name": "PiCode live parity"},
+  "plugins": [
+    {"name": "picode-probe", "source": "./plugins/picode-probe", "description": "PiCode live probe", "version": "0.1.0"},
+    {"name": "picode-spare", "source": "./plugins/picode-spare", "description": "PiCode live spare", "version": "0.2.0"}
+  ]
+}`)
+	liveMuseBundle(t, filepath.Join(dir, "plugins", "picode-probe"), "picode-probe", "0.1.0")
+	liveMuseBundle(t, filepath.Join(dir, "plugins", "picode-spare"), "picode-spare", "0.2.0")
 	return dir
 }
 
@@ -634,30 +652,58 @@ func liveSeedAndRead(t *testing.T, cli string, p Paths) {
 		if _, err := os.Stat(filepath.Join(p.Home, ".local", "share", "muse", "feature-config")); err != nil {
 			t.Skip("this machine's Muse carries no feature config, so its plugin surface is off in any sandbox: nothing to measure")
 		}
-		bundle := liveMuseBundle(t, liveFixtureDir(t, p.Home, cli))
-		out, err := Run(ctx, cli, VerbInstall, p, Target{Name: "picode-probe", Source: bundle, Scope: "user"})
-		if err != nil {
-			t.Fatalf("install: %v (%s)", err, liveHead(out))
+		mp := liveMuseMarketplace(t, liveFixtureDir(t, p.Home, cli))
+		if out, err := Market(ctx, cli, "add", p, MarketRequest{Action: "add", Name: liveFixtureName, Source: mp}); err != nil {
+			t.Fatalf("marketplace add: %v (%s)", err, liveHead(out))
+		}
+		// The plugin the catalog offers, installed through the vendor's own
+		// command, using the spec the pane builds from the catalog row.
+		if out, err := Run(ctx, cli, VerbInstall, p, Target{Name: "picode-spare", Source: "picode-spare@" + liveFixtureName}); err != nil {
+			t.Fatalf("install from marketplace: %v (%s)", err, liveHead(out))
 		}
 		rep, err := List(ctx, cli, p, "user", true)
 		if err != nil {
 			t.Fatalf("roster after install: %v", err)
 		}
 		liveLogRows(t, cli+" after install", rep.Rows)
-		row := liveFind(rep.Rows, "picode-probe")
+		row := liveFind(rep.Rows, "picode-spare")
 		if row == nil {
 			t.Fatalf("the plugin the vendor just installed is not in the roster: %+v", rep.Rows)
 		}
-		if !row.Installed || !row.Enabled || row.Version != "0.1.0" {
+		if !row.Installed || !row.Enabled || row.Version != "0.2.0" {
 			t.Errorf("installed row = %+v", *row)
 		}
-		if row.InstallPath == "" || row.Source == "" {
-			t.Errorf("installed row = %+v, want the vendor's own cache path and origin", *row)
+		// Measured 2026-09-21: the provenance word depends on how the plugin
+		// arrived — `native-local` for a direct path install, and
+		// `marketplace-user-added` for one installed from a marketplace — so
+		// the assertion is on the fact (it came from a marketplace) and the
+		// vendor's own word is logged and pinned by the fixture next to it.
+		if !strings.Contains(row.SourceKind, "marketplace") || row.InstallPath == "" || row.Source == "" {
+			t.Errorf("installed row = %+v, want a marketplace provenance, its path and origin", *row)
 		}
-		// A plugin Muse installed is `user-local` trust from a local path; the
-		// provenance word is the vendor's, not a PiCode classification.
-		if row.SourceKind != "native-local" {
-			t.Errorf("source kind = %q, want the vendor's provenance word", row.SourceKind)
+		cat, err := Available(ctx, cli, p, "user")
+		if err != nil {
+			t.Fatalf("catalog: %v", err)
+		}
+		liveLogRows(t, cli+" catalog", cat.Rows)
+		spare := liveFind(cat.Rows, "picode-spare")
+		if spare == nil {
+			t.Fatalf("the marketplace plugin is missing from the catalog: %+v", cat.Rows)
+		}
+		// Measured: Muse's catalog keeps saying "available" after an install, so
+		// Installed here is the join with the CLI's own roster.
+		if spare.Source != "picode-spare@"+liveFixtureName {
+			t.Errorf("catalog install spec = %q, want name@marketplace", spare.Source)
+		}
+		if !spare.Installed || spare.Marketplace != liveFixtureName {
+			t.Errorf("catalog row = %+v, want the installed join and the marketplace name", *spare)
+		}
+		sources, err := Marketplaces(ctx, cli, p)
+		if err != nil {
+			t.Fatalf("marketplace sources: %v", err)
+		}
+		if len(sources) != 1 || sources[0].Name != liveFixtureName {
+			t.Errorf("marketplace sources = %+v", sources)
 		}
 
 	case "opencode":

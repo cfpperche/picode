@@ -1,5 +1,17 @@
 {
-  "available": [],
+  "available": [
+    {
+      "digest": "sha256:ccd5d03b9f5bedfa3e940a5aac52d99039940d81f8f0d2b1d51b25be3d4235bf",
+      "install": {
+        "source": "/tmp/tmp.iYyX4ShEwe/mp/plugins/picode-spare",
+        "transport": "local-path"
+      },
+      "marketplace": "picode-probe-live",
+      "name": "picode-spare",
+      "status": "available",
+      "version": "0.2.0"
+    }
+  ],
   "skipped": [],
   "warnings": []
 }
