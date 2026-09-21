@@ -1,2 +1,0 @@
-### Fixed
-- **The "Reconnecting" screen no longer outlives a deploy.** The reload watch called its page-availability check without a default, so every automatic reload threw instead of firing, the health poll stopped rescheduling itself, and the app stayed on Reconnecting until a manual reload — in the browser, the desktop shell and mobile. The check now defaults to this page's own path, and a failing check can no longer end the watch.

@@ -16,6 +16,1484 @@ changelog entries included.
 
 ## [Unreleased]
 
+### Added
+
+- **The key-map API is documented for every agent CLI**: `GET /api/cli-keys?cli=`
+  answers one shape — the map's file and catalog, the host's platform, when the
+  CLI picks an edit up — and `PUT` writes it. Pi answers today; the other eight
+  answer with their state (and a refusal that names why: *"Grok does not allow
+  its keys to be remapped"* is not the same fact as *"PiCode cannot write Codex's
+  key map yet"*). See it in [the API reference](/api/).
+
+- **Keyboard → Find by key**: press a chord and the map narrows to the actions
+  that answer to it — the fastest way to answer "what is `Ctrl+T` doing?".
+- **Keyboard → Reset all**: hands every key this pane changed back to pi's
+  default in one write, and leaves keys PiCode does not know where they are.
+- A **warning on the chords a browser keeps**. Five of pi's own defaults
+  (`Ctrl+T`, `Ctrl+W`, `Ctrl+N`, `Ctrl+PgUp`/`PgDn`) never reach the terminal
+  inside PiCode; the rows that use them now say so instead of silently doing
+  nothing in a browser tab.
+- `app.thinking.save` (`Ctrl+S`) is on the map: the pane listed 89 of pi's 90
+  actions.
+
+- Observe project deliveries in desktop and mobile Git views, with branch inclusion, recorded checks, agent associations, evidence details and explicit incomplete or stale states.
+- Record best-effort scoped-check, full-check and integration receipts; `picode delivery show` and MCP report the same observed integration and validation facts. Execution queues and deployment observation remain separate follow-ups.
+
+- Register revision-bound delivery declarations and request review with `picode delivery` or the optional MCP delivery tool. Both share launch identity, durable retry receipts and version checks; integration queues and deployment remain unavailable.
+
+- **Pins, Backup and Dev servers have guides.** Three shipped surfaces had no
+  user documentation at all: Pins is announced in Getting started as a sidebar
+  tab and was never explained, Backup had seven API routes and not one
+  sentence, and the Inspector's Servers tab existed only in the changelog.
+  [Pins and reminders](/guide/pins), [Backup and restore](/guide/backup) and
+  [Dev servers](/guide/dev-servers) now cover them, including the two things
+  a backup user has to know before they need them: a snapshot carries the
+  credential vault but never the key that opens it, and what a restore
+  replaces.
+
+- **Installed plugins group by where they came from.** A list that mixes origins
+  (Hermes' bundled plugins beside yours, Claude Code's claude.ai-managed ones
+  beside the machine's) now carries a header per group — `Installed by you`,
+  `Ships with the CLI`, `From a marketplace`, `Managed by claude.ai` — keyed on
+  the vendor's own provenance word. A single-origin list gets no header.
+- **The plugin filter says what matched.** The run of text a filter matched is
+  highlighted in the name and in the description, instead of the card merely
+  surviving the filter.
+- **A marketplace chip filters the catalog.** Clicking a marketplace name — on a
+  catalog card or in the sources row — narrows the list to that marketplace, and
+  clicking it again clears the filter.
+- **An empty plugin list points at the CLI's own catalog.** Where the CLI can
+  install and its catalog was read, the empty state offers up to three real
+  entries with Install, instead of only a link to the Marketplace.
+- **The toolbar rides along.** The filter and the update check stay pinned while
+  a catalog of hundreds of rows scrolls under them.
+
+- **"Check for updates" for the other agent CLIs' plugins.** PiCode compares
+  what each CLI has installed with what that CLI's own catalog offers and marks
+  the plugins that are behind (`→ 0.3.0`), which is where **Update** appears.
+  Before the check the pane offers the check itself instead of an Update button
+  on every row, and a CLI whose catalog cannot be read says so rather than
+  reporting that everything is current. Codex, OpenCode and Antigravity keep no
+  Update action: those CLIs have no update command of their own.
+
+- **Desktop: Ctrl+R and F5 reload the page on screen.** A work-browser or web-app tab reloads that site; everywhere else reloads PiCode. A terminal keeps Ctrl+R for reverse search.
+
+- **Paste files copied in Explorer straight into an agent terminal.**
+  Screenshots already pasted as bytes, but Explorer file copies arrive as
+  references the browser never exposes — the attach never opened. In the
+  desktop app an empty paste now asks the Windows-native shell, which
+  reads the clipboard files and stages them through the same drop door
+  (4 files, 4 MB each). Real browsers are untouched.
+
+- **Desktop/Web:** removing an agent now offers **Undo** in the confirmation
+  toast. Undo re-creates the agent in the same workspace with the same name,
+  CLI and config, re-attaches its session history, and opens its tab again.
+  The old id is gone for good (automations pointing at it stay broken), and
+  sessions only come back if the dialog's "Also delete sessions" was not
+  picked. Per-agent package selection is the one setting Undo cannot carry
+  over.
+
+- **Deploys and desktop restarts can no longer race.** `make deploy`, `make desktop-restart` and a direct `picode deploy` serialize on one lock; a CLI deploy caught behind it says so and waits. The desktop swap refuses to kill the shell while the WSL keepalive is not alive (the state that loses every session to the distro's idle reclaim) and ends with a real daemon-health verdict.
+
+- **A refusal that needs you comes with the command to run.** When a CLI turns
+  a plugin action down because only a person in a terminal can answer it — Grok
+  asks you to trust the source, a marketplace can ask for a command to be
+  confirmed — the pane now shows the CLI's own words *and* the exact command,
+  with **Copy command** and "Run it in a terminal." It works for the actions
+  that answer immediately and for a background install or removal that failed.
+
+- Right-click on the globe offers **Open browser** / **Close browser split**
+  and **Open in new tab**, instead of the generic window menu.
+
+- **`picode inbox notify|ask` — the Inbox door for any CLI, no MCP config
+  needed.** Any guest CLI (Claude Code, Codex, a plain script) can file an
+  FYI into your Inbox with one command, or ask you a blocking question:
+  `picode inbox ask --question "…" --wait` polls until you answer in the
+  Inbox and prints your reply on stdout, hours if needed. Same daemon
+  discovery as `picode mcp` (`--url`, `PICODE_URL`, or server.json), same
+  items, same app.
+
+- **Packages works for the other eight agent CLIs.** Claude Code, Codex, Grok,
+  Hermes Agent, OpenCode, Muse Code, Antigravity and Omp each get the Packages
+  pane on their own CLI page, driven by the vendor's own plugin commands:
+  installed list, install, remove, enable/disable, and the CLI's marketplace
+  where it has one. Pi's pane is unchanged.
+- **Each pane offers only what its CLI has.** Where a CLI exposes no verb the
+  pane says so in one line instead of showing a control that does nothing —
+  Codex has no plugin enable/disable, OpenCode has no plugin marketplace,
+  Antigravity has no plugin update.
+- **Install and remove run as jobs.** They keep running with the browser
+  closed, refuse while that CLI has a live terminal (a plugin loads on the next
+  start), and never replay after a PiCode restart. Antigravity, Muse Code and
+  Omp got their plugin stores read here for the first time; OpenCode's plugin
+  list is edited in its own config, with every other byte of the file kept.
+
+- **Device toolbar ("Responsive width") in the work browser — the native
+  half.** The ⋮ menu gains the reference's "Show device toolbar" row; the
+  strip above the page offers width presets (390/768/1024/1280), zoom −/+ and
+  a reset. Picking a width narrows the page to a centered preset-width rect of
+  the pane (WebView2 bounds arithmetic, no CDP — mobile UA/touch/DPR would be
+  the emulation half and needs an ADR); zoom rides the controller's
+  `ZoomFactor`, clamped to WebView2's 0.25–5.0. State is per tab in the shell
+  and rides `btab_meta`, so the strip survives tab switches and route returns;
+  hiding the toolbar resets the tab (width, zoom, full pane bounds). The
+  bounds/reset/zoom-clamp math lives in pure `desktop-shell/src/responsive.rs`
+  (host-tested) and the preset/label/zoom ladder in
+  `web/browser/src/lib/responsive.js`; the on-screen resize/zoom behavior is
+  pending the owner's live Windows acceptance.
+
+- **Codex's Memory pane shows its version history.** Codex keeps that folder
+  under git, so the pane now says how many revisions it holds, when the last
+  one was written, and whether any file has changed since — and each row's
+  Modified date comes from the revision that actually changed the file instead
+  of the filesystem's timestamp, which moves every time Codex rewrites a file
+  with the same contents. Any memory store the CLI keeps under version control
+  gets the same line.
+
+- **Paste screenshots and files straight into an agent terminal.**
+  Ctrl+V / Ctrl+Shift+V with an image or file on the clipboard opens the
+  attach bar with the files staged, delivered through the same drop door
+  as Attach files… — no more copying paths by hand. Text pastes keep the
+  terminal's native paste; plain shells answer that attach is for Agent
+  CLI terminals.
+
+- **Mobile: the Inspector.** The desktop rail's review surface, re-shaped
+  for the phone: on the agent screen, a header button (the desktop's
+  inspector toggle) opens it as a drawer over the conversation — Changes
+  (folder-grouped with sums, an `All | This agent` scope that follows what
+  the session's tools touched, and worktree following), Files and PR — and
+  Back returns to the agent. From the Work tab, a workspace's changes chip
+  opens the same screen pushed full-width. Git actions keep the three
+  doors: prepare in the terminal, run when idle, ask the agent.
+
+- **The Memory pane is a table you can audit with.** Beside every memory it now
+  shows how many other memories cite it, its size, when it last changed, and
+  the things worth acting on: a memory the index does not name, and a link that
+  points at a file that is gone. Any column sorts, the kind chips filter with
+  their counts, and the file the CLI loads every session stays pinned at the
+  top. On a phone the same numbers ride under the title with a Sort control.
+- **The index budget.** Claude Code reads only the first 200 lines or 25 KB of
+  `MEMORY.md` at the start of a session and drops the rest in silence. The pane
+  now shows how close the index is to that limit, and names any row in it that
+  points at a file that no longer exists.
+- **Delete several memories at once,** with a confirm that names what it
+  breaks: how many links in other memories will point at nothing, and how many
+  of them the index still names.
+
+- **Use: run a CLI on a saved account.** Each guest CLI's Providers pane can
+  now put a saved login into that CLI's own login file — the same thing **Use**
+  does for Pi — so Claude Code, Codex, Grok, Hermes, OpenCode, Muse or
+  Antigravity runs on the account you pick. The account in use is marked on the
+  row, and it is read back from the CLI's own file, so a login made in the
+  CLI's TUI shows up here too.
+
+- **One credential vault for every agent CLI.** Claude Code, Codex, OpenCode,
+  Grok, Hermes, Muse, Antigravity and Omp now have a Providers pane of their
+  own: see which accounts the machine holds, import the login a CLI already
+  has, add an API key, verify it, pause it or sign out — one account per
+  provider or ten.
+
+- **Automated coverage for the work-browser capture path.** The decisions of
+  `capture_png`/`btab_preview` (capture completed / failed / timed out / tab
+  gone mid-capture) and the read-back gate now live in a pure module
+  (`desktop-shell/src/preview.rs`) with host tests — a still is served only
+  with non-empty pixels; a zero-byte capture ("the page has not painted") is
+  refused. The legacy hide/restore decision of the options menu
+  (`coverDecision` in `previewStill.js`) carries the same table tests. The
+  COM capture and native hide themselves stay owner-verified on Windows.
+
+- **Pi's Settings pane gained five of its own settings** on the This machine
+  layer: Theme, Hide thinking, Quiet startup, New folders (pi's trust
+  default) and Shell. Pi persists about forty keys and the pane showed eight,
+  so a machine with a theme set saw no theme row at all. Each name and its
+  allowed values were read out of the installed pi build before being
+  declared, and a key pi keeps for the machine is refused by name if it is
+  sent to the workspace or agent layer.
+
+- The desktop Pi view now attaches interactive sessions through the canonical Agent CLIs terminal binding and exposes the Chat/Terminal switch in the agent toolbar.
+
+- Mobile agent views now keep Chat and Terminal on one agent route, with the
+  view switch in the contextual toolbar and a durable terminal deep link.
+- Non-Pi agent rows now attach their mobile Terminal view to the bound
+  Agent CLIs terminal surface, reusing the canonical terminal session path.
+
+- **Settings for every agent CLI.** Claude Code, Codex, Grok, Hermes Agent,
+  OpenCode, Muse Code, Antigravity and Omp now have a real Settings pane at
+  `#/clis/<cli>/settings` that edits the CLI's own config file — model,
+  approvals, sandbox, reasoning effort, memory switches and more, each row
+  named with the vendor's own key. A CLI with one config file shows one layer;
+  one with a workspace file shows both, with the file it writes named under the
+  switcher and provenance on every row (ADR-0163).
+- **A Memory pane for every agent CLI** at `#/clis/<cli>/memory`, showing what
+  the CLI has remembered between sessions. Claude Code, Hermes, Muse Code and
+  Omp are read, edited and pruned from the browser wherever they keep plain
+  markdown; Grok and Codex are read here and cleared with their own command,
+  because they generate those files; Pi and OpenCode say in one line that they
+  keep no memory, and Antigravity says PiCode cannot confirm one (ADR-0163).
+  Omp writes nothing until its memory backend is turned on, and PiCode reads
+  its folder from two paths the vendor does not document, so that pane is
+  usually empty.
+
+- Document the execution plan and acceptance gates for the remaining work-browser items.
+
+- Scope Omp agent `/resume` sessions to a durable private directory per workspace agent.
+
+- Require an explicit agent terminal destination before sending annotations from an independent browser tab.
+
+- **Inspector Changes follows dirty worktrees.** When the anchored folder is
+  clean but a linked worktree of the same repository has uncommitted
+  changes, the rail shows that checkout behind a Following pill (Back
+  returns to the anchor); several dirty checkouts render one branch-headed
+  group each. The branch chip, Git menu and commit dialog address the
+  followed checkout, and its files open in the center through the same
+  file tab. Works for agents, terminals and workspaces, with any CLI.
+
+- **Windows setup finishes on a clean machine.** `picode-desktop install`
+  now delivers the Linux binary and the runtime itself: an `install-picode`
+  stage (the release matching the tool, verified, placed where provisioning
+  resolves it) and an `install-runtime` stage (tmux, git, curl, Node.js from
+  the NodeSource repository, pi) between account creation and provisioning.
+  Ubuntu only; anything already present is left alone; a distro PiCode did
+  not register asks before apt and npm run (`--yes` skips the question);
+  the install ends with the shell running in the tray.
+- **Per-account installs.** `install --user <name>` puts the picode binary
+  in that account's `~/.local/bin` and installs pi for it alone (its own
+  npm prefix, linked where the login shell finds it). Without the flag pi
+  stays a system-wide root install. An unknown account fails fast naming it.
+- **Install failures stay visible.** The launcher waits for the elevated run
+  and reports its exit code instead of exiting 0; the last error line lands
+  in `%ProgramData%\PiCode Desktop\install.log`; the elevated window pauses
+  for Enter on failure rather than closing with the evidence.
+
+- The address bar now suggests the pages you have already visited — the ones
+  you typed first — with ↑/↓ and Enter to open one. The pane that runs without
+  the desktop app offers only the servers it can actually frame.
+
+- Sending annotations has no limit on how many: the whole set travels as one
+  note (every pin's sentence, element, HTML, styles and screenshot) plus one
+  crop per pin, and the crops that do not fit the paste are staged beside the
+  note, which names every one of them.
+
+- `docs/architecture/work-browser.md` — the work browser's own architecture
+  file (who decides what, the command channel, tabs, the "a layer never paints
+  over a WebView2" rule, permissions, annotations, and the traps that are
+  architectural rather than dated).
+
+- The annotation card now offers the element's own styles — text color,
+  background, opacity, font, size and weight — and every change is a live
+  preview on the page. What reaches the agent is the pair: what the page had
+  and what you proposed, so a preview is never mistaken for the page.
+
+- Marketplace connector cards now have a **Docs** link to the server's
+  website or repository (seed cards with a cookbook page go there). Cards
+  without a URL hide the link.
+
+- `find_webview`: one resolver for "the webview of this tab", used by the
+  preview, the annotate mode, the trash and the state pull.
+
+- A workspace can create an Agent CLI from its **New** menu (Claude, Codex,
+  and the others that are installed). You no longer have to go through
+  Agent CLIs first.
+
+- Binding a Claude Code, Codex or OpenCode principal turns on PiCode's
+  tools for that terminal (computer, browser, Inbox, checklist). Other
+  CLIs still pick them up from Connectors. Grants stay in Settings.
+
+- A managed CLI that reports **needs you** files one Inbox item with
+  **Open terminal** (and a push, if you allow actions). Ordinary shells
+  still only show the chip on the row.
+
+- A workspace can bind an Agent CLI terminal as a **managed principal**
+  (`term:<id>`): the same identity Computer and Browser grants already use,
+  without creating a Pi agent or opening a chat. Create with
+  `POST /api/workspaces/{id}/principals`. Removing the binding leaves the
+  terminal and the vendor's files alone.
+
+- Annotate mode mirrors the page: pressing Esc in the page turns the strip
+  off too (the pull says "off"), and a page with no script yet (a navigation
+  in flight) is told apart from an off page.
+
+- **Inbox and Checklist for Claude Code, Codex and the other agent CLIs.**
+  `picode mcp inbox` gives them `notify_human` and `ask_human` — a question
+  waits for your answer in the Inbox and returns it to the agent — and
+  `picode mcp checklist` shows their plan as the current step on the
+  terminal's card. Two more cards in Connectors and two more switches under
+  PiCode tools in Launch settings.
+
+- The annotate harness doubles as the navigation check: after a real
+  navigation the script is gone, and one re-injection arms the new document
+  again and re-reports its (empty) state.
+
+- **`type` can paste.** `mode: "paste"` sends the text through the
+  clipboard and one Ctrl+V, for long text or apps that garble synthetic
+  keystrokes (Windows 11 Notepad when busy). The clipboard's text is put
+  back afterwards.
+
+- **Computer lab: Embed into PiCode (spike).** Two lab-only buttons reparent
+  a chosen window into PiCode's main window and put it back, so the owner
+  can measure whether Windows apps could get a pane like the work browser.
+  Nothing in the product uses it.
+
+- **Apps: clear one web app's data.** The tile menu gains Clear data — signs you out of that app and deletes what it stored inside PiCode, without touching other apps or the work browser. Removing a tile now clears its storage too.
+
+- **Annotate mode matches the reference.** The strip replaces the URL bar
+  while annotating (exit, discard-all, undo, crops toggle, hints, Send N);
+  notes accumulate as numbered pins, each edited in an anchored card
+  (Cancel/Save) and collapsed to a chip (text, options, remove); Send ships
+  the whole set as one context to the agent terminal.
+
+- **Connectors tolerate vendor JSONC configs on read.** Trailing commas and
+  comments that OpenCode and friends hand-write into their JSON configs no
+  longer break the Connectors pane; every save still lands strict JSON. A
+  blocked config file shows one line naming it, with **Open** and **Retry**;
+  other config layers keep listing.
+
+- **Apps: multiple accounts of the same service.** The tile menu gains **Add another account** — a second, independent copy of a web app you already have (its own logins, its own data). Trying to add an address that is already installed now offers the same choice instead of just refusing.
+
+- **PiCode tools for Claude Code, Codex and the other agent CLIs.** `picode
+  mcp computer` and `picode mcp browser` serve the computer and browser tools
+  over MCP with the same names, parameters and answers as the pi packages.
+  Turn them on per launch in a CLI's Launch settings (Claude Code, Codex,
+  OpenCode), or add the "PiCode · Computer" and "PiCode · Browser" cards from
+  the Connectors pane at workspace or machine scope. The switches in
+  Settings ▸ Computer and Settings ▸ Browser apply to the terminal the CLI
+  runs in.
+
+- **Apps: each web app keeps its own logins.** Installed web apps now live in their own storage inside the desktop app — two accounts of the same service work side by side, and clearing the browser data no longer signs every app out. Apps installed before this change keep the old shared storage until you remove and add them again (they will ask to sign in once).
+
+- **Connectors for Muse Code and Hermes Agent — all nine CLIs covered.** The Connectors pane now manages Muse's `~/.config/muse/settings.json` (`mcp_servers` block, `streamable_http` transport, per-server on/off; `schema_version` and `mode` preserved) and Hermes's `~/.hermes/config.yaml` (`mcp_servers` block edited as a YAML node tree so comments, key order and `${VAR}` placeholders survive; malformed files refuse without writing). Both CLIs keep a single config file, so "this folder" scope points at it instead of inventing one.
+
+- **Apps: Refresh keeps a web app tile truthful.** The tile menu gains Refresh — PiCode re-checks the site and updates its icon, colors and start page (your name for it and its address stay; if the site is down, nothing changes).
+
+- **Computer use, visible.** Each step an agent takes on the computer shows
+  its capture in the chat as the last capture, the dashboard counts the
+  steps and the time an agent spent acting on the desktop, and the public
+  guide explains what the switch in Settings ▸ Computer means.
+
+- **Computer use for agents.** Install the `pi-computer` package and switch
+  an agent (or a CLI in a PiCode terminal) on in Settings ▸ Computer: it can
+  then see the screen, click, type, use the clipboard and open programs
+  through the desktop app, with your own permissions. Every call, allowed
+  or refused, is listed on that page. Off by default.
+
+- **Connectors for OpenCode and Grok.** The same Connectors pane now manages their native MCP configs: OpenCode's `opencode.json` (`mcp` block, command arrays, per-server on/off; `XDG_CONFIG_HOME` respected) and Grok's `.grok/config.toml` (`[mcp_servers.*]` tables edited with a surgical splice that keeps comments and `${VAR}` placeholders byte-for-byte; Grok has no per-server switch, so rows show none).
+
+- **Computer lab** in the desktop app's tray: a page that drives the new
+  computer actuator by hand — list displays and windows, take a screenshot
+  of a monitor or a window, click and type where you point on the image,
+  read a window's accessibility tree, use the clipboard, open a program. It
+  is the acceptance surface for computer use (ADR-0148) before any agent is
+  wired to it; nothing changes for agents yet.
+
+- **Connectors for Omp and Antigravity.** Manage their MCP servers from the same pane: Omp in `~/.omp/agent/mcp.json` (and your workspace's `.omp/mcp.json`), Antigravity in `~/.gemini/config/mcp_config.json` (and your workspace's `.agents/mcp_config.json`). Each CLI keeps its own settings, servers switch on and off per entry, and sign-in follows the vendor — the Omp TUI command, or Antigravity's Agent Settings.
+
+- **Agent CLIs: additional folders control.** Claude Code, Codex and Omp launch editors offer one-per-line extra workspace directories, written as repeatable `--add-dir` flags alongside the other quick controls.
+
+- Connectors (MCP) management for Claude Code and Codex (ADR-0150 phase 1): `#/clis/claude-code|codex/connectors` manages each CLI's native MCP config — Claude Code's workspace `.mcp.json` plus its vendor CLI for user scope, Codex's `config.toml` with comment-preserving surgical edits — behind the same pane and API shape as Pi, with honest "configured" status and per-CLI toggle capabilities.
+
+- **Windows Hello and passkeys** (Settings ▸ Browser ▸ Password manager): a
+  row that opens Windows' own Sign-in options. PiCode does not store or
+  unlock passwords and passkeys — Windows does — so the row points at the
+  screen that manages them instead of imitating it. It appears only in the
+  desktop app, and it is the first target class besides `http(s)` that the
+  shell will hand to the operating system.
+
+- **Dashboard covers Omp, Muse Code and Antigravity.** "What each CLI reports" now has nine rows: Omp reports spend, tokens, turns, tools and agent time; Muse Code reports prompts, turns, tools and model (no tokens or cost in its logs); Antigravity reports step counts as turns from its conversation index.
+
+- **Apps: install web apps as desktop shortcuts.** The Apps tab gains **+**: type a web app address, PiCode checks it answers and reads its name and icon, and the tile opens the site inside the desktop app with its own tab and login. Rename or remove from the tile's menu; unread counts in the page title show on the tile. In a plain browser the tile explains it needs PiCode Desktop.
+
+- **Agent CLIs: quick launch settings.** The launch editor offers verified model, approvals, reasoning/thinking and sandbox controls above the advanced argument fields, with a one-line warning on dangerous picks. Covered: Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode and Omp.
+- **Agent CLIs: one-click YOLO flags.** Codex and Hermes expose their vendors' `--yolo`, Grok its "Auto-approve tools"; on Codex picking YOLO clears the conflicting sandbox/approvals choices (and vice versa), so the launch never composes a combination the CLI refuses.
+
+- **The Servers panel names what a port is, and can stop it.** Each row now
+  carries what the port actually answered (`page`, `api`, or nothing yet), the
+  scheme that answered, the process behind it and how long it has been up —
+  and a menu with **Copy address**, **Show terminal**, **Stop server…** and
+  **Hide from the list**. *Open* only appears where the URL leads somewhere a
+  browser can show: an agent CLI's internal HTTPS control channel is no longer
+  offered as a page it could never be (measured: plain HTTP to that port answers
+  `400 Client sent an HTTP request to an HTTPS server`). A port that only
+  answers an API, started outside PiCode, waits behind **Show N more**.
+  Stop signals only a process PiCode can still re-derive inside one of its own
+  panes, with the pid and the process's start token checked at that moment
+  (ADR-0151); a port PiCode cannot attribute is never stoppable. Hiding is keyed
+  by the listener — port, pid, start token — so a new server on the same port is
+  born visible.
+
+- **Forget unused sites** (Settings ▸ Browser ▸ Site settings): one action
+  drops the permission entries for sites you have not visited in the last 90
+  days. Your every-site policies and anything you visited recently are left
+  alone, and the action says what it forgot — or that there was nothing to
+  forget.
+
+- **Agent CLIs: Omp installs and updates per install method.** A missing
+  Omp now offers **Install** through npm (like pi, Codex and Claude Code).
+  Update checks follow the install: npm installs read the npm registry,
+  native installs run omp's own `omp update --check` and parse its answer.
+  A bun-global Omp is honestly reported as unmanaged — measured, npm
+  would miss the bun copy and omp's updater resolves by PATH — so no
+  update or uninstall buttons propose an action that would hit the wrong
+  installation.
+
+- **Agent CLIs: "Continue in Omp…" works both ways.** Omp's own sessions
+  move to any other CLI (it reads its on-disk transcript), and other CLIs'
+  conversations arrive as native omp sessions you resume with
+  `--resume <id>` — written at omp's own minimal session shape, verified
+  live against omp 18.2.4 before shipping. Omp joins pi, Claude Code,
+  Codex, Grok, Hermes Agent, OpenCode, Muse Code and Antigravity as a full
+  handoff source and target.
+
+- **Agent history access** (Settings ▸ Browser): an agent may read where you
+  have been — off unless you allow it, its own permission rather than a side
+  effect of a grant. The `browser` tool gained the `history` verb (a search
+  over url and title, newest first, capped at 200 rows) and answers with url,
+  title and time only: no page content, no sessions. ADR-0146.
+
+- **Agent CLIs: Omp is a full citizen.** Editable launch settings, the PATH
+  wrapper with a presence lease (maintenance subcommands and protocol modes
+  stay out of it), an **Activity reporting** toggle through omp's own
+  extension API (it reports Ready and Working like pi), and **Check for
+  updates** — `omp update` on native installs, npm on npm installs. omp
+  refuses to start when launch arguments carry `--trusted-extension` next
+  to PiCode's activity extension, so that combination is named in the
+  launch preview instead of starting a broken terminal. Still needs
+  Bun ≥ 1.3.14 on PATH.
+
+- **Agent CLIs: Omp lists its sessions.** The Omp pane gains a Sessions
+  tab: its own on-disk sessions under `~/.omp/agent/sessions`, grouped by
+  folder, searchable, and resumable — **Open in terminal** starts `omp` on
+  that conversation with `--resume <id>`. Launch settings, activity and
+  managed updates are still without an adapter, and Omp still needs
+  Bun 1.3.14 or newer on PATH.
+
+- **Agent CLIs: Omp joins the catalog.** Omp (oh-my-pi, omp.sh) opens a
+  terminal of its own — detection, Check setup (`omp --version`) and New
+  terminal, with its own card (mark `Om`, vendor mark). Launch settings,
+  Sessions, Activity and managed updates have no adapter yet: the Launch
+  tab is a read-only preview, its terminals read Open, and install is
+  guided through omp's own docs. Omp needs Bun 1.3.14 or newer on PATH;
+  Check setup reports an older Bun's bundle error verbatim.
+
+- **Add a site exception by hand** in Settings ▸ Browser ▸ Site settings: pick a
+  site (or pattern, or `*`), a permission kind and the decision to remember, and
+  the row lands saved — the same rows the Ask prompt writes, without waiting for
+  a site to ask.
+
+- **Continue in… (and resume) for Muse Code and Antigravity terminals.**
+  Stopping one now pins the latest conversation the vendor store holds
+  for that folder, so the sidebar menu offers Continue in… and the
+  launch can resume it — the same pin wrapper CLIs get from their
+  runtime. Sessions predating the terminal never pin.
+
+- **`make land BRANCH=<name>`** — the landing rite from the root: it verifies
+  the branch, refuses when the root's local changes overlap it, fast-forwards
+  `main`, and runs `make ci`. It never commits, so it cannot sweep another
+  session's staged work the way a `git add -A` in the shared checkout once did.
+
+- **`*` in a browser grant means any site.** The domains field now takes the
+  one token for "this agent may open anything" (still http and https only),
+  and everything else keeps working as before: exact hosts, `*.example.com`
+  for a domain and its subdomains, ports ignored.
+
+- **Developer mode — full CDP access** in Settings ▸ Browser, off by default
+  and labeled Elevated risk: an agent at the Full tier can name any Chrome
+  DevTools Protocol method, not only the curated ones, and every call it
+  makes — allowed or refused — is listed with the method, the agent and the
+  outcome. Everything keeps working with it off.
+
+- **Update and Reinstall for Muse Code and Antigravity.** Both pages now
+  show the blue Update button when an update is available, and the `···`
+  menu offers Check for updates and Reinstall like every other CLI —
+  running the vendors' own commands (`agy update`; Muse's launcher as its
+  own updater). Neither ships an uninstaller, so uninstall stays a guided
+  link to the vendor docs, same as Claude Code.
+
+- **Browser options menu, matching the reference.** The work-browser ⋮ menu
+  now carries Find in page, Print, Zoom (− / 100% / + / reset), Take a
+  screenshot, Passwords and autofill ›, Downloads, History, Clear browsing
+  data and Browser settings.
+
+- **Antigravity reports activity.** Working while it thinks, uses tools
+  or starts up; Ready when idle — via a reporter PiCode installs as the
+  CLI's title command (merged into your settings, removed on toggle-off;
+  a foreign title command is refused, never replaced). No `hooks.json`
+  decision hook ships, so nothing can gate your tools.
+
+- **Browser permissions: Ask.** A permission kind can be set to Ask in
+  Settings ▸ Browser ▸ Site settings. When a site asks, the prompt appears in
+  that browser tab with Allow, Block, and Always allow — the last remembers
+  the answer for the site. An unanswered prompt denies itself after a minute
+  instead of leaving the site waiting.
+
+### Changed
+
+- **Git ▸ Delivery now reads as a page.** The view sits centred in one card —
+  the same geometry Agent CLIs uses — with the target, filter, change list,
+  detail and its empty, blocked and error states inside it. Git ▸ History is
+  unchanged.
+
+- **An agent can open the browser beside its session and drive that tab.** `open` launches the split; navigate, click, type and press run there, and you see the same page. Closing the split stops it. This is not a headless browser — unattended browsing stays on the runtime's own tool. Raw protocol still needs Developer mode and the Full tier.
+
+- **Keyboard** is rebuilt (Agent CLIs → a CLI → **Keyboard**). One row per
+  action, the chord drawn as a keycap (mono, 24px — it used to be a 36px box
+  the height of a form control), the row's own **Add key** and **Reset** in a
+  fixed column at the right edge, and a toolbar with the filter, a **Key**
+  filter and facets that count: **Changed**, **Shared**, **Off**. A key two
+  actions share is reported, not called a conflict — 52 of pi's 90 actions
+  share one on purpose.
+- **The row is the action, its chords, and what they mean, on one line.** The
+  label is bounded and the keycaps follow it (they used to sit at the far edge
+  of a 1240px card, hundreds of pixels from the action they belong to), the
+  note about a shared or browser-kept key sits between them and the row's own
+  actions, and a row is 32px — 48 with a note. 90 rows are ~3 200px of list,
+  not the six screens of air an earlier build drew with the label, the keycap
+  and the note each on its own line.
+- **The toolbar holds one line.** Only the filter field gives up width when the
+  pane narrows; the facets keep their labels and the row count and **Reset all**
+  stay on that line. On a phone the bar wraps instead — filter beside the
+  button, facets on their own row — and the count is left to the chips, which
+  already carry it.
+- A row that differs from pi's default wears the accent bar the settings rows
+  already use, and the pane names the file it writes
+  (`~/.pi/agent/keybindings.json`).
+- The key map's own chords read as keys (`Ctrl+B`, `Page ↑`) rather than the
+  file's spelling.
+
+- **Apps in the sidebar can be rearranged.** Drag a tile anywhere in the
+  grid. The order is saved and stays after a reload. A search still filters
+  the grid and does not change the saved order. New apps land at the end.
+
+- **Dragging a sidebar row shows where it will land.** The row in the list
+  becomes a quiet dashed slot and slides into place. A lifted copy follows
+  the pointer, and the neighbours ease over in a short move.
+
+- **The sidebar keeps the order you leave it in.** Drag a workspace by its
+  name, or an agent or a terminal by its row, to move it within that list.
+  Agents and terminals stay in their own blocks. The same move is **Move up**
+  and **Move down** in the row's menu. A new workspace or terminal lands at
+  the bottom instead of sliding back into alphabetical order. The browser,
+  the desktop app and the phone show that same order. A drag does not move
+  an agent into another folder.
+
+- **The tray menu is product-first.** `New browser tab` (redundant with the
+  work browser's own new-tab button) and `Test notification` (the Phase 1
+  notification spike) are gone. `Management…` moved up beside the actions it
+  belongs to, and the owner-acceptance spikes — **Browser lab** and
+  **Computer lab** — now sit under a single **Labs ▸** submenu instead of the
+  main list.
+
+- **The tmux guard moved to Agent CLIs.** The switch left Terminal defaults:
+  that page is font, color and tmux options a terminal inherits, and the
+  guard is none of those. It now sits above the CLI catalog on Agent CLIs
+  (desktop and phone), and still applies to every terminal opened from
+  then on — not to the CLI selected below it.
+
+- **Providers** is one pane for every agent CLI: pi's roster moves onto it (Add provider, custom endpoints, Use, Pause, Sign out all still there) and the other eight gain what only pi had — **Usage** windows per account with a one-call **Check**, and **7d spend** from your own sessions. Same columns, same words, one place per account, whichever CLI you open.
+
+- **Plugins are cards now, two per row.** The installed and marketplace lists
+  of the other agent CLIs read as a grid of cards like Pi's Packages: name,
+  version and the `→ 0.3.0` marker when the CLI's own catalog has a newer
+  release, the plugin's description, its scope and origin, and its actions on a
+  footer that lines up across the row. One column on a narrow window or a phone.
+- A plugin the CLI reports as turned off keeps its buttons at full strength —
+  **Enable** is the way out, so it no longer looks disabled too.
+
+- **The attach bar follows the terminal's theme.** Under a dark terminal
+  in a light app (or the reverse) it rendered in the app's colors; it now
+  reads the terminal's Light/Dark choice and flips with it, live.
+- **Terminal defaults moved into the user menu.** The gear is gone from
+  the Terminals header; search "terminal" in the bottom-left menu (or pick
+  Terminal defaults) to open the same global page. Per-terminal settings
+  in pane menus are unchanged.
+
+- The header globe opens a browser bound to the selected agent (or agent-CLI
+  terminal). Shift+click, or **Open in new tab**, still creates a tab with
+  no agent.
+
+- **Providers**: a guided **Sign in** starts a CLI's own login (its binary, its browser or device-code flow) from the pane — finish it, press **Check now**, and the account lands in the vault. Muse's subscription login is read and written correctly (its own file shape), a second subscription of a store that names no account can be kept by naming it, and Codex, Grok, Hermes and Antigravity keep two subscriptions apart automatically from the account their own files carry. Vault rows a CLI's file cannot name are matched by the token they were saved with — no network call in a pane load.
+
+- The Memory pane no longer sits flush against the tab bar, and its toolbar is
+  one cluster on the left: the store switcher and the filter sit together
+  instead of the filter floating alone against the right edge. The row is gone
+  entirely when there is nothing to switch and nothing to filter.
+- A read-only CLI now names its clear command inside the sentence, with a plain
+  **Copy** button — the button used to read "Copy grok memory clear".
+
+- The old mobile `#/changes` screen retired into the Inspector's Changes
+  segment; existing links redirect.
+
+- The first time PiCode writes a CLI's login file it keeps a copy of what was
+  in it (`~/.picode/credfiles/<cli>-<time>.bak`) and tells you where.
+- Nothing about a CLI's home changes: no new folder, no `HOME`-style variable,
+  so settings, sessions and memory stay exactly where the tool expects them.
+
+- **A setting added to Pi's pane now takes one edit instead of two.** The list
+  that decides which value each layer shows is derived from the same table
+  that declares the rows, so the two cannot disagree — a key added to only one
+  of them used to render an empty control beside a row that said the value was
+  set here.
+
+- **Pi's Settings rows come from the same table as every other CLI's.** All
+  eleven are declared in one place with their group and order, so the pane
+  reads as one product with the other eight and a setting pi gains is a line
+  rather than a component edit. The three rows that are not simple values —
+  the model defaults, scoped models and the tool grid — keep the controls they
+  always had instead of being flattened into something they are not.
+
+- Pi's provider accounts moved into an encrypted vault
+  (`credentials.json` beside its key, both readable only by you). Existing
+  accounts are carried over the first time PiCode starts after the update;
+  the old file is left where it was.
+- A backup with secrets carries the vault but never the key that opens it: a
+  snapshot restored on this machine keeps working, and a copy taken to another
+  machine cannot be decrypted. That is the point of storing the keys
+  encrypted, and it is the one thing to know before moving a backup around.
+
+- **A setting that is on or off looks the same everywhere.** Every pane now
+  uses one switch for a boolean instead of a switch in Pi's and a checkbox in
+  the other eight. A switch cannot show "nobody set this", so a row nobody set
+  is drawn at the CLI's own default and the line beneath it says whose default
+  that is.
+
+- A capture whose tab closes mid-flight now reports "the tab closed while the
+  capture was in flight" instead of "capture timed out" — the same refusal,
+  naming the right failure.
+
+- Mobile agent cards now match the terminal cards: the status chip reads the agent's real state (working with an activity age, needs you, open, stopped) and the row menu carries the full lifecycle — start/restart/stop, open chat or terminal, launch settings, continue in another CLI, rename and remove.
+
+- Route bound interactive agents through the shared terminal identity on mobile and expose terminal attachments in the agent view.
+- Keep the desktop agent Chat/Terminal switch icon-only with accessible labels.
+
+- Legacy unbound Pi interactive sessions retain their existing agent endpoint until restart; new sessions use the bound terminal identity.
+- Agent and workspace cleanup now closes bound terminal panes through the canonical terminal identity.
+
+- Saving a guest CLI's setting keeps the rest of the file byte-for-byte:
+  comments, key order and every key PiCode does not know survive, and a file
+  that changed on disk since it was read is refused instead of overwritten.
+
+- Other Agent CLIs keep their native session-storage behavior. PiCode does not emulate per-agent `/resume` isolation for runtimes without a dedicated session-directory boundary.
+
+- **The terminal settings report the tmux that is actually serving your
+  terminals.** After a tmux upgrade the new program can talk to the older
+  running server; the version shown on the System page (desktop and mobile)
+  and in the tmux app's server view is now the server's, not the new
+  program's.
+
+- The prompt door now verifies deliveries for CLIs with a measured input
+  reader: the composer must read empty before and after, and refusals
+  name themselves (working, needs-you, occupied, busy). The response
+  carries a delivery receipt; CLIs without a reader answer "unverified".
+- Automations can target CLI agents: the prompt is delivered through the
+  agent's launch terminal via the door, and the receipt becomes the run's
+  outcome (done / skipped / failed with the door's named reason).
+- The graph and pane ask on a non-pi CLI terminal is delivered through
+  the door (fire and forget, provenance recorded).
+
+- Pi agents reach full row parity with the other agents: the face wears
+  pi's favicon (same art terminal rows use), and the menu offers
+  Continue in… from the agent's own pinned session — the same submenu the
+  other agent rows have.
+
+- A CLI agent row offers Continue in… (ADR-0088): a conversation pinned on
+  its terminal continues in another CLI, the same submenu terminal rows
+  have.
+
+- The address bar says "Enter a URL". It promised a search ("Search or enter a
+  URL") while typing a phrase produced an invalid-URL error; search from the
+  bar is its own decision and is not built.
+
+- Naming: CLI runtime agents are called CLI agents — "guest" is gone from
+  code, copy and docs (ADR-0160: PiCode runs multiple agents; Pi is one
+  runtime among several).
+
+- A guest agent's launch now carries `PICODE_AGENT_ID`, so `picode mcp`
+  and the computer/browser tools resolve the agent as the caller — grants
+  given to the agent in Settings match without per-terminal setup.
+- Inbox "needs you" items for a guest are filed for the agent (not the
+  terminal), close when the agent or its terminal is deleted, and their
+  Open terminal action follows the agent's bound terminal.
+
+- A guest agent row (and the collapsed faces strip) now wears the CLI's
+  favicon — the same identity terminal rows use — instead of a letter
+  fallback.
+
+- Guest agent rows (Claude Code, Codex, …) name their CLI instead of
+  "Pi agent", show the terminal's status, and carry Launch settings and
+  Start/Restart/Stop terminal in their row menu. Mobile starts and stops
+  guests through the same terminal launch.
+
+- **Connectors show real status for Claude Code, OpenCode and Hermes.** Rows in those Connectors panes now report Live or Failed from each CLI's own status report — no more guessing whether a service actually answers. The other CLIs keep their honest "configured" state (they expose no status signal to read).
+
+- Cancelling an annotation (or removing it, clearing the set, or leaving the
+  mode) puts the page back exactly as it was found.
+
+- Guest CLI workspace instances are agents only. Leftover managed-CLI
+  bindings become agent rows; the extra table is gone.
+
+- **New → Agent** in a workspace picks Pi or any installed CLI. Claude and
+  the others are agents now; Agent CLIs stays the place to install and
+  configure runtimes.
+
+- An agent names which CLI it is (Pi by default). Play/managed start still
+  only works for Pi; Claude and the others stay in the terminal for now.
+
+- **`ask_human` over MCP waits for you.** The call now stays open until
+  you answer in the Inbox (hours if needed), keeping the CLI's tool call
+  alive with progress reports, instead of handing the wait back to the
+  agent every 90 seconds.
+
+- **Connectors get a Marketplace, like Packages.** The pane now has **Installed | Marketplace** tabs: search a curated catalog, pick **Save to**, press **Add** — the dialog is gone. PiCode's own connectors stay pinned at the top, and every agent CLI's pane works the same way.
+- **The catalog goes beyond the hand-picked few.** Marketplace search covers a curated slice of the official MCP Registry (verified, remote servers), synced in the background and cached — it answers even when the registry is unreachable.
+
+- **The computer tool acts only in the window the agent last saw.** A
+  click, a keystroke or typed text is refused (`foreground_changed`) when
+  the window in front is no longer the one the agent last captured or
+  focused, so the agent looks again instead of typing into what you are
+  using (ADR-0156, the first refinement of ADR-0148).
+
+- **Connectors are now verified against the real vendor CLIs.** Every agent CLI's Connectors pane — Claude Code, Codex, Omp, Antigravity, OpenCode, Grok, Muse Code, Hermes Agent — was checked live against the installed binaries, and the differences found are fixed: what you write in PiCode is what the CLI loads.
+
+- **Apps: web apps with their own window identity take the whole tab.** The title bar is gone — an installed web app that declares standalone mode fills its tab edge to edge; Ctrl+F finds in the page and the usual browser keys just work.
+
+- **Apps: web apps with their own window identity open like apps.** An installed web app that declares standalone mode now fills its tab — no address bar, just a slim title with the app's name and a menu for browser actions.
+
+- **Apps: installed web apps now install as themselves.** When a site carries a web app manifest, PiCode reads its name, icon, colors and start page — a bare address launches where the app says it should start, and the install dialog tells you it found one.
+
+- **Agent CLIs: launch profiles open by default** once a CLI has at least one profile, instead of hiding behind a collapsed section.
+
+- **Connectors foundation for every agent CLI (ADR-0150).** Connector capability is now a declared per-CLI driver registry, and `/api/mcp` rejects requests naming a CLI without a driver instead of silently writing Pi's files. Pi behavior is unchanged.
+
+- **Browser tool: a screenshot reaches the agent as an image.** `browser
+  screenshot` now hands the capture straight to the model instead of writing
+  a PNG to a temp path and returning the path — one call to see the page, no
+  `read` after it.
+
+- **Muse Code and Antigravity launch through the PATH wrapper like every
+  other CLI.** Same presence lease, same native runtime registration, no
+  more launch carve-outs. Reporting is unchanged: Antigravity through
+  its title reporter (now with a runtime behind it), Muse Code honestly
+  Open (its hooks carry no terminal identity). Maintenance subcommands
+  (`muse exec`, `agy update`, …) skip the lease.
+
+- Muse Code lifecycle docs: R3233 grew real hooks, but they cannot feed
+  per-terminal activity (see the plan note), so Muse stays honestly Open.
+
+- A session note's `## Debts` bullets now say so at closing time: they ride the
+  board for 7 days, so the durable ones name the topic file that owns them.
+
+- **The handoff board never blocks a session again.** It is a bounded view
+  (two next steps per topic, session notes for 7 days, open debts only) and
+  warns instead of failing when it is over its target, so `make close` no
+  longer stops on how much the team wrote down — and nobody prunes another
+  session's bullets to make it fit.
+- **Debts carry their state**: `- [x]` marks one paid in the topic file that
+  owns it; the board shows the open count and keeps the record.
+
+- The options menu opens over the page instead of pushing it down.
+
+- The Activity seed now runs as v2 so hookless-except-by-reporter CLIs
+  are picked up on existing installs; owner-switched-off stays off.
+
+### Removed
+
+- **The tray's disk line and Give back item.** The tray no longer shows the
+  `WSL … GB · ≈… held by Windows · C: … free` line or **Give back ≈N GB…**.
+  The disk facts and the give-back flow live in the Management window's **Disk**
+  tab — the surface this change also makes work. Removed with them: the tray's
+  disk poller, the Rust-side compact flow (the Go `disk-compact` command keeps
+  the readiness interlock), and `desktop-shell/src/diskline.rs`.
+
+- Drop the Chat/Terminal segmented control from the tab strip (desktop and browser) and the mobile agent header. Pi still switches from the sidebar / Work list agent menu (Open chat / Open terminal).
+
+- **Connector file import and "use from another app" are gone.** The Pi adapter already imports, and each CLI's Connectors pane writes that CLI's own config directly — adding the same service in its marketplace replaces copying it from another app. **Custom server…** stays.
+
+### Fixed
+
+- **The "Reconnecting" screen no longer outlives a deploy.** The reload watch called its page-availability check without a default, so every automatic reload threw instead of firing, the health poll stopped rescheduling itself, and the app stayed on Reconnecting until a manual reload — in the browser, the desktop shell and mobile. The check now defaults to this page's own path, and a failing check can no longer end the watch.
+
+- Explain Delivery integration and validation labels in the desktop and mobile views, and remove wording that implied an approval queue or publication status.
+- Add a visual glossary to the Delivery guide and clarify the limits of observed evidence.
+
+- **The ADR-0048 mutation gate no longer has the two blind spots it shipped
+  with.** It read SQL as text, so a statement assembled from a package-level
+  constant, or a table name its pattern could not spell, went unchecked — both
+  were filed as a known limitation rather than fixed. A write is now either
+  SQL the test can read *or* a call that runs one, which between them have no
+  gap: every write in the store reaches SQLite through one `Exec` or the
+  other. `VacuumInto` joins the listed exceptions.
+
+- **The default shown was not always pi's default here.** Nine actions bind
+  differently on Windows and WSL — `Ctrl+-` is `Alt+Z` on WSL, and `Suspend`
+  has no binding at all on native Windows. The pane reads the host's platform
+  and prints the binding that machine actually has, with the other platforms'
+  rows on a muted line beneath.
+- **The CLI pane tabs no longer run past the card.** At 1024px the nine-tab
+  strip (Launch…Connectors) was painted over the page gutter with its last tab
+  cut mid-word; it scrolls inside the card now, which is what the active-tab
+  reveal was always written for.
+- **A destructive button reads destructive on desktop.** `.btn-danger` only had
+  a hover rule there, so every confirm drew Remove and Cancel as the same grey
+  button; the phone app had the fill all along. It now has the rest state on
+  both (`Reset all` is the first one you will notice).
+
+- **Dragging a sidebar row no longer opens a horizontal scrollbar.** The
+  reorder stays on the vertical axis. A sideways nudge used to slide the
+  row out of the column, and the list grew a horizontal bar.
+
+- **Renaming an agent left its editor tab on the old name.** A non-Pi agent
+  runs as its bound terminal (ADR-0160), and the tab strip labels that
+  `t:<id>` tab with the terminal's own name — a value copied from the agent
+  once, at bind time. The rename route only patched the agent row, so the
+  sidebar showed the new name while the tab kept the one from creation.
+  `Store.UpdateAgent` now renames the bound terminal inside the same
+  mutation and announces `terminal.updated`, so the strip, the dashboard
+  fleet and every other `term.name` reader follow the rename; a same-name
+  patch emits nothing.
+
+- **Two gates added yesterday were passing work they claimed to check.** The
+  ADR status check could not read `- **Status:** accepted` (the colon inside
+  the bold), so ten of 171 decision records were silently unchecked; an
+  unreadable status line is now a failure rather than a skip, and all 171 are
+  covered. The ADR-0048 mutation gate scanned only each method's own body for
+  SQL, so seventeen exported mutators that delegate their write — `AddAgent`,
+  `CreateTerminal`, `EnablePeer`, `ReplaceFrom` and fourteen others — were
+  never required to announce anything; three of them announce nothing and are
+  now listed with a reason. It also read comments, so "we deliberately do not
+  AppendEvent here" would have satisfied it.
+
+- Git now uses one workspace selector above History and Delivery, and keeps the selected view when switching workspaces.
+
+- **Providers**: **Sign in** reuses the CLI's sign-in terminal that is already waiting instead of stacking a new one per click, and sweeps the husk a dead session leaves behind.
+
+- **The Management window answered "not allowed by ACL" on every tab.** Its
+  seven commands — `disk_report`, `disk_compact`, `disk_compact_dry_run`,
+  `clean_list`, `clean_apply`, `wslconfig_read`, `wslconfig_write` — sat on the
+  ACL guard's exception list under the wrong assumption that no webview invokes
+  them. The Management window is a served webview, so Tauri refused each call.
+  They now live in a dedicated `management` capability
+  (`desktop-shell/capabilities/management.json`), the exception list shrinks to
+  the one genuinely tray-internal command (`computerlab_open`), and the guard
+  test enforces the management commands too.
+- **`clipboard_files` was missing from `build.rs`'s command manifest.** It was
+  registered in `generate_handler!` and granted in `capabilities/default.json`
+  but absent from `AppManifest::new().commands(&[…])` — the one-line gap the
+  same guard test flags, and one a fresh permission regen would have surfaced
+  as a dangling capability reference.
+
+- **Providers**: **Check now** no longer treats the account already in the file as a finished sign-in. It stays on the strip and says so, until the CLI's file actually holds a different login.
+
+- **Check for updates stays when a CLI has one plugin, or none.** The control
+  lived inside the filter bar, which only renders for two or more installed
+  plugins, so Claude Code (one plugin) and an empty list had no way to run the
+  check the pane itself says is how Update appears.
+- **A group count is a number, not a toolbar pill.** The header reused the
+  filter's bordered count chip, so "59" read as a stray button next to
+  "Ships with the CLI".
+
+- **The API reference was missing every authentication route.** `/api/auth/session`,
+  `/api/auth/sessions`, `/api/auth/logout`, `/api/auth/mode`,
+  `/api/auth/pairings`, `/api/auth/token/rotate` and the device-revoke route
+  are served by the daemon and were absent from the published OpenAPI
+  document — the surface an API consumer needs first. The generator records
+  routes against an empty dependency set, and auth registration returned
+  early when the gate was absent, so nine patterns were never recorded. CI
+  compared the committed file against that same generator, so it stayed
+  green. The spec now lists 338 paths, and the generator's
+  `x-undocumented` names the two non-JSON routes it still leaves out
+  (`/pair`, `/preview/**`) instead of implying they do not exist.
+- **Restoring a backup could destroy what it was restoring.** Pin
+  attachments and pi session files were deleted first and copied second,
+  with no rollback, after the database had already been swapped in — so a
+  copy that failed partway (full disk, one unreadable file) left the live
+  files gone and half rebuilt. Each directory is now built beside the live
+  one and renamed into place, and the credential vault a restore replaces is
+  kept as `credentials.json.replaced`.
+- **Eight accepted decisions were still listed as proposals.** ADRs 0110,
+  0120, 0135, 0142, 0150, 0153, 0155 and 0157 said `accepted` in their own
+  file and `proposed` in the index, which reads as half the recent work being
+  speculative.
+- **`CHANGELOG.md` told agents to do what the commit hook refuses.** Its own
+  header asked for an entry in `[Unreleased]`; ADR-0105 assembles this file
+  from `docs/changelog.d/` fragments and the hook blocks the direct edit.
+  The header now describes the fragment flow, and the hook allows a
+  correction to the preamble above the first version heading.
+- Three broken links in `docs/architecture/`, a subsystem file
+  (`devservers.md`) that the architecture index never linked, a source
+  comment pointing at a handoff topic that does not exist, and three forms
+  that did not opt out of native browser validation.
+
+- **Claude Code's installed plugins no longer disappear.** The pane reads the
+  machine scope by leaving `scope` out of the query, and the roster read passed
+  that empty scope through: Claude Code's rows name their scope (`user`), so
+  every one of them was filtered away and the pane showed an empty list for a CLI
+  that has plugins. The read now resolves the scope once — empty is the machine
+  scope — for the list, the catalog and the update check, which is also the key
+  they share in the cache. Regression test: `TestTheDefaultScopeReadsTheMachineScope`.
+
+- **Providers**: the sign-in strip now carries **Open terminal** — the terminal the sign-in runs in is one click away, instead of the strip telling you to type `/login` somewhere it never named.
+
+- **An empty Inbox names its next action.** With nothing waiting but items
+  already answered, the blank slate was a dead end (“Nothing needs you
+  right now.”) while the Done strip sat a tab away; it now carries the
+  action — “See the done item” / “See N done items” — which lands on that
+  strip. A mailbox with nothing at all keeps the one line, because there
+  is genuinely nowhere to point.
+
+- **Omp shows what its marketplaces offer.** Its plugin catalog was reported as
+  unavailable; PiCode now reads `omp plugin discover` and lists the plugins a
+  source offers, each marked installed when it already is. Omp's list does not
+  say which source provides a plugin, so those rows are information and the
+  list states the install form (`name@marketplace`) instead of offering a
+  button that would run the wrong command.
+- **OpenCode's plugin list says when a config is broken.** A `"plugin": "name"`
+  string is refused by OpenCode itself ("Expected array | undefined"); PiCode
+  used to list it as an installed plugin. The pane now names the file and the
+  form OpenCode expects.
+
+- **Attach now verifies the terminal sent the message.** The paste plus
+  Enter raced the TUI render, so the text sat in the composer while the
+  bar cleared. The paste path polls the live pane until the composer
+  reads empty, retries Enter once, and answers 502 `staged` (bar stays
+  open with the reason) instead of a blind success. TUIs without a reader
+  keep the previous behavior.
+- **The attach bar closes after sending** and hands the pane its keyboard
+  back. Failures keep it open with the text staged, as before.
+
+- **The Inbox no longer promises a pickup nobody made.** Answering a
+  question whose source has no reply channel records the answer on the
+  item (so the human's Reply closes it), and the note said "the CLI that
+  asked will pick it up here" — true for `picode inbox ask --wait`, false
+  for a plain `ask` and for a pi launched outside the launcher, which
+  read the durable queue instead. The note and the toast now name both
+  paths: a waiting asker reads it here, a non-polling asker must be told
+  another way.
+
+- **Providers**: the pane's action bar lays its controls out as one group at the right edge — the account count on the left, **Sign in** and the single **Add API key** beside each other instead of a button floating mid-row, and a multi-provider pane no longer shows its own Add directly above the first provider's.
+
+- **Desktop/Web:** removing the agent whose tab you are on no longer lands on a
+  dead surface. Selection now moves to the neighbouring tab (right, else left),
+  and to the dashboard when no tabs remain. Closing a tab picks the same
+  neighbour instead of jumping to the last tab. A CLI agent's bound terminal
+  tab and a removed workspace's tabs follow the same rule.
+
+- **Muse Code's plugin catalog is actionable.** A catalog row now carries the
+  spec the CLI installs from (`name@marketplace`) and the path the marketplace
+  resolved, so **Install** in the Marketplace tab runs the right command.
+- **Marketplace rows say when a plugin is already installed.** Muse's own
+  catalog keeps answering `available` after an install, so PiCode joins the
+  catalog with the CLI's own list and shows **Installed** instead of an Install
+  button for something that is there.
+
+- Context menus that open over the tab strip no longer paint behind it.
+
+- **Muse Code's own plugins are listed.** `muse plugins list` nests each
+  plugin under `record` and `plugin`, which PiCode read as a list with no
+  names — so a machine that has Muse plugins saw an error where the list
+  belongs. Install, remove and enable/disable already worked and are unchanged.
+- **The Muse plugin surface is per machine, and the pane says so.** Muse turns
+  its plugin commands off through its own cached feature configuration; when
+  that is the case the CLI answers *"plugins are not available in this build"*
+  and PiCode shows the CLI's own sentence instead of an empty list.
+
+- Answering a question filed by a CLI with no PiCode identity (a guest
+  running outside PiCode) now records the answer on the item, where the
+  asking CLI picks it up. The Inbox used to refuse with "no reply channel"
+  and the item stayed open forever, leaving the asker waiting on a poll
+  that could never end.
+
+- **Ctrl+V / Ctrl+Shift+V now attaches images in terminal panes.**
+  The keydown used to kill the browser's own paste (stopping xterm's ^V)
+  and then read text only, so an image clipboard pasted nothing at all.
+  It now re-reads the clipboard (files included) and fires an equivalent
+  paste, routing through the same attach bar the native menu already
+  opened. Text-only pastes behave exactly as before.
+- **The PiCode menu's Paste row stages files.** It read text only and
+  dropped images silently; with files on the clipboard it now opens the
+  attach bar, like the keyboard does.
+
+- Fix the work-browser split ("Open browser" beside an agent/terminal) in the
+  `/browser/` web app: the tab strip spans the top and the agent and browser
+  panes now share the row below, so the terminal no longer crushes to a sliver
+  and the browser pane no longer pushes off-screen. Desktop behavior is
+  unchanged.
+
+- Settings ▸ Browser/Computer audits: a refused call reads neutral (the
+  policy working as intended) and only failures read danger; the outcome
+  filter lists every outcome present in the data.
+
+- **Terminal paste now answers the same door as the Attach menu.**
+  An interactive agent pane whose bound record carries no launch fields
+  no longer refuses a files-paste the menu would accept.
+- **A double-paste stages both pastes.** Rapid Ctrl+V,V used to keep only
+  the second files; concurrent stages now append functionally under the
+  4-file cap.
+- **Text pasted alongside files seeds the message.** It used to be dropped
+  (or land stray in the terminal when clipboard-read was granted); the
+  keydown path's late text is now claimed away for that gesture.
+
+- Settings ▸ Browser and Settings ▸ Computer now fill the full page card
+  instead of a narrow 780px column, and all row controls share the 36px
+  control height.
+- Agent permission lists carry workspace provenance on every row (workspace
+  chip resolved via `/api/workspaces`, plus managed/terminal kind), with a
+  search + filter toolbar and paged rendering instead of one unbounded list.
+- Recent steps (Computer) and Raw calls (Browser) are filterable by search
+  and outcome, with expandable rows showing the full reason, actor and
+  timestamp instead of a truncated single line.
+
+- Codex's Memory pane no longer offers to copy `codex` as "the vendor's own
+  command" — that command does nothing to a memory, and the pane now shows the
+  note alone.
+
+- **Mobile Inspector:** Git actions now address the checkout under review
+  when following a sibling worktree (branch and upstream come from the
+  followed checkout, not the anchor), and the agent screen's review glance
+  clears instead of freezing when the agent's folder moves.
+
+- **Agent CLIs: Omp terminals now report Needs you.** The omp reporter only
+  knew pi's event set, and omp never fires those — so an approval or a
+  question waited in the terminal while the row said Working. The extension
+  now listens to omp's own events (`tool_approval_requested`/`resolved`
+  and the ask card's `tool_execution_start`/`tool_result`, verified against
+  the 18.2.6 bundle), files the same Inbox item the other CLIs file, and
+  only settles on `agent_end` when the run is really over (`willContinue`
+  marks a mid-run turn).
+
+- Verify on a saved key spends exactly one listing call to the provider, named
+  on the button, and stores the answer with its age on the account's row.
+  Nothing else in the app talks to a provider about credentials.
+
+- **Hermes' Show reasoning row said Off when Hermes turns it on.** Every
+  boolean now declares what its CLI does when the key is absent, checked
+  against a recorded table, so a row left alone shows what will actually
+  happen. Hermes' turn limit says 20 rather than a vague "default".
+
+- **A terminal no longer dies the moment it opens on a service without a
+  `SHELL` setting.** The daemon fell back to `/bin/sh` — dash on
+  Debian-family systems — and handed it a bash-only argument, so the pane
+  exited before the first prompt and took its tmux server with it while the
+  app still showed the terminal as running. The fallback is bash now, and
+  the argument goes only to a shell that accepts it.
+
+- Opening a terminal whose shell exits immediately reports the failure and
+  keeps nothing behind, instead of leaving a terminal that reads as open
+  with no session to attach to.
+
+- A boolean row in Pi's Settings now uses the same switch as the rest of the
+  pane instead of a second control for the same job.
+
+- Inspector Git menu hints now carry the exact prepared command as a hover
+  title, including the real branch on `git push -u origin`.
+- The session Changes cap note reads "+N more copies of the project not
+  scanned" instead of jargon, with the linked-checkout explanation on
+  hover.
+
+- Use the Agent CLIs terminal screen for mobile TUI agents, including touch scrolling, menus, attachments, keyboard controls and recovery states; show Pi's Chat/Terminal switch as toolbar icons.
+- Share terminal input and connection wiring across browser, desktop and mobile; preserve live legacy Pi addressing without retaining a second terminal renderer.
+- Keep bound terminal identity and actions consistent across agent views, terminal links and Canvas; open non-Pi agents in their TUI and keep Pi's view switch in the existing tab toolbar.
+
+- **A guest CLI's setting could be written to the wrong key.** In YAML, a path
+  like `memory.memory_enabled` matched a block of the same name nested anywhere
+  else, so the save landed on it and the key the pane showed never changed. The
+  locator now anchors the first segment at the document's top level and keeps
+  every next one inside the block its parent opened.
+- **TOML writes could land inside a multi-line string.** A `"""…"""` body
+  containing `key = value` or `[table]` lines was scanned as configuration,
+  which rewrote the user's prose and could silently retarget a save. The
+  scanner now tracks string state, and an array of tables is refused rather
+  than edited.
+- **JSON writes could shadow a value.** A key present twice was written on the
+  copy every parser ignores, and a path whose parent was a string, an array or
+  null appended a duplicate member at the root. Both are refused with a
+  sentence naming the file.
+- **Handing a key back could delete more than the key.** Emptying a YAML block
+  swallowed the comments and blank lines that followed it, which emptied a file
+  whose block was followed by commented-out configuration.
+- A file with no final newline, and a JSONC file with a comment before its
+  closing brace, can now take a new key instead of refusing every save.
+- **Claude Code's Approvals row could not show the value in the file.** The
+  options were missing `auto` and `dontAsk`, so a machine set to `auto` drew a
+  blank control and any choice moved it off. OpenCode's `autoupdate` row is
+  withdrawn: it is `true`, `false` or `notify`, and a switch would destroy the
+  third. Grok's options now match what that CLI accepts.
+
+- Pi agents now open the same contextual Launch settings editor as other Agent CLIs. Model, reasoning, tools and checklist remain under Settings; bound agents keep their CLI fixed and Pi launch controls omit reserved model and reasoning flags.
+
+- Keep a one-time browser permission answer from becoming a remembered site permission.
+
+- **Session Changes no longer corrupts fleet pills.** Linked-worktree
+  watcher events are path-only, so the workspace and agent pills keep
+  describing the anchor folder while followed groups still update live.
+- A file tab whose worktree checkout is gone now reads "That file is
+  gone." instead of the raw server message.
+
+- The tmux app's server view no longer shows an empty version and keyboard
+  mode while a drained session is answered by the older server.
+
+- Pi agents in terminal mode now reuse the shared CLI launcher and activity integration, including working, needs-you and idle states across desktop and mobile. Existing open Pi terminals remain usable until explicitly restarted.
+- Pi terminal and chat transitions now share lifecycle guards, preserve agent session ownership and refuse replacement while a previous process is still closing. Agent launch settings remain available alongside Pi-specific configuration.
+
+- Refresh the Windows desktop's native chrome region when its viewport or display scale changes, so maximizing or restoring a window without an active work-browser page does not leave the interface clipped to its previous size.
+
+- Keep desktop work pages visible and live beneath address suggestions, menus and dialogs in the updated Windows shell. Native regions preserve the existing HTML controls without capturing the page; older shells retain their previous behavior until upgraded.
+
+- Agent CLIs **Update** on an npm-global Pi runs `npm install -g` instead of
+  `pi update`, which refuses when the package dir is not writable (a sudo
+  npm install into an nvm prefix) and leaves the button failing.
+
+- Bind newly created interactive Pi sessions as soon as their JSONL file appears,
+  so the agent menu exposes `Continue in…` without a manual Sessions refresh.
+- Allow a bounded Muse index-update window when pinning a terminal's latest
+  session, reducing the shutdown race before the index is refreshed.
+
+- The Windows installer no longer hides a failure: the launcher waits for the
+  elevated run and reports its exit code, the last error line is written to
+  `%ProgramData%\PiCode Desktop\install.log`, and the elevated window pauses
+  for Enter instead of closing with the evidence.
+- `install --user <name>` now aims the picode binary and pi at that account
+  (and `--user root` keeps the system-wide install); stage scripts no longer
+  rely on `$` surviving the `wsl.exe` argument boundary.
+
+- Removing an agent no longer leaves the row behind when the delete
+  response is lost: "not found" is treated as removed and the fleet is
+  refetched, so a second remove cannot fail with "agent not found".
+
+- Use consistent Start, Restart and Stop agent actions across workspace agent menus, with shared ordering, capability-specific options and separated removal.
+- Offer scoped launch settings and confirmed restart for Pi agents; restarting preserves the managed or interactive mode and reports failures without claiming success.
+
+- A Send with three or more annotations no longer fails: it used to hit the
+  prompt door's four-file limit and deliver nothing while keeping the notes in
+  the store. A Send that cannot be staged whole now stages nothing at all
+  instead of half a package.
+
+- The stale `btab_layer` permission artifact is gone; the generated schemas no
+  longer advertise a command that does not exist.
+
+- The annotation card's "Background" row no longer truncates its label: the
+  label column fits every row's name at the card's own width.
+
+- The annotation screenshot shows the page, not our own annotation UI: the
+  pin, the chip and the card are hidden for the instant of the capture, so
+  the agent receives the element instead of a picture of the card covering
+  it.
+
+- A missing annotation screenshot now says why instead of vanishing: the
+  Send names the step that gave up (and the shell's own words when the page
+  capture is what failed), and the capture retries on a short ladder so a
+  moment of hidden page does not cost the picture.
+
+- Annotation screenshots actually arrive: the crop asked the shell for the
+  page preview with the React tab id, which the shell could not resolve, so
+  every Send staged the note alone and the picture failed in silence. The
+  shell now resolves either id shape and the call site passes the native one.
+
+- **Mobile tab bar docks to the bottom of the screen.** On an iPhone
+  home-screen install the bar grows into the system letterbox instead of
+  leaving the tabs floating above a blank strip. Pick **Low** in Layout
+  if a label is clipped.
+
+- **Mobile terminal uses the bottom of the screen.** On an iPhone home-screen
+  install, a pushed screen (terminal, agent) grows into the system letterbox
+  instead of leaving a blank band under the TUI.
+
+- The phone Work list ⋯ on a terminal is no longer only Remove: Rename,
+  Continue in…, Start or Restart/Stop, then Remove — the same menu as
+  desktop, without Launch and Terminal settings (those stay in Agent CLIs
+  and the open pane).
+
+- **Mobile header is no longer frosted.** The iOS home-screen app uses an
+  opaque status bar, so iOS 26 Liquid Glass does not wash out the title
+  and icons at the top of the screen.
+
+- **Restart terminal** on an Agent CLI now reopens the conversation that
+  was running (the pinned session's verified resume arguments), instead of
+  starting a blank chat. Stop then Start, and Resume last session on a
+  stopped terminal after a crash, stay as they were.
+
+- Connector gallery refreshes no longer race over the same cache file: two
+  at once (the background timer and a manual refresh) could make one fail
+  with "no such file or directory" and the gallery answer an error. The
+  cache write is serialized and uses a private temp file.
+
+- Annotations reach the strip even when the page cannot post to the app:
+  the annotate strip now asks the host for the page's state on a slow tick
+  (a path that needs no page-side bridge), so the count and Send light up
+  and the batch carries the real payloads.
+- The work-browser page is created with web messages enabled, instead of
+  enabling them only when annotate mode is armed — which left the already
+  loaded document without the channel.
+
+- Annotate mode survives a full page load: the shell re-injects the in-page
+  script when a navigation completes, so the overlay no longer vanishes
+  while the strip still says it is armed.
+
+- Annotation Send lights up again: the page's message channel is
+  re-subscribed on every arm (a webview recreated under the same tab id
+  used to inherit a stale subscription and go silent), the receiver is
+  dropped when its tab closes, and a page that does not answer is retried
+  once and then named out loud instead of leaving a dead Send.
+- Re-arming annotate mode keeps the pins on the page and re-reports them.
+
+- Typing in the annotation card no longer triggers the page's own keyboard
+  shortcuts: keystrokes are shielded at the card's shadow root, so a site
+  hotkey (GitHub's "s" opened its search) can no longer steal focus and
+  swallow the character mid-word.
+- Enter saves the note again — it had never worked, for the same reason
+  (the event target outside a shadow root is the host, not the input).
+
+- Annotating no longer loses the draft: while a card is open, page clicks,
+  pins, chips and menus do not steal it onto another pin — Save, Cancel,
+  Esc or trash first, then pin the next one.
+
+- Annotation Send delivers to the bound session: a browser pane open on an
+  agent or terminal tab sends to that session's chat (agent prompt door for
+  agent panes, terminal prompt door for terminal panes). A bound miss never
+  reroutes to a stranger's terminal — it names the reason and keeps the
+  notes. Standalone tabs keep the first-running fallback.
+
+- **`computer` typing under load.** Characters the keyboard layout has are
+  now typed as keystrokes (with Shift when needed), which carry their own
+  character and survive a busy app; only characters the layout lacks, AltGr
+  characters and dead keys still travel as Unicode packets. Pacing alone
+  (the earlier fix) still garbled text when the app fell behind.
+
+- Annotation Send delivers again: it posts to the prompt door
+  (`{message, paths}` pasted into the agent TUI), not the file-drop door —
+  which answered 400 while the toast blamed the terminal. A refused paste
+  now names the server's reason.
+
+- Annotations reach the strip again: the page posts message objects (the
+  host serializes once) and the chrome unwraps at any encoding depth, so a
+  saved note always shows up as Send N instead of a silent Send 0.
+
+- **Apps: Clear data now waits its turn.** Clearing right after using an app could fail silently ("Could not save the web app") because the app's files were still being released. The clear now waits up to ten seconds and, if anything still blocks it, says exactly what.
+
+- **`computer` typing came out as one repeated character.** The desktop
+  app fired every Unicode key event back to back, and Windows 11 Notepad
+  read each one as the last character of the text. The app now paces
+  characters 5 ms apart and types at most 2 000 characters per call, so
+  `type` writes what the agent sent.
+
+- Annotate hover no longer starts dead: the highlight shows from the first
+  mouse move and stops while a card is open (open-state travels in flags,
+  never in inline styles). First-press Esc exits the mode again.
+
+- **Claude Code connectors now save correctly from the pane.** The add command PiCode runs now matches what `claude mcp` accepts, and rows read from `claude mcp list` keep their address and kind.
+- **Codex and Antigravity save to the one config file each CLI actually reads.** The "This folder" target refused instead of writing a file the CLI never loads.
+- **Grok connectors can be turned on and off again.** The switch mirrors Grok's own enable/disable, and removing a connector no longer leaves stale entries behind.
+- **OpenCode connectors land in the file OpenCode itself uses** (`opencode.jsonc` when present), so edits are never shadowed.
+- **Muse Code connectors no longer produce a settings file Muse rejects** (the required `schema_version` stays present), and Grok rows report their enabled/disabled state.
+
+- Annotate mode no longer dies on the ACL (the command was missing from the
+  shell manifest) or on Send (the page URL ref did not exist).
+- The fallback preview no longer blanks the app when a second note is
+  pinned (the event was read after React released it).
+
+- A malformed connector config file (JSON, TOML or YAML) no longer fails
+  the Connectors pane with an error — the pane names the file and carries on.
+
+- **desktop: deploys and shell swaps no longer end every terminal.** The
+  WSL distro's keepalive moved out of the shell process into a scheduled
+  task (`PiCodeDistro`) that outlives it (ADR-0155): a `make
+  desktop-restart`, a shell crash or any taskkill can no longer leave the
+  distro unowned for WSL's idle reclaim — the failure that killed every
+  tmux session, agent and terminal at once (2026-09-18, four times). The
+  task's action wraps wsl.exe in a headless conhost, so the keepalive
+  holds the distro with no console window on the desktop. The shell
+  ensures the task on its health poll (child-spawn kept as fallback), and
+  `desktop-swap.sh` ensures it before killing the old resident. Also
+  fixed: `make adr` failed whenever a registered worktree's directory was
+  pruned.
+
+- **Desktop: the shell no longer bricks on a daemon restart.** Back-to-back deploys could leave the desktop app parked on a 404 body forever. The shell now waits for the app to really answer before first paint, and an automatic reload waits for the page to serve again (it never reloads into a dead body).
+
+- **Agent CLIs: no more one-request "Not found" flicker while a CLI updates itself.** A vendor updater rewrites its launcher in place; the catalog now retries once before reporting a CLI missing, so lifecycle menus stop flickering off during updates.
+
+- **Windows shell caption buttons and native commands work again.** Covering
+  `/desktop/` with the app CSP had blocked Tauri's IPC (`http://ipc.localhost`),
+  so every `invoke()` died in the console. The desktop shell's policy now
+  names that host; the browser and mobile shells do not.
+
+- `claude mcp list` output with no servers no longer fabricates a phantom "No" connector row, and the Claude Code driver id now matches the CLI catalog (`claude-code`), so `#/clis/claude-code/connectors` highlights the right roster entry.
+
+- **A stopped server no longer keeps its row.** The panel's cached probe answer
+  was trusted for two minutes regardless of whether anything still listened, so
+  a server that had just stopped stayed on screen (found in the first QA pass of
+  the rework, minutes after Stop said it was gone). A row now needs the port to
+  be listening at this read, unless a PiCode pane still owns the socket.
+- **"unnamed page" beside "not a page".** A port that is not a page and has no
+  title shows its port alone instead of borrowing the page vocabulary.
+
+- **Dashboard loads faster.** The six CLI meters now aggregate in parallel (cold 7d window drops from ~8s to ~5s on this machine), the server pre-warms the stats cache after boot, and the dashboard paints the last good numbers instantly while refreshing underneath instead of a full skeleton.
+
+- Desktop: editor tabs can be reordered again — the shell now disables Tauri's native drag-drop handler, which on Windows swallowed the HTML5 drag events the tabs (and composer file drop) rely on.
+
+- **Agent CLIs: an Omp terminal no longer stays Working after it replies.**
+  omp never fires the events pi uses to settle a run, so the activity
+  reporter waited forever at Working. omp now uses its own event set —
+  Ready comes back when the reply finishes — and, measured against its
+  approval dialog, it never claims Needs you: approvals happen in the omp
+  terminal itself.
+
+- **Clicking “PiCode” opens the dashboard again in the desktop app.** The
+  wordmark in the window's top row was a window-drag region as well as a
+  button, so pressing it dragged the window and the click never arrived;
+  the sidebar wordmark also did nothing while a non-workspace page (Agent
+  CLIs, Browser, Preferences, Devices) was open. Both now open the
+  dashboard, and the top row stays draggable around the button.
+
+- **The browser menu no longer blinks the page.** Opening the ⋮ menu while a
+  site is on screen used to park the live page behind a strip of gray for the
+  length of a screen capture; the menu now waits for its backdrop (the frozen
+  frame it sits on) and opens with it — the page never disappears.
+
+- **Opening a link no longer flashes a stray page.** A browser tab created
+  before its pane reported its size painted at a placeholder rectangle over
+  the pane's own empty state until the real bounds arrived. Such a tab is now
+  born hidden and appears in place — the moment its rect is known.
+
+- **Ctrl+click on a link in an agent's terminal opens it in PiCode**, not in
+  the system browser: a printed URL now follows the same preferences as every
+  other door (Browser settings — local dev sites and web URLs, both defaulting
+  to PiCode's own browser). Set either to "Default browser" to send those links
+  out, and paths under the terminal's folder still open in the file pane.
+
+- **Resetting a site's permission now really forgets it.** The shell kept
+  every decision in the engine's own per-origin memory (`SetPermissionState`)
+  as well as in its map, so "Reset" in Site settings left the site working
+  until the app restarted. A policy write that names a site now tells the
+  engine too, and "Always allow" from the Ask bar writes the site's standing
+  on both sides.
+
+- **A browser grant with domains reads properly** (Settings ▸ Browser ▸ Agent
+  permissions): the row stacks — name and what the domains mean, then the
+  tier and the domain field on their own line — instead of squeezing the
+  field to a stub with the select wrapped above it, and the field matches the
+  height of the controls beside it.
+
+- **The browser tool now shows what the act verbs answer.** `evaluate` returns
+  the value (or `the page threw: …`), `navigate` says where it went, `cdp`
+  returns the method's JSON. All three used to be rendered as an accessibility
+  tree, so a call that worked arrived as "the page has no accessible content".
+
+- **Message delivery keeps up with vendor UI changes.** Grok 1.0.34
+  restyled its composer footer and Claude Code predicts dim follow-up
+  suggestions — both silently stalled automatic prompts. Both shapes are
+  now recognized, with the same strict frame, cursor and footer checks.
+
+- Plan file lists no longer repeat the wrapper entry.
+
+- **Sidebar scrollbar alignment and track.** The sidebar's `.side-scroll`
+  scroller previously lived inside `.side-section` with an 8px horizontal
+  padding, causing the scrollbar to float 8px away from the right border and
+  look disconnected when scrolling down past the pinned header.
+  The container now spans full width with `padding: 0 8px 10px` on
+  `.side-scroll`, placing the scrollbar flush against the sidebar's right
+  edge while maintaining consistent 8px breathing room for item rows and headers.
+
+- **Activity reports without a native runtime no longer 409.** Session
+  reports (which carry a session id) used to require a live native
+  runtime, so observers that never start one — the Antigravity title
+  reporter today — had every report refused and their terminals read
+  Open forever. With no runtime entry there is no identity fence to
+  protect, so those reports now land as plain terminal states; terminals
+  with a live runtime keep the strict conflict.
+- **The server test suite no longer writes into your real home.** Booting
+  a server seeds Activity on and syncs integration files, and the two
+  CLIs installed through your own settings (Antigravity, Muse) resolved
+  the developer's real home in tests that never isolated it. The whole
+  suite now runs under a throwaway HOME (plus XDG), guarded by a test
+  that fails if the sandbox ever goes missing.
+
+- **Menus and other layers no longer come up hidden under the work browser.**
+  The editor's tab menus, the command palette, dialogs, dropdowns and toasts
+  now decide by geometry: any floating layer that reaches the page parks the
+  native view and freezes the page behind it. Previously only dialogs did
+  (and only the ones wearing the app's own dialog class), so the palette and
+  every chrome menu could appear behind the page.
+
+- **The domains field says what it means.** Each entry is described as you
+  type it — including the shapes that open nothing (`*example.com`, `*.`, a
+  lone `.`), which used to be accepted and saved in silence.
+
+- **The JavaScript switch reaches the shell on load**, not only when it is
+  clicked: after an app restart the shell's copy of the setting is now the
+  saved one, not its default.
+
+- **The desktop app could not be opened from the tray.** With the resident
+  started by the logon task, *Open PiCode* (and a second launch) did
+  nothing: the window was alive but the app's own lookup missed it, so
+  every open path quietly no-op'd. The shell now keeps its window handle
+  and asks Windows directly to restore and focus it.
+
+- **Lifecycle buttons on mobile (and Muse Code on desktop).** The Install
+  and Update buttons were gated on the integration capability — inverted
+  on mobile (`!cap.integration`) — so update-capable rows without it
+  never showed Update. Both buttons now follow only the lifecycle flags,
+  like the `···` menu already did.
+
+- **Work-browser options menu in the agent split.** The menu's settings
+  links (Browser settings, History, Downloads, Clear browsing data,
+  Passwords) did nothing in the split pane — that surface never received
+  the navigation callback. They now land on Settings ▸ Browser, like the
+  tab version does.
+- **Menu still.** An empty page capture used to hide the live page behind
+  nothing (uniform gray). The tab now only hides the page behind a capture
+  that decoded to real pixels; a failed capture keeps the menu usable over
+  the host background.
+- **Settings views under a live page.** Opening any settings view with a
+  work tab selected left the page painted over it. The tab is now parked
+  while the route is elsewhere and restored on return.
+
+- Application dialogs (New workspace, confirmations, the Settings dialogs)
+  are no longer covered by the work browser's page.
+
+- **Sign-in popups open as real windows.** “Continue with Google” (and the
+  other OAuth providers that open a sized popup) now completes instead of
+  dead-ending: `window.open` with a size keeps its link to the page that
+  opened it, which is how the credential comes back. Plain `target=_blank`
+  and unsized `window.open` still open as editor tabs.
+
+- Choosing “Platform default” in Site settings now clears the per-kind
+  policy; the choice failed before.
+- The Manage dialogs (Site settings, passwords, and the rest) scroll inside a
+  short window instead of running past its bottom edge, where Close was
+  unreachable.
+- A work-browser tab no longer re-arms its page-metadata poll on every
+  render, which pinned a CPU core while the tab was open.
+
+### Security
+
+- **Use** is refused while a terminal of that CLI is running: replacing a
+  credential under a running agent can corrupt its session. The refusal names
+  how many terminals to close.
+- A CLI whose login PiCode cannot write faithfully says so and offers no
+  control: Omp (its own database), a Grok file with no session yet, and the
+  API-key paths of Hermes and Muse.
+
+- Credential values never leave the server: the roster shows a masked hint
+  (`sk-ant-…f2a`) at most, and a vault that cannot be read (missing key,
+  tampering) is reported in words instead of being silently replaced.
+
+- **A memory could be written outside its folder.** Containment resolved the
+  target file, which does not exist when one is being created, so a write
+  through a symlinked subdirectory landed outside. It now resolves the deepest
+  existing ancestor, and listing skips anything that is not an ordinary file —
+  a symlink named `notes.md` had its first line published, and a FIFO hung the
+  pane.
+- A relocated memory folder is bounded to the user's home directory, so the
+  pane cannot be pointed at `/etc` or `/proc` from the Settings pane.
+- Masking covers more credential shapes (cloud secrets, `password=` and
+  `api_key:` assignments, passwords in URLs, Slack webhooks, PGP and truncated
+  key blocks) and no longer destroys ordinary words: `risk-assessment-…` was
+  being redacted.
+- Reading a memory refuses anything that is not an ordinary file, so a
+  pseudo-file reporting size 0 no longer walks past the size limit.
+
+- Memory files are masked on read for credential-shaped values (provider keys,
+  tokens, private-key blocks). The file keeps what the CLI wrote; the browser
+  does not echo a secret back, and memory text never reaches the change feed.
+
 ## [0.3.1] - 2026-09-15
 
 ### Fixed
