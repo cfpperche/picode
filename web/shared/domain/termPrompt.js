@@ -62,3 +62,19 @@ export function readAttachFile(file) {
     r.readAsDataURL(file);
   });
 }
+// clipboardFiles(clipboardData): the files a paste carries, if any. A
+// text-only or empty paste answers [] so the terminal keeps its native
+// paste untouched; any staged file routes to the attach bar instead
+// (VSCode #301603's rule — readText empty, try the file — delivered by
+// path through the drop door, never pasted as bytes).
+export function clipboardFiles(clipboardData) {
+  const files = clipboardData && clipboardData.files ? [...clipboardData.files] : [];
+  return files.filter(Boolean);
+}
+
+// termHasPromptDoor(term): true when the prompt door serves this pane — a
+// running CLI or the Pi TUI. Plain and stopped shells have no door (the
+// server answers 409), so a files-paste there teaches instead of opening.
+export function termHasPromptDoor(term) {
+  return !!(term && term.launchCli && term.running);
+}

@@ -1199,6 +1199,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
       const h = hostRef.current || {};
       if (h.onAttachClose) h.onAttachClose();
     },
+    onPasteFiles: (id, files) => hostRef.current?.onPasteFiles?.(id, files),
     findFor: (model) => canvasTerminalTools(model, hostRef.current).find,
     onFindClose: (id) => hostRef.current?.onFindClose?.(id),
     onOpenFile: (model, path) => {
@@ -1635,6 +1636,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onAttachClose={handlers.onAttachClose}
                 find={handlers.findFor(maxModel)}
                 onFindClose={handlers.onFindClose}
+                onPasteFiles={handlers.onPasteFiles}
                 onDirty={(dirty) => handlers.onDirty(maxModel, dirty)}
                 onSaveText={(text) => handlers.onSaveText(maxModel, text)}
               />
