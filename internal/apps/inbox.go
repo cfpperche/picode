@@ -19,10 +19,18 @@ type inboxApp struct{}
 // InboxAnswerRecordedNote is appended when a reply to a channel-less
 // question is recorded on the item instead of delivered. The store has
 // already annotated "reply not delivered — the item stays open" by the
-// time the caller records, so this corrects the visible story: the asker
-// (`picode inbox ask --wait`, ask_human) polls the item, and recording IS
-// the delivery (ADR-0154). Shared with the inbox respond route.
-const InboxAnswerRecordedNote = "Answer recorded on the item — the CLI that asked polls it here."
+// time the caller records, so this corrects the visible story. It must
+// stay true for every asker that can land here: `picode inbox ask --wait`
+// polls the item, but a plain `ask` (no --wait) and an unmanaged pi with
+// the extension do not — the latter expects the durable queue, which
+// needs a managed identity (ADR-0060) — so the note names the caveat
+// instead of promising a pickup that only polling askers make.
+// Shared with the inbox respond route.
+const InboxAnswerRecordedNote = "Answer recorded on the item — `picode inbox ask --wait` reads it here. An asker that is not polling (a plain ask, or a pi launched outside the launcher) must be told another way."
+
+// InboxAnswerRecordedToast is the same news in the toast the human sees
+// when they answer from the app.
+const InboxAnswerRecordedToast = "Answer recorded — a waiting asker reads it here; a non-polling asker must be told another way."
 
 func (inboxApp) Manifest() Manifest {
 	return Manifest{ID: "inbox", Name: "Inbox", Icon: "inbox", APIVersion: APIVersion}
@@ -542,13 +550,13 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			// sentence case, not the lowercase Go error-string convention.
 			if errors.Is(err, store.ErrNoReplyChannel) {
 				// The ask door's record-the-answer rule (ADR-0154), for the
-				// guest whose source has no channel at all: `picode inbox
-				// ask --wait` and ask_human poll the item, so recording IS
-				// the delivery. Refusing here left the human clicking Reply
-				// on an item nothing could ever close.
+				// guest whose source has no channel at all: refusing left
+				// the human clicking Reply on an item nothing could ever
+				// close. Recording is what a polling asker reads, so the
+				// note names who still has to be told another way.
 				if _, rerr := h.Store.RespondInboxItem(id, verb, text); rerr == nil {
 					_ = h.Store.AnnotateInboxItem(id, InboxAnswerRecordedNote)
-					return a.backTo(h, returnPath, "Answer recorded — the CLI that asked will pick it up here.")
+					return a.backTo(h, returnPath, InboxAnswerRecordedToast)
 				}
 				return ActionResult{}, fmt.Errorf("Reply not delivered — this question came from a session PiCode has no reply channel for; answer it in its terminal. The item stays open")
 			}
