@@ -23,8 +23,8 @@ Plan and the running list: `docs/plans/desktop-v2.md` (Phase 3),
 | Question | Decided by | Where |
 |---|---|---|
 | Who is calling | daemon | `internal/grant.Key`: an agent id, else `term:<terminal id>`, else nobody (ADR-0134, ADR-0143) |
-| May they touch a page at all | daemon resolves `{domains, tier}`; the shell re-checks both | `internal/browser/policy.go`, `internal/browser/domains.go`; `desktop-shell/src/origins.rs`, `cdppolicy.rs` (ADR-0128) |
-| Which tab a command runs in | the explicit agent↔tab binding | `internal/browser/hub.go` + the pane's binding (ADR-0135) — never "the active tab" |
+| May they drive their own split | the binding is the consent: an identified caller is act on any http(s) URL in that tab; closing the split revokes | `internal/browser/session.go` (ADR-0172). A caller with no identity stays read-only on the tab on screen (ADR-0134). Raw CDP still needs the full tier and Developer mode (ADR-0144) |
+| Which tab a command runs in | the split bound to that principal, opened by the agent if it is missing | `web/browser/src/lib/sessionBrowser.js` + the pane's binding (ADR-0135, ADR-0172) — never another tab |
 | Which actions exist | the closed verb catalog, mirrored | `internal/browser/verbs.go` ↔ the shell's catalog; raw CDP needs the machine's developer mode **and** the full tier, and every call is audited (ADR-0144) |
 | Site permissions (camera, mic, …) | the shell's policy map, tri-state per site × kind | `desktop-shell/src/permissions.rs`; the store logs the decision and holds standings |
 | May an agent read history | the daemon, only when the human turned it on | ADR-0146 (`historyAccess`) |

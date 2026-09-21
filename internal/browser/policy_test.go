@@ -128,16 +128,16 @@ func TestVerbsAreClosedAndCaseInsensitive(t *testing.T) {
 			t.Fatalf("%q is not a verb", name)
 		}
 	}
-	for _, name := range []string{"", "Runtime.evaluate", "Page.navigate", "full", "click"} {
+	for _, name := range []string{"", "Runtime.evaluate", "Page.navigate", "full", "poke"} {
 		if _, ok := VerbFor(name); ok {
 			t.Fatalf("%q should not be a verb", name)
 		}
 	}
-	// The read verbs are the ones an un-granted agent keeps (ADR-0134); act is
-	// reached only through a grant, and full is the raw door (ADR-0144). A new
-	// verb has to be added here on purpose — that is what this test is for.
-	// `history` is read-tier because it drives nothing, and it has its own gate
-	// on top (ADR-0146).
+	// Read verbs stay read. Session drive verbs (ADR-0172) are act and do
+	// not need a stored grant — the handler raises the policy. full is the
+	// raw door (ADR-0144). A new verb has to be added here on purpose.
+	// `history` is read-tier because it drives nothing, and it has its own
+	// gate on top (ADR-0146).
 	read := map[string]bool{"snapshot": true, "screenshot": true, "events": true, "history": true}
 	full := map[string]bool{"cdp": true}
 	for name, v := range Verbs() {

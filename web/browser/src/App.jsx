@@ -4,6 +4,7 @@ import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
+import { sessionHostTab } from "./lib/sessionBrowser.js";
 import { enabledKeys } from "./lib/computerChannel.js";
 import { matchAction } from "./lib/appKeys.js";
 import { isReloadKey, desktopReloadAction } from "./lib/desktopReload.js";
@@ -1755,6 +1756,7 @@ export default function App({ shellChrome = false } = {}) {
   const splitUrlsRef = useRef(split0.urls);
   const agentPanesRef = useRef(agentPanes);
   agentPanesRef.current = agentPanes;
+  const ensureSessionRef = useRef(null);
   useEffect(() => {
     writeAgentSplits({ panes: agentPanes, ratios: paneRatios, max: paneMax });
   }, [agentPanes, paneRatios, paneMax]);
@@ -1772,18 +1774,47 @@ export default function App({ shellChrome = false } = {}) {
     if (url) window.__TAURI__?.core.invoke("btab_navigate", { id, url }).catch(() => {});
   }, [bootstrapped, selectedId, agentPanes]);
   function openAgentSplit(agentId) {
-    if (!agentId || agentPanesRef.current[agentId]) return;
+    if (!agentId) return "";
+    const existing = agentPanesRef.current[agentId];
+    if (existing) return existing;
     webSeqRef.current += 1;
     const id = String(webSeqRef.current);
+    agentPanesRef.current = { ...agentPanesRef.current, [agentId]: id };
     setWebTabs((m) => ({ ...m, [id]: { url: "", title: "" } }));
     setAgentPanes((p) => ({ ...p, [agentId]: id }));
+    return id;
   }
+  // ADR-0172: a session drive opens the split beside that principal's tab
+  // and selects it, so the human sees the page the agent is driving.
+  function ensureSession(cmd) {
+    const agents = fleetAgents({ freeAgents: freeAgentsRef.current, workspaces: workspacesRef.current });
+    const ag = agents.find((a) => a && a.id === cmd?.agent);
+    const host = sessionHostTab({
+      agentId: cmd?.agent || "",
+      termId: cmd?.term || "",
+      openTabs: tabsRef.current,
+      agentTerminalId: ag?.terminalId || "",
+    });
+    if (!host) return { error: "this caller has no session tab to bind a browser to" };
+    if (!tabsRef.current.includes(host)) {
+      if (isTermTab(host)) openTermTab(tabTermId(host));
+      else openTab(host);
+    } else if (selectedRef.current !== host) {
+      setSelectedId(host);
+    }
+    const id = openAgentSplit(host);
+    return id ? { id } : { error: "could not open the browser beside this session" };
+  }
+  ensureSessionRef.current = ensureSession;
   function closeAgentSplit(key) {
     const wid = agentPanesRef.current[key];
     if (wid) {
       window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
       setPermissionAsks((cur) => cur.filter((a) => a.tab !== wid));
     }
+    const next = { ...agentPanesRef.current };
+    delete next[key];
+    agentPanesRef.current = next;
     setAgentPanes(({ [key]: _gone, ...rest }) => rest);
   }
   function openWebTab(url) {
@@ -1961,7 +1992,10 @@ export default function App({ shellChrome = false } = {}) {
   selectedTabRef.current = selectedId;
   useEffect(() => {
     if (!shellChrome) return undefined;
-    return openBrowserChannel(() => boundWorkTab(selectedTabRef.current, agentPanesRef.current));
+    return openBrowserChannel(
+      () => boundWorkTab(selectedTabRef.current, agentPanesRef.current),
+      (cmd) => ensureSessionRef.current?.(cmd),
+    );
   }, [shellChrome]);
   useEffect(() => {
     if (!shellChrome || !window.__TAURI__) return undefined;

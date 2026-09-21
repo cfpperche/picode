@@ -60,9 +60,15 @@ type Command struct {
 	// unknown method at once instead of hanging the call.
 	Kind string `json:"kind,omitempty"`
 	// Principal is the grant key (ADR-0143) the daemon resolved for the
-	// caller, carried so the shell can keep per-principal state (the last
-	// image it returned) without a second identity of its own.
+	// caller. A session drive (ADR-0172) also carries Agent and Term so the
+	// page can open the split beside that session, not beside whatever tab
+	// happens to be selected.
 	Principal string `json:"principal,omitempty"`
+	Agent     string `json:"agent,omitempty"`
+	Term      string `json:"term,omitempty"`
+	// Session marks a drive of the caller's own split. The page opens that
+	// split if it is missing and never falls through to another tab.
+	Session bool `json:"session,omitempty"`
 	// Timeout overrides the hub's wait for this one command; zero means the
 	// hub's own. It never travels: the shell has its own clocks.
 	Timeout time.Duration `json:"-"`

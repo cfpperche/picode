@@ -18,7 +18,7 @@ is asking, and whether you switched them on.
 | Family | Tool | What it does |
 |---|---|---|
 | Computer | `computer` | The Windows desktop through the desktop app: screenshot, windows, click, type, clipboard, open. Same twenty-three actions as [Computer use for pi](/guide/computer-tool). |
-| Browser | `browser` | The page open in PiCode's work browser: snapshot, screenshot, events; acting needs a grant. Same verbs as [Browser tools for pi](/guide/browser-tool). |
+| Browser | `browser` | The browser beside the agent's session: open, navigate, click, type. Not a headless browser. Same verbs as [Browser tools for pi](/guide/browser-tool). |
 | Inbox | `notify_human`, `ask_human` | A note into your [Inbox](/guide/inbox-tools), or a question. Over MCP `ask_human` waits for your answer in the Inbox — hours if needed, reporting progress to the CLI so the call stays alive — and returns it to the agent. |
 | Checklist | `checklist` | The agent's plan for the task; the current step shows on the terminal's card, as it does for pi ([Checklist](/guide/checklist)). The gate pi enforces before a change does not exist over MCP; the plan is the agent's discipline. |
 
