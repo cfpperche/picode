@@ -50,6 +50,29 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, []string{"delivery.changed"}},
+		{"SetDeliveryObserver/bind", func(s *Store) {
+			w, err := s.AddWorkspace("App", proj)
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.OnEvent = recorder(s)
+			if err := s.SetDeliveryObserver(w.ID, proj, "picode-self"); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.observer.changed"}},
+		{"SetDeliveryObserver/none", func(s *Store) {
+			w, err := s.AddWorkspace("App", proj)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.SetDeliveryObserver(w.ID, proj, "picode-self"); err != nil {
+				t.Fatal(err)
+			}
+			s.OnEvent = recorder(s)
+			if err := s.SetDeliveryObserver(w.ID, proj, "none"); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.observer.changed"}},
 		{"EnsureAgentTerminal", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "pi", "")
 			s.OnEvent = recorder(s)

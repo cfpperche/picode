@@ -5,6 +5,18 @@ export function deliveryURL(owner, root = "", target = "") {
   const q = new URLSearchParams(); if(root) q.set("root",root); if(target) q.set("target",target);
   return ownerBase(owner)+encodeURIComponent(owner.id)+"/delivery?"+q;
 }
+
+// D2 (ADR-0170): the environment selector's only write — connect the owner's
+// project to the local PiCode instance, or disconnect it. The server resolves
+// the workspace and the repository key; the client never sends a path or a
+// command.
+export async function setDeliveryObserver(owner, observer, write = api) {
+  return write(ownerBase(owner) + encodeURIComponent(owner.id) + "/delivery/observer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ observer }),
+  });
+}
 // ADR-0170: Git commits and producer files do not reliably emit feed events.
 // Only a visible Delivery pane runs this 15s reconciliation loop.
 export function observeDelivery({ url, onChange, read = api, subscribe = subscribeFeed, doc = document, win = window }) {
@@ -31,7 +43,7 @@ export function observeDelivery({ url, onChange, read = api, subscribe = subscri
   const visible=()=>{if(!doc.hidden)refresh();};
   const off=subscribe(ev=>{
     if(ev.type==="feed.down"){emit({offline:true});return;}
-    if(["feed.open","feed.reset","git.updated","delivery.changed","agent.updated","workspace.updated"].includes(ev.type))refresh();
+    if(["feed.open","feed.reset","git.updated","delivery.changed","delivery.observer.changed","agent.updated","workspace.updated"].includes(ev.type))refresh();
   });
   const timer=win.setInterval(()=>{emit({});refresh();},15000);
   doc.addEventListener("visibilitychange",visible);win.addEventListener("focus",visible);
