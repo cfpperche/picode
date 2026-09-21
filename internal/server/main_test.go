@@ -34,6 +34,13 @@ func TestMain(m *testing.M) {
 	os.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	os.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
 	os.Setenv("PICODE_TEST_HOME", home)
+	// The vault follows PICODE_DATA before HOME (internal/credentials
+	// defaultDir) and the agent runtime hands it to every PiCode terminal
+	// (internal/rpc/runtime.go). A gate run from one therefore resolved the
+	// live vault: 30 test fixtures landed in the owner's real vault on
+	// 2026-09-21. Same class as the 2026-09-16 HOME leak below, one variable
+	// further along — so it gets the same sandbox and its own guardrail.
+	os.Setenv("PICODE_DATA", filepath.Join(home, ".picode"))
 	os.Exit(tmuxtest.Main(m))
 }
 
@@ -55,6 +62,16 @@ func TestSuiteIsHomeIsolated(t *testing.T) {
 	// this must stay a temp dir or owner configs get polluted again.
 	if !strings.HasPrefix(home, os.TempDir()) {
 		t.Fatalf("UserHomeDir = %s — outside the temp sandbox; keep the TestMain HOME sandbox", home)
+	}
+}
+
+func TestSuiteIsVaultIsolated(t *testing.T) {
+	dir := os.Getenv("PICODE_DATA")
+	if dir == "" {
+		t.Fatal("PICODE_DATA is unset — the suite would resolve the live vault; keep the TestMain sandbox")
+	}
+	if !strings.HasPrefix(dir, os.TempDir()) {
+		t.Fatalf("PICODE_DATA = %s — outside the temp sandbox; keep the TestMain sandbox", dir)
 	}
 }
 

@@ -12,6 +12,15 @@
 # it a test-cache input — with it set, every PiCode terminal had its own cold
 # cache for the same tree.
 #
+# PICODE_DATA is unset for the same reason it matters more: the agent runtime
+# hands every PiCode terminal `PICODE_DATA=<the live data dir>`
+# (internal/rpc/runtime.go), and the credentials store resolves its vault there
+# before it looks at HOME. A gate run from inside PiCode therefore wrote test
+# fixtures into the owner's real vault — 30 rows across 15 providers on
+# 2026-09-21, found by the owner as "what are all these accounts?". The
+# harnesses pin it too (internal/server/cleanup_test.go); this is the layer
+# that covers packages nobody has thought about yet.
+#
 # -trimpath keeps the build id independent of the tree's absolute path. Without it the same package in two worktrees is two different test
 # binaries and the second run misses the shared cache; measured at 10.4 s per
 # package, repeated for every package a session touched.
@@ -31,18 +40,18 @@ trap 'rm -rf "$tmp"' EXIT
 status=0
 
 if [ -n "$rest" ]; then
-  ( env -u PICODE_TERM_ID go test -trimpath $rest > "$tmp/rest.log" 2>&1; echo $? > "$tmp/rest.rc" ) &
+  ( env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath $rest > "$tmp/rest.log" 2>&1; echo $? > "$tmp/rest.rc" ) &
 fi
 
 if [ -n "$heavy" ]; then
-  names=$(env -u PICODE_TERM_ID go test -trimpath -list '.*' "$heavy" 2>/dev/null | grep -vE '^(ok|\?|FAIL)' || true)
+  names=$(env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath -list '.*' "$heavy" 2>/dev/null | grep -vE '^(ok|\?|FAIL)' || true)
   if [ -z "$names" ] || [ "$SHARDS" -le 1 ]; then
     SHARDS=1
-    ( env -u PICODE_TERM_ID go test -trimpath "$heavy" > "$tmp/shard0.log" 2>&1; echo $? > "$tmp/shard0.rc" ) &
+    ( env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath "$heavy" > "$tmp/shard0.log" 2>&1; echo $? > "$tmp/shard0.rc" ) &
   else
     for i in $(seq 0 $((SHARDS - 1))); do
       rx="^($(printf '%s\n' $names | awk -v i="$i" -v n="$SHARDS" 'NR % n == i' | paste -sd'|'))$"
-      ( env -u PICODE_TERM_ID go test -trimpath -run "$rx" "$heavy" > "$tmp/shard$i.log" 2>&1; echo $? > "$tmp/shard$i.rc" ) &
+      ( env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath -run "$rx" "$heavy" > "$tmp/shard$i.log" 2>&1; echo $? > "$tmp/shard$i.rc" ) &
     done
   fi
 fi

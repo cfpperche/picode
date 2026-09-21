@@ -29,6 +29,12 @@ func cleanupServer(t *testing.T) (ts *httptest.Server, dataDir, home string) {
 	}
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
+	// The vault follows PICODE_DATA before HOME (internal/credentials
+	// defaultDir); the agent runtime exports it to every PiCode terminal, so a
+	// bare `go test` from one wrote fixtures into the real vault on
+	// 2026-09-21. Pinned here, this package cannot reach it whatever the
+	// ambient environment says.
+	t.Setenv("PICODE_DATA", dataDir)
 	t.Setenv("XDG_DATA_HOME", "")
 	// Muse resolves its settings via XDG_CONFIG_HOME first: without this,
 	// every cleanupServer test shares the process XDG dir and one's hook
