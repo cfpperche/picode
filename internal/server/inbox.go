@@ -130,11 +130,13 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 				// source has no delivery channel at all (a guest CLI with
 				// neither agent nor terminal identity) is answered by
 				// recording the response on the item — the same rule the
-				// terminal branch above applies to a non-pi terminal —
-				// because `picode inbox ask --wait` and ask_human poll the
-				// item for it. The refusal predates the polling askers: it
-				// left the item open forever with the asker hanging on a
-				// poll that could never end.
+				// terminal branch above applies to a non-pi terminal — so a
+				// polling asker (`picode inbox ask --wait`) can read it and
+				// the human's Reply always closes the item. The refusal
+				// predates the polling askers: it left the item open forever
+				// with the asker hanging on a poll that could never end. The
+				// appended note names who still must be told another way,
+				// because a plain ask and an unmanaged pi do not poll.
 				if done, rerr := deps.Store.RespondInboxItem(id, req.Verb, req.Text); rerr == nil {
 					_ = deps.Store.AnnotateInboxItem(id, apps.InboxAnswerRecordedNote)
 					writeJSON(w, http.StatusOK, done)

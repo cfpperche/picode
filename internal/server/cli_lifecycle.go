@@ -84,7 +84,13 @@ func registerCLILifecycleRoutes(mux Registrar, deps Deps) {
 			writeErr(w, 500, err.Error())
 			return
 		}
-		writeJSON(w, 200, map[string]any{"jobs": jobs})
+		// A package job carries the command it ran, so a refusal that only a
+		// person in a terminal can answer comes with the line to run (ADR-0167).
+		views := make([]cliJobView, 0, len(jobs))
+		for _, j := range jobs {
+			views = append(views, cliJobViewOf(j))
+		}
+		writeJSON(w, 200, map[string]any{"jobs": views})
 	})
 }
 

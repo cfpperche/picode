@@ -669,3 +669,35 @@ func TestMuseRefusesAnUnknownEnvelope(t *testing.T) {
 		t.Fatal("a shape PiCode does not recognize must be refused")
 	}
 }
+
+// TestOmpDiscoverProse pins the one catalog Omp prints (measured 2026-09-21
+// with two marketplaces configured and one plugin installed): a name@version
+// row with its description indented under it, `--json` ignored, and no word
+// about which source provides the plugin.
+func TestOmpDiscoverProse(t *testing.T) {
+	rows, note, err := parseOmpDiscover(fixture(t, "omp.discover.txt"))
+	if err != nil {
+		t.Fatalf("parseOmpDiscover: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %+v", rows)
+	}
+	first := rows[0]
+	if first.ID != "picode-spare" || first.Version != "0.2.0" || first.Description != "spare" {
+		t.Errorf("row = %+v, want the name@version pair and its description line", first)
+	}
+	if first.Installed || first.Source != "" || first.SourceKind != "marketplace" || first.Status != "available" {
+		t.Errorf("row = %+v, want an information row: not installed, no install spec, the vendor's status", first)
+	}
+	if !strings.Contains(note, "name@marketplace") {
+		t.Errorf("note = %q, want the install form the pane has to state", note)
+	}
+
+	empty, _, err := parseOmpDiscover("No plugins available\n")
+	if err != nil || len(empty) != 0 {
+		t.Fatalf("empty discover = %+v / %v", empty, err)
+	}
+	if _, _, err := parseOmpDiscover("penguins\n"); err == nil {
+		t.Fatal("a shape PiCode does not recognize must be refused")
+	}
+}

@@ -121,6 +121,9 @@ type Caps struct {
 	Inspect     bool `json:"inspect"`
 	Marketplace bool `json:"marketplace"`
 	Available   bool `json:"available"`
+	// CatalogInstall says whether a Marketplace row may carry an Install
+	// control: the vendor's catalog has to name the spec that command takes.
+	CatalogInstall bool `json:"catalogInstall"`
 }
 
 // Target is one plugin the caller names.
@@ -186,6 +189,14 @@ type spec struct {
 	// flag on its list command. It is a separate fact from `roster` because
 	// the flag, not the command, is what the Marketplace tab needs.
 	available bool
+	// catalogInstall is true when a catalog row carries an install spec the
+	// pane may send (Claude, Codex, Grok, Hermes, Muse: `<name>@<marketplace>`).
+	// Omp's catalog is a plain list — `omp plugin discover` prints a name and a
+	// version and never says which source provides it, while
+	// `omp plugin install <name>` without a marketplace resolves through npm
+	// (measured 2026-09-21: it 404s on the registry). The pane therefore shows
+	// Omp's catalog as information and leaves the install spec to the user.
+	catalogInstall bool
 	// catalogNeedsRoster marks a CLI whose marketplace rows do not say whether
 	// the plugin is installed (Muse: an installed plugin keeps reading
 	// `status: "available"`). Available() then joins the catalog with the CLI's
@@ -211,13 +222,14 @@ func (s *spec) scope(scope string) (Scope, error) {
 
 func (s *spec) caps() Caps {
 	return Caps{
-		Install:     s.argv[VerbInstall] != nil,
-		Remove:      s.argv[VerbRemove] != nil || s.writer != nil,
-		Toggle:      s.argv[VerbEnable] != nil || s.argv[VerbDisable] != nil || s.writer != nil,
-		Update:      s.argv[VerbUpdate] != nil,
-		Inspect:     s.argv[VerbInspect] != nil,
-		Marketplace: s.market["add"] != nil || s.market["remove"] != nil,
-		Available:   s.roster != nil && s.hasAvailable(),
+		Install:        s.argv[VerbInstall] != nil,
+		Remove:         s.argv[VerbRemove] != nil || s.writer != nil,
+		Toggle:         s.argv[VerbEnable] != nil || s.argv[VerbDisable] != nil || s.writer != nil,
+		Update:         s.argv[VerbUpdate] != nil,
+		Inspect:        s.argv[VerbInspect] != nil,
+		Marketplace:    s.market["add"] != nil || s.market["remove"] != nil,
+		Available:      s.roster != nil && s.hasAvailable(),
+		CatalogInstall: s.catalogInstall,
 	}
 }
 
@@ -318,6 +330,99 @@ func Argv(cli string, verb Verb, p Paths, t Target) (dir string, args []string, 
 		return "", nil, err
 	}
 	return build(p, t)
+}
+
+// Command renders the exact vendor command one verb would run, for the pane's
+// copy affordance when the CLI refuses and only a person in a terminal can
+// answer (ADR-0167: Grok's `--trust`, Claude's marketplace-declared command).
+// It is the same argv Run executes — one builder, so the pane can never print a
+// command PiCode would not run — with anything secret-shaped redacted: a
+// marketplace source may be a URL carrying a token, and a command shown in the
+// UI must not be a leak.
+func Command(cli string, verb Verb, p Paths, t Target) (string, error) {
+	dir, args, err := Argv(cli, verb, p, t)
+	if err != nil {
+		return "", err
+	}
+	return shellLine(dir, s0(cli), args), nil
+}
+
+// MarketCommand is Command for a marketplace-source action.
+func MarketCommand(cli, action string, p Paths, r MarketRequest) (string, error) {
+	dir, args, err := MarketArgv(cli, action, p, r)
+	if err != nil {
+		return "", err
+	}
+	return shellLine(dir, s0(cli), args), nil
+}
+
+func s0(cli string) string {
+	s := lookup(cli)
+	if s == nil {
+		return ""
+	}
+	return s.bin
+}
+
+// shellLine renders `<cd DIR> && <bin> <args…>` with every argument quoted, so
+// the copy button hands the user a line their shell runs as-is.
+func shellLine(dir, bin string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+	parts = append(parts, bin)
+	for _, a := range args {
+		parts = append(parts, shellQuote(redactArg(a)))
+	}
+	line := strings.Join(parts, " ")
+	if dir != "" {
+		line = "cd " + shellQuote(dir) + " && " + line
+	}
+	return line
+}
+
+func shellQuote(s string) string {
+	if s != "" && !strings.ContainsAny(s, " \t\n'\"$`\\&|;<>()*?[]#~!") {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// secretQueryKeys are the query names whose value is redacted from a command
+// before it reaches the UI.
+var secretQueryKeys = []string{"token", "key", "apikey", "api_key", "secret", "password", "access_token"}
+
+// redactArg hides credentials in an URL: userinfo (`scheme://user:pass@host`)
+// and a secret-bearing query value. Everything else passes through, so the
+// command stays copyable and correct.
+func redactArg(a string) string {
+	if !strings.Contains(a, "://") {
+		return a
+	}
+	rest := a[strings.Index(a, "://")+3:]
+	head := a[:strings.Index(a, "://")+3]
+	if at := strings.Index(rest, "@"); at >= 0 {
+		cred := rest[:at]
+		if strings.Contains(cred, ":") || len(cred) > 0 {
+			cred = "***:***"
+		}
+		rest = cred + rest[at:]
+	}
+	if q := strings.Index(rest, "?"); q >= 0 {
+		base, query := rest[:q], rest[q+1:]
+		pairs := strings.Split(query, "&")
+		for i, pair := range pairs {
+			name := pair
+			if eq := strings.Index(pair, "="); eq >= 0 {
+				name = pair[:eq]
+			}
+			for _, key := range secretQueryKeys {
+				if strings.EqualFold(name, key) {
+					pairs[i] = name + "=***"
+				}
+			}
+		}
+		rest = base + "?" + strings.Join(pairs, "&")
+	}
+	return head + rest
 }
 
 // Bin returns the vendor binary a CLI's declaration names, for the job lane

@@ -1004,6 +1004,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .gpkg-scope .pkg-scope-label { display: inline-flex; align-items: center; }
 .gpkg-scope .pkg-scope { margin: 0; align-items: center; }
 .gpkg-install { margin-top: 10px; }
+.gpkg-problem { display: flex; flex-direction: column; gap: 4px; }
+.gpkg-cmd { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .gpkg-notes {
   list-style: none; margin: 10px 0 0; padding: 0;
   display: flex; flex-direction: column; gap: 4px;

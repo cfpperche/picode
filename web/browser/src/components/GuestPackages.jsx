@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
-import { guestPackagesApi, guestPackagesNotes } from "@picode/shared/domain/cliPackages.js";
+import { guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { askConfirm } from "../lib/confirm.js";
+import { toast } from "../lib/toast.js";
 import PageFrame from "./PageFrame.jsx";
 
 // The plugins a guest CLI really has (ADR-0167). One pane for the eight CLIs
@@ -36,6 +37,36 @@ const acceptedJob = res => (res && !Array.isArray(res.rows) && res.cli && res.st
 const keyOf = row => String((row && (row.id || row.name || row.source)) || "");
 const newKey = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random());
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: body == null ? undefined : JSON.stringify(body) });
+
+// Problem is one failed action: the vendor's own words, and — when the fix is a
+// command only a person in a terminal can run — that exact line with a copy
+// button. The command is rendered server-side by the same builder that executed
+// it, so it is never a line PiCode would not run.
+function Problem({ entry }) {
+  if (!entry || !entry.message) return entry && entry.command ? <CommandLine command={entry.command} /> : null;
+  return (
+    <div className="gpkg-problem" role="alert">
+      <span className="gpkg-row-note is-error">{entry.message}</span>
+      {entry.command ? <CommandLine command={entry.command} /> : null}
+    </div>
+  );
+}
+
+function CommandLine({ command }) {
+  return (
+    <span className="gpkg-cmd">
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        title={command}
+        onClick={() => navigator.clipboard.writeText(command)
+          .then(() => toast.ok("Command copied."))
+          .catch(() => toast.error("Clipboard blocked — copy it by hand."))}
+      >Copy command</button>
+      <span className="pkg-fine">Run it in a terminal.</span>
+    </span>
+  );
+}
 
 export default function GuestPackages({ hidden, route, onScopeChange = () => {} }) {
   const cli = route.id;
@@ -183,8 +214,12 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
   }
 
   function fail(key, ex) {
-    if (key) setRowError(prev => ({ ...prev, [key]: ex.message }));
-    else setSourceProblem(ex.message);
+    // A refusal may carry the command that fixes it (Grok's --trust, a
+    // marketplace-declared command): keep it beside the vendor's words so the
+    // row offers the line to run instead of a dead end.
+    const entry = refusalCommand(ex);
+    if (key) setRowError(prev => ({ ...prev, [key]: entry }));
+    else setSourceProblem(entry);
   }
 
   async function install(value, row) {
@@ -192,7 +227,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
     if (!target || guard || needsWorkspace) return;
     const id = row ? keyOf(row) : "";
     setBusy({ verb: "install", id, label: "Installing…" });
-    if (id) setRowError(prev => ({ ...prev, [id]: "" })); else setSourceProblem("");
+    if (id) setRowError(prev => ({ ...prev, [id]: null })); else setSourceProblem(null);
     try {
       const res = await send(build => paths.install({ ...build, source: target }), { requestKey: newKey() });
       const started = acceptedJob(res);
@@ -280,7 +315,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
     const value = addSource.source.trim();
     if (!value) return;
     setBusy({ verb: "source", id: "", label: "Adding…" });
-    setSourceProblem("");
+    setSourceProblem(null);
     try {
       const res = await send(build => paths.marketplace("add", { ...build, name, source: value }), { requestKey: newKey() });
       const started = acceptedJob(res);
@@ -305,7 +340,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
       if (!ok) return;
     }
     setBusy({ verb: "source:" + action, id: name, label: action === "remove" ? "Removing…" : "Updating…" });
-    setSourceProblem("");
+    setSourceProblem(null);
     try {
       const res = await send(build => paths.marketplace(action, { ...build, name }), action === "remove" ? {} : { requestKey: newKey() });
       const started = acceptedJob(res);
@@ -400,6 +435,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                 <span>{(JOB_ACTION[job.action] || job.action) + " · " + cliName}</span>
               </div>
               {job.message ? <p>{job.message}</p> : null}
+              {job.command && JOB_ENDED.includes(job.state) && job.state !== "succeeded" ? <Problem entry={{ message: "", command: job.command }} /> : null}
               {job.output ? <details className="cli-job-log"><summary>Output</summary><pre>{job.output}</pre></details> : null}
               {job.state === "interrupted" ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setJob(null); load({ refresh: true }); }}>Check result</button> : null}
               {JOB_ENDED.includes(job.state) && job.state !== "interrupted" ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => setJob(null)}>Dismiss</button> : null}
@@ -420,7 +456,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
               <button type="submit" className="btn btn-primary btn-sm" disabled={guard || !source.trim()}>{busy && busy.verb === "install" && !busy.id ? "Installing…" : "Install"}</button>
             </form>
           ) : null}
-          {sourceProblem ? <p className="gpkg-row-note is-error" role="alert">{sourceProblem}</p> : null}
+          <Problem entry={sourceProblem} />
           <p className="pkg-fine">Plugins run with full access. Only install what you review.</p>
 
           {/* The blank cells of the capability table, in the vendor's words: one
@@ -491,7 +527,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                       </div>
                       {row.source ? <p className="gpkg-row-src" title={row.source}>{row.source}</p> : null}
                       {row.note ? <p className="gpkg-row-note" title={row.note}>{row.note}</p> : null}
-                      {rowError[keyOf(row)] ? <p className="gpkg-row-note is-error" role="alert">{rowError[keyOf(row)]}</p> : null}
+                      <Problem entry={rowError[keyOf(row)]} />
                     </li>
                   ))}
                 </ul>
@@ -538,7 +574,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                   ))}
                 </ul>
               ) : null}
-              {sourceProblem ? <p className="gpkg-row-note is-error" role="alert">{sourceProblem}</p> : null}
+              <Problem entry={sourceProblem} />
 
               <section className="pkg-toolbar" data-align-row>
                 <input
@@ -587,7 +623,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                         <span className="pkg-foot-spacer" />
                         {row.installed ? (
                           <span className="gpkg-status is-on">Installed</span>
-                        ) : caps.install && row.source ? (
+                        ) : catalogRowAction(caps, row) === "install" ? (
                           <button type="button" className="btn btn-primary btn-sm" disabled={guard} onClick={() => install(row.source, row)}>
                             {verbFor(row) === "install" ? busy.label : "Install"}
                           </button>
@@ -595,7 +631,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                       </div>
                       {row.description ? <p className="gpkg-row-desc">{row.description}</p> : null}
                       {row.source ? <p className="gpkg-row-src" title={row.source}>{row.source}</p> : null}
-                      {rowError[keyOf(row)] ? <p className="gpkg-row-note is-error" role="alert">{rowError[keyOf(row)]}</p> : null}
+                      <Problem entry={rowError[keyOf(row)]} />
                     </li>
                   ))}
                 </ul>

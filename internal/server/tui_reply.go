@@ -482,15 +482,89 @@ func (deps Deps) deliverViaReceiver(agentID, sessionPath string, task store.Task
 	}
 }
 
+// errPayloadStaged reports a paste the terminal kept in its composer: the
+// Enter raced the render, and one retry did not move it. Callers answer 502
+// with reason "staged" so the UI keeps the bar open instead of clearing a
+// message that never sent.
+var errPayloadStaged = errors.New("the message is still sitting in the terminal's composer — press Enter in the terminal, or send again")
+
+// tuiReaderFor maps a launcher CLI to the TUI whose composer it renders,
+// for the submit check below. omp is a Pi fork with the same composer
+// layout (cli_plan.go). Launchers without a reader keep today's blind
+// paste: nothing here can classify them.
+func tuiReaderFor(cli string) string {
+	if cli == "omp" {
+		return "pi"
+	}
+	return cli
+}
+
+// verifyTUISubmit polls the live pane until the composer reads empty
+// (submitted) or the window expires, with one Enter retry against the live
+// pane. Unknown layouts proceed blind — the pre-verify behaviour — because
+// refusing every unclassifiable pane repeats the Fatia F lesson. A retry
+// that lands after a slow self-submit hits an empty composer, which TUIs
+// no-op.
+func (deps Deps) verifyTUISubmit(ctx context.Context, agentID, session string) bool {
+	cli := ""
+	if deps.Store != nil {
+		if a, err := deps.Store.GetAgent(agentID); err == nil {
+			cli = tuiReaderFor(a.CLI)
+		}
+	}
+	empty := func() bool {
+		snap, err := deps.Tmux.InputSnapshot(ctx, session)
+		if err != nil {
+			return false
+		}
+		state, known := peerComposerState(cli, snap)
+		return known && state == "empty"
+	}
+	wait := func() bool {
+		deadline := time.Now().Add(peerPasteSettleWindow)
+		for {
+			if empty() {
+				return true
+			}
+			if time.Now().After(deadline) {
+				return false
+			}
+			select {
+			case <-ctx.Done():
+				return false
+			case <-time.After(peerPasteSettleInterval):
+			}
+		}
+	}
+	if snap, err := deps.Tmux.InputSnapshot(ctx, session); err == nil {
+		if state, known := peerComposerState(cli, snap); !known || state == "empty" {
+			return true
+		}
+	}
+	if wait() {
+		return true
+	}
+	// One retry against the live pane: the first Enter raced the render.
+	if snap, err := deps.Tmux.InputSnapshot(ctx, session); err == nil {
+		_ = deps.Tmux.SubmitPane(ctx, snap.PaneID)
+	}
+	return wait()
+}
+
 // deliverViaPaste types the reply into the pane for legacy TUIs without a
 // receiver: bracketed paste (the editor inserts it wholesale, no keybindings
-// fire) plus Enter. pi queues the submit natively while a turn is streaming.
-// Tradeoffs the owner accepted: the paste can land in an open draft, and the
-// pane's current session cannot be verified — the JSONL row proof still
-// gates whether the item stays done.
+// fire) plus a verified Enter — the pane is polled until the composer reads
+// empty, with one retry, before this reports success. pi queues the submit
+// natively while a turn is streaming. Tradeoffs the owner accepted: the
+// paste can land in an open draft, and the pane's current session cannot be
+// verified — the JSONL row proof still gates whether the item stays done.
 func (deps Deps) deliverViaPaste(ctx context.Context, agentID, sessionPath string, task store.Task, baseline rpc.DeliveryBaseline, settle deliverySettle) error {
-	if err := deps.Tmux.PasteText(ctx, deps.agentSession(agentID), task.Payload); err != nil {
+	session := deps.agentSession(agentID)
+	if err := deps.Tmux.PasteText(ctx, session, task.Payload); err != nil {
 		return err
+	}
+	if !deps.verifyTUISubmit(ctx, agentID, session) {
+		return errPayloadStaged
 	}
 	if settle.rowWait <= 0 {
 		// No session file to read: the paste is the proof there is.
