@@ -81,14 +81,12 @@ try {
     checks.push(a.cli + ": reconnect retained xterm");
   }
   const pi = agents.find(a => a.cli === "pi");
-  route("#/agent/" + pi.id + "?view=terminal");
-  wait("document.querySelector('[aria-label=\"Chat\"]')");
-  ab("check", "[aria-label='Chat']");
+  route("#/agent/" + pi.id + "?view=chat");
   wait("document.querySelector('.m-chat')");
-  assert.equal(ev("location.hash.endsWith('view=chat')"), true);
-  ab("check", "[aria-label='Terminal']");
+  assert.equal(ev("location.hash.includes('view=chat')"), true);
+  route("#/agent/" + pi.id + "?view=terminal");
   wait("document.querySelector('.xterm-screen')");
-  checks.push("Pi Chat/Terminal switch uses icon labels and respects explicit chat");
+  checks.push("Pi agent hash view=chat/terminal still switches surfaces");
   // Small screen and keyboard accessory.
   ab("set", "viewport", "320", "700");
   ev("(()=>{const original=window.matchMedia.bind(window);window.matchMedia=q=>q==='(hover: hover) and (pointer: fine)'?{matches:false}:original(q);return true})()");

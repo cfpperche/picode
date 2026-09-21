@@ -19,7 +19,7 @@ import "../styles/mobile-tools.css";
 // open and close with the phone keyboard (ADR-0044). Attach does not
 // focus xterm; a tap on the pane or the header icon does.
 
-export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFiles, onOpenGit, onOpenInspector, owner, title, viewControl, onStop }) {
+export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFiles, onOpenGit, onOpenInspector, owner, title, onStop }) {
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
   const [attach, setAttach] = useState(false);
@@ -57,7 +57,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFil
   if (!term) {
     return (
       <div className="m-screen">
-        <ScreenHeader title={title || "Terminal"} onBack={onBack} right={<>{viewControl}{onOpenInspector ? <button type="button" className="btn btn-sm" aria-label="Inspector" title="Inspector" aria-haspopup="dialog" onClick={() => onOpenInspector?.()}><IconPanelRight size={16} /></button> : null}{onStop ? <button type="button" className="btn btn-sm" disabled={busy} onClick={onStop}>Stop agent</button> : null}</>} />
+        <ScreenHeader title={title || "Terminal"} onBack={onBack} right={<>{onOpenInspector ? <button type="button" className="btn btn-sm" aria-label="Inspector" title="Inspector" aria-haspopup="dialog" onClick={() => onOpenInspector?.()}><IconPanelRight size={16} /></button> : null}{onStop ? <button type="button" className="btn btn-sm" disabled={busy} onClick={onStop}>Stop agent</button> : null}</>} />
         <div className="m-tool-state"><p>Terminal unavailable.</p><button type="button" className="btn btn-sm" onClick={() => location.reload()}>Reload</button></div>
       </div>
     );
@@ -73,7 +73,6 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFil
         onBack={onBack}
         right={(
           <div className="m-tool-toolbar" data-align-row>
-            {viewControl}
             {onOpenInspector ? (
               <button type="button" className="m-tool-icon" title="Inspector" aria-label="Inspector" aria-haspopup="dialog" onClick={() => onOpenInspector?.()}>
                 <IconPanelRight size={16} />

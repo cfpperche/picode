@@ -27,7 +27,6 @@ import DashboardView from "./components/DashboardView.jsx";
 import SessionBar from "./components/SessionBar.jsx";
 import ChatSurface from "./components/ChatSurface.jsx";
 import TermSurface from "./components/TermSurface.jsx";
-import AgentViewToolbar from "./components/AgentViewToolbar.jsx";
 import { initialAgentView } from "@picode/shared/domain/agentTerminal.js";
 import { readChatWanted, writeChatWanted } from "./lib/openTabs.js";
 import FileSurface from "./components/FileSurface.jsx";
@@ -3289,12 +3288,6 @@ export default function App({ shellChrome = false } = {}) {
     if (!interactive) openInteractive(selectedId);
   }
 
-  function showChat() {
-    if (!selectedId) return;
-    setChatWanted(s => new Set(s).add(selectedId));
-    setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
-  }
-
   async function openTree(mode) {
     if (!agent) { toast.info("Select an agent first."); return; }
     setTreeMode(mode || "tree");
@@ -3432,10 +3425,8 @@ export default function App({ shellChrome = false } = {}) {
     onClose={closeTab}
     onReorder={(from, to) => setTabs((t) => moveTab(t, from, to))}
     keepVisible={focus.on}
-    endSlot={(
+    endSlot={!narrow ? (
       <>
-        <AgentViewToolbar agent={agent} view={termView ? "terminal" : "chat"} onView={(next) => next === "terminal" ? showTerm() : showChat()} />
-        {!narrow ? <>
         <button type="button" className="insp-toggle" aria-label="New browser tab" title="New browser tab" onClick={() => openWebTab("")}>
           <IconGlobe />
         </button>
@@ -3445,9 +3436,8 @@ export default function App({ shellChrome = false } = {}) {
           onToggle={toggleInspector}
         />
         {focus.on ? <FocusLeave onLeave={focus.leave} /> : null}
-        </> : null}
       </>
-    )}
+    ) : null}
   />
   );
 
