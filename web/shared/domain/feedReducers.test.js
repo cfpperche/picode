@@ -15,18 +15,18 @@ const ag = (id, workspaceId, extra = {}) => ({ id, workspaceId, name: id, lastSt
 test("fleet: workspaces and agents are added, updated and removed in place", () => {
   let s = { workspaces: [ws("b")], freeAgents: [], terminals: [] };
   s = applyFleet(s, { type: "workspace.added", data: { id: "a", name: "a", path: "/a" } });
-  assert.deepEqual(s.workspaces.map((w) => w.id), ["a", "b"]);
+  assert.deepEqual(s.workspaces.map((w) => w.id), ["b", "a"], "a new workspace appends");
   s = applyFleet(s, { type: "agent.added", data: { id: "x", workspaceId: "a", name: "x" } });
-  assert.equal(s.workspaces[0].agents[0].mode, "stopped");
+  assert.equal(s.workspaces.find((w) => w.id === "a").agents[0].mode, "stopped");
   s = applyFleet(s, { type: "agent.added", data: { id: "f", workspaceId: "ws_free", name: "f" } });
   assert.equal(s.freeAgents.length, 1);
   s = applyFleet(s, { type: "agent.updated", data: { id: "x", workspaceId: "a", name: "renamed", model: "m" } });
-  assert.equal(s.workspaces[0].agents[0].name, "renamed");
-  assert.equal(s.workspaces[0].agents[0].mode, "stopped", "view fields survive a patch");
+  assert.equal(s.workspaces.find((w) => w.id === "a").agents[0].name, "renamed");
+  assert.equal(s.workspaces.find((w) => w.id === "a").agents[0].mode, "stopped", "view fields survive a patch");
   assert.equal(applyFleet(s, { type: "agent.updated", data: { id: "nope", workspaceId: "a" } }), null, "unknown agent → refetch");
   assert.equal(applyFleet(s, { type: "agent.added", data: { id: "y", workspaceId: "missing" } }), null, "unknown workspace → refetch");
   s = applyFleet(s, { type: "agent.deleted", data: { id: "x" } });
-  assert.equal(s.workspaces[0].agents.length, 0);
+  assert.equal(s.workspaces.find((w) => w.id === "a").agents.length, 0);
   s = applyFleet(s, { type: "workspace.deleted", data: { id: "a" } });
   assert.deepEqual(s.workspaces.map((w) => w.id), ["b"]);
   assert.equal(applyFleet(s, { type: "pin.created", data: {} }), s, "unrelated events leave state untouched");
@@ -74,6 +74,28 @@ test("fleet: terminals", () => {
   assert.equal(applyFleet(s, { type: "terminal.updated", data: { id: "zz" } }), null);
   s = applyFleet(s, { type: "terminal.deleted", data: { id: "t1" } });
   assert.equal(s.terminals.length, 0);
+});
+
+test("fleet: reorder applies a permutation and refetches on a mismatch", () => {
+  let s = {
+    workspaces: [ws("b", [ag("b1", "b"), ag("b2", "b")]), ws("a", [ag("a1", "a")])],
+    freeAgents: [ag("f1", "ws_free"), ag("f2", "ws_free")],
+    terminals: [
+      { id: "t1", workspaceId: "a" },
+      { id: "t2", workspaceId: "ws_free" },
+      { id: "t3", workspaceId: "a" },
+    ],
+  };
+  s = applyFleet(s, { type: "workspace.reordered", data: { ids: ["a", "b"] } });
+  assert.deepEqual(s.workspaces.map((w) => w.id), ["a", "b"]);
+  assert.equal(applyFleet(s, { type: "workspace.reordered", data: { ids: ["a"] } }), null);
+  s = applyFleet(s, { type: "agent.reordered", data: { workspaceId: "b", ids: ["b2", "b1"] } });
+  assert.deepEqual(s.workspaces.find((w) => w.id === "b").agents.map((a) => a.id), ["b2", "b1"]);
+  s = applyFleet(s, { type: "agent.reordered", data: { workspaceId: "ws_free", ids: ["f2", "f1"] } });
+  assert.deepEqual(s.freeAgents.map((a) => a.id), ["f2", "f1"]);
+  s = applyFleet(s, { type: "terminal.reordered", data: { workspaceId: "a", ids: ["t3", "t1"] } });
+  assert.deepEqual(s.terminals.map((t) => t.id), ["t3", "t2", "t1"]);
+  assert.equal(applyFleet(s, { type: "terminal.reordered", data: { ids: ["missing"] } }), null);
 });
 
 test("fleet: terminal.state (CLI, ADR-0056 tier 1)", () => {

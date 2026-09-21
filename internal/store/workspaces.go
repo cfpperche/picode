@@ -87,8 +87,8 @@ func (s *Store) AddWorkspace(name, path string) (Workspace, error) {
 	}
 
 	w := Workspace{ID: newID(name, "workspace"), Name: name, Path: abs, CreatedAt: nowUTC()}
-	if _, err := tx.Exec(`INSERT INTO workspaces (id, name, path, created_at) VALUES (?, ?, ?, ?)`,
-		w.ID, w.Name, w.Path, w.CreatedAt); err != nil {
+	if _, err := tx.Exec(`INSERT INTO workspaces (id, name, path, created_at, position) VALUES (?, ?, ?, ?, `+nextPositionExpr("workspaces", "id != ?")+`)`,
+		w.ID, w.Name, w.Path, w.CreatedAt, FreeWorkspaceID); err != nil {
 		return Workspace{}, fmt.Errorf("store: insert workspace: %w", err)
 	}
 	if err := s.AppendEventTx(tx, "workspace.added", nil, &w.ID, w); err != nil {
@@ -100,9 +100,10 @@ func (s *Store) AddWorkspace(name, path string) (Workspace, error) {
 	return w, nil
 }
 
-// ListWorkspaces returns all workspaces ordered by name.
+// ListWorkspaces returns every workspace except the free one, in sidebar
+// order (ADR-0173). New workspaces append; a reorder rewrites the positions.
 func (s *Store) ListWorkspaces() ([]Workspace, error) {
-	rows, err := s.db.Query(`SELECT id, name, path, created_at FROM workspaces WHERE id != ? ORDER BY name`, FreeWorkspaceID)
+	rows, err := s.db.Query(`SELECT id, name, path, created_at FROM workspaces WHERE id != ? ORDER BY position, id`, FreeWorkspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list workspaces: %w", err)
 	}

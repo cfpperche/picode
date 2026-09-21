@@ -9,9 +9,11 @@ import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
 import { wsLine } from "@picode/shared/domain/repoLine.js";
-import { freeTerminals, workspaceTerminals } from "../lib/termGroups.js";
+import { freeTerminals, workspaceTerminals, FREE_WS } from "../lib/termGroups.js";
+import { moveId, movePhrase } from "../lib/sidebarOrder.js";
 import ProviderFaces from "./ProviderFaces.jsx";
-import { AgentRow, RowMenu, RowMenuItem, TermRow } from "./WorkspaceRows.jsx";
+import { AgentRow, OrderMoves, RowMenu, RowMenuItem, TermRow } from "./WorkspaceRows.jsx";
+import { SortableList, SortableRow } from "./SortableRows.jsx";
 
 // Workspace cards wear the project's favicon when it has one (ADR-0027).
 // The list advertises whether one exists, so a normal workspace without an
@@ -46,6 +48,7 @@ export default function Sidebar({
   waitingId,
   checklists,
   terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onLaunchAction, onContinueTerm, clis, onSessions,
+  onReorder,
   onGitGraph,
   onFileTree,
   onOpenDashboard,
@@ -72,6 +75,7 @@ export default function Sidebar({
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
+  const [orderLive, setOrderLive] = useState("");
   const [openWs, setOpenWs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("picode-ws-open") || "{}"); }
     catch { return {}; }
@@ -112,11 +116,23 @@ export default function Sidebar({
     });
   }
 
-  function agentRow(ag, ws) {
+  function commitOrder(kind, workspaceId, before, next, id, label) {
+    if (next === before || !onReorder) return;
+    setOrderLive(movePhrase(before, next, id, label));
+    onReorder(kind, workspaceId, next);
+  }
+
+  function agentRow(ag, ws, ids, kind, workspaceId) {
     const selected = ag.terminalId && selectedId === "t:" + ag.terminalId ? ag.id : selectedId;
+    const i = ids.indexOf(ag.id);
+    const label = (id) => displayAgentName((ws ? agentsOf(ws) : sortedFreeAgents).find((a) => a.id === id) || ag, ws);
     return (
+      <SortableRow key={ag.id} id={ag.id}>
+      {(drag) => (
       <AgentRow
-        key={ag.id}
+        drag={drag}
+        onMoveUp={i > 0 ? () => commitOrder(kind, workspaceId, ids, moveId(ids, ag.id, -1), ag.id, label) : null}
+        onMoveDown={i >= 0 && i < ids.length - 1 ? () => commitOrder(kind, workspaceId, ids, moveId(ids, ag.id, 1), ag.id, label) : null}
         agent={ag} ws={ws}
         selectedId={selected} onSelect={(id) => {
           if (ag.terminalId && ag.cli && ag.cli !== "pi") onSelectTerm && onSelectTerm(ag.terminalId);
@@ -130,24 +146,41 @@ export default function Sidebar({
         onChat={onChat} onTerm={onTerm} termView={termView}
         clis={clis} terms={terminals} onLaunchAction={onLaunchAction} onContinueTerm={onContinueTerm}
       />
+      )}
+      </SortableRow>
     );
   }
 
-  function termRow(t) {
+  function termRow(t, ids, kind, workspaceId) {
+    const i = ids.indexOf(t.id);
+    const label = (id) => {
+      const found = (terminals || []).find((row) => row.id === id);
+      return (found && found.name) || "Terminal";
+    };
     return (
+      <SortableRow key={t.id} id={t.id}>
+      {(drag) => (
       <TermRow
-        key={t.id}
+        drag={drag}
+        onMoveUp={i > 0 ? () => commitOrder(kind, workspaceId, ids, moveId(ids, t.id, -1), t.id, label) : null}
+        onMoveDown={i >= 0 && i < ids.length - 1 ? () => commitOrder(kind, workspaceId, ids, moveId(ids, t.id, 1), t.id, label) : null}
         term={t}
         selectedId={selectedId} onSelectTerm={onSelectTerm}
         onFileTree={onFileTree} onGitGraph={onGitGraph}
         onRenameTerm={onRenameTerm} onRemoveTerm={onRemoveTerm}
         onLaunchAction={onLaunchAction} onContinueTerm={onContinueTerm} clis={clis}
       />
+      )}
+      </SortableRow>
     );
   }
 
-  const sortedFreeAgents = [...(freeAgents || [])].sort((a, b) =>
-    displayAgentName(a, null).localeCompare(displayAgentName(b, null), undefined, { sensitivity: "base" }));
+  // Server order (ADR-0173). Sorting here would undo a reorder.
+  const sortedFreeAgents = freeAgents || [];
+  const ownedTerminalIds = new Set();
+  for (const w of workspaces || []) for (const a of agentsOf(w)) if (a.terminalId) ownedTerminalIds.add(a.terminalId);
+  for (const a of freeAgents || []) if (a && a.terminalId) ownedTerminalIds.add(a.terminalId);
+  const shellFree = freeTerminals(terminals).filter((t) => !ownedTerminalIds.has(t.id));
 
   // The shell's merged row sizes its brand+rail cluster to this sidebar's
   // live width, so the rail tabs sit exactly above the column they control.
@@ -179,10 +212,12 @@ export default function Sidebar({
           <button type="button" className="ws-icon-btn" title="New terminal" onClick={() => onNewTerm && onNewTerm()}><IconPlus /></button>
         </div>
         <div className="side-scroll">
-        {freeTerminals(terminals).length === 0 ? (
+        {shellFree.length === 0 ? (
           <p className="side-empty pins-empty">No terminals yet. <button type="button" className="side-empty-act" onClick={() => onNewTerm && onNewTerm()}>New terminal</button></p>
         ) : (
-          <ul className="ws-list">{freeTerminals(terminals).map(termRow)}</ul>
+          <SortableList ids={shellFree.map((t) => t.id)} onReorder={(ids, activeId) => commitOrder("terminals", FREE_WS, shellFree.map((t) => t.id), ids, activeId, (id) => ((terminals || []).find((row) => row.id === id) || {}).name || "Terminal")}>
+            <ul className="ws-list">{shellFree.map((t) => termRow(t, shellFree.map((row) => row.id), "terminals", FREE_WS))}</ul>
+          </SortableList>
         )}
         </div>
       </div>
@@ -196,7 +231,9 @@ export default function Sidebar({
         {sortedFreeAgents.length === 0 ? (
           <p className="side-empty pins-empty">No free agents yet. <button type="button" className="side-empty-act" onClick={() => onNewFree()}>New agent</button></p>
         ) : (
-          <ul className="ws-list">{sortedFreeAgents.map((ag) => agentRow(ag, null))}</ul>
+          <SortableList ids={sortedFreeAgents.map((a) => a.id)} onReorder={(ids, activeId) => commitOrder("agents", FREE_WS, sortedFreeAgents.map((a) => a.id), ids, activeId, (id) => displayAgentName(sortedFreeAgents.find((a) => a.id === id), null))}>
+            <ul className="ws-list">{sortedFreeAgents.map((ag) => agentRow(ag, null, sortedFreeAgents.map((a) => a.id), "agents", FREE_WS))}</ul>
+          </SortableList>
         )}
         </div>
       </div>
@@ -210,21 +247,30 @@ export default function Sidebar({
         {workspaces.length === 0 ? (
           <p className="side-empty pins-empty">No workspaces yet. <button type="button" className="side-empty-act" onClick={() => onNew()}>Add workspace</button></p>
         ) : (
+        <SortableList ids={workspaces.map((w) => w.id)} onReorder={(ids, activeId) => commitOrder("workspaces", null, workspaces.map((w) => w.id), ids, activeId, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace")}>
         <ul id="ws-list" className="ws-list">
           {workspaces.map((ws) => {
             const wsAgents = agentsOf(ws);
-            const ownedTerms = new Set(wsAgents.map((a) => a.terminalId).filter(Boolean));
-            const wsTerms = workspaceTerminals(terminals, ws.id).filter((t) => !ownedTerms.has(t.id));
+            const wsTerms = workspaceTerminals(terminals, ws.id).filter((t) => !ownedTerminalIds.has(t.id));
             // Not a line on the card any more (the rows below already carry
             // path and branch); the menu still asks whether this folder is a
             // repository before offering its history.
             const wsRepo = wsLine(ws);
+            const wsAgentIds = wsAgents.map((a) => a.id);
+            const wsTermIds = wsTerms.map((t) => t.id);
+            const wsIndex = workspaces.findIndex((w) => w.id === ws.id);
             return (
-            <li key={ws.id} className="ws-group">
+            <SortableRow key={ws.id} id={ws.id}>
+            {(drag) => (
+            <li
+              ref={drag.setNodeRef}
+              style={drag.style}
+              className={"ws-group" + (drag.isDragging ? " is-dragging" : "")}
+            >
               <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
                 <span className="tree-icon"><WsFavicon ws={ws} /></span>
-                <span className="ws-group-name" title={ws.path}>{ws.name}</span>
+                <span className="ws-group-name" title={ws.path} onPointerDown={drag.onPointerDown}>{ws.name}</span>
                 <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(wsAgents, wsTerms) : null}</span>
                 {/* Two controls, not five: one creates, one holds the rest
                     (VS Code caps a row at three; the child rows already read
@@ -236,6 +282,10 @@ export default function Sidebar({
                     <DropdownMenu.Item className="um-item" onSelect={() => onNewTerm?.(ws.id)}>Shell terminal</DropdownMenu.Item>
                   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
                   <RowMenu label={ws.name}>
+                    <OrderMoves
+                      up={wsIndex > 0 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, -1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
+                      down={wsIndex >= 0 && wsIndex < workspaces.length - 1 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, 1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
+                    />
                     <RowMenuItem onSelect={() => { location.hash = "#/clis/messages/" + encodeURIComponent("workspace:" + ws.id); }}><IconSession size={13} /> Communication</RowMenuItem>
                     <RowMenuItem onSelect={() => onFileTree && onFileTree("workspace", ws.id, ws.name)}><IconFolder size={13} /> Files</RowMenuItem>
                     {wsRepo.git ? <RowMenuItem onSelect={() => onGitGraph && onGitGraph("workspace", ws.id, ws.name)}><IconGit size={13} /> Git graph</RowMenuItem> : null}
@@ -249,8 +299,16 @@ export default function Sidebar({
               {isOpen(ws.id) ? (
                 (wsAgents.length || wsTerms.length) ? (
                   <>
-                    {wsAgents.length ? <ul className="ws-list tree-children">{wsAgents.map((ag) => agentRow(ag, ws))}</ul> : null}
-                    {wsTerms.length ? <ul className="ws-list tree-children">{wsTerms.map(termRow)}</ul> : null}
+                    {wsAgents.length ? (
+                      <SortableList ids={wsAgentIds} onReorder={(ids, activeId) => commitOrder("agents", ws.id, wsAgentIds, ids, activeId, (id) => displayAgentName(wsAgents.find((a) => a.id === id), ws))}>
+                        <ul className="ws-list tree-children">{wsAgents.map((ag) => agentRow(ag, ws, wsAgentIds, "agents", ws.id))}</ul>
+                      </SortableList>
+                    ) : null}
+                    {wsTerms.length ? (
+                      <SortableList ids={wsTermIds} onReorder={(ids, activeId) => commitOrder("terminals", ws.id, wsTermIds, ids, activeId, (id) => (wsTerms.find((t) => t.id === id) || {}).name || "Terminal")}>
+                        <ul className="ws-list tree-children">{wsTerms.map((t) => termRow(t, wsTermIds, "terminals", ws.id))}</ul>
+                      </SortableList>
+                    ) : null}
                   </>
                 ) : (
                   <p className="side-empty">
@@ -260,14 +318,18 @@ export default function Sidebar({
                 )
               ) : null}
             </li>
+            )}
+            </SortableRow>
             );
           })}
         </ul>
+        </SortableList>
         )}
         </div>
       </div>
       )}
 
+      <div className="sr-only" aria-live="polite">{orderLive}</div>
       <footer className="side-foot">
         <UserMenu {...userMenu} onShare={() => setShareOpen(true)} />
       </footer>

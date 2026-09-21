@@ -28,7 +28,7 @@ func scanTerminal(row interface{ Scan(...any) error }, t *Terminal) error {
 // scoping (scopeBySession / ownSessions) relies on that — a filtered list
 // would silently stop tmux overrides from applying to workspace terminals.
 func (s *Store) ListTerminals() ([]Terminal, error) {
-	rows, err := s.db.Query(`SELECT ` + terminalCols + ` FROM terminals ORDER BY name COLLATE NOCASE, id`)
+	rows, err := s.db.Query(`SELECT ` + terminalCols + ` FROM terminals ORDER BY workspace_id, position, id`)
 	if err != nil {
 		return nil, fmt.Errorf("store: list terminals: %w", err)
 	}
@@ -45,7 +45,7 @@ func (s *Store) ListTerminals() ([]Terminal, error) {
 }
 
 func (s *Store) ListWorkspaceTerminals(workspaceID string) ([]Terminal, error) {
-	rows, err := s.db.Query(`SELECT `+terminalCols+` FROM terminals WHERE workspace_id = ? ORDER BY name COLLATE NOCASE, id`, workspaceID)
+	rows, err := s.db.Query(`SELECT `+terminalCols+` FROM terminals WHERE workspace_id = ? ORDER BY position, id`, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list workspace terminals: %w", err)
 	}
@@ -123,8 +123,8 @@ func (s *Store) CreateTerminalIn(workspaceID, name, cwd string) (Terminal, error
 	}
 	id := newID(name, "term")
 	now := nowUTC()
-	if _, err := s.db.Exec(`INSERT INTO terminals (id, name, cwd, workspace_id, created_at) VALUES (?, ?, ?, ?, ?)`,
-		id, name, cwd, workspaceID, now); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO terminals (id, name, cwd, workspace_id, created_at, position) VALUES (?, ?, ?, ?, ?, `+nextPositionExpr("terminals", "workspace_id = ?")+`)`,
+		id, name, cwd, workspaceID, now, workspaceID); err != nil {
 		return Terminal{}, fmt.Errorf("store: insert terminal: %w", err)
 	}
 	t := Terminal{ID: id, Name: name, Cwd: cwd, WorkspaceID: workspaceID, CreatedAt: now}
