@@ -1,12 +1,22 @@
 // Command picode-openapi prints the server's OpenAPI 3.1 spec to stdout.
 //
-// The spec is derived from the same registration list the real binary
-// runs (server.Routes → registerAll), so it cannot drift from what
-// picode actually serves. CI enforces freshness: scripts/docs-check.mjs
-// re-runs this command and byte-compares against the committed
-// docs-site/public/api/openapi.json.
+// Regenerate with: make openapi
 //
-//	make openapi   # regenerates docs-site/public/api/openapi.json
+// The spec is derived from the same registration list the real binary runs
+// (server.Routes → registerAll). Two different things keep it honest, and
+// for a while only the first existed.
+//
+// Freshness is scripts/docs-check.mjs: it re-runs this command and
+// byte-compares against the committed docs-site/public/api/openapi.json.
+//
+// Completeness is a test. server.Routes records registerAll against a
+// *zero* Deps, so a helper that registers conditionally writes its own
+// routes out of the spec while the binary still serves them — a gap the
+// byte-compare cannot see, because it compares a truthful generator against
+// its own truthful output. That is how nine /api/auth and /pair patterns
+// went missing from the published reference with every gate green.
+// TestRoutesCoverEveryRegisteredPattern (internal/server/spec_test.go) is
+// what holds that line now.
 package main
 
 import (
@@ -44,11 +54,20 @@ func run() error {
 		"servers": []any{
 			map[string]any{"url": "http://127.0.0.1:8445", "description": "local daemon"},
 		},
-		"tags":           tagsList(),
-		"paths":          paths(),
-		"components":     securitySchemes(),
-		"security":       []any{map[string]any{"sessionCookie": []string{}}},
-		"x-undocumented": []string{"/ (embedded UI)", "/assets/** (UI bundle)"},
+		"tags":       tagsList(),
+		"paths":      paths(),
+		"components": securitySchemes(),
+		"security":   []any{map[string]any{"sessionCookie": []string{}}},
+		// Every route the daemon serves outside /api and /ws. specRecorder
+		// drops them on purpose (they are not the JSON API), but a spec
+		// that claims completeness has to name what it leaves out, or the
+		// omission reads as "does not exist".
+		"x-undocumented": []string{
+			"/ (embedded UI)",
+			"/assets/** (UI bundle)",
+			"/pair (pairing page and form — ADR-0049)",
+			"/preview/** (capability-ticket HTML previews — ADR-0136/0137)",
+		},
 	}
 
 	out, err := json.MarshalIndent(spec, "", "  ")

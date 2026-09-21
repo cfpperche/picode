@@ -5,6 +5,22 @@
 - [x] The handoff board sat at its cap and failed `make close` until a paid debt was pruned — superseded by ADR-0145 (bounded view: 2 bullets per topic, 7-day notes, open debts only, over target warns).
 
 ## Debts
+- [ ] **Should `/pair` be guarded-and-exempt instead of unguarded?** Today
+  `guarded()` covers `/api/`, `/ws/` and `/mcp/communication` only, so the
+  pairing page and form never reach the Host or Origin checks. An unreachable
+  `case p == "/pair"` in `exempt()` made it read as a deliberate pass; the
+  dead line is gone (feat/audit-fixes, 2026-09-21) and the question is not.
+  Guarding it would apply `HostAllowed` to the one route someone uses when
+  they cannot reach PiCode yet, so it is the owner's call, not a tidy-up.
+
+- [ ] **ADR-0154 (picode-mcp) and ADR-0156 (computer foreground guard) are
+  still `proposed` in both the file and the index, and both shipped.** The
+  2026-09-21 audit synced the eight ADRs whose own file already said
+  accepted; these two need the owner to say the word, because flipping a
+  status is recording a decision, not fixing an index. `make docs-check` now
+  refuses the mismatch in the other direction (accepted file, proposed
+  index), so this cannot drift further.
+
 - [ ] **A conflicted merge plus `git add -A` committed conflict markers into
   `WebTab.jsx`, and main's web build broke for ~10 minutes (2026-09-18).** The
   landing loop hid the merge output, so a stopped-with-conflicts merge looked

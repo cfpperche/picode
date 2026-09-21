@@ -141,3 +141,4 @@ preview frame: Pi's has one because a package may ship a capture, a vendor plugi
 has none. On an empty installed list the pane reads the catalog once (where the
 CLI has one and can install) and offers up to three real entries with Install —
 the vendor's own data, never a suggestion PiCode made up.
+The availability check is not part of the filter: it renders whenever the CLI has an update verb, including a list of one or of none. A group header's count is plain text, not the toolbar's count chip.

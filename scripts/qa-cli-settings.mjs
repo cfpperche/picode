@@ -36,7 +36,11 @@ const ready = () => browser("wait", "--fn", '!!document.querySelector("#pi-setti
 // href and the app's own rewrite effect are all exercised (a URL the harness
 // typed itself cannot catch a route the app rewrites away — 2026-09-12).
 const paneClick = label => evaluate(`[...document.querySelectorAll(".cli-pane-tabs a")].find(a=>a.textContent.trim()===${JSON.stringify(label)}).click(); true`);
-const layerOf = () => evaluate('document.querySelector("#pi-settings-view .settings-section")?.dataset.layer || ""');
+// The layer marker sits on the body wrapper, not on each section (the machine
+// layer renders one section per native settings group since internal/clisettings
+// reached pi). Ask the wrapper; an earlier version read the first section and
+// silently answered "".
+const layerOf = () => evaluate('document.querySelector("#pi-settings-view [data-layer]")?.dataset.layer || ""');
 const globalHash = "#/clis/settings/pi";
 const contextHash = globalHash + "?agentId=" + encodeURIComponent(id);
 // The legacy forms redirect to the canonical route; the agent survives.
@@ -44,12 +48,23 @@ const canonicalContext = "#/clis/pi/settings?agentId=" + encodeURIComponent(id);
 // The fixture's machine layer is disposable: start every run from empty so a
 // leftover key from an earlier run cannot shadow the provenance assertions.
 writeFileSync((await api("/api/pi-settings")).global.path, "{}\n");
-const compactRowSet = () => evaluate('[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compact"))?.classList.contains("is-set") === true');
+// The keyboard rows assume the machine's map is untouched — the Off facet
+// counts the actions pi ships unbound, and Find by key expects a chord nobody
+// uses — so clear every override this catalog knows before the first capture,
+// the same reason the settings file above starts empty (a previous run, or a
+// manual probe on this fixture, otherwise leaves one behind).
+await api("/api/pi-keys", "PUT", { resetAll: true });
+const compactRowSet = () => evaluate('[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compactionEnabled"))?.classList.contains("is-set") === true');
 const results = [];
 async function capture(name, audit = false) {
   // Let native controls finish painting before judging pixels.
   await new Promise(resolve => setTimeout(resolve, 250));
   if (audit) {
+    // Toasts and mobile sheets animate in from the bottom edge, so for ~200ms
+    // they are genuinely outside the viewport and the audit reports a clipped
+    // overlay that no reader would ever see. Wait for the stack to hold still
+    // (two identical reads) before asking it — a settled clip is still a FAIL.
+    browser("wait", "--fn", '(() => { const box = [...document.querySelectorAll("[data-sonner-toast], .dlg, [role=alertdialog]")].map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top) + ":" + Math.round(r.bottom); }).join(","); const still = box === window.__qaOverlayBox; window.__qaOverlayBox = box; return still; })()');
     const report = evaluate("window.__picodeOverlayAudit()");
     writeFileSync(resolve(out, name + "-audit.json"), JSON.stringify(report, null, 2));
     assert.equal(report.ok, true, name);
@@ -62,7 +77,13 @@ try {
     browser("open", new URL(`/${app}/?theme=dark${globalHash}`, base).href);
     ready();
     // No agent in the route: one body (this machine), no agent pill at all.
-    assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .settings-section").length'), 1);
+    // The section count is not the acceptance: the machine layer now renders
+    // one section per native settings group (Session, Model, Approvals,
+    // Interface — internal/clisettings declares them for pi too since native
+    // settings reached every CLI), so pinning it to 1 was pinning a count that
+    // a legitimate change moved. What this row means is the assertions below:
+    // the layer, the pills and the agent body.
+    assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .settings-section").length') >= 1);
     assert.equal(layerOf(), "global");
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .settings-layer .pkg-scope-btn").length'), 1);
     assert.equal(evaluate('document.querySelectorAll("[data-layer=agent]").length'), 0);
@@ -70,24 +91,65 @@ try {
     await capture(app + "-global", true);
     const pattern = `qa-${app}-${process.pid}-*`;
     const before = await api("/api/pi-settings");
-    browser("click", "#g-compact"); ready();
+    browser("click", "#g-compactionEnabled"); ready();
     assert.equal((await api("/api/pi-settings")).global.compactionEnabled, !before.global.compactionEnabled);
     results.push(app + ": global round-trip");
 
     // The keyboard map is a pane next to Settings (no sub-tab row anywhere),
-    // machine-wide, with its own filter.
+    // machine-wide, and rebuilt (docs/plans/keyboard-pane.md): a toolbar whose
+    // facets count, one row per action with the row's own actions in a fixed
+    // column, and the notes pi's own defaults need — the file it writes, the
+    // platform it binds for, the chords a browser keeps.
     paneClick("Keyboard");
     browser("wait", "--fn", '!!document.querySelector("#keys-filter")');
     assert.equal(evaluate('location.hash.endsWith("/keyboard")'), true);
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .pkg-tabs, #pi-settings-view .settings-layer").length'), 0);
-    assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .key-row").length > 50'), true);
+    const keyReport = await api("/api/pi-keys");
+    assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .key-row").length'), keyReport.actions.length);
+    assert.match(evaluate('document.querySelector("#pi-settings-view .settings-desc code").textContent'), /keybindings\.json$/, "the pane names the file it writes");
+    assert.equal(evaluate('document.querySelector("#pi-settings-view .key-bar .key-facet").textContent'), "All" + keyReport.actions.length);
+    // A chord is a value, not a control: the keycap is its own height (24px on
+    // a pointer, 28px on a phone), never the 36px --ctl-h it shipped with.
+    assert.equal(evaluate('document.querySelector("#pi-settings-view .key-chip").offsetHeight'), app === "desktop" ? 24 : 28);
+    assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .key-row .key-alt").length') >= 8, "the rows pi binds differently elsewhere say so");
+    assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .key-note.is-warn").length') >= 5, "the chords the browser keeps are marked");
+    assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .key-note:not(.is-warn)").length') > 20, "shared chords are reported, not hidden");
     await capture(app + "-keyboard", true);
-    // The capture itself: Add, press a chord, and the map takes it. Removing
-    // it again leaves the fixture as it was (and the shot above pristine).
-    const firstAction = (await api("/api/pi-keys")).actions[0];
+
+    // A facet narrows the list to its own state; the count is the number of
+    // rows on screen, not a badge that lies.
+    evaluate('[...document.querySelectorAll("#pi-settings-view .key-facet")].find(b=>b.textContent.startsWith("Off")).click(); true');
+    browser("wait", "--fn", 'document.querySelectorAll("#pi-settings-view .key-row").length === document.querySelectorAll("#pi-settings-view .key-none").length');
+    const offRows = evaluate('document.querySelectorAll("#pi-settings-view .key-row").length');
+    assert.equal(offRows, keyReport.actions.filter(a => !a.alt && !(a.defaults || []).length).length, "the Off facet is the actions pi ships unbound");
+    await capture(app + "-keyboard-off");
+    evaluate('[...document.querySelectorAll("#pi-settings-view .key-facet")].find(b=>b.textContent.startsWith("All")).click(); true');
+    browser("wait", "--fn", 'document.querySelectorAll("#pi-settings-view .key-row").length > 50');
+
+    // Find by key: press a chord, get the actions that answer to it — none on
+    // a fresh fixture — and the chip that clears the filter.
+    evaluate('document.querySelector("#pi-settings-view .key-find").click(); true');
+    browser("press", "Control+Alt+k");
+    browser("wait", "--fn", '!!document.querySelector("#pi-settings-view .key-facet.is-chord")');
+    assert.match(evaluate('document.querySelector("#pi-settings-view .key-facet.is-chord").textContent'), /Ctrl\+Alt\+K/);
+    assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .key-row").length'), 0);
+    await capture(app + "-keyboard-keyfilter");
+    // A DOM click after centering the target: the mobile shell's notice banner
+    // covers the top of the pane and a role-based click on a covered control is
+    // refused (the same reason the capture step below centers its row).
+    evaluate('(() => { const b = [...document.querySelectorAll("#pi-settings-view .key-pane button")].find(x => x.textContent.trim() === "Show all"); b.scrollIntoView({ block: "center" }); b.click(); return true; })()');
+    browser("wait", "--fn", 'document.querySelectorAll("#pi-settings-view .key-row").length > 50');
+    results.push(app + ": facets and the key filter narrow the map, and both clear");
+
+    // The capture itself: Add key, press a chord, and the map takes it. The row
+    // wears the changed bar while it is set, and Reset all hands every changed
+    // key back — the fixture is pristine again afterwards.
+    const firstAction = keyReport.actions[0];
     // Center the row first: the mobile shell's notice banner covers the top of
     // the form and a ref click on a covered Add is refused (2026-09-12).
-    evaluate('(() => { const row = document.querySelectorAll("#pi-settings-view .key-row")[0]; row.scrollIntoView({ block: "center" }); [...row.querySelectorAll("button")].find(b => b.textContent === "Add").click(); return true; })()');
+    evaluate('(() => { const row = document.querySelectorAll("#pi-settings-view .key-row")[0]; row.scrollIntoView({ block: "center" }); [...row.querySelectorAll("button")].find(b => b.textContent === "Add key").click(); return true; })()');
+    browser("wait", "--fn", '!!document.querySelector("#pi-settings-view .key-chip.is-listen")');
+    await capture(app + "-keyboard-capture");
     browser("press", "Control+Alt+k");
     let bound = "";
     for (let i = 0; i < 20 && !bound; i++) {
@@ -95,8 +157,30 @@ try {
       bound = ((await api("/api/pi-keys")).user?.[firstAction.id] || []).find(key => /ctrl\+alt\+k/i.test(key)) || "";
     }
     assert.ok(bound, "the captured chord must be saved to the key map");
+    browser("wait", "--fn", 'document.querySelectorAll("#pi-settings-view .key-row.is-changed").length === 1');
+    assert.equal(evaluate('!!document.querySelector("#pi-settings-view .key-bar .btn")'), true, "a changed map offers Reset all");
+    await capture(app + "-keyboard-changed");
+    evaluate('document.querySelector("#pi-settings-view .key-bar .btn").click(); true');
+    browser("wait", '[role="alertdialog"], .dlg');
+    // A mobile dialog is a sheet that slides in from the bottom: judge its
+    // geometry once it is fully inside the viewport, not mid-animation.
+    browser("wait", "--fn", '(() => { const d = document.querySelector("[role=alertdialog], .dlg"); if (!d) return false; const r = d.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()');
+    await capture(app + "-keyboard-reset-all", true);
+    evaluate('(() => { const d = document.querySelector("[role=alertdialog]") || document.querySelector(".dlg"); [...d.querySelectorAll("button")].find(b => b.textContent.trim() === "Reset all").click(); return true; })()');
+    let cleared = false;
+    for (let i = 0; i < 20 && !cleared; i++) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const user = (await api("/api/pi-keys")).user || {};
+      cleared = !Object.keys(user).some(k => keyReport.actions.some(a => a.id === k));
+    }
+    assert.ok(cleared, "Reset all must clear every override this catalog knows");
+    // The sheet animates out; the audit refuses an overlay clipped by the
+    // viewport, so wait for it to leave before judging the pane again.
+    browser("wait", "--fn", '!document.querySelector("[role=alertdialog], .dlg")');
+    browser("wait", "--fn", 'document.querySelectorAll("#pi-settings-view .key-row.is-changed").length === 0');
+    await capture(app + "-keyboard-reset");
     await api("/api/pi-keys", "PUT", { action: firstAction.id, reset: true });
-    results.push(app + ": a captured chord is saved to the machine key map");
+    results.push(app + ": a captured chord is saved, marks the row, and Reset all hands every key back");
     // The old sub-tab route still lands here (a bookmark from 2026-09-12).
     navigate("#/clis/pi/settings?agentId=" + encodeURIComponent(id) + "&tab=keys");
     browser("wait", "--fn", 'location.hash.endsWith("/keyboard") && !!document.querySelector("#keys-filter")');
@@ -125,26 +209,30 @@ try {
 
     // Provenance: a value this layer sets is marked, and Use inherited hands it
     // back to the parent instead of freezing a copy.
-    browser("wait", "--fn", '[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compact"))?.classList.contains("is-set") === true');
-    assert.equal(evaluate('[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compact"))?.querySelector(".set-src").textContent'), "Set here");
+    browser("wait", "--fn", '[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compactionEnabled"))?.classList.contains("is-set") === true');
+    assert.equal(evaluate('[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compactionEnabled"))?.querySelector(".set-src").textContent'), "Set here");
     assert.equal((await api("/api/pi-settings")).global.has.compactionEnabled, true);
     browser("find", "role", "button", "click", "--name", "Use inherited", "--exact");
-    browser("wait", "--fn", '[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compact"))?.classList.contains("is-set") === false');
+    browser("wait", "--fn", '[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compactionEnabled"))?.classList.contains("is-set") === false');
     const afterReset = (await api("/api/pi-settings")).global;
     assert.equal(afterReset.has?.compactionEnabled ?? false, false);
-    assert.equal(evaluate('[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compact"))?.querySelector(".set-src").textContent'), "Pi default");
+    assert.equal(evaluate('[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compactionEnabled"))?.querySelector(".set-src").textContent'), "Pi default");
     await capture(app + "-reset", true);
     results.push(app + ": provenance marker and Use inherited round trip");
 
+    // Another CLI's pane never renders Pi's editor. The row used to wait on
+    // the "in development" notice, which no managed CLI shows any more: the
+    // native-settings landing gave every one of them an editor, so it waits on
+    // the pane instead and keeps the assertion that mattered.
     navigate(globalHash.replace("/pi", "/codex"));
-    browser("wait", ".cli-notice");
-    assert.equal(evaluate('document.querySelectorAll("#g-compact").length'), 0);
-    await capture(app + "-unsupported");
-    results.push(app + ": unsupported CLI refuses Pi editor");
+    browser("wait", "#cli-settings-view");
+    assert.equal(evaluate('document.querySelectorAll("#g-compactionEnabled").length'), 0);
+    await capture(app + "-other-cli");
+    results.push(app + ": another CLI's pane refuses the Pi editor");
 
     navigate(globalHash + "?agentId=missing-settings-fixture-agent");
     browser("wait", "[role=alert]");
-    assert.equal(evaluate('document.querySelectorAll("#g-compact").length'), 0);
+    assert.equal(evaluate('document.querySelectorAll("#g-compactionEnabled").length'), 0);
     await capture(app + "-missing-agent");
     results.push(app + ": missing agent refuses fallback");
 
@@ -179,7 +267,7 @@ try {
     // Switching layer rewrites the route; a reload lands on the same layer.
     browser("find", "role", "radio", "click", "--name", "This machine", "--exact");
     // The hash moves first; wait for the rendered layer, not the URL.
-    browser("wait", "--fn", 'document.querySelector("#pi-settings-view .settings-section")?.dataset.layer === "global"');
+    browser("wait", "--fn", 'document.querySelector("#pi-settings-view [data-layer]")?.dataset.layer === "global"');
     assert.equal(evaluate('location.hash.includes("layer=global")'), true);
     browser("reload"); ready();
     assert.equal(layerOf(), "global");
@@ -189,9 +277,9 @@ try {
     navigate(globalHash);
     ready();
     evaluate('window.qaFetch=window.fetch;window.fetch=(url,opts)=>opts?.method==="PUT"&&String(url).includes("/api/pi-settings")?Promise.resolve(new Response(JSON.stringify({error:"QA: save unavailable"}),{status:503,headers:{"Content-Type":"application/json"}})):window.qaFetch(url,opts)');
-    const compact = evaluate('document.querySelector("#g-compact").getAttribute("aria-checked")');
-    browser("click", "#g-compact"); ready(); browser("wait", "[role=alert]");
-    assert.equal(evaluate('document.querySelector("#g-compact").getAttribute("aria-checked")'), compact);
+    const compact = evaluate('document.querySelector("#g-compactionEnabled").getAttribute("aria-checked")');
+    browser("click", "#g-compactionEnabled"); ready(); browser("wait", "[role=alert]");
+    assert.equal(evaluate('document.querySelector("#g-compactionEnabled").getAttribute("aria-checked")'), compact);
     browser("fill", '[aria-label="Model pattern"]', pattern);
     browser("click", ".set-pat-add button"); ready();
     assert.equal(evaluate('document.querySelector(".set-pat-add input").value'), pattern);
@@ -220,7 +308,7 @@ try {
     // while the terminal/CLI inventory is down. The Agent CLIs shell may
     // report that outage above it (an honest notice, not a settings failure).
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view [role=alert]").length'), 0);
-    assert.equal(evaluate('!!document.querySelector("#g-compact")'), true);
+    assert.equal(evaluate('!!document.querySelector("#g-compactionEnabled")'), true);
     assert.equal(evaluate('document.querySelector(".pi-settings-fields").disabled'), false);
     evaluate('window.fetch=window.qaFetch');
     results.push(app + ": independent from terminal manager requests");
@@ -283,4 +371,13 @@ try {
   await capture("desktop-narrow");
   console.log(JSON.stringify({ ok: true, results }, null, 2));
   writeFileSync(resolve(out, "results.json"), JSON.stringify({ ok: true, results }, null, 2));
+} catch (error) {
+  // A row that fails must not hide the rows that passed: this script has no
+  // other record of which screens it exercised before the throw.
+  try {
+    writeFileSync(resolve(out, "results.json"), JSON.stringify({ ok: false, error: String(error), results }, null, 2));
+    writeFileSync(resolve(out, "failure.json"), JSON.stringify({ error: String(error), snapshot: browser("snapshot", "-i") }, null, 2));
+    browser("screenshot", resolve(out, "failure.png"));
+  } catch {}
+  throw error;
 } finally { browser("close"); }

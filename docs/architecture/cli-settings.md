@@ -202,3 +202,47 @@ failing `settings.json` read cannot lock it. Its link carries the settings
 context (`agentId`, `layer`) so a round trip lands back on the same agent and
 layer; the route ignores the rest. A `?tab=keys` link from the sub-tab day
 redirects to it.
+
+## The Keyboard pane (2026-09-21, `docs/plans/keyboard-pane.md`)
+
+The map is a screen of its own: one row per action (90, in 12 groups), the
+chord drawn as a keycap at its own height rather than `--ctl-h`, the row's own
+**Add key** / **Reset** in a fixed right column instead of an Add button
+chasing the chips, and a toolbar with the filter, **Find by key** (press a
+chord; the list narrows to the actions that answer to it) and counting facets
+— **Changed**, **Shared**, **Off**. Two things it deliberately does not claim:
+
+- **A shared key is not a conflict.** 52 of pi's 90 actions share a chord with
+  another: pi's contexts overlap and pi does not declare them, so calling them
+  conflicts would be a lie. The row says *Also on …* and offers **Show**; the
+  facet is named **Shared**. A CLI that *does* declare contexts can call them
+  conflicts later (`docs/plans/keyboard-pane.md` §4).
+- **The default printed is this machine's.** Nine actions bind differently on
+  Windows and WSL — `pikeys.Catalog`'s `Alt` map, read out of pi's own
+  `docs/keybindings.md` on 2026-09-21. `tui.editor.undo` is `ctrl+z` on
+  Windows and `alt+z` on WSL, `app.suspend` has no binding at all on native
+  Windows, the rest swap (`ctrl+v` → `alt+v`, `alt+enter` → `ctrl+q`,
+  `ctrl+shift+f` → `ctrl+f`, …). One platform's binding *is* the whole default
+  there — never an addition — and a declared empty list means pi binds
+  nothing. `TestAltDeclaresEachPlatformItCovers` holds the encoding: an empty
+  list must travel as `[]`, not `null`, because the pane reads the map by
+  presence.
+
+`GET /api/pi-keys` answers `{actions, user, file, exists, platform}` — `file`
+is this machine's real path (home shortened to `~`) so the pane can name what
+it writes, and `exists` lets it say the file is not created yet. `PUT` gains
+`{resetAll: true}` for **Reset all**: `pikeys.ResetKnown` deletes every
+override the catalog knows in one write and leaves a key the catalog does not
+know exactly where it was (the rule `Set` already keeps for one action), and a
+no-op writes nothing. Chords a browser keeps are marked on the row from
+`web/shared/domain/browserChord.js` — five of pi's own defaults sit on that set
+— because inside PiCode a browser tab never receives them.
+
+The toolbar is **sticky** at the top of the CLI page's own scroller
+(`#agent-clis-view`), so the filter and the facets stay reachable 90 rows down;
+the group headers are not, because they would need a hard-coded offset equal to
+the bar's height, which changes when the bar wraps. (An earlier attempt reverted
+the sticky rule on a bad measurement — a probe that scrolled `window`, which
+this app never scrolls; the scroller is the CLI page element.) The phone sets
+the bar back to `static`: its shell scrolls a different element and the bar is
+a short hop from the top there.

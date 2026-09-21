@@ -54,7 +54,7 @@ function Highlight({ text, needle }) {
 // footer the grid aligns across a row.
 function PluginGrid({ rows, needle, guard, caps, busy, checkedAt, rowError, keyOf, verbFor, toggle, update, openInspect, remove }) {
   return (
-    <ul className="gpkg-grid" role="tabpanel" aria-busy={guard ? "true" : undefined}>
+    <ul className="gpkg-grid" aria-busy={guard ? "true" : undefined}>
       {rows.map(row => (
         <li key={keyOf(row)} className={"gpkg-card" + (row.enabled === false ? " is-off" : "")}>
           <div className="gpkg-card-head">
@@ -578,8 +578,8 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
           ) : null}
 
           {!marketplace ? (
-            <>
-              {rows.length > 1 ? (
+            <div role="tabpanel">
+              {rows.length > 1 || caps.update ? (
                 <div className="gpkg-sticky">
                   {rows.length > 1 ? (
                     <div className="pkg-installed-toolbar" data-align-row>
@@ -638,7 +638,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                   <section key={group.key} className="gpkg-group">
                     <h4 className="gpkg-group-head">
                       <span>{group.label}</span>
-                      <span className="pkg-count">{group.rows.length}</span>
+                      <span className="gpkg-group-count">{group.rows.length}</span>
                     </h4>
                     <PluginGrid
                       rows={group.rows} needle={installedFilter} guard={guard} caps={caps} busy={busy} checkedAt={checkedAt}
@@ -652,7 +652,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                   />
                 )
               )}
-            </>
+            </div>
           ) : (
             <>
               {marketProblem ? (

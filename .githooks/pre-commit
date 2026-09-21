@@ -73,13 +73,33 @@ if ! git diff --cached --check >/dev/null 2>&1; then
   refuse "Whitespace errors in the staged diff (above). Fix them; CI would have refused the push."
 fi
 
-# CHANGELOG.md is assembled from docs/changelog.d/ fragments (ADR-0105). Two
-# direct edits are legitimate: the assembly, recognisable by the fragment
-# deletions staged alongside it, and the release cut, which adds a
-# "## [x.y.z]" heading (docs/release-process.md).
+# CHANGELOG.md is assembled from docs/changelog.d/ fragments (ADR-0105).
+# Three direct edits are legitimate: the assembly, recognisable by the
+# fragment deletions staged alongside it; the release cut, which adds a
+# "## [x.y.z]" heading (docs/release-process.md); and the preamble above the
+# first heading, which is prose about the file rather than an entry in it.
+# That last one had no exception, and the preamble went two weeks telling
+# agents to "add an entry to [Unreleased]" — the very edit this refuses.
+changelog_preamble_only() {
+  first=$(git show ":CHANGELOG.md" 2>/dev/null | grep -n '^## \[' | head -n 1 | cut -d: -f1)
+  [ -n "$first" ] || return 1
+  # Every hunk of the staged diff has to land above that heading. A hunk
+  # header is "@@ -a,b +c,d @@"; c,d describe the new file.
+  git diff --cached -U0 -- CHANGELOG.md | awk -v first="$first" '
+    /^@@/ {
+      split($3, h, ",")
+      start = substr(h[1], 2) + 0
+      count = (h[2] == "" ? 1 : h[2] + 0)
+      last = start + (count > 0 ? count - 1 : 0)
+      if (last >= first) { bad = 1 }
+    }
+    END { exit bad ? 1 : 0 }
+  '
+}
 if staged | grep -qx CHANGELOG.md \
   && ! staged D | grep -q '^docs/changelog\.d/.*\.md$' \
-  && ! git diff --cached -U0 -- CHANGELOG.md | grep -qE '^\+## \[[0-9]'; then
+  && ! git diff --cached -U0 -- CHANGELOG.md | grep -qE '^\+## \[[0-9]' \
+  && ! changelog_preamble_only; then
   refuse "CHANGELOG.md is assembled, not edited (ADR-0105)." \
     "Write docs/changelog.d/<branch-slug>.md with '### Added' / '### Fixed' … lines instead;" \
     "'make changelog' folds every fragment into [Unreleased] on main before a release."

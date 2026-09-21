@@ -257,12 +257,14 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [Snippets (ADR-0130)](architecture/snippets.md) | `docs/architecture/snippets.md` |
 | [Canvas (ADR-0108, ADR-0118)](architecture/canvas.md) | `docs/architecture/canvas.md` |
 | [Automations (ADR-0045)](architecture/automations.md) | `docs/architecture/automations.md` |
+| [Cross-CLI usage metering (ADR-0097, ADR-0127)](architecture/climetrics.md) | `docs/architecture/climetrics.md` |
 | [Change feed (ADR-0048)](architecture/change-feed.md) | `docs/architecture/change-feed.md` |
 | [Notices — the in-app announcement layer](architecture/notices.md) | `docs/architecture/notices.md` |
 | [Security model (ADR-0007)](architecture/security-model.md) | `docs/architecture/security-model.md` |
 | [Shared box: the gateway (ADR-0051)](architecture/gateway.md) | `docs/architecture/gateway.md` |
 | [Chrome extension (ADR-0043)](architecture/chrome-extension.md) | `docs/architecture/chrome-extension.md` |
 | [Work browser (ADRs 0128/0132/0134/0135/0143/0144/0146/0152)](architecture/work-browser.md) | `docs/architecture/work-browser.md` |
+| [Dev servers — the Inspector's Servers tab (ADR-0151)](architecture/devservers.md) | `docs/architecture/devservers.md` |
 | [Docker App and sysadmin tools (ADR-0065)](architecture/docker-app.md) | `docs/architecture/docker-app.md` |
 | [Docker maintenance and health (ADRs 0067/0068)](architecture/docker-maintenance.md) | `docs/architecture/docker-maintenance.md` |
 | [tmux app (ADR-0133)](architecture/tmux-app.md) | `docs/architecture/tmux-app.md` |

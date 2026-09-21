@@ -184,14 +184,23 @@ func exempt(r *http.Request) bool {
 		return true
 	case p == "/mcp/communication":
 		return true // ADR-0104: mandatory connection credential in its own handler.
-	case p == "/pair":
-		return true
 	case r.Method == http.MethodPost && fireRoute.MatchString(p):
 		return true
 	}
 	return false
 }
 
+// guarded is what Wrap inspects at all. Everything else — the UI, its
+// assets, /pair and the ticketed /preview routes — passes straight
+// through, so the host and origin checks below never see them either.
+//
+// /pair used to carry a line in exempt() as well, which read as a
+// deliberate pass and was in fact unreachable: it is not guarded, so Wrap
+// returns before exempt is ever asked. The line is gone; whether the
+// pairing form should instead be guarded-and-exempt, and so inherit the
+// Host and Origin checks, is an open question in
+// docs/handoff/open/process.md — it changes who can reach pairing, which
+// is not a tidy-up.
 func guarded(r *http.Request) bool {
 	p := r.URL.Path
 	return strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/ws/") || p == "/mcp/communication"
