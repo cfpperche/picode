@@ -126,6 +126,14 @@
 @keyframes cli-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes cli-pulse { from { opacity: .4; } to { opacity: 1; } }
 @media (max-width: 960px) { .cli-layout { grid-template-columns: 160px minmax(0, 1fr); } .cli-heading { align-items: flex-start; } .cli-fields { grid-template-columns: 1fr; } }
+.cli-guard { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 24px; border-bottom: 1px solid var(--border); }
+.cli-guard > div { min-width: 0; }
+.cli-guard strong { display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.cli-guard p { margin: 4px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+.cli-guard .rx-switch { flex: none; margin-top: 2px; }
+.cli-guard a { color: var(--accent); text-decoration: none; }
+.cli-guard a:hover { text-decoration: underline; }
+.cli-guard .cli-notice { margin: 10px 0 0; }
 @media (max-width: 767px) {
   .cli-layout { display: block; }
   .cli-catalog { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border-right: 0; border-bottom: 1px solid var(--border); padding: 8px; }
@@ -133,6 +141,7 @@
   .cli-catalog a > svg { display: none; }
   .cli-detail, .cli-editor { padding: 16px; }
   .cli-tabs { padding: 0 16px; }
+  .cli-guard { padding: 14px 16px; }
   .cli-heading { gap: 12px; }
   .cli-heading > .cli-actions { width: 100%; }
   .cli-heading > .cli-actions .btn { flex: 1; }

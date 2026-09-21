@@ -13,11 +13,11 @@ into the pi package's words. Plan: `docs/plans/picode-mcp.md`.
 
 | Question | Decided by | Where |
 |---|---|---|
-| Which tools exist | the server's catalog | `internal/mcptool.Families()`: `computer`, `browser`, `inbox` (`notify_human`, `ask_human`), `checklist` |
+| Which tools exist | the server's catalog | `internal/mcptool.Families()`: `computer`, `browser`, `inbox` (`notify_human`, `ask_human`), `checklist`, `delivery` (ADR-0171) |
 | Who is calling | the environment the CLI inherited | `PICODE_AGENT_ID`, else `PICODE_TERM_ID` → `term:<id>`; neither → the tool answers `NoIdentity` and never dials |
 | Where the daemon is | `PICODE_URL`, `PICODE_TERM_URL`, else `server.json` | `mcptool.ResolveURL`; unreachable at start is not fatal — the tool answers with the reason |
 | The credential | the install token, read per call | `mcptool.ReadToken`: `PICODE_TOKEN` or `<data>/token`; a rotation needs no restart |
-| May they act | the daemon | exactly ADR-0143/0148/0134: the grant, the tier, the audit rows |
+| May they act | the daemon | computer/browser use ADR-0143/0148/0134 grants and tiers; delivery uses ADR-0171 launch/repository ownership |
 | What the model reads | `internal/mcptool/{computer,browser}.go` | ported from `packages/pi-*/src/logic.ts`; the package tests are the goldens |
 
 ## The wire
@@ -80,3 +80,12 @@ through a fake daemon, identity and discovery rules, capture pruning),
 `cmd/picode` (dispatch), `internal/clilaunch` (Tools resolve/validate),
 `internal/mcp` (presets), `internal/server/cli_tools_test.go` (the per-CLI
 decision table and the routes), `web/shared/domain/cliLaunch.test.js`.
+
+## Delivery declarations
+
+`picode mcp delivery` and `picode delivery` share `CallDelivery` and the same
+[delivery contract](delivery.md). Delivery has no Pi-package equivalent or
+execution authority. Unset tool defaults in the three supported managed CLI
+launchers include the family; explicit selections remain explicit. The UI tool
+picker is unchanged and does not offer this family yet. No messages connection
+is enabled or used.

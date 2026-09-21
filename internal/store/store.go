@@ -34,8 +34,9 @@ type Store struct {
 	// fast. Optional.
 	OnEvent func(Event)
 
-	pendMu  sync.Mutex
-	pending map[*sql.Tx][]Event // events appended in an open tx, announced on commit
+	deliveryMu sync.Mutex // serialize delivery intent/retry transactions
+	pendMu     sync.Mutex
+	pending    map[*sql.Tx][]Event // events appended in an open tx, announced on commit
 }
 
 // Open creates/opens the database at path, applies pragmas and migrations,

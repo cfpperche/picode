@@ -184,8 +184,10 @@ are read before/after; one retry then unstable. This route does not exist today.
 A change contains an observation ID (repository/ref/source OID), source OID,
 worktree presence/dirty status, integration and validation facts, associated
 agent IDs, optional explicit session refs, and sanitized evidence references.
-New revision means new evidence scope. A full historical task identity is deferred
-to D3; repository commit history remains navigable if no receipt tracks a branch.
+New revision means new evidence scope. ADR-0171 now supplies a stable ID for explicitly registered declarations;
+this does not reconstruct historical tasks from Git. Native session association
+and execution history remain separate work. Repository commit history remains
+navigable if no receipt tracks a branch.
 
 Evidence references return bounded structured summaries, never arbitrary filesystem
 paths for the browser to fetch. D1 adds parity tests for ADR-0124 and explicit
@@ -234,3 +236,12 @@ integrated changes absent from the connected runtime. Count terminal lookups and
 elapsed human task time; compare with the D0 source-lookup baseline without
 presenting machine-query latency as human time. Real queue wait remains unavailable
 until explicit operation events exist in D3/D4.
+
+## D1a implementation clarification
+
+The common [agent interface](delivery-agent-interface.md) records explicit
+declarations independently of discovered Git candidates. A future observation
+view must distinguish these, correlate by repository/ref/revision and retain the
+stable declaration ID across updates. `review: requested` is attributed intent
+for the recorded revision, never human approval or queue enrollment. This
+addition does not implement the read endpoint or screen specified above.

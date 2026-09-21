@@ -4954,6 +4954,32 @@
         ]
       }
     },
+    "/api/delivery/tool": {
+      "post": {
+        "operationId": "postApiDeliveryTool",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "delivery"
+        ]
+      }
+    },
     "/api/deploy/readiness": {
       "get": {
         "operationId": "getApiDeployReadiness",
@@ -11233,6 +11259,9 @@
     },
     {
       "name": "credentials"
+    },
+    {
+      "name": "delivery"
     },
     {
       "name": "deploy"
