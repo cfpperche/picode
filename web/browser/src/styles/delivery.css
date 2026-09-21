@@ -41,6 +41,40 @@
 .delivery-facts { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .delivery-page [data-failed="true"] { color: var(--danger); }
 
+/* The card owns no padding of its own: the lens nav runs to its edges and the
+   body carries the inset — the .app-card / .cli-page choice. */
+.delivery-card { padding: 0; overflow: visible; }
+
+/* Integration | Deployment as an underline nav inside the card, the
+   .app-page-tabs rhythm (ADR-0170 D2 gives Delivery two lenses). */
+.delivery-lanes { display: flex; gap: 20px; padding: 0 24px; border-bottom: 1px solid var(--border); }
+.delivery-lane { display: inline-flex; align-items: center; padding: 16px 0 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; }
+.delivery-lane:hover { color: var(--text-primary); }
+.delivery-lane:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.delivery-lane[aria-current] { color: var(--text-primary); font-weight: 600; border-bottom-color: var(--accent); }
+.delivery-body { padding: 16px 24px 20px; }
+
+/* The Deployment lens: one fact per line, its action at the end of that line
+   (one line + one action, the route standard). Every child carries --ctl-h so
+   a [data-align-row] here cannot fail on a bare span beside a button. */
+.delivery-headline { margin: 0 0 8px; font-size: 13px; color: var(--text-primary); }
+.delivery-env-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0 0; }
+.delivery-env-row > * { display: inline-flex; align-items: center; min-height: var(--ctl-h); }
+.delivery-env-fact { font-size: 13px; color: var(--text-primary); }
+.delivery-env-row .btn { margin-left: auto; }
+/* A row that is only an action (View setup, on a project that is not
+   connected) keeps its button at the row's start: pushed right it floats in an
+   otherwise empty line, which reads as an orphan (visual review, 2026-09-21). */
+.delivery-env-row.is-action .btn { margin-left: 0; }
+/* Words carry the state; the tint only helps a failure scan (the integration
+   lane tints a failed check the same way). */
+.delivery-env-row[data-state="failed"] .delivery-env-fact { color: var(--danger); }
+.delivery-evidence-fold { margin-top: 16px; border-top: 1px solid var(--border); }
+.delivery-evidence-fold > summary { cursor: pointer; padding: 12px 0; font-size: 12px; color: var(--text-secondary); }
+.delivery-evidence-fold > summary:hover { color: var(--text-primary); }
+.delivery-evidence-fold[open] > summary { color: var(--text-primary); margin-bottom: 8px; }
+.delivery-evidence-fold .delivery-pairs { margin-bottom: 0; }
+
 /* The in-card way back to the list: quiet 36px text until hover, the
    .app-card-back idiom the app surfaces use for the same move. */
 .delivery-back { display: inline-flex; align-items: center; gap: 4px; height: var(--ctl-h); padding: 0; border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 12.5px; cursor: pointer; }

@@ -282,6 +282,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerChecklistRoutes(mux, deps)
 	registerDeliveryRoutes(mux, deps)
 	registerDeliveryObservationRoutes(mux, deps)
+	registerDeliveryObserverRoutes(mux, deps)
 	registerAgentFileRoutes(mux, deps)
 	registerPreviewRoutes(mux, deps)
 	registerDevServerRoutes(mux, deps)
@@ -360,6 +361,12 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+// BootID names this process (the health payload's bootId). Delivery's
+// publication observation samples it around a read: the same boot means the
+// identity facts belong to one process, a changed one means the daemon
+// restarted mid-read and the answer is unknown (ADR-0170).
+func BootID() string { return bootID }
+
 func handleVersion(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name": "picode",
@@ -367,6 +374,9 @@ func handleVersion(w http.ResponseWriter, _ *http.Request) {
 		// semver-only consumers use "semver".
 		"version": version.Build(),
 		"semver":  version.Version,
+		// The full VCS revision, for consumers that must map the running
+		// artifact to Git (delivery publication). "" without a VCS stamp.
+		"revision": version.Revision(),
 		// Release notes auto-open only for binaries stamped by the release
 		// workflow; source builds keep the same version but stay quiet.
 		"release": version.Stamped != "",

@@ -21,14 +21,14 @@ func TestJSListMatchesTheKeyboardRegistry(t *testing.T) {
 	if block == nil {
 		t.Fatal("KEYBOARD_CLIS not found in web/shared/domain/cliKeys.js")
 	}
-	row := regexp.MustCompile(`\{ id: "([^"]+)", label: "([^"]+)", state: "([^"]+)", pickup: "([^"]+)", keymap: "([^"]+)"`)
-	js := map[string][3]string{}
+	row := regexp.MustCompile(`\{ id: "([^"]+)", label: "([^"]+)", state: "([^"]+)", pickup: "([^"]+)", keymap: "([^"]+)"(?:, vocab: "[a-z]*"(?:, editor: "([a-z-]+)")?)?`)
+	js := map[string][4]string{}
 	order := []string{}
 	for _, m := range row.FindAllStringSubmatch(string(block[1]), -1) {
 		if _, seen := js[m[1]]; !seen {
 			order = append(order, m[1])
 		}
-		js[m[1]] = [3]string{m[3], m[4], m[5]}
+		js[m[1]] = [4]string{m[3], m[4], m[5], m[6]}
 	}
 	if len(js) != len(Registry) {
 		t.Fatalf("the UI lists %d CLIs, the registry has %d", len(js), len(Registry))
@@ -37,6 +37,9 @@ func TestJSListMatchesTheKeyboardRegistry(t *testing.T) {
 		got, ok := js[cli.ID]
 		if !ok {
 			t.Fatalf("%s is in the registry and not in the UI list", cli.ID)
+		}
+		if got[3] != editorOf(cli) {
+			t.Fatalf("%s: UI mounts editor %q, the registry says %q", cli.ID, got[3], editorOf(cli))
 		}
 		if got[0] != string(cli.State) || got[1] != string(cli.Pickup) || got[2] != string(cli.Keymap) {
 			t.Fatalf("%s: UI says state=%s pickup=%s keymap=%s, registry says state=%s pickup=%s keymap=%s",
@@ -47,6 +50,19 @@ func TestJSListMatchesTheKeyboardRegistry(t *testing.T) {
 	if strings.Join(order, ",") != strings.Join(goOrder, ",") {
 		t.Fatalf("catalog order differs:\n  go: %v\n  js: %v", goOrder, order)
 	}
+}
+
+// editorOf is the editor the pane mounts for a row, stated once here and once
+// in cliKeys.js: Pi keeps its own view (ADR-0101), and a shipped row the flat
+// engine writes mounts the map screen. A row that is not shipped has none.
+func editorOf(cli CLI) string {
+	if cli.State != Shipped {
+		return ""
+	}
+	if cli.OwnStore {
+		return "pi-settings"
+	}
+	return "keymap"
 }
 
 // A registry row is a claim about someone else's software, so it must say where

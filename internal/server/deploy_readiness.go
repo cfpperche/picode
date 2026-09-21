@@ -25,16 +25,29 @@ type deployReadiness struct {
 }
 
 func deployBusy(ctx context.Context, deps Deps) []busyOwner {
+	owners, _ := deployBusyCoverage(ctx, deps)
+	return owners
+}
+
+// deployBusyCoverage also says whether every owner could be read. The guard's
+// own path stays permissive — a failed listing must not make the first deploy
+// of a broken read impossible — but delivery's environment observation
+// reports unknown coverage instead, because "nobody is working" is a claim
+// nobody made (ADR-0170 O25).
+func deployBusyCoverage(ctx context.Context, deps Deps) ([]busyOwner, bool) {
 	out := []busyOwner{}
 	if deps.Store == nil {
-		return out
+		return out, false
 	}
+	complete := true
 	if agents, err := deps.Store.ListAllAgents(); err == nil {
 		for _, a := range agents {
 			if busy, why := agentBusyFn(ctx, deps, a); busy {
 				out = append(out, busyOwner{Kind: "agent", ID: a.ID, Name: a.Name, Why: why})
 			}
 		}
+	} else {
+		complete = false
 	}
 	if terms, err := deps.Store.ListTerminals(); err == nil {
 		for _, t := range terms {
@@ -45,8 +58,10 @@ func deployBusy(ctx context.Context, deps Deps) []busyOwner {
 				out = append(out, busyOwner{Kind: "terminal", ID: t.ID, Name: t.Name, Why: why})
 			}
 		}
+	} else {
+		complete = false
 	}
-	return out
+	return out, complete
 }
 
 func handleDeployReadiness(deps Deps) http.HandlerFunc {

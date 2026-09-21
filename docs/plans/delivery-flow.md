@@ -103,11 +103,11 @@ No claim that an observed candidate is enrolled in an execution queue.
 
 ### D2 — Observe publication
 
-- [ ] Add per-environment current revision, last attempt, health observation and
+- [x] Add per-environment current revision, last attempt, health observation and
   integrated-but-unpublished changes where evidence supports the comparison.
-- [ ] Observe PiCode's existing readiness and deployment evidence for the pilot;
+- [x] Observe PiCode's existing readiness and deployment evidence for the pilot;
   expose unavailable, failed, interrupted and unconfigured cases honestly.
-- [ ] Show a deployment containing multiple changes without inventing a separate
+- [x] Show a deployment containing multiple changes without inventing a separate
   deploy requirement for every branch. Preserve previous known evidence on errors.
 
 Exit: distinguish main ahead of production, success with verified revision/health,
@@ -193,7 +193,8 @@ architecture docs, public help, changelog and handoff together. Deployment alway
 remains a separately authorized owner operation.
 
 Any expansion or reordering is recorded here with its reason and owner decision.
-D0 is documented in the linked inventory and surface contract. The next task is
-D2 publication observation in a fresh session. D2–D5 are not implemented.
+D0 is documented in the linked inventory and surface contract. D2 publication
+observation is implemented in `feat/d2-deployment`; its contract is
+[delivery-publication.md](delivery-publication.md). D3–D5 are not implemented.
 D1b implementation/coverage: [observation receipt](delivery-observation.md).
 No deployment was performed.

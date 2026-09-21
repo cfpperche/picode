@@ -120,6 +120,105 @@ func TestCLIKeysWritesThroughTheEnvelope(t *testing.T) {
 	}
 }
 
+// A CLI the flat engine writes is served through the same envelope pi answers
+// on: its own file, its own catalog, its own platform vocabulary, and a
+// revision a write checks so a file that moved is refused rather than
+// overwritten (ADR-0174).
+func TestCLIKeysServesAndWritesAGuestMap(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("PI_CONFIG_DIR", root)
+	t.Setenv("OMP_PROFILE", "")
+	ts := newTestServer(t, "cat")
+	get := func() map[string]any {
+		t.Helper()
+		res, err := ts.Client().Get(ts.URL + "/api/cli-keys?cli=omp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("GET %d", res.StatusCode)
+		}
+		var out map[string]any
+		if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	put := func(body map[string]any) int {
+		t.Helper()
+		raw, _ := json.Marshal(body)
+		req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/cli-keys", bytes.NewReader(raw))
+		res, err := ts.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		return res.StatusCode
+	}
+	path := filepath.Join(root, "agent", "keybindings.yml")
+	first := get()
+	if first["state"] != "shipped" || first["writable"] != true || first["keymap"] != "flat" || first["pickup"] != "restart" {
+		t.Fatalf("the envelope is not the CLI's: %v", first)
+	}
+	if first["file"] != path || first["exists"] != false {
+		t.Fatalf("file=%v exists=%v", first["file"], first["exists"])
+	}
+	if rows, _ := first["actions"].([]any); len(rows) != 70 {
+		t.Fatalf("the catalog did not survive the envelope: %d rows", len(rows))
+	}
+	if first["platform"] != "linux" && first["platform"] != "win32" && first["platform"] != "darwin" {
+		t.Fatalf("the platform is the CLI's own vocabulary, got %v", first["platform"])
+	}
+	if code := put(map[string]any{"cli": "omp", "action": "app.exit", "keys": []string{"ctrl+q"}}); code != http.StatusOK {
+		t.Fatalf("PUT %d", code)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(raw, []byte(`app.exit: ["ctrl+q"]`)) {
+		t.Fatalf("the file says:\n%s", raw)
+	}
+	second := get()
+	user, _ := second["user"].(map[string]any)
+	if got, _ := user["app.exit"].([]any); len(got) != 1 || got[0] != "ctrl+q" {
+		t.Fatalf("the row was not read back: %v", second["user"])
+	}
+	revision, _ := second["revision"].(string)
+	if revision == "" {
+		t.Fatal("a file that exists carries a revision")
+	}
+	// A file that moved under the editor is a conflict, not an overwrite.
+	if err := os.WriteFile(path, []byte("app.exit: ctrl+d\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := put(map[string]any{"cli": "omp", "action": "app.exit", "keys": []string{"ctrl+w"}, "revision": revision}); code != http.StatusConflict {
+		t.Fatalf("a stale revision must be a 409, got %d", code)
+	}
+	// With the revision the pane now holds, reset hands the row back.
+	now, _ := get()["revision"].(string)
+	if code := put(map[string]any{"cli": "omp", "action": "app.exit", "reset": true, "revision": now}); code != http.StatusOK {
+		t.Fatalf("reset %d", code)
+	}
+	if bytes.Contains(mustRead(t, path), []byte("app.exit")) {
+		t.Fatalf("the row survived a reset:\n%s", mustRead(t, path))
+	}
+	// And a row the catalog does not know is refused by name.
+	if code := put(map[string]any{"cli": "omp", "action": "app.nonesuch", "keys": []string{"ctrl+q"}}); code != http.StatusBadRequest {
+		t.Fatalf("an unknown action must be refused, got %d", code)
+	}
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
 // A CLI whose editor has not shipped answers with its state and nothing else,
 // and a write to it is refused by name — never silently ignored.
 func TestCLIKeysRefusesWhatPiCodeCannotWrite(t *testing.T) {

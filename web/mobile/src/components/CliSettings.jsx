@@ -8,6 +8,7 @@ import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import PiSettings from "./PiSettings.jsx";
 import CliNativeSettings from "./CliNativeSettings.jsx";
 import CliKeyboard from "./CliKeyboard.jsx";
+import PiKeys from "./PiKeys.jsx";
 
 const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext } };
 
@@ -29,10 +30,14 @@ export default function CliSettings({ hidden, route, catalog, onAgentConfig, pan
     // than states, and say so rather than borrowing a state's copy.
     if (pane === "keyboard") {
       const row = keyboardRow(route.id);
-      if (!row || row.state !== "shipped" || !EDITORS[route.id]) {
-        if (!row || row.state === "shipped") return <div className="cli-notice" role="status"><span>{"PiCode has no keyboard pane for " + terminalCliLabel(route.id) + "."}</span></div>;
-        return <CliKeyboard row={row} />;
-      }
+      if (!row) return <div className="cli-notice" role="status"><span>{"PiCode has no keyboard pane for " + terminalCliLabel(route.id) + "."}</span></div>;
+      // A shipped row mounts the editor its table names: `keymap` is the map
+      // screen over the flat engine every guest CLI is written by (ADR-0174),
+      // and `pi-settings` is Pi's own frame and trust rules (ADR-0101), which
+      // falls through to the editor below.
+      if (row.editor === "keymap") return <PiKeys cli={row.id} />;
+      if (row.state !== "shipped") return <CliKeyboard row={row} />;
+      if (!EDITORS[route.id]) return <div className="cli-notice" role="status"><span>{"PiCode has no keyboard pane for " + terminalCliLabel(route.id) + "."}</span></div>;
     }
     if (!supported) {
       return <div className="cli-notice" role="status"><span>{"Settings for " + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>;

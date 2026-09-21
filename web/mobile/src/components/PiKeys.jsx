@@ -5,20 +5,17 @@ import { askConfirm } from "../lib/confirm.js";
 import { isReservedChord } from "@picode/shared/domain/browserChord.js";
 import { effectiveKeys, isOverride, matchKeys, platformAlternates, fromEvent } from "@picode/shared/domain/piKey.js";
 import { formatChord } from "../lib/appKeys.js";
-import { KEYBOARD_CLIS, pickupLine } from "@picode/shared/domain/cliKeys.js";
+import { KEYBOARD_CLIS, keyboardRow, pickupLine } from "@picode/shared/domain/cliKeys.js";
 
-// The pane's own CLI. Today only Pi ships an editor, so this constant is the
-// only thing that would move when a guest's adapter lands (P2): the report
-// carries the rest — the file, the host's platform, the catalog.
-const CLI = KEYBOARD_CLIS[0];
+// The map of the agent CLI this pane belongs to, taken from the route: the
+// report carries the rest (the file it writes, the CLI's own platform name, the
+// catalog), so nothing here guesses. Pi is the CLI this screen was built for;
+// every other shipped CLI renders the same rows through the same envelope
+// (ADR-0174).
+const PLATFORM_LABEL = { windows: "Windows", wsl: "WSL", linux: "Linux", darwin: "macOS", win32: "Windows" };
 
-// The keyboard map of the agent CLI this pane belongs to. Pi is the only CLI
-// whose map PiCode can write today; the report carries the file it writes, the
-// host's platform (nine of pi's actions bind differently on Windows and WSL)
-// and the effective defaults for this machine, so nothing here guesses.
-const PLATFORM_LABEL = { windows: "Windows", wsl: "WSL", linux: "Linux", darwin: "macOS" };
-
-export default function PiKeys({ disabled = false }) {
+export default function PiKeys({ disabled = false, cli = "pi" }) {
+  const CLI = keyboardRow(cli) || KEYBOARD_CLIS[0];
   const [rep, setRep] = useState(null);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
@@ -37,7 +34,11 @@ export default function PiKeys({ disabled = false }) {
 
   const platform = rep?.platform || "";
   const user = rep?.user || {};
-  const actions = rep?.actions || [];
+  // Rows the file holds in a shape PiCode does not rewrite are dropped from the
+  // list rather than drawn with the CLI's default: showing a default over a
+  // value the file really sets would be the one lie this pane must not tell.
+  const unreadable = rep?.unreadable || [];
+  const actions = (rep?.actions || []).filter((a) => !unreadable.includes(a.id));
 
   // chord -> the actions that answer to it. Pi's contexts overlap on purpose
   // (52 of its 89 actions share a chord), so this is reported, never "fixed".
@@ -105,7 +106,7 @@ export default function PiKeys({ disabled = false }) {
       const next = await api("/api/cli-keys", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cli: CLI.id, ...body }),
+        body: JSON.stringify({ cli: CLI.id, revision: rep?.revision || "", ...body }),
       });
       setRep(next);
       toast.ok(done);
@@ -116,19 +117,19 @@ export default function PiKeys({ disabled = false }) {
   }
 
   function save(action, keys) {
-    put({ action, keys }, { ...user, [action]: keys }, "Saved. Pi applies it on /reload or the next run.");
+    put({ action, keys }, { ...user, [action]: keys }, "Saved. " + pickupLine(CLI.id));
   }
 
   function reset(action) {
     const next = { ...user };
     delete next[action];
-    put({ action, reset: true }, next, "Back to Pi's default.");
+    put({ action, reset: true }, next, "Back to " + CLI.label + "'s default.");
   }
 
   async function resetAll() {
     const ok = await askConfirm({
       title: "Reset every key?",
-      message: "Every action this pane changed goes back to Pi's default. Keys PiCode does not know about stay in the file.",
+      message: "Every action this pane changed goes back to " + CLI.label + "'s default. Keys PiCode does not know about stay in the file.",
       confirmLabel: "Reset all",
       danger: true,
     });
@@ -140,7 +141,7 @@ export default function PiKeys({ disabled = false }) {
       next[id] = keys;
     }
     try {
-      await put({ resetAll: true }, next, "Every changed key is back to Pi's default.");
+      await put({ resetAll: true }, next, "Every changed key is back to " + CLI.label + "'s default.");
     } finally { setBusy(false); }
   }
 
@@ -189,7 +190,7 @@ export default function PiKeys({ disabled = false }) {
   ].filter((f) => f.id === "all" || f.count > 0);
 
   return (
-    <section className="settings-section key-pane">
+    <section className="settings-section key-pane" data-cli={CLI.id}>
       <h3>Keyboard</h3>
       <p className="settings-desc">
         {/* The period rides inside the code box: that box has padding, so a
@@ -321,7 +322,7 @@ export default function PiKeys({ disabled = false }) {
                 ) : null}
                 {!waiting && reserved.length ? (
                   <p className="key-note is-warn">
-                    The browser keeps {reserved.map(formatChord).join(" and ")} — Pi never receives {reserved.length > 1 ? "them" : "it"} in a tab.
+                    The browser keeps {reserved.map(formatChord).join(" and ")} — {CLI.label} never receives {reserved.length > 1 ? "them" : "it"} in a tab.
                   </p>
                 ) : null}
                 {!waiting && others.length ? (

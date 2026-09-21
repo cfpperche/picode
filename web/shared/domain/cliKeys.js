@@ -10,7 +10,7 @@
 // two in step; the label and the vendor link live here because they are copy.
 
 export const KEYBOARD_CLIS = [
-  { id: "pi", label: "Pi", state: "shipped", pickup: "reload", keymap: "flat", vocab: "pi" },
+  { id: "pi", label: "Pi", state: "shipped", pickup: "reload", keymap: "flat", vocab: "pi", editor: "pi-settings" },
   { id: "claude-code", label: "Claude Code", state: "planned", pickup: "live", keymap: "inverted", vocab: "claude", docs: "https://code.claude.com/docs/en/keybindings" },
   { id: "codex", label: "Codex", state: "planned", pickup: "restart", keymap: "nested", vocab: "codex", docs: "https://developers.openai.com/codex/config-basic" },
   { id: "grok", label: "Grok", state: "refused", pickup: "unknown", keymap: "none", vocab: "", docs: "https://docs.x.ai/build/keyboard-shortcuts", listHint: "Ctrl+. inside a Grok session lists its keys" },
@@ -18,8 +18,14 @@ export const KEYBOARD_CLIS = [
   { id: "opencode", label: "OpenCode", state: "planned", pickup: "unknown", keymap: "flat", vocab: "opencode", docs: "https://opencode.ai/docs/keybinds" },
   { id: "muse", label: "Muse Code", state: "refused", pickup: "unknown", keymap: "none", vocab: "", docs: "https://ai.developer.meta.com/docs/muse-code/interactive", listHint: "/keymap inside Muse Code lists its keys" },
   { id: "agy", label: "Antigravity", state: "planned", pickup: "unknown", keymap: "flat", vocab: "agy", docs: "https://antigravity.google/docs/cli/settings" },
-  { id: "omp", label: "Omp", state: "planned", pickup: "unknown", keymap: "flat", vocab: "pi", docs: "https://github.com/can1357/oh-my-pi/blob/main/docs/keybindings.md" },
+  { id: "omp", label: "Omp", state: "shipped", pickup: "restart", keymap: "flat", vocab: "pi", editor: "keymap" },
 ];
+
+// A shipped row also says which editor the pane mounts: `pi-settings` is Pi's
+// own view — its frame, its layers, its trust rules (ADR-0101) — and `keymap` is
+// the map screen over the flat engine every other CLI is edited by (ADR-0174).
+// The seam test holds this against the registry's OwnStore, so a row that ships
+// cannot arrive without an editor to mount.
 
 // keyboardRow is the table row for a CLI, or undefined when the pane cannot be
 // opened for it at all.

@@ -17,10 +17,31 @@ const mobile = read("../mobile/src/screens/GitDelivery.jsx");
 test("the Delivery view is a page frame", () => {
   assert.match(browser, /className="settings-wrap"/);
   assert.match(browser, /className="settings-head"/);
-  assert.match(browser, /className="settings-card"/);
+  assert.match(browser, /className="settings-card/);
   // One page scrollbar, not a padded canvas that scrolls inside the tab.
   assert.match(css, /\.delivery-page \{[^}]*overflow-y: auto;/);
   assert.doesNotMatch(css, /^\.delivery \{/m);
+});
+
+test("the card carries two lenses, and its body owns the inset", () => {
+  // D2 (ADR-0170): Integration and Deployment, as an underline nav inside the
+  // card — the .app-page-tabs rhythm, not a second navigation idiom.
+  assert.match(browser, /className="delivery-lanes"/);
+  assert.match(browser, /className="delivery-lane"/);
+  assert.match(browser, />Integration</);
+  assert.match(browser, />Deployment</);
+  assert.match(css, /\.delivery-card \{ padding: 0; overflow: visible; \}/);
+  assert.match(css, /\.delivery-body \{ padding: 16px 24px 20px; \}/);
+});
+
+test("the Deployment lens reads facts and writes nothing but its own connection", () => {
+  // The lane is read-only apart from the environment selector: the one write
+  // goes through the shared client, and no lane code calls the API directly.
+  assert.match(browser, /setDeliveryObserver\(owner, next\)/);
+  assert.doesNotMatch(browser, /method:\s*"POST"/);
+  assert.doesNotMatch(browser, /\/api\//);
+  // An attempt that never finished must never read as running or failed.
+  assert.match(css, /\.delivery-env-row\.is-action \.btn \{ margin-left: 0; \}/);
 });
 
 test("the Git tab's shared strip stays outside the frame", () => {

@@ -121,6 +121,13 @@ func registerDeliveryObservationRoutes(mux Registrar, deps Deps) {
 					}
 				}
 			}
+			// D2: the environment half of the read (ADR-0170). Its issues stay
+			// inside the environment — they are that observation's coverage,
+			// and folding them into view.Complete would report the change scan
+			// as partial because a project has no observer configured.
+			env, marked := deliveryEnvironment(deps, r, route.kind, r.PathValue("id"), cwd, repo, view.TargetOID, view.Changes)
+			view.Environments = []delivery.Environment{env}
+			view.Changes = marked
 			mu.Lock()
 			entry.view = view
 			entry.at = time.Now()

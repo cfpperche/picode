@@ -306,6 +306,53 @@ matrix) pass. One red row remains, the blocked-project-layer `ready()` named in
 `docs/handoff/open/agent-clis-native.md`; it is not this pane's.
 
 P2b is next: the adapters, Omp first, with the ADR above already accepted.
+
+## P2b shipped (2026-09-21, `feat/omp-keymap`)
+
+Omp's key map is editable, and the engine every other flat CLI will use is the
+one it was built on. The four primitives the plan asked for were exported from
+`clisettings` **unchanged in behaviour** (`internal/clisettings/keymap.go`):
+`OpenDoc`, `Strings`, `SetStrings`/`RemoveKey`, `Save`. What is new there is one
+piece of syntax — a *list* literal, which the settings engine never writes — and
+the refusals around it: a row held as a table is `ErrShape` on read (reported as
+`unreadable`, dropped from the pane's list, refused on write) and TOML has no
+literal at all, so the format is refused rather than half-supported.
+
+On top of it, `internal/clikeys` gained the flat engine (`flat.go`): a
+declaration says where a CLI's file lives, its catalog and its platform
+vocabulary; `ReadFlat`, `WriteFlat` and `ResetFlat` do the rest, with the
+revision the caller read travelling with every write. The envelope grew
+`revision`, `unreadable` and the CLI's own `platform`, and its `actions` are now
+`clikeys.Action` — pi's catalog is converted in one place rather than joining the
+two packages, because `pikeys` also answers `/api/pi-keys` from its own type.
+
+The Omp declaration is `omp_catalog.go` (70 rows: 32 `tui.*` + 38 `app.*`, each
+label the CLI's own description, the five it ships unbound, and the one row that
+binds differently by platform) plus `ompKeyMapFile`: `keybindings.yml`, else
+`.yaml`, else the legacy `.json`, in the agent dir the CLI itself resolves
+(`$PI_CONFIG_DIR` or `~/.omp`, then `profiles/$OMP_PROFILE` or `$PI_PROFILE`,
+then `agent`) — so PiCode edits the file the CLI reads, and never creates a
+second one beside it. `[]` unbinds; `Reset all` removes only rows the catalog
+knows.
+
+**One fact in "P2's inputs" turned out stronger than the research could prove at
+the time: the pickup is `restart`, not unknown.** The bundle's keybinding manager
+reads its files when it is created and nothing in the bundle calls its own
+`reload()` — no watcher, no command — so a running session keeps the map it
+started with. The registry row says so, and P1's invariant ("a shipped row must
+say when a change lands") is what forced the measurement instead of an
+`unknown` that would have satisfied nobody.
+
+Measured on the fixture: `qa-cli-settings.mjs` renders Omp's 70 rows on both
+apps, captures `Ctrl+Alt+O` into the first row, reads it back out of Omp's own
+file, and proves `Reset all` hands it back. Before that, the engine's own tests:
+create-the-file, the three-name precedence, a legacy JSON map edited in place, an
+unknown action refused by name, a stale revision refused with 409, reset leaving
+unknown keys and comments alone, and an unreadable row reported rather than
+swallowed.
+
+P3 is next (Codex's nested TOML and Antigravity's flat JSON), and it now has an
+engine to declare into rather than to write.
 Everything it needs was measured before the first line of the adapter, so the
 next session starts with no unknowns — and the first measurement corrected this
 plan (see below).
@@ -337,9 +384,9 @@ published sources match the bundle string-for-string):
   `ctrl+v`/`alt+v` on Windows, `ctrl+v`/`super+v` on macOS. The catalog's `Alt`
   map takes the CLI's own platform names (`linux`/`win32`/`darwin`), and WSL
   reports `linux` to the CLI.
-- **Pickup: still unknown.** `KeybindingsManager.reload()` exists and re-reads
-  the files, but nothing user-facing is documented to call it. The registry says
-  unknown and the pane will say so.
+- **Pickup: restart** (measured in P2b, 2026-09-21). `KeybindingsManager.reload()`
+  exists and re-reads the files, but nothing in the bundle calls it and nothing
+  watches the file — the manager reads them once, when it is created.
 - **Where the tables live**: the bundle's module is one region of `dist/cli.js`
   (the minified bundle is ~26 MB, so cite the region, not a line per fact), and
   the same text is published at `@oh-my-pi/pi-tui@18.2.8/src/keybindings.ts` (the

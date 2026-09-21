@@ -2,6 +2,18 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { KEYBOARD_CLIS, blockNote, keyboardRow, noteIsExternal, pickupLine } from "./cliKeys.js";
 
+// A shipped row carries the editor the pane mounts, and no other row does: a
+// row that ships without one is a pane that renders nothing.
+test("a shipped row names its editor, and nothing else does", () => {
+  for (const cli of KEYBOARD_CLIS) {
+    if (cli.state === "shipped") {
+      assert.ok(["pi-settings", "keymap"].includes(cli.editor), cli.id + " ships without an editor");
+    } else {
+      assert.equal(cli.editor, undefined, cli.id + " is not shipped and names an editor");
+    }
+  }
+});
+
 test("every registry CLI answers, in sidebar order", () => {
   assert.equal(KEYBOARD_CLIS.length, 9);
   assert.equal(KEYBOARD_CLIS[0].id, "pi");
@@ -20,7 +32,11 @@ test("the pickup line matches what the CLI actually does", () => {
   assert.equal(pickupLine("pi"), "Pi applies a change on /reload or the next run.");
   assert.match(pickupLine("claude-code"), /as you save it/);
   assert.match(pickupLine("codex"), /restart it/);
-  for (const id of ["omp", "hermes", "opencode", "agy"]) {
+  // Omp's pickup was measured from its own bundle: the manager reads the files
+  // when it is created and nothing re-reads them, so the sentence a user can act
+  // on is "restart it".
+  assert.match(pickupLine("omp"), /restart it/);
+  for (const id of ["hermes", "opencode", "agy"]) {
     assert.match(pickupLine(id), /is not documented/);
   }
 });

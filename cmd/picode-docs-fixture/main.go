@@ -12,6 +12,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"log"
@@ -19,7 +20,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/cfpperche/picode/internal/apps"
@@ -54,7 +57,21 @@ func main() {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		log.Fatal(err)
 	}
-	defer os.RemoveAll(dataDir)
+	// A dedicated socket per fixture instance (ADR-0139): capture sessions land
+	// in the fixture's own server instead of the owner's tmux, and the
+	// default-socket Manager rides along as the drain.
+	fxTmux := tmux.NewWithSocket(filepath.Join(dataDir, "tmux.sock")).WithLegacy(tmux.New())
+
+	// End what the fixture started, however the process leaves: the capture
+	// pipeline kills it (scripts/docs-shots.mjs) and the default disposition
+	// would drop the private server, still holding its seeded terminals'
+	// shells — seven of them had piled up by 2026-09-21. One cleanup serves
+	// both exits: the deferred call for a normal return, the handler for a
+	// signal (installed this early so a kill during boot cleans up too).
+	defer shutdown(dataDir, fxTmux)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() { <-sigs; shutdown(dataDir, fxTmux); os.Exit(0) }()
 	// Synthetic HOME before anything resolves a path: the app reads real pi
 	// sessions (~/.pi/agent/sessions) for usage stats, and the fixture must
 	// never publish the user's real spend — parity means synthetic data only.
@@ -110,10 +127,6 @@ func main() {
 		}
 	}
 
-	// A dedicated socket per fixture instance (ADR-0139): capture sessions
-	// land in the fixture's own server instead of the owner's tmux, and the
-	// default-socket Manager rides along as the drain.
-	fxTmux := tmux.NewWithSocket(filepath.Join(dataDir, "tmux.sock")).WithLegacy(tmux.New())
 	deps := server.Deps{
 		Store:        st,
 		Auth:         nil, // ungated: the capture browser walks straight in
@@ -135,6 +148,17 @@ func main() {
 	if err := http.ListenAndServe(*addr, srv.Handler); err != nil {
 		log.Printf("fixture: %v", err)
 	}
+}
+
+// shutdown ends what the fixture started: the private tmux server holding its
+// seeded terminals, then the data directory itself. The order is the point —
+// unlinking a live socket hides that server instead of ending it, and it goes
+// on holding its panes' shells with nothing left to reach it.
+func shutdown(dir string, m *tmux.Manager) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = m.KillServer(ctx)
+	_ = os.RemoveAll(dir)
 }
 
 // seed fills the store with a fixed, synthetic world. Names, states and

@@ -270,8 +270,14 @@ export function go(name, agentId, extra = {}) {
 // Git graph (ADR-0022). The hash names the *owner* that asked, because the
 // owner is what authorises the read; the tab id names the *repository*, so two
 // agents in two worktrees of one repo land on the same tab.
-export function gitHash(kind, id, view = "") {
-  return "#/git/" + ownerLetter(kind) + "/" + encodeURIComponent(id || "") + (view === "delivery" ? "?view=delivery" : "");
+export function gitHash(kind, id, view = "", lane = "") {
+  const q = new URLSearchParams();
+  if (view === "delivery") {
+    q.set("view", "delivery");
+    if (lane === "deployment") q.set("lane", "deployment");
+  }
+  const s = q.toString();
+  return "#/git/" + ownerLetter(kind) + "/" + encodeURIComponent(id || "") + (s ? "?" + s : "");
 }
 
 export function gitRoute(hash) {
@@ -279,7 +285,15 @@ export function gitRoute(hash) {
   const m = /^\/git\/(t|a|w)\/([^/]+)$/.exec(h.split("?")[0]);
   if (!m) return null;
   try {
-    return { kind: ownerKind(m[1]), id: decodeURIComponent(m[2]), ...(new URLSearchParams(h.split("?")[1] || "").get("view") === "delivery" ? { view: "delivery" } : {}) };
+    // The lane names which lens of the Delivery view is open; it carries no
+    // path, permission or execution intent (ADR-0170).
+    const q = new URLSearchParams(h.split("?")[1] || "");
+    const out = { kind: ownerKind(m[1]), id: decodeURIComponent(m[2]) };
+    if (q.get("view") === "delivery") {
+      out.view = "delivery";
+      if (q.get("lane") === "deployment") out.lane = "deployment";
+    }
+    return out;
   } catch {
     return null;
   }
