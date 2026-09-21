@@ -186,7 +186,8 @@ export function AgentRow({
     <li
       ref={drag ? drag.setNodeRef : undefined}
       style={drag ? drag.style : undefined}
-      className={"ws-item is-" + status + (ag.id === selectedId ? " active" : "") + (drag && drag.isDragging ? " is-dragging" : "")}
+      data-drag-id={ag.id}
+      className={"ws-item is-" + status + (ag.id === selectedId ? " active" : "") + (drag && drag.isDragging ? " is-placeholder" : "")}
     >
       <div className="ws-row-main">
         <div
@@ -300,7 +301,8 @@ export function TermRow({
     <li
       ref={drag ? drag.setNodeRef : undefined}
       style={drag ? drag.style : undefined}
-      className={"ws-item is-terminal is-" + terminalStatus(t) + (selected ? " active" : "") + (drag && drag.isDragging ? " is-dragging" : "")}
+      data-drag-id={t.id}
+      className={"ws-item is-terminal is-" + terminalStatus(t) + (selected ? " active" : "") + (drag && drag.isDragging ? " is-placeholder" : "")}
     >
       <div className="ws-row-main">
         <div className="ws-row-hit" role="button" tabIndex={0} aria-current={selected ? "page" : undefined} aria-describedby={drag ? drag.describedBy : undefined} aria-label={(t.name || "Terminal") + " — " + cliLabel} onClick={select} onKeyDown={(e) => openRow(e, select)} onPointerDown={drag ? drag.onPointerDown : undefined}>

@@ -265,7 +265,8 @@ export default function Sidebar({
             <li
               ref={drag.setNodeRef}
               style={drag.style}
-              className={"ws-group" + (drag.isDragging ? " is-dragging" : "")}
+              data-drag-id={ws.id}
+              className={"ws-group" + (drag.isDragging ? " is-placeholder" : "")}
             >
               <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
