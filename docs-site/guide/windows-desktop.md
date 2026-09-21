@@ -87,15 +87,7 @@ for installation inside Linux or WSL.
 
 ## See what the disk is doing
 
-The tray icon keeps one line about the disk, refreshed every five minutes:
-
-```
-WSL 218 GB · ≈92 GB held by Windows · C: 27 GB free
-```
-
-Below 20 GB free the line ends in `— low`, and the tooltip adds the command
-below. Hovering the icon is the whole check — no Explorer, no `df` by hand.
-
+The tray menu's **Management** item → **Disk** tab shows the same facts.
 `picode-desktop disk` prints the two sides in full, and changes nothing:
 
 ```powershell
@@ -128,8 +120,8 @@ also keeps that space.
 
 ### Give the space back
 
-When there is something to give back, the tray menu offers it: **Give back ≈92 GB…**
-under the disk line. Choosing it
+When there is something to give back, the Management window's **Disk** tab
+offers **Give back held space**. Choosing it
 
 1. asks PiCode whether anyone is working — the same check `picode deploy` uses;
    if someone is mid-turn it names them and stops;
