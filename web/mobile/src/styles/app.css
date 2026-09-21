@@ -564,6 +564,9 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .gpkg-scope .pkg-scope-label { display: inline-flex; align-items: center; }
 .gpkg-scope .pkg-scope { margin: 0; align-items: center; }
 .gpkg-install { margin-top: 10px; }
+.gpkg-check { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gpkg-check .pkg-fine { display: inline-flex; align-items: center; height: var(--ctl-h); margin: 0; }
+.pkg-type.is-update { color: var(--accent); border-color: var(--border-strong); }
 .gpkg-problem { display: flex; flex-direction: column; gap: 4px; }
 .gpkg-cmd { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .gpkg-notes {

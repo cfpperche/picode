@@ -167,8 +167,12 @@ func liveLogRows(t *testing.T, what string, rows []Row) {
 			t.Logf("  … %d more", len(rows)-i)
 			break
 		}
-		t.Logf("  %s | v=%s | scope=%s | enabled=%v | installed=%v | %s:%s | mp=%s",
-			r.ID, r.Version, r.Scope, r.Enabled, r.Installed, r.SourceKind, r.Source, r.Marketplace)
+		badge := ""
+		if r.UpdateAvailable {
+			badge = " | BEHIND latest=" + r.Latest
+		}
+		t.Logf("  %s | v=%s | scope=%s | enabled=%v | installed=%v | %s:%s | mp=%s%s",
+			r.ID, r.Version, r.Scope, r.Enabled, r.Installed, r.SourceKind, r.Source, r.Marketplace, badge)
 	}
 }
 
@@ -723,6 +727,35 @@ func liveSeedAndRead(t *testing.T, cli string, p Paths) {
 		}
 		if len(sources) != 1 || sources[0].Name != liveFixtureName {
 			t.Errorf("marketplace sources = %+v", sources)
+		}
+
+		// The availability check, end to end: publish a newer version through
+		// the vendor's own marketplace (Muse serves a snapshot, so the source
+		// is refreshed with the vendor's own command first), then ask PiCode to
+		// compare. A row the catalog says is newer must come back marked.
+		liveMuseBundle(t, filepath.Join(mp, "plugins", "picode-spare"), "picode-spare", "0.3.0")
+		liveWrite(t, filepath.Join(mp, ".claude-plugin", "marketplace.json"), `{
+  "name": "`+liveFixtureName+`",
+  "owner": {"name": "PiCode live parity"},
+  "plugins": [
+    {"name": "picode-probe", "source": "./plugins/picode-probe", "description": "PiCode live probe", "version": "0.1.0"},
+    {"name": "picode-spare", "source": "./plugins/picode-spare", "description": "PiCode live spare", "version": "0.3.0"}
+  ]
+}`)
+		if out, err := Market(ctx, cli, "update", p, MarketRequest{Action: "update", Name: liveFixtureName}); err != nil {
+			t.Fatalf("marketplace update: %v (%s)", err, liveHead(out))
+		}
+		checked, err := CheckUpdates(ctx, cli, p, "user", true)
+		if err != nil {
+			t.Fatalf("update check: %v", err)
+		}
+		liveLogRows(t, cli+" update check", checked.Rows)
+		behind := liveFind(checked.Rows, "picode-spare")
+		if behind == nil || !behind.UpdateAvailable || behind.Latest != "0.3.0" {
+			t.Errorf("a plugin the catalog publishes a newer version of must be marked: %+v", checked.Rows)
+		}
+		if checked.CheckedAt == "" {
+			t.Error("a check must report when it ran")
 		}
 
 	case "opencode":

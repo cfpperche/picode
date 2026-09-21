@@ -8,16 +8,17 @@
 
 ## Debts
 
-- [ ] **No Update action for a guest CLI's plugins.** ADR-0167 ships install,
-  remove and enable/disable, and leaves `update` to the vendor's own command:
-  an honest "update available" badge needs the vendor's catalog compared per
-  CLI (Hermes' curated catalog, Muse's marketplace snapshot, Codex's remote
-  marketplace), and PiCode has that machinery only for Pi's packages. The row
-  menu names the command (`hermes plugins update`, `muse plugins update`,
-  `claude plugin update`, `omp plugin upgrade`, `grok plugin update`).
-  Whoever builds the availability signal promotes the action in
-  `internal/clipkgs/specs.go` — the argv builders already exist for Claude
-  Code, Grok, Hermes, Muse and Omp.
+- [x] **The update action shipped with its signal.** Paid 2026-09-21
+  (`feat/pkg-update-badge`, ADR-0167 amendment): `GET
+  /api/cli-packages/updates` compares the CLI's roster with its own catalog
+  (`clipkgs.CheckUpdates`, `pipkg.Newer`), the pane runs it once per mount where
+  the CLI has the verb, and Update appears only on the rows the catalog says
+  are behind (`→ 0.3.0`). Measured end to end in the live harness: Muse
+  installed at 0.2.0, the marketplace snapshot refreshed with the vendor's own
+  command to 0.3.0, the row came back `BEHIND latest=0.3.0`. A catalog that
+  cannot be read leaves rows unmarked with the reason; a version pair the
+  comparator cannot parse is not a claim. Omp gets the badge without an Install
+  because `discover` carries versions.
 - [x] **A consent refusal carried no command.** Paid 2026-09-21
   (`feat/pkgs-polish`): `clipkgs.Command`/`MarketCommand` render the exact line
   from the same builder the request executes (with URL credentials redacted),

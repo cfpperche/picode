@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "./MobileSheet.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
-import { guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand } from "@picode/shared/domain/cliPackages.js";
+import { guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand, rowUpdateState } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast } from "../lib/toast.js";
@@ -79,6 +79,11 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
   const [problem, setProblem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("installed");
+  // checkedAt is the last availability check's stamp: an empty value means the
+  // catalog was never compared, which is when the pane offers the check itself
+  // instead of a blind Update per row (ADR-0167).
+  const [checkedAt, setCheckedAt] = useState("");
+  const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(null);
   const [job, setJob] = useState(null);
   const [rowError, setRowError] = useState({});
@@ -240,6 +245,34 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
     }
   }
 
+  // checkUpdates asks the server to compare the CLI's catalog with its roster.
+  // The answer is the same view with the behind rows marked, so it replaces the
+  // report rather than being merged into it.
+  const autoChecked = useRef(false);
+  const checkUpdates = useCallback(async (refresh = false) => {
+    if (guard || needsWorkspace) return;
+    setChecking(true);
+    try {
+      const next = await api(paths.updates(refresh ? { refresh: true } : undefined).path);
+      if (next && Array.isArray(next.rows)) {
+        setReport(next);
+        setCheckedAt(next.checkedAt || "");
+      }
+    } catch (ex) {
+      fail("", ex);
+    } finally {
+      setChecking(false);
+    }
+  }, [guard, needsWorkspace, paths]);
+
+  useEffect(() => {
+    // One check per mount: the pane shows badges without being asked, and the
+    // button is there to check again (the server caches the catalog read).
+    if (hidden || autoChecked.current || !caps.update || needsWorkspace) return;
+    autoChecked.current = true;
+    checkUpdates(false);
+  }, [hidden, caps.update, needsWorkspace, checkUpdates]);
+
   async function toggle(row, on) {
     if (guard || needsWorkspace) return;
     const name = row.name || row.id;
@@ -356,6 +389,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
   }
 
   const rows = (report && Array.isArray(report.rows) && report.rows) || [];
+  const behind = rows.filter(row => row.updateAvailable).length;
   const scopes = (report && Array.isArray(report.scopes) && report.scopes) || [];
   const currentScope = scopes.find(entry => entry.id === scope) || null;
   const absence = guestPackagesNotes(caps, (report && report.notes) || {});
@@ -486,6 +520,14 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                   <span className="pkg-count">{shown.length === rows.length ? rows.length + " installed" : shown.length + " of " + rows.length}</span>
                 </div>
               ) : null}
+              {caps.update ? (
+                <div className="gpkg-check" data-align-row>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={guard || checking} onClick={() => checkUpdates(true)}>
+                    {checking ? "Checking…" : checkedAt ? "Check again" : "Check for updates"}
+                  </button>
+                  {checkedAt ? <span className="pkg-fine">{behind ? behind + (behind === 1 ? " can be updated." : " can be updated.") : "Everything is up to date."}</span> : <span className="pkg-fine">Compare these with what the CLI offers.</span>}
+                </div>
+              ) : null}
               {rows.length === 0 ? (
                 <div className="pkg-empty">
                   <p className="pkg-empty-title">Nothing installed.</p>
@@ -504,6 +546,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                       <div className="gpkg-row-head">
                         <span className="gpkg-row-name" title={row.source || row.name || row.id}>{row.name || row.id}</span>
                         {row.version ? <span className="pkg-type">{row.version}</span> : null}
+                        {row.updateAvailable && row.latest ? <span className="pkg-type is-update">{"→ " + row.latest}</span> : null}
                         {row.scope ? <span className="pkg-type">{row.scope}</span> : null}
                         {row.status ? <span className="gpkg-status">{row.status}</span> : null}
                         {row.managedByPiCode ? <span className="pkg-type is-picode">Installed by PiCode</span> : null}
@@ -514,8 +557,8 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                               {verbFor(row) === "toggle" ? busy.label : row.enabled ? "Disable" : "Enable"}
                             </button>
                           ) : null}
-                          {caps.update ? (
-                            <button type="button" className="btn btn-sm" disabled={guard} onClick={() => update(row)}>{verbFor(row) === "update" ? busy.label : "Update"}</button>
+                          {rowUpdateState(caps, row, !!checkedAt) === "update" ? (
+                            <button type="button" className="btn btn-sm" disabled={guard} title={"Update to " + row.latest} onClick={() => update(row)}>{verbFor(row) === "update" ? busy.label : "Update"}</button>
                           ) : null}
                           {caps.inspect ? (
                             <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => openInspect(row)}>{verbFor(row) === "inspect" ? busy.label : "Inspect"}</button>
@@ -619,6 +662,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                       <div className="gpkg-row-head">
                         <span className="gpkg-row-name" title={row.source || row.name}>{row.name || row.id}</span>
                         {row.version ? <span className="pkg-type">{row.version}</span> : null}
+                        {row.updateAvailable && row.latest ? <span className="pkg-type is-update">{"→ " + row.latest}</span> : null}
                         {row.marketplace ? <span className="pkg-type">{row.marketplace}</span> : null}
                         <span className="pkg-foot-spacer" />
                         {row.installed ? (
