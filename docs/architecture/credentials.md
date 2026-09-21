@@ -58,6 +58,9 @@ a vault-shaped credential for **Import**, and nothing here writes a CLI's file.
 A CLI that publishes no credential path (omp keeps its pool in a live SQLite
 database; Muse Code and Antigravity document none) declares providers and
 env vars only, and the pane shows its `note` where a control would be a lie.
+omp's custom gateways are the exception that reaches past this declaration:
+their definitions live in omp's own `models.yml` (ADR-0175), ride the roster
+as rows, and their key stays in that file — the vault never holds one.
 
 ## API
 

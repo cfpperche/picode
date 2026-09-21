@@ -12,7 +12,7 @@ import { askConfirm } from "../lib/confirm.js";
 import { askPrompt } from "../lib/prompt.js";
 import { apiKeySchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
-import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
+import { cliProvidersHash, supportsCustomProviders } from "@picode/shared/domain/cliProviders.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { usagePath } from "@picode/shared/domain/providerUsage.js";
 import { formatSpend, identityLine, spendByProvider } from "@picode/shared/domain/providerRows.js";
@@ -322,7 +322,9 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   async function verifyProvider(provider) {
     setBusy("verify:" + provider.id);
     try {
-      const res = await api("/api/providers/" + encodeURIComponent(provider.id) + "/verify", { method: "POST" });
+      // cli picks the checker: pi's own answer, or — for an omp custom
+      // endpoint — the saved models.yml key spent on one minimal request.
+      const res = await api("/api/providers/" + encodeURIComponent(provider.id) + "/verify", json("POST", { cli }));
       setVerdicts((prev) => ({ ...prev, [provider.id]: res }));
       if (res && res.ok) toast.ok(res.label ? provider.id + ": " + res.label + "." : cliName + " can use " + providerName(provider.id) + ".");
       else toast.error(provider.id + ": " + ((res && (res.reason || res.status)) || "not ready"));
@@ -331,6 +333,23 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     } finally {
       setBusy("");
     }
+  }
+
+  // A custom provider's definition and its key are one row in the CLI's own
+  // file: removing it is the only way to un-key a gateway, so the confirm
+  // names both halves.
+  async function removeProvider(provider) {
+    const name = providerName(provider.id);
+    const ok = await askConfirm({
+      title: "Remove " + name,
+      message: "Removes the definition and its saved key from " + cliName + "’s models.yml. The gateway itself is not touched.",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
+    await run("remove:" + provider.id,
+      () => api("/api/providers/custom/" + encodeURIComponent(provider.id) + "?cli=" + encodeURIComponent(cli), { method: "DELETE" }),
+      () => toast.ok(name + " removed."));
   }
 
   // One vendor call, on this click, under ADR-0129's rule: the roster comes
@@ -376,19 +395,25 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   }
 
   // A custom provider is the one row whose definition lives somewhere else
-  // (models.json): the edit is that page, and the route is pi's own.
+  // (pi's models.json, omp's models.yml): the edit is that page, on this
+  // CLI's own pane.
   function editProvider(provider) {
-    if (typeof location !== "undefined") location.hash = cliProvidersHash("pi", { custom: true, customId: provider.id });
+    if (typeof location !== "undefined") location.hash = cliProvidersHash(cli, { custom: true, customId: provider.id });
   }
 
-  // The custom-endpoint page (ADR-0129) is pi's sub-page of this pane: it
-  // renders its own head and needs the same catalog the Add-provider dialog
-  // does, so it is rendered here rather than one level up.
-  if (custom && cli === "pi") {
-    if (catalog) return <CustomEndpointPage catalog={catalog} onRefresh={loadCatalog} editId={custom === "edit" ? customId : ""} />;
+  // The custom-endpoint page (ADR-0129) is the pane's sub-page: it renders
+  // its own head and needs the provider list its CLI reads definitions from —
+  // pi's catalog, omp's roster — so it is rendered here rather than one level
+  // up.
+  if (custom && supportsCustomProviders(cli)) {
+    if (cli === "pi") {
+      if (catalog) return <CustomEndpointPage key={custom + (customId || "")} cli={cli} catalog={catalog} onRefresh={loadCatalog} editId={custom === "edit" ? customId : ""} />;
+    } else {
+      if (data) return <CustomEndpointPage key={custom + (customId || "")} cli={cli} rosterProviders={data.providers} onRefresh={load} editId={custom === "edit" ? customId : ""} />;
+    }
     return (
       <section id="cli-credentials-view" hidden={hidden} aria-label="Custom provider">
-        {catalogError ? (
+        {catalogError && cli === "pi" ? (
           <div className="cli-notice is-error" role="alert">
             <span>{catalogError}</span>
             <button type="button" className="btn btn-ghost btn-sm" onClick={loadCatalog}>Try again</button>
@@ -559,6 +584,32 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                         />
                       ))}
                     </ul>
+                  ) : p.custom && p.definition ? (
+                    // A definition row has no vault account to list: the
+                    // definition and its key live in the CLI's own file, and
+                    // the line says which state that file is in.
+                    <div className="cred-native">
+                      <span className="cred-native-text">
+                        {name + " · " + (p.definition.keyed ? "Saved with a key in models.yml." : "Saved in models.yml — no key yet.")}
+                      </span>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => editProvider(p)}>Edit provider</button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        disabled={busy === "verify:" + p.id}
+                        onClick={() => verifyProvider(p)}
+                      >
+                        {busy === "verify:" + p.id ? "Checking…" : VERIFY_LABEL}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        disabled={busy === "remove:" + p.id}
+                        onClick={() => removeProvider(p)}
+                      >
+                        {busy === "remove:" + p.id ? "Removing…" : "Remove provider"}
+                      </button>
+                    </div>
                   ) : (
                     <p className="cred-empty">
                       <span>{name + " · No accounts yet."}</span>

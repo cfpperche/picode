@@ -10,8 +10,9 @@ import { customModelIds, mergeModelIds, syncModelLimits } from "../domain/custom
 
 // loadModelsFor asks the server for the ids a form's endpoint serves. The key
 // travels once when the person typed one; otherwise the server reads the saved
-// credential for `id`. The key never comes back.
-export async function loadModelsFor({ baseUrl, api: apiType, key, id }) {
+// credential for `id` from the CLI's own file (cli picks which). The key never
+// comes back.
+export async function loadModelsFor({ baseUrl, api: apiType, key, id, cli }) {
   const trimmed = String(key || "").trim();
   return api("/api/providers/custom/models", {
     method: "POST",
@@ -21,6 +22,7 @@ export async function loadModelsFor({ baseUrl, api: apiType, key, id }) {
       api: apiType || "openai-completions",
       ...(trimmed ? { key: trimmed } : {}),
       ...(id ? { id } : {}),
+      ...(cli ? { cli } : {}),
     }),
   });
 }
