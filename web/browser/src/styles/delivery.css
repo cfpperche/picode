@@ -1,30 +1,102 @@
-.delivery { padding: 16px; overflow: auto; min-height: 0; font-size: 13px; }
-.delivery-tabs, .delivery-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.delivery-tabs { padding: 8px 12px; border-bottom: 1px solid var(--border); }
-.delivery-tabs [aria-current="page"] { color: var(--accent); background: var(--bg-elevated); }
+/* Delivery — the Git tab's second view. It draws the same page every system
+   route draws (.settings-wrap + .settings-head + .settings-card, the Agent
+   CLIs standard of ADR-0103; owner, 2026-09-21). The Git tab's own strip above
+   it — workspace picker + History/Delivery — stays outside the frame and
+   unchanged, because History is still a canvas with its own layout.
+
+   The view is the only scroll container: the card grows with the list and the
+   page scrolls, so there is one scrollbar and no nested canvas. */
+.delivery-page { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; font-size: 13px; }
+
+/* One control row at the card's top: the target and the filter read left to
+   right, Refresh is the row's own action at its end — the .app-card-toolbar
+   and .auto-toolbar rhythm, not a control at each edge. */
+.delivery-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
 .delivery-toolbar label { display: flex; gap: 8px; align-items: center; height: var(--ctl-h); }
-.delivery-toolbar select, .delivery-toolbar button { height: var(--ctl-h); max-width: 100%; }
+.delivery-toolbar button { height: var(--ctl-h); max-width: 100%; }
+/* A bare <select> carries no control look (Tailwind's preflight strips its
+   border and background), so in the card "Target main" read as a label beside
+   a bordered Refresh — an independent visual read named it, 2026-09-21. The
+   box is the house control: the .cli-fields select, and the git strip's own
+   buttons directly above this row. */
+.delivery-toolbar select {
+  height: var(--ctl-h); max-width: 100%; padding: 0 8px;
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+}
+.delivery-toolbar select:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.delivery-refresh { margin-left: auto; }
 .delivery-status, .delivery-meta { color: var(--text-secondary); }
-.delivery-guide { margin: 8px 0 0; color: var(--text-secondary); font-size: 12px; }
-.delivery-list { list-style: none; padding: 0; margin: 12px 0; }
+.delivery-guide { margin: 0 0 6px; color: var(--text-secondary); font-size: 12px; }
+
+/* Rows stay divided instead of boxed (the .cli-memory-table rhythm, which is
+   a table inside a card too): this list is a table of facts, and boxes with
+   gaps would repeat the card's own border on every row. The last row draws no
+   line into the card's bottom padding. */
+.delivery-list { list-style: none; padding: 0; margin: 12px 0 0; }
 .delivery-list li { display: grid; grid-template-columns: minmax(0,1fr) 200px; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); animation: delivery-enter 150ms ease-out; }
-.delivery h3 { margin: 0 0 6px; font-size: 14px; }
-.delivery p { margin: 6px 0; }
+.delivery-list li:last-child { padding-bottom: 0; border-bottom: 0; }
+.delivery-list h3, .delivery-detail h3 { margin: 0 0 6px; font-size: 14px; }
+.delivery-list p, .delivery-detail p { margin: 6px 0; }
 .delivery-facts { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.delivery [data-failed="true"] { color: var(--danger); }
-.delivery-warning, .delivery-empty, .delivery-detail { padding: 16px 0; }
-.delivery-detail dd { margin: 4px 0 12px; overflow-wrap: anywhere; }
+.delivery-page [data-failed="true"] { color: var(--danger); }
+
+/* The in-card way back to the list: quiet 36px text until hover, the
+   .app-card-back idiom the app surfaces use for the same move. */
+.delivery-back { display: inline-flex; align-items: center; gap: 4px; height: var(--ctl-h); padding: 0; border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 12.5px; cursor: pointer; }
+.delivery-back:hover { color: var(--text-primary); }
+.delivery-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-ctl); }
+
+/* The two verdicts of the selected change, side by side and each on its own
+   surface, so "integrated but checks failed" cannot read as one status. */
 .delivery-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0 16px; }
-.delivery-summary div { display: flex; flex-direction: column; gap: 4px; padding: 10px; background: var(--bg-elevated); border-radius: 6px; }
+.delivery-summary div { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl); }
+.delivery-summary strong { font-size: 13px; font-weight: 600; }
 .delivery-summary span { color: var(--text-secondary); font-size: 12px; }
-.delivery-detail code, .delivery-list h3, .delivery-meta { overflow-wrap: anywhere; }
-.delivery-skeleton div { height: 82px; margin: 12px 0; border-radius: 6px; background: var(--bg-elevated); animation: delivery-enter 800ms ease-in-out infinite alternate; }
+
+/* Revision, source and agents as label/value pairs — the .cli-summary-grid
+   rhythm. Stacked dt/dd pairs left a label and its own value as two loose
+   lines 13px apart, which read as four facts instead of two. */
+.delivery-pairs { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 8px 16px; margin: 0 0 16px; font-size: 12px; }
+.delivery-pairs dt { color: var(--text-secondary); }
+.delivery-pairs dd { margin: 0; overflow-wrap: anywhere; }
+.delivery-pairs code { font-family: var(--mono); font-size: 11.5px; }
+
+.delivery-heading { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+.delivery-evidence { list-style: none; padding: 0; margin: 0 0 16px; display: flex; flex-direction: column; gap: 8px; }
+.delivery-evidence li { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl); }
+.delivery-evidence strong { font-size: 12.5px; font-weight: 550; }
+.delivery-evidence span { font-size: 11.5px; }
+.delivery-evidence code { font-family: var(--mono); font-size: 11px; }
+.delivery-detail code, .delivery-list h3, .delivery-meta, .delivery-evidence code { overflow-wrap: anywhere; }
+
+/* A partial read, a moved folder or a failed refresh: one line (plus the
+   issues), one action — the .auto-blocked box, in the card. Empty states use
+   .mcp-empty, which is this rule already. */
+.delivery-warning { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 12px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); border-radius: var(--radius-ctl); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.delivery-warning p { margin: 0; font-size: 13px; }
+.delivery-warning ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 12px; color: var(--text-secondary); }
+.delivery-warning .btn { height: var(--ctl-h); }
+.delivery-page .mcp-empty { margin: 12px 0 0; }
+
+/* First load: the shape of the list it is about to draw, in the route pages'
+   skeleton colour (.skel-line), not invented rows. */
+.delivery-skeleton div { height: 82px; margin: 12px 0; border-radius: var(--radius-ctl); background: var(--bg-hover); animation: delivery-enter 800ms ease-in-out infinite alternate; }
 @keyframes delivery-enter { from { opacity: .4; } to { opacity: 1; } }
 @media (max-width: 620px) { .delivery-list li { grid-template-columns: 1fr; gap: 8px; } .delivery-facts { flex-direction: row; align-items: center; flex-wrap: wrap; } }
+/* Stacked rows put the two verdicts on one line, where "Integrated Checks
+   passed" reads as a single sentence (visual review, 2026-09-21). The meta
+   lines' own separator is the fix, and it stays out of the wide layout,
+   where the facts are one per line already. */
+@media (max-width: 620px) { .delivery-facts span + span::before { content: "·"; margin-right: 8px; color: var(--text-secondary); } }
 @media (max-width: 620px) { .delivery-summary { grid-template-columns: 1fr; } }
-@media (prefers-reduced-motion: reduce) { .delivery * { animation: none !important; } }
+@media (max-width: 620px) { .delivery-pairs { grid-template-columns: 1fr; gap: 4px; } .delivery-pairs dd { margin-bottom: 8px; } }
+@media (prefers-reduced-motion: reduce) { .delivery-page * { animation: none !important; } }
 
-.delivery-actions { display: flex; gap: 8px; align-items: center; }
-
+/* The Git tab's own strip, shared by History and Delivery (the workspace
+   picker and the view toggle). It is not the Delivery page's: History keeps
+   this bar exactly as it was. */
+.delivery-tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.delivery-tabs [aria-current="page"] { color: var(--accent); background: var(--bg-elevated); }
 .git-workspace-control, .git-view-tabs { display: flex; align-items: center; gap: 8px; }
 .delivery-tabs .btn { height: var(--ctl-h); }

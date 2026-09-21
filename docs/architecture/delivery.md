@@ -74,7 +74,15 @@ Local file evidence is not an authorization or tamper-proof audit boundary.
 
 The browser adds History/Delivery within the existing Git tab; mobile owns its
 Delivery section and detail navigation. Both share pure labels and a headless
-observer, not UI components. Entry, focus, feed events and visible 15-second
+observer, not UI components. The browser's Delivery view draws a **page frame**
+inside that tab — `.settings-wrap` + `.settings-head` + `.settings-card`, the
+Agent CLIs geometry of ADR-0103 (owner, 2026-09-21; the rule lives in
+`docs/benchmarks.md` § One page width, the guard in
+`web/tools/delivery-surface.test.mjs`) — because a list of changes with a
+detail is read top to bottom like a route. History stays a canvas, and the
+tab's own strip (workspace picker plus the History/Delivery toggle) stays above
+both and outside the card, so the graph never moves. The view is the page's
+only scroll container. Entry, focus, feed events and visible 15-second
 reconciliation refresh facts because Git/receipt writers do not always emit
 feed events. Hidden views stop polling; errors retain the last observation, roots
 pin after the first read, and disposed requests cannot change the next project.

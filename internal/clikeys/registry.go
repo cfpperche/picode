@@ -131,9 +131,14 @@ var Registry = []CLI{
 	{
 		ID: "omp", Label: "Omp",
 		Keymap: Flat, Pickup: PickupUnknown, State: Planned, Vocab: "pi",
-		Source: "installed bundle @oh-my-pi/pi-coding-agent 18.2.7 (read 2026-09-21): " +
-			"keybindings.yml|.yaml|.json in the agent dir, 116 action ids, same id namespace as pi; " +
-			"pickup unmeasured",
+		Source: "read 2026-09-21 out of the installed bundle (@oh-my-pi/pi-coding-agent 18.2.8, " +
+			"which pins @oh-my-pi/pi-tui 18.2.8 — the inlined keybinding module) and its published " +
+			"sources: ONE file in the agent dir, keybindings.yml, else .yaml, else legacy .json " +
+			"(resolved yml -> yaml -> json, and a JSON file is migrated to .yml on its next write); " +
+			"flat action -> chord | [chord], [] unbinds, no contexts; 70 action ids (32 tui.* + 38 " +
+			"app.*), each with a description, and the id namespaces are the only grouping the CLI " +
+			"has. Pickup: KeybindingsManager.reload() exists and re-reads the files, but no " +
+			"user-facing trigger is documented — unknown, not guessed",
 	},
 }
 

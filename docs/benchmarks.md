@@ -102,15 +102,20 @@ state = one line + one action; statusbar = live state, not hints).
   | `#/termset` (+ `/:id`) | `TermSettingsPage` | 1080px |
 
   Workspace surfaces (`#/`, `#/term/*`, `#/file/*`, `#/git/*`, `#/tree/*`) are
-  canvases, not page frames — they keep their own layout. `#/app/*` is the
-  exception since 2026-09-14: a primitives app's surface is a **page frame**
+  canvases, not page frames — they keep their own layout. Two views inside
+  them are the exception. `#/app/*` since 2026-09-14: a primitives app's
+  surface is a **page frame**
   (`settings-wrap` + `settings-head`, the view's tabs as an underline nav
   inside the card, the filter in the card toolbar, one line + one action for
   empty/blocked/error), so an app and a system route read as one product —
-  `docs/plans/app-surface-parity.md`; native app surfaces (Canvas,
-  ADR-0109) are still canvases, and own their container — `.native-surface`
-  keeps the flex column the page frame dropped, without which `.cv-stage`
-  measures 0px). Mobile is full-width by design
+  `docs/plans/app-surface-parity.md`. Git ▸ **Delivery** since 2026-09-21:
+  the view draws the same frame inside the Git tab, while History stays a
+  canvas with the tab's own strip (workspace picker + History/Delivery) above
+  it and outside the card — moving the strip into the frame would shift the
+  graph with it (`web/tools/delivery-surface.test.mjs`). Native app surfaces
+  (Canvas, ADR-0109) are still canvases, and own their container —
+  `.native-surface` keeps the flex column the page frame dropped, without
+  which `.cv-stage` measures 0px. Mobile is full-width by design
   (ADR-0072/0103).
 
 **Control rhythm (shadcn `h-9` / HIG)**
