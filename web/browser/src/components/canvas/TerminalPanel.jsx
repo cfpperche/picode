@@ -3,6 +3,7 @@ import { api, humanizeError } from "@picode/shared/client/api.js";
 import TermSurface from "../TermSurface.jsx";
 import { claimPane, releasePane } from "./paneOwnership.js";
 import { resolveInteractiveTerminal } from "../../lib/agentTerminalView.js";
+import { promptDoorFor } from "@picode/shared/domain/termPrompt.js";
 
 // TerminalPanel — the loaded body of a terminal or interactive-agent panel:
 // the real xterm through TermSurface, the same instance the tab shows
@@ -73,6 +74,7 @@ const TerminalPanel = memo(function TerminalPanel({ kind, target, terminals, cwd
       attach={attach}
       onAttachClose={onAttachClose}
       onPasteFiles={onPasteFiles}
+      promptDoor={promptDoorFor({ kind, agentMode: kind === "agent" ? target?.mode : "", term })}
       find={find}
     />
   );
