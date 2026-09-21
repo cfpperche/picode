@@ -2186,6 +2186,13 @@ img.ws-face.term-cli-face {
 .folder-field-wrap { display: flex; gap: 6px; align-items: center; width: 100%; }
 .folder-field-wrap .folder-field { flex: 1; min-width: 0; }
 .settings-desc { color: var(--text-secondary); font-size: 12.5px; margin-bottom: 14px; }
+/* ============ the Keyboard pane's own classes ============ */
+/* Two languages share these names on purpose: AppKeys (Preferences → Keyboard,
+   PiCode's own chords) keeps the compact rows below, and the Agent CLIs
+   Keyboard pane overrides every one of them under `.key-pane` (next block).
+   Prefixing the pane's rules instead of rewriting the base is what keeps a
+   redesign of one surface from moving the other; unifying the two is its own
+   task (docs/plans/keyboard-pane.md §4). */
 .key-filter { margin: 0 0 12px; }
 .key-filter input {
   width: 100%; max-width: 28rem; height: var(--ctl-h); box-sizing: border-box;
@@ -2216,6 +2223,133 @@ img.ws-face.term-cli-face {
 }
 .key-skel {
   height: var(--ctl-h); margin: 6px 0; border-radius: var(--radius-ctl);
+  background: var(--bg-hover);
+}
+
+/* ============ the Keyboard pane (docs/plans/keyboard-pane.md) ============ */
+/* One keycap height, and it is not --ctl-h: a chord is a value, not a control.
+   Drawing 89 rows of chords at control height turned the pane into a wall of
+   36px boxes with an Add button after each one (the ragged column the
+   redesign's study measured). */
+.key-pane { --kbd-h: 24px; }
+
+/* The toolbar carries the filter, the facets and the row count, and the list
+   is 90 rows: it sticks to the top of the CLI page's own scroller
+   (`#agent-clis-view`, `overflow-y: auto` — measured 2026-09-21, after an
+   earlier attempt blamed `#main`'s clip and travelled with the content) and
+   paints the card's surface so rows pass under it. The group headers do not
+   stick: they would need a hard-coded offset equal to this bar's height, which
+   changes when the bar wraps. The phone overrides this back to static
+   (`mobile-settings.css`). */
+.key-pane .key-bar {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 0 0 6px; padding: 8px 0 10px;
+  background: var(--bg-panel);
+}
+.key-pane .key-filter { margin: 0; flex: 0 1 20rem; min-width: 11rem; }
+.key-pane .key-filter input {
+  width: 100%; height: var(--ctl-h); box-sizing: border-box;
+  padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--text-primary); font: inherit; font-size: 12.5px;
+}
+.key-pane .key-filter input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Find by key: press a chord, the list narrows to the actions that answer to
+   it. The facets, the key filter and the button are one control language —
+   pills at control height, checked in accent. */
+.key-pane .key-find, .key-pane .key-facet {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: var(--ctl-h); box-sizing: border-box; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: none; color: var(--text-secondary); font: inherit; font-size: 12px;
+  cursor: pointer; white-space: nowrap;
+}
+.key-pane .key-find:hover, .key-pane .key-facet:hover { color: var(--text-primary); background: var(--bg-hover); }
+.key-pane .key-find.is-on, .key-pane .key-find[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.key-pane .key-facets { display: inline-flex; gap: 4px; min-width: 0; }
+.key-pane .key-facet[aria-checked="true"] { color: var(--accent); border-color: var(--border-strong); background: var(--bg-base); }
+.key-pane .key-facet-n { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.key-pane .key-facet[aria-checked="true"] .key-facet-n { color: var(--accent); }
+.key-pane .key-facet.is-chord { color: var(--text-primary); border-color: var(--border-strong); }
+.key-pane .key-facet-x { color: var(--text-secondary); font-size: 13px; line-height: 1; }
+.key-pane .key-facet:hover .key-facet-x { color: var(--danger); }
+.key-pane .key-count {
+  display: inline-flex; align-items: center; height: var(--ctl-h); margin-left: auto;
+  font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+.key-pane code {
+  font-family: var(--mono); font-size: 11.5px;
+  padding: 1px 5px; border-radius: 4px;
+  background: var(--bg-base); color: var(--text-primary);
+}
+
+.key-pane .key-group { margin-top: 10px; }
+.key-pane .key-group > .settings-h { display: flex; align-items: center; gap: 8px; margin: 16px 0 6px; }
+.key-pane .key-group-n { color: var(--text-secondary); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+
+/* One row is a grid: what the action is (left), the chords it answers to
+   (right-aligned, so the column of keys reads as one column), and the row's
+   own actions in a fixed column — which is why the Add buttons stop chasing
+   the chip widths. The row's notes span all three. */
+.key-pane .key-row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) auto minmax(96px, 108px);
+  align-items: center; column-gap: 12px; row-gap: 2px;
+  min-height: 32px; padding: 2px 0 2px 8px;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+/* The accent bar means "changed on this machine" — the same language the
+   guest settings rows use for "set in this file" (agent-clis.css). */
+.key-pane .key-row.is-changed { border-left-color: var(--accent); }
+.key-pane .key-row:hover { background: var(--bg-hover); }
+.key-pane .key-name { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.key-pane .key-label { font-size: 13px; color: var(--text-primary); }
+.key-pane .key-alt { font-size: 11px; color: var(--text-secondary); }
+.key-pane .key-keys { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+.key-pane .key-chip {
+  display: inline-flex; align-items: center; gap: 2px;
+  height: var(--kbd-h); padding: 0 2px 0 6px;
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  background: var(--bg-base); white-space: nowrap;
+}
+.key-pane .key-chip kbd { font-family: var(--mono); font-size: 11.5px; line-height: 1; color: var(--text-primary); }
+.key-pane .key-chip.is-listen { border-style: dashed; border-color: var(--accent); color: var(--accent); padding: 0 8px; font-size: 12px; }
+/* The remove cross is revealed by the chip it belongs to: 89 rows of always-on
+   × marks was most of the pane's noise. */
+.key-pane .key-x {
+  display: grid; place-items: center; width: 16px; height: 16px; flex: none;
+  border: 0; background: none; color: var(--text-secondary); border-radius: 4px;
+  cursor: pointer; font-size: 12px; line-height: 1; opacity: 0;
+  transition: opacity var(--motion-fast), color var(--motion-fast);
+}
+.key-pane .key-chip:hover .key-x, .key-pane .key-chip:focus-within .key-x, .key-pane .key-x:focus-visible { opacity: 1; }
+.key-pane .key-x:hover { color: var(--danger); background: var(--bg-hover); }
+.key-pane .key-x:disabled { cursor: default; }
+.key-pane .key-none { display: inline-flex; align-items: center; height: var(--kbd-h); font-size: 12px; color: var(--text-secondary); }
+.key-pane .key-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.key-pane .key-act {
+  height: var(--kbd-h); padding: 0 8px; border: 1px solid transparent; border-radius: 6px;
+  background: none; color: var(--text-secondary); font: inherit; font-size: 12px;
+  cursor: pointer; white-space: nowrap; opacity: 0;
+  transition: opacity var(--motion-fast), color var(--motion-fast), background var(--motion-fast);
+}
+.key-pane .key-row:hover .key-act, .key-pane .key-row:focus-within .key-act, .key-pane .key-act:focus-visible { opacity: 1; }
+.key-pane .key-act:hover { color: var(--text-primary); background: var(--bg-hover); border-color: var(--border); }
+.key-pane .key-act:disabled { opacity: .45; cursor: default; }
+.key-pane .key-note { grid-column: 1 / -1; margin: 0; font-size: 11px; line-height: 1.5; color: var(--text-secondary); }
+.key-pane .key-note.is-warn { color: var(--warn); }
+.key-pane .key-note.is-live { color: var(--accent); }
+.key-pane .key-show {
+  border: 0; background: none; padding: 0; margin: 0;
+  color: var(--accent); font: inherit; font-size: 11px; cursor: pointer; text-decoration: underline;
+}
+/* A touch surface has no hover to reveal anything on. */
+@media (hover: none) {
+  .key-pane .key-act, .key-pane .key-x { opacity: 1; }
+}
+.key-pane .key-skel {
+  height: 32px; margin: 4px 0; border-radius: var(--radius-ctl);
   background: var(--bg-hover);
 }
 .set-rows { display: flex; flex-direction: column; gap: 10px; }

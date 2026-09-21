@@ -23,9 +23,18 @@ A row this layer sets has **Use inherited**, which hands the value back to the
 layer below instead of freezing a copy of it.
 
 **Keyboard** is the pane next to Settings: the whole keyboard map of this
-machine, with a filter and Add-then-press-a-key. It has no layer — Pi keeps one
-map per machine — and the link remembers which agent and layer you came from,
-so going back lands where you left.
+machine, one row per action. **Filter by action, group or key** narrows it, and
+**Find by key** takes a chord you press and shows the actions that answer to
+it. The facets count what they filter — **Changed**, **Shared** (a key two
+actions use; pi's contexts overlap on purpose), **Off** (unbound). One
+**Add key** per row records the next chord you press; **Reset** returns that
+row to pi's default, and **Reset all** returns every changed row at once. The
+pane says which file it writes and which bindings *this machine* has: nine
+actions differ on Windows and WSL, and the rows that use a chord a browser
+keeps are labeled, because those never reach the terminal inside PiCode.
+
+It has no layer — Pi keeps one map per machine — and the link remembers which
+agent and layer you came from, so going back lands where you left.
 
 Contextual links use `?agentId=<id>`; the pane adds the layer it is editing
 (`?layer=global|project|agent`) to the URL, so a reload or a bookmark lands on
