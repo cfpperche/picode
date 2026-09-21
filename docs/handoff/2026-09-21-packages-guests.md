@@ -1,0 +1,10 @@
+# 2026-09-21 — feat/packages-guests: the guest reads answer from the driver (ADR-0176 slice 2)
+Shipped: `/api/cli-packages{,/available,/marketplaces,/updates}` answer from `pkgs.DriverFor(cli)`, mapped back by `internal/pkgs/guest_view.go`. The model gained what that payload carries: `Row.ID/Status/Marketplace/Description/Note/ManagedByPiCode` (`Detail` merged description and note, losing the vendor's line), `Report.Note/ReadAt/CheckedAt`, `Caps.CatalogInstall`, `Driver.Available`/`Marketplaces`, and `CheckUpdates` returns the pane load so its stamps travel. Guest drivers map the vendor's whole capability set, so `Caps.Update` is true where the CLI has the verb and `/api/packages/updates?cli=<guest>` now answers instead of 400. Mutations still call `clipkgs` (slice 2b); every `web/` file is untouched.
+Verified: `make ci-scoped` PASS (fmt,vet,hooks,go[5]; 9 path(s) vs main), then `make close` green on this tree after merging main; `internal/clipkgs` and every `internal/server` test green unchanged. Byte equality over fixtures (empty roster, installed + disabled, a catalog row, a marketplace refusal) at the mapper layer, a literal pin of the pane's payload, and a scratch HTTP test (deleted) comparing every read route's raw body — and every refusal — against the previous implementation, mutation-checked first to prove it bites. `git diff --stat main...HEAD -- web/` is empty. Not run: the live harness (`PICODE_PKGS_LIVE=1` installs vendor plugins on the machine). `go test ./internal/...` showed two contention flakes (`internal/llama`, `internal/rpc`) under a sibling's concurrent suite; both pass alone and neither imports this diff.
+visual-review: n/a
+Not done / debts: no changelog fragment — nothing user-visible changed. The `packages` debt in `docs/handoff/open/packages.md` now keeps only the `Query.AgentIsolated` half; slice 2b (the guest mutations) is not started.
+Merge: fast-forward ready (2 ahead, 0 behind `main`, clean).
+
+## Next up
+
+- Slice 2b: the guest mutations (install/remove/toggle/inspect/marketplace) move onto the driver's verbs, leaving `pkgs.GuestViewOf` with no caller.
