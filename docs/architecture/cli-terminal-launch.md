@@ -253,8 +253,11 @@ Terminals, Sessions (when the CLI has a session source) and the five setup
 tabs — Providers, Settings, Keyboard, Packages, Connectors — for every
 launchable CLI. The setup group is a placeholder wherever the native editor
 does not exist yet (`supportsCli*` in `web/shared/domain/`), rendering
-*"<Tab> for <CLI> are in development — coming soon"* instead of the editor;
-Pi is the only CLI with all five today, and a CLI's placeholder never links to
+*"<Tab> for <CLI> are in development — coming soon"* instead of the editor.
+Pi is the only CLI with all five: Packages covers the guests since ADR-0167
+(their own verb set, and one line where the CLI has none), Settings and
+Connectors cover them since ADR-0163/0150, Providers reads the shared vault
+(ADR-0165), and Keyboard stays Pi-only. A CLI's placeholder never links to
 Pi. `CliPaneTabs` scrolls the selected tab into view, so a deep link to a late
 tab is not a strip reading Launch…Sessions while the panel says Packages.
 

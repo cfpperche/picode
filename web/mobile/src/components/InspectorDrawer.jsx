@@ -4,15 +4,16 @@ import ScreenLoading from "./ScreenBoundary.jsx";
 
 const Inspector = lazy(() => import("../screens/Inspector.jsx"));
 
-// The agent screen's Inspector, as a right drawer over the conversation
-// (the phone's answer to the desktop rail toggle). Closing it — Back in
-// its header or the overlay — returns to the agent exactly as it was:
-// nothing underneath remounts.
+// The agent screen's Inspector, as the phone's standard sheet — it rises
+// from the bottom over the conversation at the usual sheet height (the
+// phone's answer to the desktop rail toggle). Closing it — Back in its
+// header, a tap on the overlay, or the drag handle — returns to the agent
+// exactly as it was: nothing underneath remounts.
 export default function InspectorDrawer({ drawer, onClose, ...pass }) {
-  return <Sheet.Root side="right" open={!!drawer} onOpenChange={(open) => { if (!open) onClose(); }}>
+  return <Sheet.Root open={!!drawer} onOpenChange={(open) => { if (!open) onClose(); }}>
     <Sheet.Portal>
       <Sheet.Overlay className="dlg-overlay" />
-      <Sheet.Content side="right" className="dlg m-insp-drawer" aria-describedby={undefined}>
+      <Sheet.Content className="dlg m-insp-sheet" aria-describedby={undefined}>
         <Sheet.Title className="sr-only">Inspector</Sheet.Title>
         <Suspense fallback={<ScreenLoading />}>
           {drawer ? <Inspector

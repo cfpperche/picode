@@ -16,7 +16,7 @@
 import { terms } from "./terms.js";
 import { bumpTermFontSize } from "@picode/shared/domain/termTheme.js";
 import { cellFromMouse, linkAt } from "@picode/shared/domain/termLinks.js";
-import { toast } from "./toast.js";
+import { readPasteClipboard } from "@picode/shared/domain/termPrompt.js";
 
 const key = (id) => "sh:" + id;
 
@@ -85,11 +85,20 @@ export function runTermCommand(cmd, ctx, handlers = {}) {
         .catch(() => toast.error("Clipboard blocked — copy manually with Ctrl+Shift+C."));
       focus();
       return;
-    case "paste":
-      navigator.clipboard.readText()
-        .then((text) => { if (text && term && term.paste) term.paste(text); focus(); })
+    case "paste": {
+      // Images ride files, not text: read the clipboard the way a paste
+      // event would carry it, and stage files through the attach bar
+      // instead of dropping them silently like readText() did.
+      readPasteClipboard()
+        .then(({ files, text, blocked }) => {
+          if (files.length && handlers.pasteFiles) { handlers.pasteFiles(ctx, files, text); focus(); return; }
+          if (text && term && term.paste) term.paste(text);
+          else if (blocked) toast.error("Clipboard blocked — paste manually with Ctrl+Shift+V.");
+          focus();
+        })
         .catch(() => toast.error("Clipboard blocked — paste manually with Ctrl+Shift+V."));
       return;
+    }
     case "select-all":
       if (term) term.selectAll();
       focus();

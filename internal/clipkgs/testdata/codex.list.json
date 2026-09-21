@@ -1,0 +1,23 @@
+{
+  "installed": [
+    {
+      "pluginId": "probe@picode-probe-mp",
+      "name": "probe",
+      "marketplaceName": "picode-probe-mp",
+      "version": "0.3.0",
+      "installed": true,
+      "enabled": true,
+      "source": {
+        "source": "local",
+        "path": "/tmp/clipkgs-bundles/codex-mp2/plugins/probe"
+      },
+      "marketplaceSource": {
+        "sourceType": "local",
+        "source": "/tmp/clipkgs-bundles/codex-mp2"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    }
+  ],
+  "available": []
+}

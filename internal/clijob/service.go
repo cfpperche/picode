@@ -23,6 +23,10 @@ type Exec struct {
 	Exe  string
 	Args []string
 	Env  []string
+	// Dir is the working directory the vendor command runs in. A plugin
+	// action with a project scope must run inside the workspace folder
+	// (ADR-0167), and the empty value keeps the daemon's own directory.
+	Dir string
 }
 
 // Resolve returns the command for one CLI + action, or an error when the
@@ -30,7 +34,7 @@ type Exec struct {
 // terminals; AfterSuccess refreshes cached facts after a succeeded job.
 type Deps struct {
 	Store         *store.Store
-	Resolve       func(cli, action string) (Exec, error)
+	Resolve       func(cli, action, payload string) (Exec, error)
 	LiveTerminals func(cli string) int
 	AfterSuccess  func(cli, action string)
 	RunTimeout    time.Duration
@@ -98,11 +102,11 @@ func (s *Service) update(id string, change func(*store.CLIJob)) (store.CLIJob, e
 
 // Start validates the guards, reserves the durable job and runs the vendor
 // command. Repeating an identical request key returns the existing job.
-func (s *Service) Start(cli, action, requestKey string, confirmTerminals bool) (store.CLIJob, error) {
+func (s *Service) Start(cli, action, requestKey, payload string, confirmTerminals bool) (store.CLIJob, error) {
 	if s.deps.Resolve == nil {
 		return store.CLIJob{}, errors.New("CLI lifecycle is unavailable.")
 	}
-	exe, err := s.deps.Resolve(cli, action)
+	exe, err := s.deps.Resolve(cli, action, payload)
 	if err != nil {
 		return store.CLIJob{}, err
 	}
@@ -116,7 +120,7 @@ func (s *Service) Start(cli, action, requestKey string, confirmTerminals bool) (
 		s.mu.Unlock()
 		return store.CLIJob{}, errors.New("CLI lifecycle is stopping")
 	}
-	j, created, err := s.deps.Store.BeginCLIJob(store.CLIJob{CLI: cli, Action: action, RequestKey: requestKey})
+	j, created, err := s.deps.Store.BeginCLIJob(store.CLIJob{CLI: cli, Action: action, RequestKey: requestKey, Payload: payload})
 	if err != nil || !created {
 		s.mu.Unlock()
 		return j, err
@@ -145,6 +149,7 @@ func (s *Service) run(id string, exe Exec) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, exe.Exe, exe.Args...)
 	cmd.Env = exe.Env
+	cmd.Dir = exe.Dir
 	var out boundedOutput
 	cmd.Stdout = &out
 	cmd.Stderr = &out

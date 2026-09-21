@@ -74,6 +74,23 @@ func (c opencodePaths) candidates(scope string) []string {
 	}
 }
 
+// OpenCodeConfigFiles returns one scope's config files in vendor precedence
+// order (the .jsonc first: what `opencode mcp add` writes and the winner of a
+// name conflict). Exported for internal/clipkgs, which reads and edits the
+// `plugin` array of these same files — OpenCode has one config document per
+// scope, and its path rule has one owner.
+func OpenCodeConfigFiles(home, cwd, scope string) []string {
+	return opencodePaths{Paths{Home: home, Cwd: cwd}}.candidates(scope)
+}
+
+// OpenCodeConfigDir returns OpenCode's user config directory, honoring
+// XDG_CONFIG_HOME. Exported beside OpenCodeConfigFiles so the sibling driver
+// can find the plugins/ directory that sits next to those files without
+// re-deriving the XDG rule.
+func OpenCodeConfigDir(home string) string {
+	return opencodePaths{Paths{Home: home}}.userDir()
+}
+
 // opencodeLayerID distinguishes the two user files in reports: the pane's
 // remove-confirm names the file the row is managed in.
 func opencodeLayerID(scope, path string) string {

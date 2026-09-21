@@ -142,6 +142,7 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
       busy={busy}
       onOpenFiles={onOpenFiles}
       onOpenGit={onOpenGit}
+      onOpenInspector={onOpenInspector}
     />;
   }
 

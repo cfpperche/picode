@@ -1,0 +1,8 @@
+[
+  {
+    "name": "picode-probe-mp",
+    "source": "directory",
+    "path": "/tmp/clipkgs-bundles/claude-mp",
+    "installLocation": "/tmp/clipkgs-bundles/claude-mp"
+  }
+]

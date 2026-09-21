@@ -1,0 +1,29 @@
+{
+  "npm": [
+    {
+      "name": "picode-probe",
+      "version": "0.1.0",
+      "path": "/tmp/clipkgs-live-sb/.omp/plugins/node_modules/picode-probe",
+      "manifest": {
+        "version": "0.1.0"
+      },
+      "enabledFeatures": null,
+      "enabled": true
+    }
+  ],
+  "marketplace": [
+    {
+      "id": "probe@picode-probe-mp",
+      "scope": "user",
+      "entries": [
+        {
+          "scope": "user",
+          "installPath": "/tmp/clipkgs-live-sb/.omp/plugins/cache/plugins/picode-probe-mp___probe___0.4.0",
+          "version": "0.4.0",
+          "installedAt": "2026-09-21T01:49:34.973Z",
+          "lastUpdated": "2026-09-21T01:49:34.973Z"
+        }
+      ]
+    }
+  ]
+}

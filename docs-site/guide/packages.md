@@ -1,10 +1,12 @@
 ---
-description: Extras for Pi (search, tools, themes). Full access — only install what you review.
+description: Extras for Pi and for the other agent CLIs, installed by each CLI's own commands. Full access — only install what you review.
 ---
 
 # Packages
 
-Extras for Pi (search, tools, themes). They run with **full access** — only install what you review.
+Extras for Pi (search, tools, themes) and, on each of the other agent CLIs'
+pages, that CLI's own plugins. They run with **full access** — only install
+what you review.
 
 - **Where:** select an agent, then **Agent CLIs → Packages**, or **Packages** on that agent's ⋯ menu.
 - **Not this:** not MCP servers (that is [Connectors](/guide/mcp) after the adapter) and not API keys ([Providers](/guide/providers)).
@@ -66,6 +68,45 @@ Guide: [Compact earlier](/guide/compact).
 Diff panel: install `packages/pi-diff` — an extension, not core — so `/diff`
 in the pi TUI opens a side panel with every changed file and the hunks of the
 one the agent touched last. Guide: [Diff panel for pi](/guide/diff-panel).
+
+## Other agent CLIs
+
+On Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity
+and Omp, **Packages** manages that CLI's own plugins. PiCode does not keep a
+list of its own: it asks the CLI, and the CLI's answer is what you see. So
+the pane only ever offers what that CLI can do — where a CLI has no way to
+turn a plugin off, or no plugin marketplace at all, the pane says so in one
+line instead of showing a control that would do nothing.
+
+| CLI | Installed list | Install / Remove | Turn on / off | Marketplace |
+|---|---|---|---|---|
+| Claude Code | yes | yes | yes | this machine, the workspace, or local to you |
+| Codex | yes | yes | no — install or remove are its only plugin commands | yes |
+| Grok | yes | yes | yes | yes |
+| Hermes Agent | yes | yes | yes | its curated catalog |
+| OpenCode | yes | yes | remove to turn off | none — plugins are npm modules named in `opencode.json` |
+| Muse Code | yes | yes | yes | yes |
+| Antigravity | yes, read from its own text output | yes | yes | linked from its own command |
+| Omp | yes | yes | yes | sources only |
+
+Scopes follow each CLI: most install for the machine, Claude Code, OpenCode,
+Muse Code and Omp also for the workspace, and **no** CLI has a per-agent
+plugin list (that one is Pi's alone).
+
+Installing or removing runs in the background, so you can close the page. It
+refuses while that CLI has a terminal open, because a plugin only loads the
+next time the CLI starts — stop the terminal, or confirm and restart it.
+
+Where a plugin comes with a permission prompt of its own (a marketplace that
+wants to run a command, a plugin that wants to replace built-in tools), the
+pane shows the refusal and the exact command to run in a terminal. PiCode
+never answers that kind of prompt for you.
+
+Two details worth knowing: **OpenCode** has no command to remove a plugin, so
+PiCode edits the `plugin` list in your own `opencode.json` — only that entry
+changes, comments and the rest of the file stay as they were. And a pane that
+cannot read a CLI's list shows the CLI's own error rather than an empty list,
+so "nothing installed" always means nothing is installed.
 
 ## Package links
 

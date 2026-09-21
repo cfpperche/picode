@@ -36,6 +36,11 @@ func blockLayer(layer *mcp.Layer, err error) {
 // again after stripping the JSONC escapes vendors hand-write (OpenCode
 // leaves trailing commas in opencode.json). Anything the strip cannot make
 // parseable is still refused as parseError by the caller.
+// LenientJSON is the read-side JSONC tolerance exported for the sibling
+// driver that manages the same OpenCode files (internal/clipkgs, ADR-0167):
+// the rule was measured here, so it is asked for here rather than re-derived.
+func LenientJSON(b []byte) (map[string]any, error) { return lenientJSON(b) }
+
 func lenientJSON(b []byte) (map[string]any, error) {
 	var raw map[string]any
 	if err := json.Unmarshal(stripJSONC(b), &raw); err != nil {

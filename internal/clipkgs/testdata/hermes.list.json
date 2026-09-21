@@ -1,0 +1,474 @@
+[
+  {
+    "name": "browser-browser-use",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Browser Use (https://browser-use.com) cloud browser backend. Supports both direct BROWSER_USE_API_KEY and the managed Nous tool gateway. Also powers the 'Nous Subscription' UX flow that bills usage to a Nous subscription.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "browser-browserbase",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Browserbase (https://browserbase.com) cloud browser backend. Requires BROWSERBASE_API_KEY + BROWSERBASE_PROJECT_ID. Supports stealth, proxies, and keep-alive sessions; auto-falls-back when paid features are unavailable.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "browser-firecrawl",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Firecrawl (https://firecrawl.dev) cloud browser backend. Requires FIRECRAWL_API_KEY. Distinct from the firecrawl WEB search/extract plugin \u2014 the two share an API key but operate on different endpoints.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "chronos",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Chronos \u2014 NAS-mediated managed cron provider for scale-to-zero hosted agents. Delegates the \"wake me at time T\" trigger to Nous infrastructure so an idle gateway can scale to zero and still fire cron jobs. The agent computes each job's next-fire time and asks NAS to arm a one-shot; NAS calls the agent back at fire time over an authenticated webhook. Inert unless cron.provider=chronos.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "basic",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Dashboard auth provider \u2014 username/password (no OAuth IDP). A self-hosted 'just put a password on my dashboard' provider. Activates when dashboard.basic_auth.username plus a password (or password_hash) are configured via config.yaml (canonical surface) or the HERMES_DASHBOARD_BASIC_AUTH_* env vars. Sessions are stateless HMAC-signed tokens minted by the provider; password hashing uses stdlib scrypt (no third-party dependency). Set dashboard.basic_auth.secret for restart-surviving / multi-worker sessions.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "drain",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Dashboard auth provider \u2014 non-interactive shared-bearer-secret for the gateway drain-control endpoint. The first consumer of the generic token-auth capability (supports_token/verify_token). nous-account-service provisions a per-agent unique secret via HERMES_DASHBOARD_DRAIN_SECRET; this provider verifies an inbound Authorization bearer token against it with a constant-time compare and registers /api/gateway/drain as token-authable. Fails CLOSED: a weak/short/low-entropy secret (< 256 bits) is rejected at registration and the endpoint stays disabled. No-op when the env var is unset. Behavioural knobs (scope, min_secret_chars) live under dashboard.drain_auth in config.yaml.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "nous",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Dashboard auth provider \u2014 OAuth 2.0 (authorization-code + PKCE) against Nous Portal. Auto-activates when a client_id is configured via either dashboard.oauth.client_id in config.yaml (canonical surface) or HERMES_DASHBOARD_OAUTH_CLIENT_ID env var (operator override; Portal injects this at Fly.io provisioning). dashboard.oauth.portal_url / HERMES_DASHBOARD_PORTAL_URL are optional and default to https://portal.nousresearch.com.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "self-hosted",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Dashboard auth provider \u2014 generic self-hosted OpenID Connect (authorization-code + PKCE, public client). Works against any conformant OIDC identity provider (Authentik, Keycloak, Zitadel, Authelia, Auth0, Okta, Google, \u2026) via OIDC discovery. Auto-activates when an issuer + client_id are configured, either under dashboard.oauth.self_hosted.{issuer,client_id} in config.yaml (canonical surface) or via the HERMES_DASHBOARD_OIDC_ISSUER + HERMES_DASHBOARD_OIDC_CLIENT_ID env vars (operator override / secret injection). Scopes default to 'openid profile email'. Verifies the OIDC ID token (RS256/ES256) against the discovered jwks_uri.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "disk-cleanup",
+    "status": "not enabled",
+    "version": "2.0.0",
+    "description": "Auto-track and clean up ephemeral files (test scripts, temp outputs, cron logs) created during Hermes sessions. Runs via plugin hooks \u2014 no agent action required.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "google_meet",
+    "status": "not enabled",
+    "version": "0.2.0",
+    "description": "Join a Google Meet call, transcribe live captions, speak in realtime, and follow up afterwards. v1 transcribe-only is the default; v2 realtime duplex audio via OpenAI Realtime + BlackHole/PulseAudio ships with mode='realtime'; v3 remote node host lets the bot run on a different machine than the gateway (gateway on Linux, Chrome+signed-in profile on the user's Mac). Explicit-by-design: only joins meet.google.com URLs passed in \u2014 no calendar scanning, no auto-dial.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "deepinfra",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "DeepInfra image generation backend (FLUX, Qwen-Image, \u2026) via OpenAI-compatible /v1/images/generations. Catalog discovered live from api.deepinfra.com.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "fal",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "FAL.ai image generation backend (flux-2-klein, flux-2-pro, nano-banana-2, nano-banana-pro, gpt-image-1.5, recraft-v3, etc.).",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "krea",
+    "status": "not enabled",
+    "version": "1.1.0",
+    "description": "Krea image generation backend (Krea 2 Large + Medium + Medium Turbo foundation models). Direct KREA_API_KEY or managed Nous Subscription gateway.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "meta-ai-image-gen",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Meta Model API image generation backend (muse-image). OpenAI-compatible /v1/images/generations. Saves images to $HERMES_HOME/cache/images/.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "openai",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "OpenAI image generation backend (GPT Image 2 and GPT Image 2.5 Flare/Sunburst). Saves generated images to $HERMES_HOME/cache/images/.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "openai-codex",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "OpenAI image generation backed by ChatGPT/Codex OAuth (gpt-image-2 via the native Codex images/generations and images/edits endpoints). Saves generated images to $HERMES_HOME/cache/images/.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "openrouter",
+    "status": "not enabled",
+    "version": "1.1.0",
+    "description": "OpenRouter + Nous Portal image generation. Chat-completions image output (reference-grounded) plus OpenRouter's Dedicated Image API (/images/generations) for gpt-image-2, Krea 2, Qwen Image 3 Pro, MAI-Image-2.5 and Grok Imagine \u2014 exact per-model aspect ratios, resolution/quality/background/seed/n, up to 16 reference images. Text-to-image and image-to-image.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "xai",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "xAI image generation backend (grok-imagine-image). Text-to-image.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "langfuse",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Optional Langfuse observability for Hermes \u2014 traces conversations, LLM calls, and tool usage. Opt-in via `hermes plugins enable observability/langfuse` or `hermes tools \u2192 Langfuse Observability`.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "a2a-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "A2A (Agent-to-Agent) protocol v1.0 support for Hermes Agent \u2014 both directions of the open Linux Foundation standard for inter-agent communication.\nOUTBOUND (client tools): a2a_discover, a2a_call, a2a_list, a2a_history, and a2a_orchestrate let the agent fetch another agent's Agent Card and send it tasks over JSON-RPC \u2014 works with any A2A-compliant peer (Hermes, LangChain, CrewAI, Google ADK, OpenClaw, ...).\nINBOUND (platform adapter): exposes Hermes as an A2A-discoverable agent. An Agent Card is served at /.well-known/agent-card.json (v1.0 canonical path; legacy agent.json also answers) and incoming tasks are routed into the agent's live gateway session like any other platform \u2014 so the agent that replies is the same one talking to its user, with full memory and context, not a throwaway clone.\nSecurity is on by default: no bearer token configured => localhost-only bind. Inbound task text passes through prompt-injection filters; outbound text is scrubbed of credential-shaped strings; every exchange is audit-logged and persisted to disk outside the context-compaction pipeline so conversations survive compaction and restarts.\nPure stdlib transport (http.server + urllib) \u2014 no a2a-sdk dependency required.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "buzz-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Buzz gateway adapter for Hermes Agent. Connects to a Buzz community relay (Block's open-source human+agent collaboration platform built on Nostr) and relays messages between channels/DMs and the Hermes agent. Relay operations shell out to the buzz CLI binary (JSON in/out); verified inbound media uses Hermes' bundled HTTP client.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "dingtalk-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "DingTalk gateway adapter for Hermes Agent. Connects to DingTalk via the dingtalk-stream SDK (Stream Mode) and relays messages between DingTalk chats and the Hermes agent. Supports text, images, audio, video, rich text, files, group @mention gating, free-response chats, and per-user allowlists.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "discord-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Discord gateway adapter for Hermes Agent. Connects to Discord via the discord.py library and relays messages between Discord guilds/DMs and the Hermes agent. Supports voice mode, slash commands, free-response channels, role-based DM auth, threads, reactions, and channel skill bindings.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "email-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Email gateway adapter for Hermes Agent. Polls an IMAP mailbox for inbound messages and replies over SMTP, relaying email threads to and from the Hermes agent.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "feishu-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Feishu / Lark gateway adapter for Hermes Agent. Connects to Feishu (China) or Lark (International) via the official lark-oapi SDK over WebSocket or webhook and relays messages between Feishu/Lark chats and the Hermes agent. Supports text, images, video, voice, documents, threads, DM pairing, group @mention gating, drive comment events, and meeting invites.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "google_chat-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Google Chat gateway adapter for Hermes Agent. Connects through authenticated HTTP callbacks or an optional Cloud Pub/Sub pull subscription for inbound events, and uses the Google Chat REST API for outbound messages. Native file attachments are delivered via per-user OAuth (each user runs /setup-files once in their own DM).\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "homeassistant-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Home Assistant gateway adapter for Hermes Agent. Subscribes to HA's WebSocket event bus and forwards state-change events (with per-entity cooldowns and domain/entity filtering) to the agent. Outbound messages are delivered as HA persistent notifications via the REST API. Out-of-process cron delivery via the ``notify.notify`` service is also supported.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "irc-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "IRC gateway adapter for Hermes Agent. Connects to an IRC server and relays messages between an IRC channel (or DMs) and the Hermes agent.  No external dependencies \u2014 uses Python's stdlib asyncio for the IRC protocol.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "line-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "LINE Messaging API gateway adapter for Hermes Agent. Runs an aiohttp webhook server that receives LINE webhook events (with HMAC-SHA256 signature verification) and relays messages between LINE chats (1:1, groups, rooms) and the Hermes agent. Outbound replies prefer the free reply token and fall back to the metered Push API when the token has expired or is absent. Slow LLM responses surface a Template Buttons postback bubble so the user can fetch the answer with a fresh reply token (free) once it's ready.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "matrix-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Matrix gateway adapter for Hermes Agent. Connects to a Matrix homeserver via mautrix (with optional E2EE) and relays messages between Matrix rooms/DMs and the Hermes agent. Supports threads, HTML/markdown rendering, native media uploads, mention gating, free-response rooms, and per-room allowlists.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "mattermost-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Mattermost gateway adapter for Hermes Agent. Connects to a self-hosted or cloud Mattermost instance via the v4 REST API + WebSocket event stream and relays messages between Mattermost channels/DMs and the Hermes agent. Supports thread-mode replies, native file uploads, channel-scoped allowlists, and home-channel cron delivery.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "ntfy-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "ntfy push-notification gateway adapter for Hermes Agent. Subscribes to a topic on ntfy.sh or any self-hosted ntfy server via HTTP streaming, and publishes replies via HTTP POST. Lightweight \u2014 no external SDK, only httpx (already a Hermes dependency).\nntfy has no native user-identity primitive; the adapter treats each topic as a single trusted channel and never derives user identity from publisher-controlled fields. Use a private topic + read token for any real trust boundary.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "photon-platform",
+    "status": "not enabled",
+    "version": "0.3.0",
+    "description": "Photon Spectrum gateway adapter for Hermes Agent. Connects to iMessage (and other Spectrum interfaces) through Photon's managed Spectrum platform. Both directions run over the `spectrum-ts` SDK's long-lived gRPC stream via a small supervised Node sidecar \u2014 inbound messages arrive on the SDK's `app.messages` stream (no webhook, no public URL, no signing secret), and outbound messages are sent over the same sidecar.\nThe plugin ships with a `hermes photon` CLI for the one-time device login + project + user setup. Runtime credentials are written to ``~/.hermes/.env`` (``PHOTON_PROJECT_ID`` = the Spectrum project id, ``PHOTON_PROJECT_SECRET``) like every other channel, with management metadata (device token, dashboard project id) in ``~/.hermes/auth.json``. Photon's free shared-line model lets users get started without a paid plan.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "raft-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Raft gateway adapter for Hermes Agent. Connects to a Raft workspace as an external agent via a local wake-channel bridge. The adapter starts a loopback HTTP endpoint that receives content-free wake hints from the bridge, then injects them into the Hermes gateway session pipeline. The agent reads and sends messages through the Raft CLI \u2014 the adapter never touches message bodies or delivery cursors.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "simplex-platform",
+    "status": "not enabled",
+    "version": "1.1.0",
+    "description": "SimpleX Chat gateway adapter for Hermes Agent. Connects to a local simplex-chat daemon via WebSocket and relays messages between SimpleX contacts/groups and the Hermes agent. SimpleX is decentralised and assigns no persistent user IDs \u2014 every contact is an opaque internal ID generated at connection time, making it one of the most private messengers available.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "slack-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Slack gateway adapter for Hermes Agent. Connects to Slack via slack-bolt in Socket Mode and relays messages between Slack channels/DMs and the Hermes agent. Supports slash commands, threads, mrkdwn rendering, approval blocks, free-response channels, mention gating, and channel skill bindings.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "sms-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "SMS gateway adapter for Hermes Agent via Twilio. Sends and receives SMS through the Twilio REST API + inbound webhook, relaying texts between phone numbers and the Hermes agent. Markdown is stripped to plain text.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "teams-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Microsoft Teams gateway adapter for Hermes Agent. Connects to Microsoft Teams via the Bot Framework and relays messages between Teams chats (personal DMs, group chats, channel posts) and the Hermes agent. Supports Adaptive Card approval prompts.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "telegram-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Telegram gateway adapter for Hermes Agent. Connects to Telegram via python-telegram-bot and relays messages between Telegram chats/groups/topics and the Hermes agent. Supports threads/topics, streaming edits, native media, inline keyboards, slash commands, fallback network transport (direct-IP failover), notification modes, mention gating, and per-user/chat allowlists.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "wecom-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "WeCom / Enterprise WeChat gateway adapter for Hermes Agent. Registers two platforms: ``wecom`` (Smart Robot over WebSocket) and ``wecom_callback`` (self-built apps over an HTTP callback endpoint with AES message crypto). Relays messages between WeCom chats and the Hermes agent.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "whatsapp-platform",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "WhatsApp gateway adapter for Hermes Agent. Connects to WhatsApp via a local Node.js bridge (WhatsApp Web client) over an HTTP API and relays messages between WhatsApp chats and the Hermes agent. Supports DM/group policies, mention gating, free-response chats, and per-user allowlists.\n",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "security-guidance",
+    "status": "not enabled",
+    "version": "0.1.0",
+    "description": "Append security warnings to file-write tool results when the new content contains known-dangerous patterns (pickle.load, yaml.load, eval(, os.system, dangerouslySetInnerHTML, verify=False, ECB, XXE, GitHub Actions injection, ...). 25 regex/substring rules forked from Anthropic's claude-plugins-official under Apache-2.0. Non-blocking \u2014 the file is written and the warning rides back to the model in the next turn so it can self-correct.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "spotify",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Native Spotify integration \u2014 7 tools (playback, devices, queue, search, playlists, albums, library) using Spotify Web API + PKCE OAuth. Auth via `hermes auth spotify`. Tools gate on `providers.spotify` in ~/.hermes/auth.json.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "teams_pipeline",
+    "status": "not enabled",
+    "version": "0.1.0",
+    "description": "Microsoft Teams meeting pipeline plugin with durable runtime state and operator CLI flows for Graph-backed transcript-first meeting summaries.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "deepinfra",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "DeepInfra video generation (text-to-video & image-to-video) via the OpenAI-compatible /v1/openai/videos endpoint. Catalog discovered live from api.deepinfra.com.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "fal",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "FAL.ai video generation backend. Multi-model \u2014 Veo 3.1, Kling, Pixverse \u2014 covering text-to-video and image-to-video via fal_client's queue API.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "openrouter",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "OpenRouter video generation backend. Every generative model on the /api/v1/videos API (Veo, Sora, Kling, Seedance, Wan, Hailuo, Grok Imagine, FLUX Video, \u2026) \u2014 text-to-video, image-to-video and reference-to-video; catalog and per-model limits discovered live.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "xai",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "xAI Grok Imagine video generation backend. Supports text-to-video, image-to-video, reference-to-video, video editing, video extension, and stored public URLs via the xAI async videos API.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-brave-free",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Brave Search (free tier) \u2014 web search via Brave's Data-for-Search API. Requires BRAVE_SEARCH_API_KEY (free signup at https://brave.com/search/api/, 2k queries/month).",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-ddgs",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "DuckDuckGo web search via the ddgs Python package \u2014 no API key required. Install with `pip install ddgs`.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-exa",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Exa web search and content extraction. Requires EXA_API_KEY \u2014 sign up at https://exa.ai.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-firecrawl",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Firecrawl web search + content extraction. Supports keyless cloud, direct API, and Nous-hosted tool-gateway routing for subscribers.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-keenable",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Keenable web search + page fetch (independent web index for AI apps). Works keyless on Keenable's free tier as part of the default rotation; set KEENABLE_API_KEY for higher limits \u2014 https://keenable.ai.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-openai-native",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "OpenAI native web search \u2014 declares the Responses API server-side ``web_search`` built-in instead of running a client-side search. Requires the Codex Responses transport plus openai-codex OAuth (``hermes auth add openai-codex``).",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-parallel",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Parallel.ai web search + content extraction. Search returns objective-tuned results; extract uses the async SDK for parallel page fetches. Requires PARALLEL_API_KEY \u2014 sign up at https://parallel.ai.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-perplexity",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Perplexity Search API web search and query-relevant page snippets. Requires PERPLEXITY_API_KEY \u2014 get one at https://www.perplexity.ai/account/api.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-searxng",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "SearXNG web search \u2014 free, self-hosted, privacy-respecting metasearch engine. Requires SEARXNG_URL pointing at your instance.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-tavily",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "Tavily web search + extract. Opt-in keyless via hermes tools; set TAVILY_API_KEY for higher limits \u2014 https://app.tavily.com/home.",
+    "source": "bundled",
+    "removed": null
+  },
+  {
+    "name": "web-xai",
+    "status": "not enabled",
+    "version": "1.0.0",
+    "description": "xAI Web Search \u2014 search the web via Grok's agentic web_search tool (Responses API). Requires xAI Grok OAuth (via `hermes auth`) or XAI_API_KEY (https://x.ai).",
+    "source": "bundled",
+    "removed": null
+  }
+]
