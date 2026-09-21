@@ -1153,11 +1153,24 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ws-list { list-style: none; margin: 0; padding: 0; }
 .ws-list.tree-children { padding-left: var(--tree-indent); }
 .ws-group { margin-bottom: 6px; }
-.ws-group.is-dragging, .ws-item.is-dragging {
-  position: relative; z-index: 2;
-  background: var(--bg-hover);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 16%, transparent);
+/* The in-list copy is the slot the row will land in. The lifted card is a
+   clone in the overlay, so this well stays dashed and quiet. */
+.ws-group.is-placeholder, .ws-item.is-placeholder {
+  position: relative; z-index: 0;
+  background: var(--accent-soft);
+  border: 1px dashed color-mix(in srgb, var(--accent) 50%, var(--border));
+  box-shadow: none;
 }
+.ws-group.is-placeholder > *, .ws-item.is-placeholder > * { visibility: hidden; }
+.dnd-lift-host { width: 100%; }
+.is-lifted {
+  background: var(--bg-panel);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--text-primary) 14%, transparent);
+  border-radius: var(--radius-ctl);
+  pointer-events: none;
+}
+body.is-row-dragging, body.is-row-dragging * { cursor: grabbing; }
 @media (prefers-reduced-motion: reduce) {
   .ws-group, .ws-item { transition: none; }
 }
@@ -5522,6 +5535,12 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   font-size: 11px; color: var(--text-secondary);
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.app-tile.is-placeholder, .app-tile-wrap.is-placeholder {
+  background: var(--accent-soft);
+  outline: 1px dashed color-mix(in srgb, var(--accent) 50%, var(--border));
+  border-radius: var(--radius-ctl);
+}
+.app-tile.is-placeholder > *, .app-tile-wrap.is-placeholder > * { visibility: hidden; }
 .app-icon-letter { font-weight: 700; line-height: 1; }
 .app-icon-img { object-fit: contain; }
 .app-tile-wrap { position: relative; min-width: 0; }
