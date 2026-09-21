@@ -18,6 +18,13 @@ var catalog = []spec{
 		id:     "claude-code",
 		tier:   TierEditable,
 		toggle: "autoMemoryEnabled",
+		// Claude Code's index names each memory with a markdown link, its
+		// memories cite each other with `[[name]]`, and it loads only the
+		// first 200 lines or 25 KB of the index — whichever comes first —
+		// dropping the rest silently (vendor docs, read 2026-09-20).
+		indexLinks: true,
+		indexLines: 200,
+		indexBytes: 25 << 10,
 		stores: []storeSpec{{
 			scope: "workspace",
 			label: "This workspace",
@@ -33,7 +40,12 @@ var catalog = []spec{
 		// `[features] memories` is the switch; `memories.use_memories` and
 		// `memories.generate_memories` narrow it.
 		toggle: "features.memories",
-		clear:  "codex",
+		// No clear command: the pane put `codex` on the clipboard as "the
+		// vendor's own command", and `codex` on its own does nothing to a
+		// memory (visual review, 2026-09-20). Codex clears these from inside
+		// its own session, and inventing a flag here would be worse than the
+		// note alone. Open question in docs/handoff/open/cli-native-config.md.
+		clear: "",
 		stores: []storeSpec{{
 			scope: "global",
 			label: "This machine",

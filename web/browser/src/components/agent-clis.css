@@ -244,15 +244,108 @@
 .cli-memory-filter .set-text { min-width: 10rem; }
 .cli-memory-note { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
 .cli-memory-note code { font-family: var(--mono); font-size: 11.5px; }
-.cli-memory-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.cli-memory-item { border-top: 1px solid var(--border); }
-.cli-memory-item:last-child { border-bottom: 1px solid var(--border); }
-.cli-memory-head {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  min-height: 32px; padding: 6px 4px; background: none; border: 0;
-  color: inherit; font: inherit; text-align: left; cursor: pointer;
+/* The memory table. A real <table>, unlike the providers roster next door,
+   which is a CSS grid: those rows never open, and a memory row expands into
+   a full-width editor, which is one <tr colspan> here and a second layout
+   system there. The element also carries the column semantics for free —
+   aria-sort on <th>, and a screen reader naming the column as it reads each
+   cell. */
+.cli-memory-scroll { overflow-x: auto; }
+/* table-layout: fixed, because auto layout sizes the table to its widest
+   cell: one long description with `nowrap` pushed Cited by, Size, Modified
+   and Health clean off the right edge (visual review, 2026-09-20). Fixed
+   means these declared widths win and the description truncates instead. */
+.cli-memory-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12.5px; }
+.cli-memory-table thead th {
+  padding: 0 8px 6px; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-secondary); text-align: left; white-space: nowrap;
 }
-.cli-memory-head:hover { background: var(--bg-hover, var(--bg-base)); }
+.cli-memory-table th.is-num, .cli-memory-table td.is-num { text-align: right; font-variant-numeric: tabular-nums; }
+/* The header cell is the sort control: no separate affordance to hunt for,
+   and the caret column is reserved so the labels do not shift when the sort
+   moves to another column. */
+.cli-memory-sort {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: 0; padding: 0; margin: 0;
+  color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit;
+  cursor: pointer;
+}
+.cli-memory-sort:hover { color: var(--text-primary); }
+/* On a number column the caret goes to the left of the label, so the label's
+   right edge lines up with the digits under it instead of sitting 8px in. */
+.cli-memory-table th.is-num .cli-memory-sort { flex-direction: row-reverse; }
+.cli-memory-caret { display: inline-block; min-width: 8px; }
+.cli-memory-table td { padding: 4px 8px; vertical-align: middle; }
+.cli-memory-table tr.cli-memory-head > td { border-top: 1px solid var(--border); cursor: pointer; }
+.cli-memory-table tbody:first-of-type tr.cli-memory-head > td { border-top: 0; }
+.cli-memory-table tr.cli-memory-head:hover > td { background: var(--bg-hover, var(--bg-base)); }
+.cli-memory-item.is-open tr.cli-memory-head > td { background: var(--bg-hover, var(--bg-base)); }
+.cli-memory-c-memory { width: auto; min-width: 0; overflow: hidden; }
+.cli-memory-c-citedBy { width: 84px; }
+.cli-memory-c-bytes { width: 76px; }
+.cli-memory-c-modified { width: 92px; }
+.cli-memory-c-health { width: 232px; }
+.cli-memory-c-citedBy, .cli-memory-c-bytes, .cli-memory-c-modified, .cli-memory-c-health { white-space: nowrap; overflow: hidden; }
+.cli-memory-c-citedBy .is-zero { color: var(--text-secondary); opacity: .6; }
+.cli-memory-pick { width: 30px; padding-right: 0; }
+.cli-memory-pick input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+/* Name and tags on one line, the description under them. Side by side the
+   two shared 412px and the description was cut to "Comparti…" — a label
+   truncated to meaninglessness is a visual-review FAIL, and a second line
+   costs 18px a row. */
+.cli-memory-open {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px; row-gap: 1px;
+  width: 100%; min-width: 0; min-height: 30px; padding: 3px 0;
+  background: none; border: 0;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; overflow: hidden;
+}
+.cli-memory-table .cli-memory-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.cli-memory-table .cli-memory-sum { flex: 1 0 100%; }
+.cli-memory-open-row > td { padding: 0 8px 14px; border-top: 0; }
+/* Each chip is a thing to act on, never decoration: a memory the index does
+   not name, a link that leads nowhere, a note nothing points at. */
+.cli-memory-chip {
+  display: inline-block; margin-left: 6px; padding: 1px 6px;
+  font-size: 11px; color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+}
+.cli-memory-chip:first-child { margin-left: 0; }
+.cli-memory-chip.is-warn { color: var(--warn); border-color: var(--warn); }
+.cli-memory-chip.is-muted { opacity: .7; }
+/* The index budget: a documented vendor limit nobody can see from the CLI,
+   so the meter is the only warning before lines start being dropped. */
+.cli-memory-budget { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
+.cli-memory-budget-bar { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+.cli-memory-budget-bar > span { display: block; height: 100%; background: var(--accent); transition: width 180ms ease; }
+.cli-memory-budget.is-near .cli-memory-budget-bar > span { background: var(--warn); }
+.cli-memory-budget.is-over .cli-memory-budget-bar > span { background: var(--danger); }
+.cli-memory-budget-text {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: var(--text-secondary); line-height: 1.45;
+}
+.cli-memory-budget-text strong { color: var(--text-primary); font-weight: 600; }
+.cli-memory-budget.is-over .cli-memory-budget-text strong { color: var(--danger); }
+.cli-memory-facets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.cli-memory-facet {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px;
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  color: var(--text-secondary); font: inherit; font-size: 11.5px; cursor: pointer;
+}
+.cli-memory-facet:hover { color: var(--text-primary); }
+.cli-memory-facet.is-on { border-color: var(--accent); color: var(--text-primary); }
+.cli-memory-facet-n { font-variant-numeric: tabular-nums; opacity: .7; }
+.cli-memory-bulk {
+  margin: 0 0 12px; padding: 6px 10px; font-size: 12px;
+  background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl);
+}
+/* Every control in the row carries the control height: the auditor holds a
+   [data-align-row] to one height and one top, and a bare 18px <span> beside
+   a 36px button failed it (overlayAudit, 2026-09-20). */
+.cli-memory-bulk-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cli-memory-bulk-row > * { display: inline-flex; align-items: center; min-height: var(--ctl-h); }
+.cli-memory-bulk-n { font-weight: 550; color: var(--text-primary); }
+.cli-memory-bulk-warn { margin: 0 0 6px; color: var(--warn); line-height: 1.45; }
 .cli-memory-title { font-size: 13px; font-weight: 550; color: var(--text-primary); flex: none; }
 .cli-memory-tag {
   flex: none; font-size: 11px; color: var(--text-secondary);
@@ -306,5 +399,17 @@
   #cli-settings-view .set-ctl > .btn { justify-self: end; }
   #cli-settings-view .set-row { flex-wrap: wrap; }
   .cli-memory-filter .set-text { min-width: 0; width: 100%; }
+  /* Narrow: the two numbers go, the reading stays. Both are still one row
+     away in the open editor, and Health is the column that says act — but
+     it gives up half its width and stacks its chips, because 232px of
+     mostly-empty column starved the names to 256px (visual review at
+     700px, 2026-09-20). */
+  .cli-memory-c-citedBy, .cli-memory-c-bytes { display: none; }
+  .cli-memory-c-health { width: 132px; white-space: normal; }
+  .cli-memory-c-health .cli-memory-chip { margin: 1px 0 1px 0; }
+  /* The description wraps to its own line rather than being squeezed to an
+     ellipsis: it is the sentence that says what the memory is for. */
+  .cli-memory-open { flex-wrap: wrap; row-gap: 2px; }
+  .cli-memory-sum { flex-basis: 100%; }
 }
 .cli-memory-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
