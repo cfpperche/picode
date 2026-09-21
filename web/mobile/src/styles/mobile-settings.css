@@ -26,24 +26,32 @@
 #m-app .m-more-page :is(.reach-ctl, .folder-field-wrap, .pkg-by-source) { gap: 8px; min-width: 0; }
 #m-app .m-more-page :is(.reach-ctl, .pkg-by-source) > input { flex: 1; min-width: 0; margin: 0; }
 #m-app .m-more-page .pkg-by-source .btn { flex: none; height: var(--ctl-h); }
-/* The Keyboard pane on the phone: the label and the row's own actions share
-   the first line, the chords wrap under them — a horizontal scroll strip hid
-   every chord past the second — and the keycap grows to a touch row. */
 #m-app .m-more-page .key-pane { --kbd-h: 28px; }
 /* The phone shell scrolls its own page (not `#agent-clis-view`), and the pane
    is a short hop from the top there: the bar stays in flow rather than guessing
    a second scroller's offset. */
 #m-app .m-more-page .key-bar { position: static; padding: 0 0 10px; }
-#m-app .m-more-page .key-filter { flex: 1 1 100%; }
-#m-app .m-more-page .key-count { margin-left: 0; }
+/* The phone wraps rather than squeezing: the filter takes its own line, the
+   facet chips the next (they scroll if four of them do not fit 390px). */
+#m-app .m-more-page .key-bar { flex-wrap: wrap; }
+#m-app .m-more-page .key-filter { flex: 1 1 auto; min-width: 0; max-width: none; }
+#m-app .m-more-page .key-facets { flex: 1 1 100%; }
+/* The facet chips already carry the counts; the sentence costs a full line of
+   phone height above the list (visual review, 2026-09-21). */
+#m-app .m-more-page .key-count { display: none; }
 #m-app .m-more-page .key-facets { overflow-x: auto; scrollbar-width: thin; max-width: 100%; }
+/* One row per action, the same three columns as the desktop. The first phone
+   layout stacked name / keys / actions, which made every row 85-118px and the
+   pane ~9 000px — the empty space the owner photographed (2026-09-21). The
+   name shares the line with the keycaps and may wrap; the row's actions stay
+   in their own column because a phone has no hover to reveal them. */
 #m-app .m-more-page .key-row {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "name actions" "keys keys" "note note";
-  row-gap: 6px; padding: 8px 0 8px 8px;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  grid-template-areas: "name keys actions" "note note note";
+  column-gap: 8px; row-gap: 2px; min-height: 44px; padding: 4px 0 4px 8px;
 }
-#m-app .m-more-page .key-name { grid-area: name; }
-#m-app .m-more-page .key-keys { grid-area: keys; justify-content: flex-start; }
+#m-app .m-more-page .key-name { grid-area: name; min-width: 0; }
+#m-app .m-more-page .key-keys { grid-area: keys; justify-content: flex-end; }
 #m-app .m-more-page .key-actions { grid-area: actions; }
 #m-app .m-more-page .key-note { grid-area: note; }
 #m-app .m-more-page .key-chip kbd { font-size: 12px; }

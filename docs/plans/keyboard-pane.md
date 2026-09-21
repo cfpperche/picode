@@ -300,17 +300,46 @@ The owner approved P0 alone, and answered the four questions as recommended:
 the pane first; Grok and Muse get one line + one action; sequences stay
 read-only; `Reset all` ships behind a confirm.
 
-**Shipped** (branch `feat/keyboard-ui`): the row anatomy (32px grid, a keycap
-at its own `--kbd-h` instead of `--ctl-h`, the row's own actions in a fixed
-column, revealed on hover/`:focus-within` and always on a touch surface); the
-toolbar (filter, **Find by key**, counting facets `Changed`/`Shared`/`Off`, the
-row count, **Reset all**); the changed bar; the capture strip with the existing
-chips kept in view and `aria-live` on the result; the reserved-chord warning;
-the platform alternates; `Reset all` over a new `{resetAll: true}`; and the two
-catalog fixes — `app.thinking.save` and nine `Alt` rows read out of pi's own
-docs — held by `TestAltDeclaresEachPlatformItCovers` and
+**Shipped** (branch `feat/keyboard-ui`, corrected in `feat/keyboard-row`): the
+row anatomy (32px grid — 48px with a note — a keycap at its own `--kbd-h`
+instead of `--ctl-h`, the row's own actions in a fixed column, revealed on
+hover/`:focus-within` and always on a touch surface); the toolbar (filter,
+**Find by key**, counting facets `Changed`/`Shared`/`Off`, the row count,
+**Reset all**); the changed bar; the capture strip with the existing chips kept
+in view and `aria-live` on the result; the reserved-chord warning; the platform
+alternates; `Reset all` over a new `{resetAll: true}`; and the two catalog
+fixes — `app.thinking.save` and nine `Alt` rows read out of pi's own docs —
+held by `TestAltDeclaresEachPlatformItCovers` and
 `TestAlternatesDifferFromTheBaseDefault`. The map is 90 actions in 12 groups
 now, not 89.
+
+**The row is four columns, not three** (owner's screenshot, 2026-09-21, then
+re-measured): `label (bounded 9-18rem) | keycaps | note (flexible) | actions`,
+each cell placed by `grid-column` rather than auto-flowed. Two defects the first
+build shipped, both caught only by looking:
+
+- **A leaked flex shorthand.** The base `.key-label` rule (still AppKeys') says
+  `flex: 0 1 12rem`, a *width* basis where the label sat in a row. Inside the
+  new `.key-name` column the same basis is a *height*: the label, its cell and
+  with it every row measured 192-216px. The pane now resets it
+  (`flex: none; padding-top: 0`).
+- **Auto-flow shifting the actions.** With the note conditional, a row without
+  one moved its actions into the flexible column, and a row with two notes
+  pushed them onto the next line — rows 32 → 229px. Every cell is placed now.
+
+Density is asserted from that day on (`qa-cli-settings.mjs`): no label cell over
+one line, the action and its keycap on one line, the keycaps within 48px of the
+label, and 90 rows under 96px each / 4 000px total on desktop (128/6 200 on the
+phone). Measured: 32-90px rows, 3 199px of list, 12px between the label and the
+first keycap; the phone 44-106px and 5 058px.
+
+**The toolbar is one line, and only the filter shrinks.** Wrapping it put the
+row count and `Reset all` on a near-empty second line the moment a facet gained
+a count; `nowrap` alone then squeezed the facet labels at 1024px and on the
+phone, which is worse. Everything but the filter is `flex: none` and the facet
+group scrolls if the line still runs out; the phone wraps on purpose (the count
+is dropped there — its chips carry it). Measured: 54px at 1365 and 1024 with all
+three chips complete, 90px and three lines at 390px, no page overflow at either.
 
 Differences from the plan above, and why:
 

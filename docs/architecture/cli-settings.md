@@ -210,7 +210,31 @@ chord drawn as a keycap at its own height rather than `--ctl-h`, the row's own
 **Add key** / **Reset** in a fixed right column instead of an Add button
 chasing the chips, and a toolbar with the filter, **Find by key** (press a
 chord; the list narrows to the actions that answer to it) and counting facets
-— **Changed**, **Shared**, **Off**. Two things it deliberately does not claim:
+— **Changed**, **Shared**, **Off**.
+
+**The row is four cells, each placed by `grid-column`, never auto-flowed**:
+`label (minmax(9rem, 18rem)) | keycaps (minmax(0, auto)) | note (minmax(8rem,
+1fr)) | actions (auto)`. The label is bounded so the keycaps follow it instead
+of floating at the card's far edge; the note — a shared chord, or a chord a
+browser keeps — takes the space the keycaps leave and is the row's only air.
+Two traps worth knowing before editing this CSS:
+
+- The base `.key-label` rule (AppKeys' language, kept verbatim) carries
+  `flex: 0 1 12rem` from the layout where the label sat in a *row*, where a
+  12rem basis is a width. Inside the pane's `.key-name` column the same basis
+  is a height, and the label — with its cell, its grid row and the whole row —
+  measured 192-216px. The pane resets it (`flex: none; padding-top: 0`).
+- A conditional note before the actions column shifts the actions into the
+  flexible column when there is no note (and onto the next line when there are
+  two). Hence the explicit placement.
+
+Measured: rows 32-90px (a note wraps on the longest rows), 3 199px for all 90,
+12px between the label and the first keycap; the phone 44-106px and 5 058px.
+`qa-cli-settings.mjs` asserts the shape now — a label cell one line tall, the
+action and its keycap on one line, the keycaps within 48px of the label, and a
+row/total height ceiling per app.
+
+Two things the pane deliberately does not claim:
 
 - **A shared key is not a conflict.** 52 of pi's 90 actions share a chord with
   another: pi's contexts overlap and pi does not declare them, so calling them
