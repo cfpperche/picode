@@ -1,0 +1,12 @@
+{
+  "marketplaces": [
+    {
+      "name": "picode-probe-mp",
+      "root": "/tmp/clipkgs-bundles/codex-mp2",
+      "marketplaceSource": {
+        "sourceType": "local",
+        "source": "/tmp/clipkgs-bundles/codex-mp2"
+      }
+    }
+  ]
+}

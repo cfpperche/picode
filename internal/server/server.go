@@ -191,10 +191,15 @@ func New(addr string, deps Deps) *http.Server {
 	}
 	if deps.Store != nil && deps.CLIJobs == nil {
 		deps.CLIJobs, _ = clijob.New(clijob.Deps{
-			Store:         deps.Store,
-			Resolve:       func(cli, action string) (clijob.Exec, error) { return resolveLifecycleByID(deps, cli, action) },
+			Store: deps.Store,
+			Resolve: func(cli, action, payload string) (clijob.Exec, error) {
+				return resolveLifecycleByID(deps, cli, action, payload)
+			},
 			LiveTerminals: func(cli string) int { return liveTerminalsFor(deps, cli) },
-			AfterSuccess:  func(cli, action string) { refreshCLICheckAfterJob(deps, cli) },
+			AfterSuccess: func(cli, action string) {
+				refreshCLICheckAfterJob(deps, cli)
+				publishPackageChange(deps, cli, action)
+			},
 		})
 	}
 	registerAll(mux, deps)
@@ -243,6 +248,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerPeerCommunication(mux, deps)
 	registerPeerOnboarding(mux, deps)
 	registerPackageRoutes(mux, deps)
+	registerCLIPackageRoutes(mux, deps)
 	registerDockerRoutes(mux, deps)
 	registerDeviceRoutes(mux, &deps)
 

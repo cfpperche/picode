@@ -1,20 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
-import { cliPackagesHash, supportsCliPackages, loadPiPackagesContext, packageContextKey } from "@picode/shared/domain/cliPackages.js";
+import { cliPackagesHash, supportsCliPackages, usesGuestPackages, loadPiPackagesContext, packageContextKey } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import Packages from "./Packages.jsx";
+import GuestPackages from "./GuestPackages.jsx";
 import { askConfirm } from "../lib/confirm.js";
 import { setShell } from "@picode/shared/client/shell.js";
 
+// One pane, one interface, a driver per CLI (ADR-0167): `pi` keeps its own
+// Packages path untouched, the eight guest CLIs get the capability-driven
+// GuestPackages pane, and anything else keeps the placeholder.
 export default function CliPackages({ hidden, route, catalog, onPackageUpdates }) {
   const supported = supportsCliPackages(route.id);
+  const guest = usesGuestPackages(route.id);
   const blockedConfig = route.pkg && route.pkg !== "pi-roles";
+  // A guest CLI has no package configuration page (ADR-0167 §3): a link
+  // carrying one is refused, and the desktop-only config editors stay Pi's.
+  const broken = route.invalid || (guest && !!route.pkg);
   return <section id="cli-packages-view" hidden={hidden}>
-    {route.invalid || !supported || blockedConfig ?
-      <div className="cli-notice" role="status"><span>{route.invalid ? "This package link is invalid." : "Packages for " + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>
-      : !hidden ? <PackagesTarget key={route.id + ":" + route.workspaceId + ":" + route.agentId} route={route} catalog={catalog} onUpdates={(updates, workspaceId) => onPackageUpdates?.(updates, workspaceId)} /> : null}
+    {broken ?
+      <div className="cli-notice" role="status"><span>{route.invalid ? "This package link is invalid." : terminalCliLabel(route.id) + " plugins have no configuration page."}</span></div>
+      : guest ? (!hidden ? <GuestPackages key={route.id + ":" + route.workspaceId + ":" + route.scope} route={route} onScopeChange={scope => { location.hash = cliPackagesHash(route.id, { ...route, scope }); }} /> : null)
+        : route.invalid || !supported || blockedConfig ?
+          <div className="cli-notice" role="status"><span>{route.invalid ? "This package link is invalid." : "Packages for " + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>
+          : !hidden ? <PackagesTarget key={route.id + ":" + route.workspaceId + ":" + route.agentId} route={route} catalog={catalog} onUpdates={(updates, workspaceId) => onPackageUpdates?.(updates, workspaceId)} /> : null}
   </section>;
 }
 

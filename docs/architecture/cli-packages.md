@@ -35,3 +35,64 @@ the descriptor (user, catalog, manifest). A user description is created with
 **Describe config…** on an undescribed card and edited or deleted from the
 config page; deleting it never touches the described file. pi-roles keeps its
 bespoke two-layer editor. No descriptor resolves, no Configure button.
+
+## The guest CLIs (ADR-0167)
+
+Pi keeps everything above. The other eight CLIs get the same pane, driven by
+`internal/clipkgs`: **one declaration per CLI** says what it really exposes,
+and `Caps` is derived from that declaration — a nil argv builder *is* a verb
+the CLI does not have, so the pane cannot offer a control the vendor lacks.
+The vendor binary stays the authority; PiCode keeps no package database, and
+never passes a vendor's auto-consent flag (`-y`, `--trust`, `--confirm`,
+`--allow-tool-override`, an accepted command hash). Where a vendor demands a
+human answer, the pane shows the refusal verbatim with the copyable command.
+
+`GET /api/cli-packages` answers with the CLI's scopes, capabilities, notes and
+rows. Scopes are the CLI's own: Claude Code adds `local` (uncommitted) beside
+`user` and `project`; OpenCode, Muse and Omp have machine and project; Codex,
+Grok, Hermes and Antigravity are machine-only. `agent` is refused by name for
+every guest — no vendor has a per-terminal plugin layer — and a project scope
+without a workspace folder is refused before anything runs.
+
+The roster comes from the CLI itself:
+
+| CLI | Roster | Notes |
+|---|---|---|
+| Claude Code | `claude plugin list --json` (+ `--available`) | `id@marketplace`, scopes `user\|project\|local`, plus vendor-owned `synced` rows |
+| Codex | `codex plugin list --json` (+ `--available`) | remote marketplaces need the network and a sign-in |
+| Grok | `grok plugin list --json` (+ `--available`) | |
+| Hermes | `hermes plugins list --json`, catalog via `plugins search --json` | `picode-native` is PiCode's own integration |
+| OpenCode | its own configs and plugin directories | no list, remove, disable or marketplace command exists |
+| Muse Code | `muse plugins list --json` (+ `--available`) | capability trust stays with the user |
+| Antigravity | `agy plugin list` (a JSON envelope once plugins exist, one sentence while none do) | its subcommands take no flags: a leading `--help` is read as the plugin name (measured 2026-09-20) |
+| Omp | `omp plugin list --json` | marketplace sources, no availability list PiCode has verified |
+
+Mutating a plugin runs the vendor's own command, in the workspace folder for a
+project scope, through the durable job lane (`internal/clijob`, ADR-0087):
+202 with the job, request-key idempotency, at most one active job, and the
+existing refusal while that CLI's terminals are running (a plugin lands in the
+next start). A job carries its arguments in its payload, so `Resolve` can build
+the argv after a restart; every mutation publishes the ephemeral `cli.packages`
+event and drops that CLI's roster cache.
+
+**OpenCode is the one file write.** It exposes `opencode plugin <module> [-g]`
+to add and nothing to remove, so removal deletes one element from the `plugin`
+array of the config file that names it, using the precedence
+`internal/connectors` already measured (the `.jsonc` first). The edit is
+surgical: comments and every other byte survive,
+the result is re-parsed and compared to the document before it (only that
+element may differ), the write is atomic with the file's own mode, and a shape
+the scanner does not recognize is refused (409) rather than saved.
+
+Rows show the vendor's own words. A verb the CLI lacks carries the declaration's
+one-line note instead of a disabled button: Codex cannot disable a plugin, OpenCode
+has no marketplace, Antigravity has no update command. `update` is deliberately
+absent for guests in v1 — an availability badge needs the vendor's catalog
+compared, and a button without that signal is a blind action; the row names the
+vendor's command instead (`docs/handoff/open/packages.md`).
+
+A read that fails is never an empty list: unparsable vendor output is a 502
+carrying the CLI's own text, a missing binary is a 400, a changed file is a 409.
+`internal/clipkgs/live_test.go` exercises every driver against the real
+binaries in a sandbox HOME (`PICODE_PKGS_LIVE=1`), which is where a vendor's
+shape change is meant to be caught.

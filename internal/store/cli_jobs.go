@@ -21,15 +21,30 @@ type CLIJob struct {
 	CLI        string `json:"cli"`
 	Action     string `json:"action"`
 	RequestKey string `json:"requestKey"`
-	State      string `json:"state"` // queued running succeeded failed interrupted
-	Message    string `json:"message"`
-	Output     string `json:"output,omitempty"`
-	CreatedAt  string `json:"createdAt"`
-	UpdatedAt  string `json:"updatedAt"`
-	Revision   int    `json:"revision"`
+	// Payload carries the arguments of the operation for the actions whose
+	// argv is not derivable from (cli, action) alone — the plugin jobs of
+	// ADR-0167 name a target, a scope and a workspace. It lives in the same
+	// JSON document as the rest of the row, so no schema change was needed.
+	Payload   string `json:"payload,omitempty"`
+	State     string `json:"state"` // queued running succeeded failed interrupted
+	Message   string `json:"message"`
+	Output    string `json:"output,omitempty"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+	Revision  int    `json:"revision"`
 }
 
 func (j CLIJob) Active() bool { return j.State == "queued" || j.State == "running" }
+
+// jobActions is the closed vocabulary of durable CLI jobs: the lifecycle
+// actions of ADR-0087 plus the plugin actions of ADR-0167.
+var jobActions = map[string]bool{
+	"install": true, "update": true, "reinstall": true, "uninstall": true,
+	"pkg-install": true, "pkg-remove": true, "pkg-update": true,
+	"pkg-marketplace-add": true, "pkg-marketplace-update": true,
+}
+
+func validJobAction(action string) bool { return jobActions[action] }
 
 func scanCLIJob(row interface{ Scan(...any) error }) (CLIJob, error) {
 	var j CLIJob
@@ -68,7 +83,7 @@ func (s *Store) CLIJobs() ([]CLIJob, error) {
 // one active lifecycle job at a time. Store write and feed event commit
 // together (ADR-0048).
 func (s *Store) BeginCLIJob(j CLIJob) (CLIJob, bool, error) {
-	if j.RequestKey == "" || len(j.RequestKey) > 128 || j.Action != "install" && j.Action != "update" && j.Action != "reinstall" && j.Action != "uninstall" {
+	if j.RequestKey == "" || len(j.RequestKey) > 128 || !validJobAction(j.Action) {
 		return j, false, fmt.Errorf("invalid CLI lifecycle request")
 	}
 	if _, ok := clilaunch.Find(j.CLI); !ok {
@@ -81,7 +96,10 @@ func (s *Store) BeginCLIJob(j CLIJob) (CLIJob, bool, error) {
 	defer s.rollback(tx)
 	old, err := scanCLIJob(tx.QueryRow(`SELECT payload FROM cli_jobs WHERE request_key=?`, j.RequestKey))
 	if err == nil {
-		if old.CLI != j.CLI || old.Action != j.Action {
+		// One request key means one operation: the same key with a different
+		// target is a conflict, not a cache hit (a plugin job names its
+		// target in the payload).
+		if old.CLI != j.CLI || old.Action != j.Action || old.Payload != j.Payload {
 			return old, false, ErrCLILifecycleConflict
 		}
 		return old, false, nil

@@ -1,0 +1,125 @@
+{
+  "query": "",
+  "results": [
+    {
+      "name": "adspirer",
+      "repo": "https://github.com/Adspirer/adspirer-hermes-plugin",
+      "sha": "4688c38295a7b86f8119d7a0ecc09cd0b83a2730",
+      "description": "Create, analyze, and optimize campaigns across Google Ads, Meta Ads, TikTok Ads, LinkedIn Ads, Amazon Ads, ChatGPT Ads, and Microsoft Ads through the hosted Adspirer MCP. Portable Agent Plugins v1 package with fourteen paid-media workflow skills and approval safeguards; OAuth uses pinned mcp-remote@0.1.49 over npx stdio, so Node.js 20.18.1+ and npm are required. Disclosure — creates and edits real ad campaigns that spend your ad budgets; confirm-before-spend is enforced by skill instructions, not by Hermes.",
+      "maintainer": "Adspirer",
+      "tier": "community",
+      "category": "tools",
+      "requires_hermes": ">=0.20",
+      "subdir": "",
+      "docs_url": "https://github.com/Adspirer/adspirer-hermes-plugin#readme",
+      "version": "1.0.0",
+      "image": "https://raw.githubusercontent.com/Adspirer/adspirer-hermes-plugin/4688c38295a7b86f8119d7a0ecc09cd0b83a2730/assets/icon.png",
+      "platforms": [],
+      "capabilities": {
+        "provides_tools": [],
+        "provides_hooks": [],
+        "provides_middleware": [],
+        "requires_env": []
+      }
+    },
+    {
+      "name": "afterforge",
+      "repo": "https://github.com/ussyverse/afterforge",
+      "sha": "067a739e5ab64097140c5200bde2cc5d52662ea5",
+      "description": "Local-first regression workbench turning agent failures and corrections into reviewed, evidence-backed checks.",
+      "maintainer": "ussyverse",
+      "tier": "community",
+      "category": "tools",
+      "requires_hermes": "",
+      "subdir": "",
+      "docs_url": "https://github.com/ussyverse/afterforge/blob/067a739e5ab64097140c5200bde2cc5d52662ea5/README.md",
+      "version": "",
+      "image": "",
+      "platforms": [
+        "linux"
+      ],
+      "capabilities": {
+        "provides_tools": [
+          "fixlab_status",
+          "fixlab_scan",
+          "fixlab_list_cases",
+          "fixlab_inspect_case",
+          "fixlab_review_case",
+          "fixlab_build_regression",
+          "fixlab_verify_regression",
+          "fixlab_report"
+        ],
+        "provides_hooks": [
+          "post_tool_call",
+          "on_session_end",
+          "pre_verify"
+        ],
+        "provides_middleware": [],
+        "requires_env": []
+      }
+    },
+    {
+      "name": "agent-analytics",
+      "repo": "https://github.com/Agent-Analytics/agent-analytics-hermes-plugin",
+      "sha": "63f11d3669330e40dad977b7d32f9b69e69a9fb8",
+      "description": "Dashboard-only read plugin for Agent Analytics inside Hermes.",
+      "maintainer": "Agent-Analytics",
+      "tier": "community",
+      "category": "desktop",
+      "requires_hermes": "",
+      "subdir": "",
+      "docs_url": "https://github.com/Agent-Analytics/agent-analytics-hermes-plugin#readme",
+      "version": "",
+      "image": "",
+      "platforms": [],
+      "capabilities": {
+        "provides_tools": [],
+        "provides_hooks": [],
+        "provides_middleware": [],
+        "requires_env": []
+      }
+    },
+    {
+      "name": "agent-log",
+      "repo": "https://github.com/PixelAlchemist4/hermes-agent-log-plugin",
+      "sha": "4cf7af5bf8c8df4f132896db57fd1b868c09f1ae",
+      "description": "Readable agent.log viewer in the desktop status bar — a live, colour-coded feed of API calls, tools, turns, fallbacks, warnings and errors, with per-call tokens/latency/cache, stats tables, and a single-dot alert for genuine non-self-healing faults. Follows app theme/language.",
+      "maintainer": "PixelAlchemist4",
+      "tier": "community",
+      "category": "desktop",
+      "requires_hermes": "",
+      "subdir": "",
+      "docs_url": "https://github.com/PixelAlchemist4/hermes-agent-log-plugin#readme",
+      "version": "",
+      "image": "",
+      "platforms": [],
+      "capabilities": {
+        "provides_tools": [],
+        "provides_hooks": [],
+        "provides_middleware": [],
+        "requires_env": []
+      }
+    },
+    {
+      "name": "agentchat",
+      "repo": "https://github.com/agentchatme/agentchat-hermes",
+      "sha": "8322d5c97fc81b1493c2ccfc83c19cee03173196",
+      "description": "AgentChat — peer-to-peer messaging for AI agents. Owns its own WebSocket; pokes the agent on inbound; the agent decides whether to reply. Send is a tool call, never automatic. Bundles the etiquette skill.",
+      "maintainer": "agentchatme",
+      "tier": "community",
+      "category": "platform",
+      "requires_hermes": "",
+      "subdir": "",
+      "docs_url": "https://github.com/agentchatme/agentchat-hermes#readme",
+      "version": "",
+      "image": "",
+      "platforms": [],
+      "capabilities": {
+        "provides_tools": [],
+        "provides_hooks": [],
+        "provides_middleware": [],
+        "requires_env": []
+      }
+    }
+  ]
+}

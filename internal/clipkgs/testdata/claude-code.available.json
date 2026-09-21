@@ -1,0 +1,23 @@
+{
+  "installed": [
+    {
+      "id": "probe@picode-probe-mp",
+      "version": "0.1.0",
+      "scope": "user",
+      "enabled": true,
+      "installPath": "/tmp/clipkgs-live-sb/.claude/plugins/cache/picode-probe-mp/probe/0.1.0",
+      "installedAt": "2026-09-21T01:48:25.596Z",
+      "lastUpdated": "2026-09-21T01:48:25.596Z"
+    }
+  ],
+  "available": [
+    {
+      "pluginId": "probe2@picode-probe-mp",
+      "name": "probe2",
+      "description": "second claude probe plugin",
+      "marketplaceName": "picode-probe-mp",
+      "version": "0.9.0",
+      "source": "./plugins/probe2"
+    }
+  ]
+}
