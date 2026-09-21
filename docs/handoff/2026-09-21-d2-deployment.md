@@ -31,7 +31,13 @@ marks Not published and its detail carries three verdict tiles, dark theme
 legible, phone without overflow; overlayAudit ok, every control row 36px. The
 read's one suggestion — a failed attempt in plain body text — was fixed with
 the danger tint before closing.)
-Not done / debts: `docs/handoff/open/delivery-flow.md` — the producer's first
-live run, remote environments unknown, and `web/browser/src/lib/mobileRoutes.js`
-(a dead duplicate: no importer) left for a one-line cutover.
+
+Reverted the same day: the owner tested it live and removed the lens from the
+product (ADR-0177). With `picode-self` as the only environment it answered a
+question only PiCode's own repository has, so every other project saw an inert
+lane; environments must be project-owned markers if the capability returns. The
+receipts the two deploys wrote stay on disk in `<data>/var/delivery/` — evidence
+is not pruned — with nothing reading them.
+Not done / debts: none carried — the lens is gone (ADR-0177), and
+`docs/handoff/open/delivery-flow.md` keeps the D1b list unchanged.
 Merge: fast-forward ready.

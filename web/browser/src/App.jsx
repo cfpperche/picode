@@ -894,7 +894,7 @@ export default function App({ shellChrome = false } = {}) {
           if (ownerAlive(fromTree)) openTreeTab(fromTree.kind, fromTree.id);
           else { setGoneId(provisionalTreeId(fromTree.kind, fromTree.id)); setSelectedId(null); }
         } else if (fromGit) {
-          if (ownerAlive(fromGit)) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view, fromGit.lane);
+          if (ownerAlive(fromGit)) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view);
           else { setGoneId(provisionalGitId(fromGit.kind, fromGit.id)); setSelectedId(null); }
         } else if (fromTerm) {
           if (terms.some((t) => t.id === fromTerm)) openTermTab(fromTerm);
@@ -1181,10 +1181,8 @@ export default function App({ shellChrome = false } = {}) {
       if (ok) {
         setGoneId((g) => (g ? "" : g));
         const known = Object.entries(gitOwners).find(([, o]) => o && o.kind === fromGit.kind && o.id === fromGit.id);
-        if (!known || selectedRef.current !== known[0]) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view, fromGit.lane);
-        else if ((known[1].view || "") !== (fromGit.view || "") || (known[1].lane || "") !== (fromGit.lane || "")) {
-          setGitOwners(m => ({ ...m, [known[0]]: { ...m[known[0]], view: fromGit.view || "", lane: fromGit.lane === "deployment" ? "deployment" : "" } }));
-        }
+        if (!known || selectedRef.current !== known[0]) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view);
+        else if ((known[1].view || "") !== (fromGit.view || "")) setGitOwners(m => ({ ...m, [known[0]]: { ...m[known[0]], view: fromGit.view || "" } }));
       } else {
         const gid = provisionalGitId(fromGit.kind, fromGit.id);
         setGoneId((g) => (g === gid ? g : gid));
@@ -1262,7 +1260,7 @@ export default function App({ shellChrome = false } = {}) {
       : isAppTab(selectedId)
         ? appHash(tabAppId(selectedId), appRoute(location.hash) === tabAppId(selectedId) ? appPath(location.hash) : "")
         : gitOwner
-        ? gitHash(gitOwner.kind, gitOwner.id, gitOwner.view, gitOwner.lane)
+        ? gitHash(gitOwner.kind, gitOwner.id, gitOwner.view)
         : treeOwner
           ? treeHash(treeOwner.kind, treeOwner.id)
           : file
@@ -1586,13 +1584,13 @@ export default function App({ shellChrome = false } = {}) {
   // The repository is unknown until the server answers, so a graph tab opens
   // under a provisional id and onGitKey renames it to g:<key> — which is also
   // where two owners of the same repo collapse onto one tab (ADR-0022).
-  function openGitTab(kind, ownerId, ownerName, view = "", lane = "") {
+  function openGitTab(kind, ownerId, ownerName, view = "") {
     setDashboardPinned(false);
     if (!ownerId) return;
     const known = Object.entries(gitOwners).find(([, o]) => o && o.kind === kind && o.id === ownerId);
     const id = known ? known[0] : provisionalGitId(kind, ownerId);
     setGitOwners((m) => {
-      const next = { ...m, [id]: { kind, id: ownerId, name: ownerName || "", view, lane: lane === "deployment" ? "deployment" : "" } };
+      const next = { ...m, [id]: { kind, id: ownerId, name: ownerName || "", view } };
       writeGitOwners(next);
       return next;
     });
@@ -3855,7 +3853,6 @@ export default function App({ shellChrome = false } = {}) {
                 key={id}
                 owner={o}
                 onView={view => setGitOwners(m => ({ ...m, [id]: { ...m[id], view } }))}
-                onLane={lane => setGitOwners(m => ({ ...m, [id]: { ...m[id], lane: lane === "deployment" ? "deployment" : "" } }))}
                 workspaces={workspaces}
                 freeAgents={freeAgents}
                 terminals={terminals}

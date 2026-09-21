@@ -69,7 +69,10 @@ rite. Check off a slice only with linked evidence. D0 receipts: [inventory](deli
   desktop/mobile empty/blocked/error states, and specify navigation before UI work.
 - [x] Identify required protocol, persistence, security and process boundaries;
   draft applicable ADRs. D0 proposed ADR-0170 without crossing its boundaries.
-  Its D1 observation/receipt boundary is now accepted; D2 remains planned.
+  Its D1 observation/receipt boundary is now accepted. D2 was implemented on
+  2026-09-21 and removed the same day by the owner's decision: the only
+  environment the vocabulary could name was this PiCode instance, which answers
+  a question no other project has ([ADR-0177](../decisions/0177-delivery-lens-removed.md)).
 
 Exit: every displayed fact has a source and unknown behavior; an implementation
 contract and decision table exist. No new execution authority is introduced.
@@ -101,13 +104,19 @@ Exit: seeded concurrent-worktree cases and a scratch-instance walkthrough answer
 what can be reviewed, what requires revalidation and what actually landed.
 No claim that an observed candidate is enrolled in an execution queue.
 
-### D2 — Observe publication
+### D2 — Observe publication (built, then removed — ADR-0177)
 
-- [x] Add per-environment current revision, last attempt, health observation and
+> Implemented 2026-09-21 (`feat/d2-deployment`) and removed the same day: with
+> `picode-self` as the only environment it served PiCode's own repository and
+> nothing else. If this slice returns, the environment must be a project-owned
+> marker (a release tag or branch, or receipts the project's own tooling writes
+> into its evidence directory) — see ADR-0177.
+
+- [ ] Add per-environment current revision, last attempt, health observation and
   integrated-but-unpublished changes where evidence supports the comparison.
-- [x] Observe PiCode's existing readiness and deployment evidence for the pilot;
+- [ ] Observe PiCode's existing readiness and deployment evidence for the pilot;
   expose unavailable, failed, interrupted and unconfigured cases honestly.
-- [x] Show a deployment containing multiple changes without inventing a separate
+- [ ] Show a deployment containing multiple changes without inventing a separate
   deploy requirement for every branch. Preserve previous known evidence on errors.
 
 Exit: distinguish main ahead of production, success with verified revision/health,
@@ -193,8 +202,8 @@ architecture docs, public help, changelog and handoff together. Deployment alway
 remains a separately authorized owner operation.
 
 Any expansion or reordering is recorded here with its reason and owner decision.
-D0 is documented in the linked inventory and surface contract. D2 publication
-observation is implemented in `feat/d2-deployment`; its contract is
-[delivery-publication.md](delivery-publication.md). D3–D5 are not implemented.
+D0 is documented in the linked inventory and surface contract. D2 was implemented
+and removed (ADR-0177); a publication slice that names a project-owned marker is
+the recorded direction, not a commitment. D3–D5 are not implemented.
 D1b implementation/coverage: [observation receipt](delivery-observation.md).
 No deployment was performed.
