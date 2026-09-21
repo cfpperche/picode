@@ -7,6 +7,7 @@
   a dependency; the owner's call (`docs/plans/memory-table.md`).
 - Omp Fatia 2 (sessions): the gate is one real omp session on disk (needs auth on this machine); `ResumeArgs: ["--resume", id]` per its `--help`. Plan: `docs/plans/omp-cli.md`.
 - Physical iPhone/PWA/IME acceptance for the native panes is external; mobile package configuration is desktop-only by design (`docs/plans/cli-native-packages.md`).
+- The Keyboard pane: redesign it for Pi, then let it edit the guest keymaps that exist (`claude-code`, `codex`, `opencode`, `agy`, `omp`; `hermes` partial; `grok` and `muse` have none). Plan: `docs/plans/keyboard-pane.md`; the four owner questions in its §9 come first.
 
 ## Debts
 
