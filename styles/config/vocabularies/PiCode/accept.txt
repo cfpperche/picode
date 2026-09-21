@@ -94,6 +94,8 @@ dropdown
 enum
 standup
 unclosed
+stdout
+stderr
 
 antigravity
 muse
