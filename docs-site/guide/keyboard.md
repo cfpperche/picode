@@ -38,6 +38,14 @@ that uses a chord from the reserved list above, so a binding that can never
 fire in a browser tab is visible rather than mysterious — five of pi's own
 defaults are in that list today.
 
+Each CLI's Keyboard tab says what *its* map is, because they are not the same
+thing. Pi is editable there. A CLI whose own editor PiCode has not built yet
+says so and links the vendor's documentation. A CLI that keeps no key map file
+at all — Hermes Agent, whose three editable keys are rows in its **Settings**
+tab — says that and sends you to them. A CLI that does not allow remapping (Grok,
+Muse Code) says that and links its own key list, which is the only way to see
+those keys.
+
 ## When a CLI wants a key the browser keeps
 
 There is no way for a web page to take `Ctrl+T` back. Where a CLI's own
