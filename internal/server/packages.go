@@ -16,6 +16,7 @@ import (
 func registerPackageRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/packages", handleListPackages(deps))
 	mux.HandleFunc("GET /api/packages/gallery", handlePackageGallery)
+	mux.HandleFunc("GET /api/packages/report", handlePackageReport(deps))
 	mux.HandleFunc("GET /api/packages/updates", handlePackageUpdates(deps))
 	mux.HandleFunc("POST /api/packages", handleInstallPackage(deps))
 	mux.HandleFunc("POST /api/packages/update", handleUpdatePackage(deps))
