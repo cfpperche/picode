@@ -20,6 +20,7 @@ import (
 	"github.com/cfpperche/picode/internal/clicreds"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/credentials"
+	"github.com/cfpperche/picode/internal/tmux"
 	"github.com/cfpperche/picode/internal/usage"
 )
 
@@ -529,6 +530,27 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 		if !ok || !cli.Launchable() {
 			writeErr(w, http.StatusBadRequest, "This CLI cannot be launched here.")
 			return
+		}
+		// One sign-in terminal per CLI. A second click must lead back to the
+		// terminal that is already waiting — thirteen "Claude Code sign-in"
+		// sessions piled up in one machine's tmux before this check existed
+		// (2026-09-21). A record whose session is gone is a husk: remove it so
+		// the terminals list does not fill with sign-in ghosts.
+		want := spec.Name + " sign-in"
+		if rows, err := deps.Store.ListTerminals(); err == nil {
+			for _, t := range rows {
+				if t.Name != want {
+					continue
+				}
+				alive, e := deps.Tmux.HasSession(r.Context(), tmux.ShellSessionName(t.ID))
+				if e == nil && alive {
+					writeJSON(w, http.StatusOK, map[string]any{
+						"terminalId": t.ID, "hint": spec.Login.Hint, "reused": true,
+					})
+					return
+				}
+				_ = deps.Store.DeleteTerminal(t.ID)
+			}
 		}
 		args := append([]string{}, spec.Login.Args...)
 		v := cliTerminalRequest{

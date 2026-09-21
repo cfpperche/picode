@@ -15,7 +15,11 @@ stamp path is what was exercised.
 visual-review: PASS (review-claude.png, review-strip.png, review-strip-mobile.png, review-still-same.png; card 5/5)
 Not done: naming a login still happens after an unnamed row is overwritten,
 so the previous unnamed tokens are already gone when the prompt appears.
-A second Sign in opens another terminal.
+
+Follow-up (same day): Sign in now reuses the CLI's live sign-in terminal
+(`handleCredentialSignin` checks the tmux session before creating; a dead
+record is swept). It no longer stacks orphan sessions per click — thirteen
+"Claude Code sign-in" tmux sessions were the reason.
 
 ## Next up
 

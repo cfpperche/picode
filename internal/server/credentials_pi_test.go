@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/credentials"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
@@ -379,5 +381,49 @@ func TestGuestRosterCarriesThePaneFieldsOnly(t *testing.T) {
 
 	if bad := cliRequestFull(t, ts, "GET", "/api/credentials?cli=nope", nil); bad["status"] != "404" {
 		t.Fatalf("unknown CLI = %v, want 404", bad)
+	}
+}
+
+// One sign-in terminal per CLI: a second Sign in leads back to the terminal
+// already waiting, and a record whose tmux session died is removed instead of
+// piling sign-in ghosts into the terminals list (thirteen "Claude Code
+// sign-in" sessions on one machine, 2026-09-21).
+func TestCredentialSigninReusesItsTerminal(t *testing.T) {
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	ts, _, _ := cleanupServer(t)
+	cliRequest(t, ts, "PUT", "/api/clis/pi", clilaunch.Config{Executable: "/bin/cat", Args: []string{}}, 200)
+
+	first := cliRequest(t, ts, "POST", "/api/credentials/signin", map[string]any{"cli": "pi"}, 201)
+	id1, _ := first["terminalId"].(string)
+	if id1 == "" || first["reused"] == true {
+		t.Fatalf("first sign-in = %v, want a fresh terminal", first)
+	}
+	t.Cleanup(func() {
+		_ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id1))
+	})
+
+	second := cliRequest(t, ts, "POST", "/api/credentials/signin", map[string]any{"cli": "pi"}, 200)
+	if second["terminalId"] != id1 || second["reused"] != true {
+		t.Fatalf("second sign-in = %v, want the same terminal reused", second)
+	}
+
+	// The session died (the person closed it after signing in): the record is
+	// a husk and the next Sign in replaces it.
+	_ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id1))
+	third := cliRequest(t, ts, "POST", "/api/credentials/signin", map[string]any{"cli": "pi"}, 201)
+	id3, _ := third["terminalId"].(string)
+	if id3 == "" || id3 == id1 || third["reused"] == true {
+		t.Fatalf("sign-in after the session died = %v, want a fresh terminal", third)
+	}
+	t.Cleanup(func() {
+		_ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id3))
+	})
+	roster := cliRequest(t, ts, "GET", "/api/terminals", nil, 200)
+	for _, row := range roster["terminals"].([]any) {
+		if row.(map[string]any)["id"] == id1 {
+			t.Fatal("the dead sign-in record is still in the list")
+		}
 	}
 }
