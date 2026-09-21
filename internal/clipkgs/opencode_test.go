@@ -307,3 +307,26 @@ func TestOpenCodeProjectInstallsAreVisible(t *testing.T) {
 		t.Fatalf("the documented project file was touched: %q", untouched)
 	}
 }
+
+// TestOpenCodeStringPluginIsAnInvalidConfig: OpenCode itself refuses
+// `"plugin": "is-odd"` ("Expected array | undefined"), so the roster read must
+// fail loudly instead of listing a module the CLI never loads.
+func TestOpenCodeStringPluginIsAnInvalidConfig(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	cfg := filepath.Join(dir, "opencode")
+	if err := os.MkdirAll(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(cfg, "opencode.json")
+	if err := os.WriteFile(file, []byte(`{"$schema":"https://opencode.ai/config.json","plugin":"is-odd"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := opencodeRoster(context.Background(), Paths{}, "user", false)
+	if err == nil || !strings.Contains(err.Error(), "opencode.json") || !strings.Contains(strings.ToLower(err.Error()), "list") {
+		t.Fatalf("err = %v, want the file named and the list form stated", err)
+	}
+	if err := opencodeRemove(context.Background(), Paths{}, Target{Name: "is-odd", Scope: "user"}); err == nil {
+		t.Fatal("removing a plugin a file names as a string must not look like a success")
+	}
+}

@@ -134,6 +134,31 @@ export function guestPackagesNotes(caps, notes) {
   return out;
 }
 
+// catalogRowAction decides what a Marketplace row may offer. The vendor's own
+// catalog has to name the spec a command takes: Omp's `omp plugin discover`
+// prints a name and a version and never the marketplace an install needs
+// (`omp plugin install <name>` resolves through npm instead), so its rows are
+// information and the pane states the install form in the list note instead of
+// offering a button that would run the wrong command.
+export function catalogRowAction(caps, row) {
+  const c = caps || {};
+  const r = row || {};
+  if (r.installed) return "installed";
+  if (c.catalogInstall && r.source) return "install";
+  return "none";
+}
+
+// refusalCommand reads the command a refusal carries. The server attaches it
+// (rendered by the same builder it executed) when the CLI refused and only a
+// person in a terminal can answer — Grok's `--trust`, Claude's
+// marketplace-declared command — so the pane shows the line to run instead of
+// a dead end.
+export function refusalCommand(error) {
+  const body = error && error.body;
+  const command = body && typeof body.command === "string" ? body.command.trim() : "";
+  return { message: (error && error.message) || "", command };
+}
+
 // guestPackagesApi(cli, {workspaceId, scope}) is the request builder for every
 // route in the frozen contract (plan §10). A pane never assembles a URL, a
 // query name or a body field inline: it asks for the route it needs, so one

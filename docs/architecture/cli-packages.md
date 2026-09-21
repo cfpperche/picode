@@ -45,7 +45,10 @@ the CLI does not have, so the pane cannot offer a control the vendor lacks.
 The vendor binary stays the authority; PiCode keeps no package database, and
 never passes a vendor's auto-consent flag (`-y`, `--trust`, `--confirm`,
 `--allow-tool-override`, an accepted command hash). Where a vendor demands a
-human answer, the pane shows the refusal verbatim with the copyable command.
+human answer, the refusal comes back **with the exact command** — rendered
+server-side by the same builder the request executed, with credentials in a
+URL redacted — and the pane offers it with **Copy command** beside the vendor's
+own words, for synchronous refusals and for a failed job alike.
 
 `GET /api/cli-packages` answers with the CLI's scopes, capabilities, notes and
 rows. Scopes are the CLI's own: Claude Code adds `local` (uncommitted) beside
@@ -65,7 +68,7 @@ The roster comes from the CLI itself:
 | OpenCode | its own configs and plugin directories | no list, remove, disable or marketplace command exists |
 | Muse Code | `muse plugins list --json` (+ `--available`) | the id lives in the row's `record`, not on the row; capability trust stays with the user. The CLI gates its whole plugin surface per machine through its own cached feature config — where that gate is off, every verb answers *"plugins are not available in this build"* and the pane shows that sentence. The catalog does **not** mark an installed plugin (`status: "available"` survives an install), so `catalogNeedsRoster` joins it with the CLI's own roster; and the CLI's list omits the app's built-in first-party plugins, which only its TUI shows (all measured 2026-09-21) |
 | Antigravity | `agy plugin list` (a JSON envelope once plugins exist, one sentence while none do) | its subcommands take no flags: a leading `--help` is read as the plugin name (measured 2026-09-20) |
-| Omp | `omp plugin list --json` | marketplace sources, no availability list PiCode has verified |
+| Omp | `omp plugin list --json`; catalog via `omp plugin discover` (prose — `--json` is accepted and ignored) | the catalog is information only: discover prints a name and a version and never names the source an install needs, while `omp plugin install <name>` resolves through npm (measured 2026-09-21: it 404s on the registry), so `catalogInstall` is false and the list note states the `name@marketplace` form |
 
 Mutating a plugin runs the vendor's own command, in the workspace folder for a
 project scope, through the durable job lane (`internal/clijob`, ADR-0087):
@@ -82,7 +85,10 @@ array of the config file that names it, using the precedence
 surgical: comments and every other byte survive,
 the result is re-parsed and compared to the document before it (only that
 element may differ), the write is atomic with the file's own mode, and a shape
-the scanner does not recognize is refused (409) rather than saved.
+the scanner does not recognize is refused (409) rather than saved. A
+`"plugin": "name"` **string** is not a module PiCode lists: OpenCode itself
+refuses that document ("Expected array | undefined"), so the read names the file
+and the form the vendor expects instead of showing a plugin the CLI never loads.
 
 Rows show the vendor's own words. A verb the CLI lacks carries the declaration's
 one-line note instead of a disabled button: Codex cannot disable a plugin, OpenCode

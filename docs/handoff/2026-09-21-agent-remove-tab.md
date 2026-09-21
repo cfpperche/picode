@@ -22,4 +22,4 @@ Merge: fast-forward ready.
 ## Next up
 ## Debts
 
-- CLI-agent bound-terminal removal (ADR-0160) has no E2E coverage; unit tests only.
+- [x] CLI-agent bound-terminal removal (ADR-0160) has no E2E coverage; unit tests only. — paid 2026-09-21 in feat/agent-remove-undo: omp agent with bound terminal removed on a qa-scratch while its `t:` tab was selected; neighbour selection, terminal-row delete and tmux teardown verified (see 2026-09-21-agent-remove-undo.md).

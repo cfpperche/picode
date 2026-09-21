@@ -1,0 +1,6 @@
+Available Plugins:
+
+  picode-spare@0.2.0
+    spare
+  picode-other@0.3.0
+    other plugin

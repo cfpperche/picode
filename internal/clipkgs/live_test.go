@@ -574,6 +574,25 @@ func liveSeedAndRead(t *testing.T, cli string, p Paths) {
 		if !row.Installed || !row.Enabled || row.Name != "picode-probe" || row.Marketplace != liveFixtureName {
 			t.Errorf("marketplace row = %+v, want the id split into name and marketplace", *row)
 		}
+		// The catalog is `omp plugin discover`, and it never says which
+		// marketplace provides a plugin: the rows are information, with no
+		// install spec the pane could send (measured 2026-09-21).
+		cat, err := Available(ctx, cli, p, "user")
+		if err != nil {
+			t.Fatalf("catalog: %v", err)
+		}
+		liveLogRows(t, cli+" catalog", cat.Rows)
+		if len(cat.Rows) == 0 {
+			t.Fatalf("omp listed its installed plugin as unavailable: %+v", cat)
+		}
+		for _, r := range cat.Rows {
+			if r.Source != "" {
+				t.Errorf("catalog row %s carries an install spec (%q); discover never names the marketplace", r.ID, r.Source)
+			}
+			if r.SourceKind != "marketplace" || r.Status != "available" {
+				t.Errorf("catalog row = %+v", r)
+			}
+		}
 
 	case "agy":
 		bundle := liveProbeBundle(t, liveFixtureDir(t, p.Home, cli), "plugin.json")
