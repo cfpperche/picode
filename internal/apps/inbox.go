@@ -125,9 +125,29 @@ func (a inboxApp) rootView(h Host) (View, error) {
 	if len(blocks) == 0 {
 		// An empty Active queue is common once history is visible in Done
 		// (ADR-0037 follow-up) — "Inbox zero" would wrongly imply the
-		// whole mailbox is empty when Done might hold real history.
+		// whole mailbox is empty when Done might hold real history. With
+		// history to look at, the blank slate names the next action (the
+		// list-block idiom the Docker app uses); a mailbox with nothing at
+		// all has nowhere honest to point, so it keeps the one line.
 		v.Layout = ""
-		v.Empty = "Nothing needs you right now."
+		doneN, err := h.Store.CountInboxItems(store.InboxDone)
+		if err != nil {
+			return View{}, err
+		}
+		if doneN > 0 {
+			label := "See the done item"
+			if doneN > 1 {
+				label = fmt.Sprintf("See %d done items", doneN)
+			}
+			v.Blocks = []Block{{
+				Type:    "list",
+				Empty:   "Nothing needs you right now.",
+				Items:   []ListItem{},
+				Actions: []Action{{ID: "open-done", Label: label}},
+			}}
+		} else {
+			v.Empty = "Nothing needs you right now."
+		}
 	}
 	return v, nil
 }
@@ -412,8 +432,13 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 }
 
 func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionResult, error) {
-	// The only action with no item — checked first so the "no item in
-	// request" guard below doesn't have to special-case it.
+	// The next action on an empty Active queue — the same destination the
+	// Done tab names. Item-less, so it is checked before the "no item in
+	// request" guard below has to special-case it.
+	if req.Action == "open-done" {
+		return ActionResult{Path: "done"}, nil
+	}
+	// The only other action with no item — checked first for the same reason.
 	if req.Action == "clear-done" {
 		n, err := h.Store.DeleteDoneInboxItems()
 		if err != nil {
