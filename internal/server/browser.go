@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/browser"
+	"github.com/cfpperche/picode/internal/grant"
 )
 
 // The work-browser command channel (ADR-0132). The desktop shell's page opens
@@ -39,10 +40,11 @@ func registerBrowserRoutes(mux Registrar, deps Deps) {
 	registerBrowserPrefRoutes(mux, deps)
 }
 
-// handleBrowserTool is what a Pi tool calls: a verb, not a CDP method. The
-// daemon resolves the agent's policy (ADR-0134: read on the tab on screen
-// unless a grant says more), refuses a verb the tier does not reach, and waits
-// for the shell's answer through the hub.
+// handleBrowserTool is what a Pi tool calls: a verb, not a CDP method. An
+// identified caller drives the split bound to its own session (ADR-0172) —
+// open, navigate, click, type — without a stored grant. An unidentified
+// caller stays read-only on the tab on screen (ADR-0134). Raw CDP still
+// needs the full tier and Developer mode.
 func handleBrowserTool(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if deps.Browser == nil {
@@ -110,7 +112,15 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 			return
 		}
 		// ADR-0143: the caller is a managed agent, a terminal, or neither.
+		// ADR-0172: an identified caller driving its own split is act on any
+		// http(s) URL. The stored grant is not that gate. Raw CDP still reads
+		// the stored tier, so this raise happens only for a session drive.
 		policy := browser.ResolveCaller(deps.Store, req.Agent, req.Term)
+		key := grant.Key(req.Agent, req.Term)
+		session := key != "" && browser.IsSessionDrive(req.Verb)
+		if session {
+			policy = browser.SessionDrive()
+		}
 		// ADR-0144: the raw verb is the one shape whose method the catalog did
 		// not name. Machine opt-in plus the full tier, and either refusal is
 		// recorded — the audit is the point of letting it exist at all.
@@ -149,6 +159,10 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 			}
 		}
 		if !verb.Raw && !policy.Allows(verb) {
+			if browser.IsSessionDrive(req.Verb) && key == "" {
+				writeErr(w, http.StatusForbidden, req.Verb+" needs a session in PiCode — this caller has no identity, so it cannot drive a browser tab")
+				return
+			}
 			writeErr(w, http.StatusForbidden, fmt.Sprintf(
 				"%s needs the %s tier; this agent has %s — grant it in Settings ▸ Browser",
 				req.Verb, verb.Tier, policy.Tier))
@@ -156,6 +170,8 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 		}
 		// A verb with a destination is checked here too: the shell's
 		// navigation gate is the other half of the same rule (AllowsOrigin).
+		// A session drive's domains are "*", which is any http(s) host and
+		// still refuses file: and javascript:.
 		if verb.NeedsURL && !policy.AllowsVerb(verb, params) {
 			raw, _ := params["url"].(string)
 			writeErr(w, http.StatusForbidden, fmt.Sprintf(
@@ -163,12 +179,25 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 				req.Verb, raw, strings.Join(policy.Domains, ", ")))
 			return
 		}
+		if !verb.Raw {
+			prepared, body, err := browser.Prepare(req.Verb, params)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			method = prepared
+			cdpParams = body
+		}
 		output, err := deps.Browser.Dispatch(r.Context(), browser.Command{
-			Method:  method,
-			Params:  cdpParams,
-			Tier:    policy.Tier,
-			Domains: policy.Domains,
-			Raw:     verb.Raw,
+			Method:    method,
+			Params:    cdpParams,
+			Tier:      policy.Tier,
+			Domains:   policy.Domains,
+			Raw:       verb.Raw,
+			Principal: key,
+			Agent:     strings.TrimSpace(req.Agent),
+			Term:      strings.TrimSpace(req.Term),
+			Session:   session,
 		})
 		if err != nil {
 			if verb.Raw {

@@ -172,13 +172,14 @@ func TestBrowserToolResolvesAVerbAndWaits(t *testing.T) {
 	if err := json.Unmarshal([]byte(cmd.Data), &pushed); err != nil {
 		t.Fatal(err)
 	}
-	// The tool names a verb; the daemon decides the method and the tier
-	// (ADR-0134: read on the tab on screen).
-	if pushed.Method != "Accessibility.getFullAXTree" || pushed.Tier != "read" {
+	// An identified caller drives its own session split (ADR-0172), even
+	// with no stored grant. snapshot is a session verb, so the tier is act
+	// and the domains are any http(s) host.
+	if pushed.Method != "Accessibility.getFullAXTree" || pushed.Tier != "act" || !pushed.Session || pushed.Principal != "agent-1" {
 		t.Fatalf("command = %+v", pushed)
 	}
-	if len(pushed.Domains) != 0 {
-		t.Fatalf("domains = %v, want none by default", pushed.Domains)
+	if len(pushed.Domains) != 1 || pushed.Domains[0] != "*" {
+		t.Fatalf("domains = %v, want *", pushed.Domains)
 	}
 	if code := postBrowserResult(t, ts, `{"id":"`+pushed.ID+`","output":{"nodes":[{"role":"heading"}]}}`); code != http.StatusNoContent {
 		t.Fatalf("result status = %d", code)
@@ -193,7 +194,7 @@ func TestBrowserToolResolvesAVerbAndWaits(t *testing.T) {
 func TestBrowserToolRefusesAnUnknownVerb(t *testing.T) {
 	ts, _, _ := browserServer(t)
 	res, err := http.Post(ts.URL+"/api/browser/tool", "application/json",
-		bytes.NewBufferString(`{"agent":"agent-1","verb":"click"}`))
+		bytes.NewBufferString(`{"agent":"agent-1","verb":"poke"}`))
 	if err != nil {
 		t.Fatal(err)
 	}

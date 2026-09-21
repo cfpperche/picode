@@ -41,8 +41,8 @@ MCP servers: install `npm:pi-mcp-adapter`, then Agent CLIs → Connectors. Guide
 Checklist: install `packages/pi-checklist` — an extension, not core — so an agent plans before it changes anything and the sidebar shows its current step. Guide: [Checklist](/guide/checklist).
 
 Work browser: install `packages/pi-browser` — an extension, not core — so an
-agent can read the page open in PiCode's work browser (snapshot, screenshot,
-events). Read is the default and the ceiling until you grant an agent `act`.
+agent can open a browser beside its session and drive that tab. Headless
+browsing stays on the headless tool the runtime already provides.
 Guide: [Browser tools for pi](/guide/browser-tool).
 
 Computer use: install `packages/pi-computer` — an extension, not core — so an

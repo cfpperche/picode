@@ -25,11 +25,12 @@ function fakeSource() {
   };
 }
 
-function harness({ tab = "w:7", invoke, post } = {}) {
+function harness({ tab = "w:7", invoke, post, ensureSession = null } = {}) {
   const source = fakeSource();
   const calls = { invoke: [], post: [], errors: [] };
   const channel = createBrowserChannel({
     activeTabId: () => tab,
+    ensureSession,
     invoke:
       invoke ??
       (async (cmd, args) => {
@@ -85,6 +86,24 @@ test("no work-browser tab on screen is an answer, not a hang", async () => {
   assert.equal(calls.post[0].id, "c4");
   assert.match(calls.post[0].error, /no work-browser tab/);
 });
+
+test("a session drive opens that principal's split, not the selected tab", async () => {
+  const seen = [];
+  const { source, calls } = harness({
+    tab: "w:9",
+    ensureSession: async (cmd) => {
+      seen.push(cmd.agent);
+      return { id: "3" };
+    },
+  });
+  source.frame(JSON.stringify({ id: "s1", session: true, agent: "ag-1", method: "shell.open", params: { url: "https://example.com/" } }));
+  await settle();
+  assert.deepEqual(seen, ["ag-1"]);
+  assert.deepEqual(calls.invoke, [["btab_navigate", { id: "3", url: "https://example.com/" }]]);
+  assert.equal(calls.post[0].output.opened, true);
+  assert.equal(calls.post[0].output.url, "https://example.com/");
+});
+
 
 test("a bridge refusal travels back as the command's error", async () => {
   const { source, calls } = harness({

@@ -111,6 +111,15 @@ try {
     // A chord is a value, not a control: the keycap is its own height (24px on
     // a pointer, 28px on a phone), never the 36px --ctl-h it shipped with.
     assert.equal(evaluate('document.querySelector("#pi-settings-view .key-chip").offsetHeight'), app === "desktop" ? 24 : 28);
+    // Density, which nothing measured before the owner photographed 216px rows
+    // and a 700px void between a label and its chord (2026-09-21). Each row is
+    // one line of action, one line of chords, one optional note; the label cell
+    // is never taller than a line; and the keycaps sit next to the action they
+    // belong to, not at the far edge of the card.
+    assert.ok(evaluate('[...document.querySelectorAll("#pi-settings-view .key-label")].every(l => l.getBoundingClientRect().height <= 44)'), "a label cell must be one line, not a stretched flex item");
+    assert.ok(evaluate('(() => { const rows = [...document.querySelectorAll("#pi-settings-view .key-row")]; const name = rows[0].querySelector(".key-name"); const keys = rows[0].querySelector(".key-keys"); const label = name.getBoundingClientRect(); const chip = keys.querySelector(".key-chip").getBoundingClientRect(); return Math.abs(label.top - chip.top) <= 12; })()'), "the action and its keycap belong on one line");
+    assert.ok(evaluate('(() => { const row = document.querySelector("#pi-settings-view .key-row"); const gap = row.querySelector(".key-keys").getBoundingClientRect().left - row.querySelector(".key-name").getBoundingClientRect().right; return gap <= 48; })()'), "the keycaps follow the label instead of floating at the card's edge");
+    assert.ok(evaluate(`(() => { const rows = [...document.querySelectorAll("#pi-settings-view .key-row")]; const heights = rows.map(r => r.getBoundingClientRect().height); const total = heights.reduce((a, b) => a + b, 0); return Math.max(...heights) <= ${app === "desktop" ? 96 : 128} && total <= ${app === "desktop" ? 4000 : 6200}; })()`), "90 rows stay a list, not six screens of air");
     assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .key-row .key-alt").length') >= 8, "the rows pi binds differently elsewhere say so");
     assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .key-note.is-warn").length') >= 5, "the chords the browser keeps are marked");
     assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .key-note:not(.is-warn)").length') > 20, "shared chords are reported, not hidden");

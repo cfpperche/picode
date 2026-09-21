@@ -1,16 +1,13 @@
 ---
-description: Let an agent read the page open in PiCode's work browser.
+description: Let an agent drive the browser beside its session.
 ---
 
 # Browser tools for pi
 
-Let an agent read the page open in PiCode's own work browser: its structure,
-a screenshot, or what the tab recorded. The agent never names a browser
-command — it asks for one of three verbs, and PiCode decides what that means
-and whether this agent may do it.
+Let an agent open a browser beside its session and drive that tab: navigate, click, type, and read the page. You see the same tab and can click and sign in. Closing the split stops it.
 
-- **Where:** install `pi-browser` ([Packages](/guide/packages)). The agent then uses snapshot, screenshot or events on the work-browser tab.
-- **Not this:** not the [Chrome extension](/guide/browser-extension). That sends *your* Chrome tab to an agent. This page is the isolated browser the agent already has.
+- **Where:** install `pi-browser` ([Packages](/guide/packages)). The agent calls `open`, then `navigate`, `click` or `type` on the tab beside its session.
+- **Not this:** not a headless browser. Unattended browsing stays on the headless tool the runtime already provides (`agent-browser` in this project). Not the [Chrome extension](/guide/browser-extension) either — that sends your Chrome tab to an agent.
 
 Claude Code, Codex and the other agent CLIs get the same tool over MCP:
 [PiCode tools for other agent CLIs](/guide/picode-mcp).
