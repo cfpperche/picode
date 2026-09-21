@@ -83,6 +83,63 @@ func TestKillIsolatedServerWithoutAServerIsFine(t *testing.T) {
 	}
 }
 
+// A Manager on its own socket ends the server it made — and only that one.
+// The docs fixture kills itself with SIGTERM and must not leave the private
+// server (with its panes' shells) running invisibly behind it: seven of them
+// had piled up by 2026-09-21.
+func TestKillServerEndsTheManagersOwnServer(t *testing.T) {
+	if !New().Available() {
+		t.Skip("tmux not installed")
+	}
+	dir := t.TempDir()
+	m := NewWithSocket(filepath.Join(dir, "tmux.sock"))
+	ctx := context.Background()
+	if err := m.NewSession(ctx, SessionName("kill-server-test"), dir, "sleep", "30"); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	if got, err := m.ListSessions(ctx); err != nil || len(got) != 1 {
+		t.Fatalf("own server should hold the session: %v, %v", got, err)
+	}
+	if err := m.KillServer(ctx); err != nil {
+		t.Fatalf("KillServer: %v", err)
+	}
+	if got, err := m.ListSessions(ctx); err != nil || len(got) != 0 {
+		t.Fatalf("server survived the kill: %v, %v", got, err)
+	}
+	// Twice is the state the fixture is in: its signal handler runs, then the
+	// deferred call does.
+	if err := m.KillServer(ctx); err != nil {
+		t.Fatalf("KillServer on an already ended server: %v", err)
+	}
+}
+
+// The refusal is the safety property, not a formality: no caller may talk a
+// Manager into killing the server the human is working in.
+func TestKillServerRefusesTheUsersServer(t *testing.T) {
+	attached := filepath.Join(t.TempDir(), "sock")
+	for _, tc := range []struct {
+		name string
+		m    *Manager
+		tmux string
+	}{
+		{"the default socket", New(), ""},
+		{"the user's default socket", NewWithSocket(filepath.Join(DefaultSocketDir(), "default")), ""},
+		{"another socket in the user's dir", NewWithSocket(filepath.Join(DefaultSocketDir(), "other")), ""},
+		{"the server $TMUX names", NewWithSocket(attached), attached + ",123,0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("TMUX", tc.tmux)
+			err := tc.m.KillServer(context.Background())
+			if err == nil {
+				t.Fatal("KillServer was allowed")
+			}
+			if !strings.Contains(err.Error(), "refusing") {
+				t.Fatalf("error does not say it refused: %v", err)
+			}
+		})
+	}
+}
+
 func itoa(n int) string {
 	if n == 0 {
 		return "0"

@@ -136,20 +136,17 @@ function gitSha() {
   }
 }
 
-async function run({ base, release = null }) {
+async function run({ base, sess }) {
   mkdirSync(outDir, { recursive: true });
   const manifestPath = join(outDir, "manifest.json");
   const prev = (() => {
     try { return JSON.parse(readFileSync(manifestPath, "utf8")); } catch { return null; }
   })();
 
-  // This run owns one session; other worktrees may be reviewing their UI.
-  // ONE browser session for the whole run; surfaces stay sequential and
-  // focused. A session's window that is not focused paints blank.
   // ONE session for preflight + every surface: a second tab (e.g. a
   // default-session preflight) holds the window focus, and a background tab
-  // throttles fetch/render — the shutter then fires on a hollow app.
-  const sess = ["--session", `shot-${Date.now().toString(36)}`];
+  // throttles fetch/render — the shutter then fires on a hollow app. main()
+  // owns this session's lifetime; see the finally there.
 
   // Preflight in the run session: the fixture must be serving the SEEDED
   // world. A stale fixture whose data dir was recreated underneath it
@@ -256,8 +253,6 @@ async function run({ base, release = null }) {
     console.log(`  ${s.name} -> ${file}`);
   }
 
-  try { ab([...sess, "close"]); } catch { /* already gone */ }
-
   // When every surface kept its image and its inputs, the manifest keeps its
   // stamp too: a fresh capturedAt/gitSha alone made the tree dirty and each
   // deploy commit a two-line "refresh" with nothing refreshed (2026-09-09).
@@ -289,18 +284,26 @@ async function run({ base, release = null }) {
 async function main() {
   let release = null;
   let base = externalBase;
+  // The run owns one named browser session, and main() owns its lifetime: a
+  // failure anywhere — a surface whose marker never appears, an outDir that
+  // cannot be made — used to exit inside the catch, and process.exit skips the
+  // finally. What it skipped was a leaked fixture daemon per failed run and a
+  // whole browser per failed run (thirteen chrome processes, measured
+  // 2026-09-21).
+  const sess = ["--session", `shot-${Date.now().toString(36)}`];
   if (!externalBase) {
     const owned = await ownedFixture();
     release = () => owned.child.kill();
     base = owned.base;
   }
   try {
-    await run({ base, release });
+    await run({ base, sess });
   } catch (e) {
     console.error("docs-shots failed:", e.message);
-    process.exit(1);
+    process.exitCode = 1; // not process.exit(): it would skip the releases below
   } finally {
     release?.();
+    try { ab([...sess, "close"]); } catch { /* already gone */ }
   }
 }
 
