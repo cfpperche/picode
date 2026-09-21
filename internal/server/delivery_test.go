@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -216,5 +217,52 @@ func TestDeliveryToolBoundPrincipal(t *testing.T) {
 	res, out = inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"agent":%q,"term":%q,"action":"withdraw-review","id":%q,"expectedVersion":2,"requestId":"withdraw"}`, a.ID, tm.ID, id))
 	if res.StatusCode != 200 || out["delivery"].(map[string]any)["review"] != "not-requested" {
 		t.Fatalf("%d %v", res.StatusCode, out)
+	}
+}
+
+func TestDeliveryObservationOwnerAndRoot(t *testing.T) {
+	ts, st := newInboxServer(t)
+	repo := gitRepo(t)
+	gitRun(t, repo, "checkout", "-b", "feature")
+	ws, a, err := storeWorkspaceWithAgent(st, "observer", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tm, err := st.CreateTerminalIn(ws.ID, "terminal", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/api/workspaces/" + ws.ID, "/api/agents/" + a.ID, "/api/terminals/" + tm.ID} {
+		res, e := http.Get(ts.URL + path + "/delivery?target=main")
+		if e != nil {
+			t.Fatal(e)
+		}
+		var out map[string]any
+		json.NewDecoder(res.Body).Decode(&out)
+		res.Body.Close()
+		if res.StatusCode != 200 || out["targetOid"] == "" || out["schemaVersion"] != float64(1) {
+			t.Fatalf("%d %v", res.StatusCode, out)
+		}
+		associated := false
+		for _, item := range out["changes"].([]any) {
+			change := item.(map[string]any)
+			if change["branch"] != "feature" {
+				continue
+			}
+			for _, name := range change["agents"].([]any) {
+				associated = associated || name == a.Name
+			}
+		}
+		if !associated {
+			t.Fatalf("current checkout agent missing: %v", out)
+		}
+		res, e = http.Get(ts.URL + path + "/delivery?root=wrong")
+		if e != nil {
+			t.Fatal(e)
+		}
+		res.Body.Close()
+		if res.StatusCode != 409 {
+			t.Fatal(res.StatusCode)
+		}
 	}
 }

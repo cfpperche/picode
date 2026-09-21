@@ -38,5 +38,48 @@ server principal and refusal tables; command-through-daemon test; shared MCP
 identity and transport failure tests; mutation event invariant. Vendor processes
 and real deployments are outside this automated evidence.
 
-Next: observation and desktop/mobile presentation follow
-[the delivery plan](../plans/delivery-flow.md). No new polling or UI is introduced.
+D1a introduced declarations only. D1b adds the observation and desktop/mobile
+presentation described below; publication remains the next separate slice in
+[the delivery plan](../plans/delivery-flow.md).
+
+## Integration observation (ADR-0170, D1b)
+
+`internal/delivery` reads local refs, explicit target ancestry, checkout state and
+bounded producer receipts. Owner-scoped `GET /api/{workspaces|agents|terminals}/{id}/delivery`
+uses the same independently resolved root precondition as Git/files. The optional
+`target` names a local branch; only an existing main is the default. `root` is an
+equality condition, never a path lookup. The command's `show` also consumes this
+observer; publication remains unknown. Registration never grants review approval.
+
+The server coalesces reads and caches them for five seconds per repo/root/target,
+with at most 64 active keys. Manual `fresh=1` bypasses completed cache entries.
+Collection has a ten-second deadline, 32 checkout status probes, 1,000 changes and
+1,000 receipt files; truncation/errors are explicit issues, not empty success.
+Refs are compared before/after collection, with one retry then unknown facts.
+Current occupancy supplies associated agent names, not authorship/session links.
+
+`ci.sh`, `ci-scoped.sh` and `land.mjs` use `scripts/delivery-receipts.mjs` to
+atomically publish started/finished facts under the common Git directory. Failures
+to write warn without changing the original command result. A land followed by
+failed CI stays integrated. A start without a terminal record is unknown, never
+assumed active or retried. Receipt parsers reject unsupported versions, malformed
+or oversized data, unsafe POSIX permissions, symlinks, repository mismatch and invalid
+times. Git status probes disable fsmonitor hooks and optional index locking.
+
+No records are deleted automatically. Existing logs and gate stamps remain intact.
+Historic attempts without receipts stay unknown. Covered-content reuse mirrors
+ADR-0124 but is labeled scoped historical evidence; it never asserts current
+main CI or approval. Dirty or changed command inputs cannot establish a pass.
+Local file evidence is not an authorization or tamper-proof audit boundary.
+
+The browser adds History/Delivery within the existing Git tab; mobile owns its
+Delivery section and detail navigation. Both share pure labels and a headless
+observer, not UI components. Entry, focus, feed events and visible 15-second
+reconciliation refresh facts because Git/receipt writers do not always emit
+feed events. Hidden views stop polling; errors retain the last observation, roots
+pin after the first read, and disposed requests cannot change the next project.
+Views identify stale observations after 30 seconds. No deployment lane is shown
+until D2 exists, and no land/deploy button is introduced.
+
+On Windows, native ACL inheritance applies; POSIX mode-bit checks are skipped.
+The Linux scratch checks do not establish Windows ACL or physical UI acceptance.

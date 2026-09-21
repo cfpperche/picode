@@ -6,8 +6,8 @@ A review request does not mean someone approved the change or that checks passed
 
 Open the agent through PiCode's **Agent CLIs**, in the project's Git repository.
 The command requires an updated PiCode binary and daemon, and the identity
-inherited from that launch. This first version is a command and optional MCP
-tool; the delivery screen and integration/deployment queues are not available.
+inherited from that launch. Open the project’s **Git → Delivery** view on desktop or mobile to follow
+integration. Integration and deployment execution queues are not available.
 
 ## Register and request review
 
@@ -49,8 +49,8 @@ picode delivery withdraw-review --id DELIVERY_ID \
 ```
 
 Every update clears the previous review request. A changed source branch appears
-as `source.status: changed` in `show`; validation, integration and publication
-remain `unknown` in this slice. `list` returns declarations without evaluating
+as `source.status: changed` in `show`; `show` also reports observed integration and recorded check evidence. Publication
+remains `unknown`. `list` returns declarations without evaluating
 Git evidence; pass its nonzero `nextBefore` value as `--before` for another page.
 
 ## Compatibility and limits
@@ -76,3 +76,21 @@ and each principal up to 10,000 mutation receipts per repository.
 
 `picode delivery --help` lists the actions. Successful calls print JSON; failures
 return a nonzero exit status. No action merges code, runs checks or publishes it.
+
+## Follow integrations
+
+Open a project's Git view and choose **Delivery**. Select the branch changes will
+join. Each row keeps integration separate from checks: a change may already be
+integrated while the project checks have failed. **View details** shows the exact
+revision and evidence; **Review changes** opens Git history. Registered deliveries
+keep their ID; other local branches appear as observed candidates.
+
+The view refreshes while visible and keeps the last result if a read fails.
+**Follow folder** explicitly adopts a moved project; a failed read never means the
+queue is empty. **Needs attention** filters the observation list, not an execution
+queue. Agent associations indicate who currently uses a checkout, not authorship.
+
+For PiCode's own repository, `make ci-scoped`, `make ci` and `make land` record
+future check/integration attempts automatically. Existing history is not recreated.
+Other projects show Git facts and unknown checks until a supported evidence source
+exists. The observer never runs a project's checks or deployment commands.

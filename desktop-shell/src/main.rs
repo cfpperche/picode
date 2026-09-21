@@ -44,11 +44,10 @@ mod wslconfig;
 use std::process::Command;
 use std::sync::OnceLock;
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, WebviewUrl,
+    Manager, WebviewUrl,
 };
-use tauri_plugin_notification::NotificationExt;
 
 /// The main window, kept from the moment it is built. The registry lookup
 /// (`get_webview_window("main")`) answered None on a resident started by the
@@ -187,17 +186,17 @@ fn main() {
             )?;
             let logs =
                 MenuItem::with_id(app, "logs", "View logs", true, None::<&str>)?;
+            let management =
+                MenuItem::with_id(app, "management", "Management\u{2026}", true, None::<&str>)?;
             let actions_sep = PredefinedMenuItem::separator(app)?;
+            // The labs are owner-acceptance spikes (ADR-0148 M1), not
+            // product: they sit one level down so the tray keeps its product
+            // actions up front.
             let lab = MenuItem::with_id(app, "browserlab", "Browser lab", true, None::<&str>)?;
             let computerlab_item =
                 MenuItem::with_id(app, "computerlab", "Computer lab", true, None::<&str>)?;
-            let newbtab = MenuItem::with_id(app, "newbtab", "New browser tab", true, None::<&str>)?;
-            let management =
-                MenuItem::with_id(app, "management", "Management\u{2026}", true, None::<&str>)?;
-            // Phase 1 spike (docs/plans/desktop-v2.md): prove native
-            // notifications from the shell — the agent-finished notice of
-            // Phase 2 hangs off this same door.
-            let notify = MenuItem::with_id(app, "notify", "Test notification", true, None::<&str>)?;
+            let labs = Submenu::with_items(app, "Labs", true, &[&lab, &computerlab_item])?;
+            let labs_sep = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(
                 app,
                 "quit",
@@ -213,12 +212,10 @@ fn main() {
                     &open,
                     &restart,
                     &logs,
-                    &actions_sep,
-                    &lab,
-                    &computerlab_item,
-                    &newbtab,
                     &management,
-                    &notify,
+                    &actions_sep,
+                    &labs,
+                    &labs_sep,
                     &quit,
                 ],
             )?;
@@ -238,25 +235,7 @@ fn main() {
                     }
                     "browserlab" => browserlab::open(app),
                     "computerlab" => computerlab::open(app),
-                    "newbtab" => {
-                        let _ = app.emit("btab://new", "");
-                    }
                     "management" => open_management_window(app),
-                    "notify" => {
-                        // Windows shows toasts for unpackaged apps only when a
-                        // Start Menu shortcut with the app identity exists; a
-                        // silent drop here is the spike saying the installer
-                        // (Phase 2) must create that shortcut.
-                        if let Err(e) = app
-                            .notification()
-                            .builder()
-                            .title("PiCode")
-                            .body("Native notifications work.")
-                            .show()
-                        {
-                            eprintln!("notification: {e}");
-                        }
-                    }
                     "quit" => app.exit(0),
                     _ => {}
                 })

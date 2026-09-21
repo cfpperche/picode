@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/delivery"
 	"github.com/cfpperche/picode/internal/gitgraph"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -190,5 +191,15 @@ func deliveryView(parent context.Context, cwd string, d store.Delivery) map[stri
 			status = "changed"
 		}
 	}
-	return map[string]any{"schemaVersion": 1, "delivery": d, "source": map[string]any{"status": status, "observedRevision": current, "observedAt": time.Now().UTC().Format(time.RFC3339Nano)}, "validation": "unknown", "integration": "unknown", "publication": "unknown", "reviewMeaning": "requested is an agent declaration, not human approval"}
+	snapshot := delivery.Observe(ctx, cwd, gitgraph.Key(cwd), d.Target, []delivery.Declaration{{ID: d.ID, Title: d.Title, Branch: d.Branch, Revision: d.Revision, Review: d.Review, Target: d.Target}})
+	result := map[string]any{"schemaVersion": 1, "delivery": d, "source": map[string]any{"status": status, "observedRevision": current, "observedAt": time.Now().UTC().Format(time.RFC3339Nano)}, "validation": "unknown", "integration": "unknown", "publication": "unknown", "reviewMeaning": "requested is an agent declaration, not human approval", "coverage": map[string]any{"complete": snapshot.Complete, "issues": snapshot.Issues}}
+	for _, change := range snapshot.Changes {
+		if change.ID == d.ID {
+			result["validation"] = change.Validation
+			result["integration"] = change.Integration
+			result["evidence"] = change.Evidence
+			break
+		}
+	}
+	return result
 }
