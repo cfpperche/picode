@@ -3492,6 +3492,23 @@
         ]
       }
     },
+    "/api/cli-packages/updates": {
+      "get": {
+        "operationId": "getApiCli-packagesUpdates",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
     "/api/cli-settings": {
       "get": {
         "operationId": "getApiCli-settings",
