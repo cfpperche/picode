@@ -10,6 +10,7 @@ import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { terms } from "../lib/terms.js";
 import { toast } from "../lib/toast.js";
 import { clipboardFiles, clipboardText } from "@picode/shared/domain/termPrompt.js";
+import { shellInvoke, shellClipboardFiles } from "../lib/shellClipboard.js";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -102,21 +103,38 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
     // Files-pasted (Ctrl+V and Ctrl+Shift+V both arrive as a paste event,
     // including the synthetic one the keydown re-dispatches after killing
     // the browser's own): screenshots and artifacts skip the terminal and
-    // open the attach bar seeded with them — text and empty pastes fall
-    // through to xterm untouched. Capture phase: xterm's own textarea
-    // listener (target phase) must never see a files-paste, or it would
-    // write the stray text around it as well. Accompanying text seeds the
+    // open the attach bar seeded with them. Accompanying text seeds the
     // message, and the door verdict belongs to the owner — this pane only
-    // answers the prop.
+    // answers the prop. Capture phase: xterm's own textarea listener
+    // (target phase) must never see a files-paste, or it would write the
+    // stray text around it as well.
     const files = clipboardFiles(e.clipboardData);
-    if (!files.length || !term) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (!promptDoor) {
-      toast.error("Attach is for Agent CLI terminals.");
+    if (files.length) {
+      if (!term) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!promptDoor) {
+        toast.error("Attach is for Agent CLI terminals.");
+        return;
+      }
+      if (onPasteFiles) onPasteFiles(term.id, files, clipboardText(e.clipboardData));
       return;
     }
-    if (onPasteFiles) onPasteFiles(term.id, files, clipboardText(e.clipboardData));
+    if (!term || clipboardText(e.clipboardData)) return;
+    // Empty paste in the desktop shell: Explorer file copies carry no bytes
+    // the browser can see — ask the shell, which reads CF_HDROP natively.
+    // Real browsers skip this (no invoke) and stay silent like today.
+    if (!shellInvoke()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    shellClipboardFiles().then((shelled) => {
+      if (!shelled || !shelled.length) return;
+      if (!promptDoor) {
+        toast.error("Attach is for Agent CLI terminals.");
+        return;
+      }
+      if (onPasteFiles) onPasteFiles(term.id, shelled, "");
+    });
   }
 
   const last = (term && term.lastSession) || null;

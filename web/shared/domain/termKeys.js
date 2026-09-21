@@ -153,20 +153,36 @@ export function wireTermKeys(term, send, passthrough) {
 async function redispatchPaste(ev, term) {
   const el = ev && ev.target;
   const { files, text } = await readPasteClipboard();
+  if (!files.length && !text) {
+    // Possibly Explorer file copies (no bytes the browser can see): fire
+    // the empty event anyway so the shell-backed capture path can ask the
+    // native clipboard. xterm pastes nothing from it.
+    dispatchPaste(el, [], "");
+    return;
+  }
   if (!files.length) {
     if (text && term && term.paste) term.paste(text);
     return;
   }
+  if (dispatchPaste(el, files, text)) return;
+  // No synthetic-paste support: keep the text, like today's fallback.
+  // Files have no App bridge at this layer — the PiCode menu's Paste row
+  // stages them instead, and it names itself.
+  if (text && term && term.paste) term.paste(text);
+}
+
+// dispatchPaste fires an equivalent paste on the textarea: files route to
+// the attach bar through the normal capture path. False when the runtime
+// cannot build one (then the caller falls back).
+function dispatchPaste(el, files, text) {
   try {
-    if (!el || typeof el.dispatchEvent !== "function") throw new Error("no-target");
+    if (!el || typeof el.dispatchEvent !== "function") return false;
     const dt = new DataTransfer();
     for (const f of files) dt.items.add(f);
     if (text) dt.setData("text/plain", text);
     el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    return true;
   } catch {
-    // No synthetic-paste support: keep the text, like today's fallback.
-    // Files have no App bridge at this layer — the PiCode menu's Paste row
-    // stages them instead, and it names itself.
-    if (text && term && term.paste) term.paste(text);
+    return false;
   }
 }
