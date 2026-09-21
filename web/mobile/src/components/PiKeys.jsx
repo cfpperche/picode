@@ -196,7 +196,10 @@ export default function PiKeys({ disabled = false }) {
             id="keys-filter"
             type="search"
             aria-label="Filter actions by name, group or key"
-            placeholder="Filter by action, group or key"
+            // Short on purpose: the pane is ~474px wide at a 1024 window, and a
+            // longer hint is cut at that width (visual review, 2026-09-21). The
+            // aria-label carries what the field actually matches.
+            placeholder="Filter keys"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -294,20 +297,10 @@ export default function PiKeys({ disabled = false }) {
                     <span className="key-none">{changed ? "Off" : "Unbound"}</span>
                   ) : null}
                 </div>
-                {/* Reset first, Add key last: the column is right-aligned, so
-                    the action every row has keeps the slot the reader has
-                    learned. With Add first, the rows that also offer Reset
-                    shifted it ~58px left (visual review, 2026-09-21). */}
-                <div className="key-actions" data-align-row>
-                  {changed && !waiting ? (
-                    <button type="button" className="key-act" disabled={disabled} onClick={() => reset(a.id)}>Reset</button>
-                  ) : null}
-                  {waiting ? (
-                    <button type="button" className="key-act" onClick={() => setListen("")}>Cancel</button>
-                  ) : (
-                    <button type="button" className="key-act" disabled={disabled} onClick={() => setListen(a.id)}>Add key</button>
-                  )}
-                </div>
+                {/* The note sits BETWEEN the keycaps and the row's actions: the
+                    grid's flexible column, so the space a row with no note
+                    leaves is the only air in the row (owner's screenshot,
+                    2026-09-21). */}
                 {waiting ? (
                   <p className="key-note is-live" aria-live="polite">
                     Press the chord to add. Esc cancels · a plain letter needs Ctrl, Alt or Cmd.
@@ -329,6 +322,20 @@ export default function PiKeys({ disabled = false }) {
                     >Show</button>
                   </p>
                 ) : null}
+                {/* Reset first, Add key last: the column is right-aligned, so
+                    the action every row has keeps the slot the reader has
+                    learned. With Add first, the rows that also offer Reset
+                    shifted it ~58px left (visual review, 2026-09-21). */}
+                <div className="key-actions" data-align-row>
+                  {changed && !waiting ? (
+                    <button type="button" className="key-act" disabled={disabled} onClick={() => reset(a.id)}>Reset</button>
+                  ) : null}
+                  {waiting ? (
+                    <button type="button" className="key-act" onClick={() => setListen("")}>Cancel</button>
+                  ) : (
+                    <button type="button" className="key-act" disabled={disabled} onClick={() => setListen(a.id)}>Add key</button>
+                  )}
+                </div>
               </div>
             );
           })}

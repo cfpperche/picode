@@ -24,28 +24,46 @@ func postTool(t *testing.T, ts *httptest.Server, body string) (int, string) {
 	return res.StatusCode, string(out)
 }
 
-// Rows 1–2 of the grant's decision table: an act verb is out of reach until a
-// grant says otherwise, and the refusal names the way to grant it.
-func TestBrowserToolRefusesActWithoutAGrant(t *testing.T) {
+// An identified caller drives its session split without a stored grant
+// (ADR-0172). A caller with no identity cannot.
+func TestBrowserToolSessionDriveDoesNotNeedAGrant(t *testing.T) {
 	ts, _, _ := browserServer(t)
-	code, out := postTool(t, ts, `{"agent":"agent-2","verb":"evaluate","params":{"expression":"1+1"}}`)
-	if code != http.StatusForbidden || !strings.Contains(out, "act tier") || !strings.Contains(out, "Settings") {
-		t.Fatalf("answer = %d %s", code, out)
+	code, out := postTool(t, ts, `{"verb":"evaluate","params":{"expression":"1+1"}}`)
+	if code != http.StatusForbidden || !strings.Contains(out, "no identity") {
+		t.Fatalf("no identity = %d %s", code, out)
+	}
+
+	body, closeStream := openBrowserStream(t, ts)
+	defer closeStream()
+	readFrames(t, body, 1, 3*time.Second) // hello
+	go func() {
+		_, _ = postTool(t, ts, `{"agent":"agent-2","verb":"evaluate","params":{"expression":"1+1"}}`)
+	}()
+	cmd := readFrames(t, body, 1, 3*time.Second)[0]
+	var pushed browser.Command
+	if err := json.Unmarshal([]byte(cmd.Data), &pushed); err != nil {
+		t.Fatal(err)
+	}
+	if !pushed.Session || pushed.Tier != "act" || pushed.Principal != "agent-2" || pushed.Method != "Runtime.evaluate" {
+		t.Fatalf("command = %+v", pushed)
+	}
+	if code := postBrowserResult(t, ts, `{"id":"`+pushed.ID+`","output":{"result":{"value":2}}}`); code != http.StatusNoContent {
+		t.Fatalf("result status = %d", code)
 	}
 }
 
-// Rows 3–5: the one verb with a destination is checked against the grant's
-// domains before the command leaves the daemon — and when it does leave, the
-// params and the domains travel with it (the shell checks navigation again).
-func TestBrowserToolChecksANavigateAgainstTheGrant(t *testing.T) {
+// A stored domain list does not confine the session tab. file: still does.
+// A navigate without a url, and params that are not an object, still fail
+// before a command leaves.
+func TestBrowserToolSessionNavigateIsNotDomainGated(t *testing.T) {
 	ts, hub, st := browserServer(t)
 	if err := browser.Save(st, "agent-3", browser.Policy{Tier: "act", Domains: []string{"example.com"}}); err != nil {
 		t.Fatal(err)
 	}
 
-	code, out := postTool(t, ts, `{"agent":"agent-3","verb":"navigate","params":{"url":"https://evil.test/"}}`)
-	if code != http.StatusForbidden || !strings.Contains(out, "evil.test") || !strings.Contains(out, "example.com") {
-		t.Fatalf("outside the grant = %d %s", code, out)
+	code, out := postTool(t, ts, `{"agent":"agent-3","verb":"navigate","params":{"url":"file:///etc/passwd"}}`)
+	if code != http.StatusForbidden || !strings.Contains(out, "file:///etc/passwd") {
+		t.Fatalf("file url = %d %s", code, out)
 	}
 	code, out = postTool(t, ts, `{"agent":"agent-3","verb":"navigate"}`)
 	if code != http.StatusForbidden {
@@ -60,21 +78,21 @@ func TestBrowserToolChecksANavigateAgainstTheGrant(t *testing.T) {
 	defer closeStream()
 	readFrames(t, body, 1, 3*time.Second) // hello
 	go func() {
-		_, _ = postTool(t, ts, `{"agent":"agent-3","verb":"navigate","params":{"url":"https://example.com/docs"}}`)
+		_, _ = postTool(t, ts, `{"agent":"agent-3","verb":"navigate","params":{"url":"https://evil.test/login"}}`)
 	}()
 	cmd := readFrames(t, body, 1, 3*time.Second)[0]
 	var pushed browser.Command
 	if err := json.Unmarshal([]byte(cmd.Data), &pushed); err != nil {
 		t.Fatal(err)
 	}
-	if pushed.Method != "Page.navigate" || pushed.Tier != "act" {
+	if pushed.Method != "Page.navigate" || pushed.Tier != "act" || !pushed.Session {
 		t.Fatalf("command = %+v", pushed)
 	}
-	if string(pushed.Params) != `{"url":"https://example.com/docs"}` {
+	if !strings.Contains(string(pushed.Params), "https://evil.test/login") {
 		t.Fatalf("params = %s", pushed.Params)
 	}
-	if len(pushed.Domains) != 1 || pushed.Domains[0] != "example.com" {
-		t.Fatalf("domains = %v", pushed.Domains)
+	if len(pushed.Domains) != 1 || pushed.Domains[0] != "*" {
+		t.Fatalf("domains = %v, want * — a stored list must not confine the session tab", pushed.Domains)
 	}
 	if code := postBrowserResult(t, ts, `{"id":"`+pushed.ID+`","output":{}}`); code != http.StatusNoContent {
 		t.Fatalf("result status = %d", code)

@@ -34,6 +34,11 @@ test("the input list is never mutated", () => {
   assert.deepEqual(REGISTRATION, copy);
 });
 
+test("a saved order leads, and apps missing from it append by name", () => {
+  assert.deepEqual(visibleApps(REGISTRATION, "", ["tmux", "inbox"]).map((a) => a.id), ["tmux", "inbox", "canvas", "docker"]);
+  assert.deepEqual(visibleApps(REGISTRATION, "in", ["tmux", "inbox"]).map((a) => a.id), ["inbox"]);
+});
+
 test("null-safe: missing list or junk rows answer empty, never throw", () => {
   assert.deepEqual(visibleApps(null, ""), []);
   assert.deepEqual(visibleApps(undefined, "do"), []);

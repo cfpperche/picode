@@ -38,6 +38,11 @@ var silentMutators = map[string]string{
 	// clients refetch (internal/backup/restore.go).
 	"ReplaceFrom": "replaces the entire database during a restore; the feed resets and every client refetches",
 
+	// The other direction of the same file: VACUUM INTO writes a
+	// consistent copy of the database out to the snapshot, and changes no
+	// row anything renders.
+	"VacuumInto": "copies the database out to a backup snapshot; it changes no row",
+
 	// Auth housekeeping. Devices are read through /api/auth/sessions on
 	// demand, so a feed event here would be one row per authenticated
 	// request.
@@ -67,7 +72,15 @@ var silentMutators = map[string]string{
 }
 
 var (
-	sqlWrite  = regexp.MustCompile(`(?i)\b(INSERT\s+INTO|INSERT\s+OR\s+\w+\s+INTO|UPDATE\s+[a-z_]+\s+SET|DELETE\s+FROM|REPLACE\s+INTO)\b`)
+	// A write is either SQL this file can read or a call that runs one.
+	// Neither half is enough on its own: reading SQL text misses a
+	// statement assembled from a constant and a table name the pattern
+	// does not spell (`[a-z_]+` would not match `pin_files2`), while the
+	// call alone misses AppendEventTx, whose Exec is on a txRunner it was
+	// handed. Together they have no gap that is cheaper to find than to
+	// close — every write in this package reaches the database through
+	// one Exec or the other, and the package has no Exec that is not SQL.
+	sqlWrite  = regexp.MustCompile(`(?i)\b(INSERT\s+INTO|INSERT\s+OR\s+\w+\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM|REPLACE\s+INTO)\b|\.Exec(?:Context)?\(`)
 	announces = regexp.MustCompile(`AppendEvent`)
 
 	callsOnReceiver = regexp.MustCompile(`\bs\.([A-Za-z]\w*)\(`)

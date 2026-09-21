@@ -1,12 +1,11 @@
 // The daemon's work-browser command channel (ADR-0132). The desktop shell's
 // page opens one stream; the daemon pushes one command per line; this module
-// runs it against the work-browser tab the human is looking at, through the
-// Tauri bridge, and posts the result back.
+// runs it and posts the result back.
 //
-// Desktop-only by nature: without the bridge there is no page to drive, so a
-// browser window never opens the stream. The policy decision (which method an
-// agent's tier reaches) is made by the daemon and re-checked by the shell's
-// Rust catalog — this module only routes the method to the right bridge call.
+// A session drive (ADR-0172) names its own split: ensureSession opens the
+// pane beside that principal and returns the webview id. Anything else still
+// reads the tab on screen. The policy decision is made by the daemon and
+// re-checked by the shell's Rust catalog — this module only routes.
 
 import { tabWebId } from "./routes.js";
 import { createComputerRunner } from "./computerChannel.js";
@@ -26,6 +25,7 @@ export function bridgeAvailable() {
 // testable without a desktop shell. It returns { close }.
 export function createBrowserChannel({
   activeTabId,
+  ensureSession = null,
   invoke,
   source,
   post,
@@ -40,8 +40,25 @@ export function createBrowserChannel({
       if (!runComputer) return { error: "not_connected: this page cannot drive the computer" };
       return runComputer(cmd);
     }
-    const id = tabWebId(activeTabId());
-    if (!id) return { error: "no work-browser tab is open in the desktop app" };
+    let id = "";
+    if (cmd.session) {
+      if (!ensureSession) return { error: "no work-browser tab is open in the desktop app" };
+      const opened = await ensureSession(cmd);
+      if (!opened || !opened.id) return { error: opened?.error || "no work-browser tab is open in the desktop app" };
+      id = opened.id;
+      if (cmd.method === "shell.open") {
+        const url = typeof cmd.params?.url === "string" ? cmd.params.url : "";
+        try {
+          if (url) await invoke("btab_navigate", { id, url });
+        } catch (e) {
+          return { error: String(e?.message || e) };
+        }
+        return { output: { opened: true, url } };
+      }
+    } else {
+      id = tabWebId(activeTabId());
+      if (!id) return { error: "no work-browser tab is open in the desktop app" };
+    }
     try {
       if (cmd.method === EVENTS_VERB) {
         const output = await invoke("btab_cdp_events", { id, since: cmd.params?.since });
@@ -91,10 +108,11 @@ export function createBrowserChannel({
 
 // openBrowserChannel returns a close function. The stream reconnects on its own
 // (EventSource), so a restarted daemon or a lost line rejoins without a poll.
-export function openBrowserChannel(activeTabId) {
+export function openBrowserChannel(activeTabId, ensureSession) {
   if (!BRIDGE) return () => {};
   const channel = createBrowserChannel({
     activeTabId,
+    ensureSession,
     invoke: BRIDGE,
     runComputer: createComputerRunner({ invoke: BRIDGE }),
     source: new EventSource("/api/browser/stream"),
