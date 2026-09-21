@@ -22,8 +22,9 @@ reviewed by the owner against the reference, one item at a time.
   2026-09-20** (`feat/responsive-width`): the ⋮ menu row + strip above the
   page, presets 390/768/1024/1280, zoom −/+, reset; pure
   `desktop-shell/src/responsive.rs` + `lib/responsive.js`, both host-tested;
-  per-tab state rides `btab_meta`. The on-screen Windows resize/zoom is
-  **pending the owner's live acceptance**. CDP emulation still needs an ADR.
+  per-tab state rides `btab_meta`. **Accepted live by the owner on Windows
+  (2026-09-21)** — strip toggles, narrow/center, zoom, reset and tab-switch
+  persistence all hold on screen. CDP emulation still needs an ADR.
 - **Prompt endpoints:** finish wire tests for agent→terminal, stopped terminal,
   unknown terminal, and mismatched agent/terminal identity.
 - **Declaration order:** add a static component check plus a regression fixture
