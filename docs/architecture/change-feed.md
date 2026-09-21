@@ -47,6 +47,13 @@ table, and requires each one to append an event — or to appear in
 could not think of the event" cannot pass as a decision, and a companion
 test removes a name that stopped being a mutator.
 
+A write is **either SQL the test can read or a call that runs one**, and
+it needs both halves: reading SQL text misses a statement assembled from a
+constant, and the call alone misses `AppendEventTx`, whose `Exec` is on a
+`txRunner` it was handed. Every write in the package reaches SQLite
+through one `Exec` or the other, and the package has no `Exec` that is not
+SQL, so the pair has no gap left worth naming.
+
 **Both signals follow calls on the receiver**, and the first version of
 this test followed only one of them. Scanning a method's own body for SQL
 missed every exported mutator that delegates the write — `AddAgent` through
@@ -57,9 +64,9 @@ rather than by construction. Bodies are also read with line comments
 stripped, since "we deliberately do not AppendEvent here" must not be the
 thing that satisfies the check.
 
-The sixteen deliberate exceptions are the event log's own machinery
+The seventeen deliberate exceptions are the event log's own machinery
 (`AppendEvent` and `AppendEventTx` *are* announcing; pruning would refill
-what it emptied), a restore's whole-database swap, auth last-seen and
+what it emptied), a restore's whole-database swap and the `VACUUM INTO` that writes a backup copy out, auth last-seen and
 expiry housekeeping, Web Push delivery marks, the extension's actuation
 batches (ADR-0053/0054 — the panel polls for its own batch, so the feed has
 no subscriber for it) and the ADR-0039 session-identity bookkeeping, whose

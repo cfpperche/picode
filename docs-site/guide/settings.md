@@ -23,9 +23,9 @@ A row this layer sets has **Use inherited**, which hands the value back to the
 layer below instead of freezing a copy of it.
 
 **Keyboard** is the pane next to Settings: the whole keyboard map of this
-machine, one row per action. **Filter by action, group or key** narrows it, and
-**Find by key** takes a chord you press and shows the actions that answer to
-it. The facets count what they filter — **Changed**, **Shared** (a key two
+machine, one row per action. The **Filter keys** field narrows by action name,
+group or chord, and **Find by key** takes a chord you press and shows the
+actions that answer to it. The facets count what they filter — **Changed**, **Shared** (a key two
 actions use; pi's contexts overlap on purpose), **Off** (unbound). One
 **Add key** per row records the next chord you press; **Reset** returns that
 row to pi's default, and **Reset all** returns every changed row at once. The
