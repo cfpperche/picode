@@ -102,30 +102,37 @@ Some limits are the vendors', not PiCode's, and the pane says so on the row:
 
 ## Custom provider
 
-**Add provider → Custom provider** (in pi's pane) opens a page that adds a
-gateway pi does not know out of the box — OpenRouter-style aggregators, prepaid wallets,
+**Custom provider** (in pi's and Omp's Providers panes) opens a page that adds
+a gateway the CLI does not know out of the box — OpenRouter-style aggregators, prepaid wallets,
 self-hosted routers. The form asks for a name, the base URL, the API key and
 the model ids exactly as the gateway spells them. Use lowercase letters,
 digits and dashes for the name — it becomes the provider id.
 
-| Field | Goes to |
-|---|---|
-| Name, Base URL, API type, models, Advanced | `~/.pi/agent/models.json` — pi's own provider definitions |
-| API key | `~/.pi/agent/auth.json` — the same file as every other sign-in |
+| CLI | Definition | API key |
+|---|---|---|
+| Pi | `~/.pi/agent/models.json` — pi's own provider definitions | `~/.pi/agent/auth.json` — the same file as every other sign-in |
+| Omp | `~/.omp/agent/models.yml` — omp's own provider definitions | inside the definition (`apiKey`) — the only place a custom Omp provider can carry one |
 
-The key is never written into the definition. **Edit provider** reopens the
-form (a blank key keeps the saved one); **Sign out** removes the key and
-keeps the definition; **Remove provider** deletes both, naming what still
-uses the provider. Hand-edited `models.json` entries are preserved: PiCode
-merges by name and never touches providers it does not own. Overriding a
-built-in provider's URL is not offered here.
+For Pi the key is never written into the definition. For Omp the definition
+and its key are one row: **Edit provider** reopens the form (a blank key keeps
+the saved one), **Remove provider** deletes both, naming what still uses the
+provider. Hand-edited entries are preserved in both files: PiCode merges by
+name and never touches providers it does not own. Overriding a built-in
+provider's URL is not offered here.
 
-Model ids must match the gateway exactly — copy them from its model list.
-The Advanced section selects the API type (Anthropic-compatible gateways
-want **Anthropic Messages** and a base URL without `/v1`) and the
-compatibility flags for gateways that reject OpenAI-only request fields.
+The Advanced section offers each CLI what it actually reads: Pi carries the
+full compatibility set (including the stream-usage flag, chat-template
+objects and per-model thinking levels); Omp carries its own smaller set —
+the same two compatibility flags, its five thinking formats, and per-model
+name, limits, input and cost.
 
-Canonical: [pi Custom Models](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md).
+Model ids must match the gateway exactly — use **Load models** to copy them
+from the gateway's own list. The API type select covers
+OpenAI-compatible (Chat Completions or Responses), Anthropic-compatible
+(those gateways want a base URL without `/v1`) and Google gateways.
+
+Canonical: [pi Custom Models](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md),
+[omp models.yml](https://github.com/can1357/oh-my-pi) (`docs/models.md` in the package).
 
 ## Where a login comes from
 

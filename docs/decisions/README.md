@@ -177,3 +177,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0170](0170-delivery-observation-contract.md) | Observe delivery through revision-bound evidence | accepted |
 | [0171](0171-delivery-agent-interface.md) | Common delivery declarations for agent CLIs | accepted |
 | [0173](0173-sidebar-order.md) | Sidebar order is a stored position shared by every client; drag is a later gesture | accepted |
+| [0175](0175-omp-custom-provider-definitions.md) | omp-custom-provider-definitions | accepted |

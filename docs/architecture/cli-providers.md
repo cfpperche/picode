@@ -110,22 +110,31 @@ file for every CLI under ADR-0166 — `auth.json` for pi, the vendor's file for 
 guest — and the pane never returns a secret: the masked hint is all the server
 sends.
 
-**Custom providers (ADR-0129).** Add provider's picker carries a fixed
-**Custom provider** door onto its own page (`#/clis/pi/providers/custom`,
-`#/clis/pi/providers/custom/<id>` for Edit — benchmarks.md refuses modals
-for flows longer than 2 fields): a named definition (baseUrl, API type,
-compat flags, model ids) that merges into pi's `~/.pi/agent/models.json`
-under the schema's `providers` wrapper, and an API key stored in `auth.json`
-like any native sign-in — never inside the definition. `PUT/DELETE
-/api/providers/custom/{id}` (`internal/catalog/modelsjson.go`) merge by
-provider id: untouched entries and unknown fields inside the touched one
-survive, built-in ids are refused, and a file pi would reject is never
-written. The catalog marks these rows `custom` and carries their editable
-shape (`baseUrl`/`api`/`compat`/`definitions`, key material excluded); an
-unsigned definition still appears so it can be picked up again. Row actions
-map to the two files: **Edit provider** reopens the page, **Sign out**
-removes only the credential, **Remove provider** deletes both with the
-blast radius named.
+**Custom providers (ADR-0129, extended to omp by ADR-0175).** Add provider's
+picker carries a fixed **Custom provider** door onto its own page
+(`#/clis/pi/providers/custom`, `#/clis/pi/providers/custom/<id>` for Edit —
+benchmarks.md refuses modals for flows longer than 2 fields): a named
+definition (baseUrl, API type, compat flags, model ids) that merges into pi's
+`~/.pi/agent/models.json` under the schema's `providers` wrapper, and an API
+key stored in `auth.json` like any native sign-in — never inside the
+definition. omp carries the same door on its own pane
+(`#/clis/omp/providers/custom`): its definitions live in `~/.omp/agent/
+models.yml`, merged node-level so unknown fields and comments survive, and
+the key rides inside the definition as `apiKey` — the one channel a custom
+omp id has (no auth.json, no env mapping), never serialized back: the
+roster's row carries the editable shape plus `keyed`, and the pane renders a
+definition line (Edit / Verify / Remove) instead of an account row. The omp
+form offers omp's accepted subset (two compat flags, five thinking formats,
+no chat-template objects, no thinking levels); the server refuses the rest.
+`PUT/DELETE /api/providers/custom/{id}` take `cli` and dispatch to the right
+file (`internal/catalog/modelsjson.go`, `internal/catalog/modelsyaml.go`);
+built-in ids are refused on both, and a file the CLI would reject is never
+written into. The catalog marks these rows `custom` and carries their
+editable shape (`baseUrl`/`api`/`compat`/`definitions`, key material
+excluded); an unsigned definition still appears so it can be picked up
+again. Row actions map to the files: **Edit provider** reopens the page,
+**Sign out** (pi) removes only the credential, **Remove provider** deletes
+both with the blast radius named.
 
 **Load models (P1).** `POST /api/providers/custom/models`
 (`internal/server/custom_models.go`, `internal/modellist`) asks a custom
