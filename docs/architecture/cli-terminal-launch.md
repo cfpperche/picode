@@ -60,8 +60,8 @@ the terminal session and terminal APIs, so lifecycle, launch settings, and pane
 identity remain one port across desktop, mobile, and browser. A legacy Pi
 session without a binding keeps the old agent address until it is explicitly
 restarted; this compatibility path is not used for newly allocated sessions.
-The desktop Chat/Terminal switch lives in the agent view toolbar and does not
-create a second terminal or chat runtime.
+Pi Chat versus Terminal is chosen from the sidebar agent menu (Open chat /
+Open terminal) and does not create a second terminal or chat runtime.
 `GET /api/clis` resolves installation without starting a conversation;
 A vendor self-update rewrites its launcher or symlink in place, so one
 `Stat` can land inside that swap window and read the CLI as absent — the

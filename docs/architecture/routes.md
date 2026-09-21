@@ -29,9 +29,10 @@ controls. Missing bound records never invent a legacy session.
 Mobile agent terminal views render the same `TerminalScreen` as Agent CLIs:
 toolbar, attachments, Files/Git, prompt snippets, keyboard accessory, loading,
 retry and stopped states. Bound terminal links canonicalize to the owning
-agent view. Pi's Chat/Terminal icons live in that toolbar; managed Pi stays
-chat-only and non-Pi agents do not acquire a managed composer (ADR-0091).
-Both old `TerminalDock` implementations are removed. Browser and desktop
+agent view. Pi Chat versus Terminal is chosen from the Work list agent menu
+(Open chat / Open terminal); managed Pi stays chat-only and non-Pi agents
+do not acquire a managed composer (ADR-0091). Both old `TerminalDock`
+implementations are removed. Browser and desktop
 use the same browser bundle; Canvas and tabs resolve the same runtime key
 while keeping containing-tab and agent lifecycle ownership separate.
 See the [acceptance matrix](../plans/agent-tui-unification.md).

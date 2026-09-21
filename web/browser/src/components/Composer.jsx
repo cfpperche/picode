@@ -601,7 +601,7 @@ export default function Composer({
           <div className="composer-tui-working" data-align-row role="status">
             <PiSpinner title="Working" />
             <span className="composer-tui-working-text">Working in the terminal — output lands there, not here.</span>
-            <span className="composer-tui-working-hint">Open Terminal from the agent view toolbar.</span>
+            <span className="composer-tui-working-hint">Open Terminal from the sidebar agent menu.</span>
           </div>
         ) : null}
         <WorkspaceAttach open={pick} agentId={agentId} onPick={attachHit} onClose={() => setPick(false)} />
