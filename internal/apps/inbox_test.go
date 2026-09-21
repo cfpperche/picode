@@ -98,6 +98,44 @@ func TestInboxRootView(t *testing.T) {
 	}
 }
 
+// An empty Active queue with history behind it names the next action: the
+// Done strip is where the items went, and the blank slate is a dead end
+// without it (ui-chrome debt, 2026-09-21).
+func TestInboxEmptyActiveNamesDone(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	ctx := context.Background()
+	done := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "r", Title: "q", Body: "?"})
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + done.ID, Args: map[string]string{"item": done.ID, "reply": "yes"}}); err != nil {
+		t.Fatalf("answer the item: %v", err)
+	}
+
+	v, err := app.View(ctx, h, "")
+	if err != nil {
+		t.Fatalf("view: %v", err)
+	}
+	if err := v.Validate(); err != nil {
+		t.Fatalf("view invalid: %v", err)
+	}
+	// The blank slate carries the action, so v.Empty stays unset.
+	if v.Empty != "" {
+		t.Fatalf("empty = %q, want the list-block idiom", v.Empty)
+	}
+	if len(v.Blocks) != 1 || v.Blocks[0].Type != "list" || !strings.Contains(v.Blocks[0].Empty, "Nothing needs you") {
+		t.Fatalf("blocks = %+v, want one empty list block", v.Blocks)
+	}
+	acts := v.Blocks[0].Actions
+	if len(acts) != 1 || acts[0].ID != "open-done" || acts[0].Label != "See the done item" {
+		t.Fatalf("actions = %+v, want the singular open-done action", acts)
+	}
+
+	// Firing it lands on the Done strip — the same destination the tab names.
+	res, err := app.Action(ctx, h, ActionRequest{Action: "open-done"})
+	if err != nil || res.Path != "done" {
+		t.Fatalf("open-done = %+v, %v; want Path done", res, err)
+	}
+}
+
 func TestInboxItemViews(t *testing.T) {
 	h := inboxHost(t)
 	app := inboxApp{}
