@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
+import { OPEN_LINK_EVENT } from "./lib/externalLinks.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
@@ -893,7 +894,7 @@ export default function App({ shellChrome = false } = {}) {
           if (ownerAlive(fromTree)) openTreeTab(fromTree.kind, fromTree.id);
           else { setGoneId(provisionalTreeId(fromTree.kind, fromTree.id)); setSelectedId(null); }
         } else if (fromGit) {
-          if (ownerAlive(fromGit)) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view);
+          if (ownerAlive(fromGit)) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view, fromGit.lane);
           else { setGoneId(provisionalGitId(fromGit.kind, fromGit.id)); setSelectedId(null); }
         } else if (fromTerm) {
           if (terms.some((t) => t.id === fromTerm)) openTermTab(fromTerm);
@@ -1180,8 +1181,10 @@ export default function App({ shellChrome = false } = {}) {
       if (ok) {
         setGoneId((g) => (g ? "" : g));
         const known = Object.entries(gitOwners).find(([, o]) => o && o.kind === fromGit.kind && o.id === fromGit.id);
-        if (!known || selectedRef.current !== known[0]) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view);
-        else if ((known[1].view || "") !== (fromGit.view || "")) setGitOwners(m => ({ ...m, [known[0]]: { ...m[known[0]], view: fromGit.view || "" } }));
+        if (!known || selectedRef.current !== known[0]) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view, fromGit.lane);
+        else if ((known[1].view || "") !== (fromGit.view || "") || (known[1].lane || "") !== (fromGit.lane || "")) {
+          setGitOwners(m => ({ ...m, [known[0]]: { ...m[known[0]], view: fromGit.view || "", lane: fromGit.lane === "deployment" ? "deployment" : "" } }));
+        }
       } else {
         const gid = provisionalGitId(fromGit.kind, fromGit.id);
         setGoneId((g) => (g === gid ? g : gid));
@@ -1259,7 +1262,7 @@ export default function App({ shellChrome = false } = {}) {
       : isAppTab(selectedId)
         ? appHash(tabAppId(selectedId), appRoute(location.hash) === tabAppId(selectedId) ? appPath(location.hash) : "")
         : gitOwner
-        ? gitHash(gitOwner.kind, gitOwner.id, gitOwner.view)
+        ? gitHash(gitOwner.kind, gitOwner.id, gitOwner.view, gitOwner.lane)
         : treeOwner
           ? treeHash(treeOwner.kind, treeOwner.id)
           : file
@@ -1583,13 +1586,13 @@ export default function App({ shellChrome = false } = {}) {
   // The repository is unknown until the server answers, so a graph tab opens
   // under a provisional id and onGitKey renames it to g:<key> — which is also
   // where two owners of the same repo collapse onto one tab (ADR-0022).
-  function openGitTab(kind, ownerId, ownerName, view = "") {
+  function openGitTab(kind, ownerId, ownerName, view = "", lane = "") {
     setDashboardPinned(false);
     if (!ownerId) return;
     const known = Object.entries(gitOwners).find(([, o]) => o && o.kind === kind && o.id === ownerId);
     const id = known ? known[0] : provisionalGitId(kind, ownerId);
     setGitOwners((m) => {
-      const next = { ...m, [id]: { kind, id: ownerId, name: ownerName || "", view } };
+      const next = { ...m, [id]: { kind, id: ownerId, name: ownerName || "", view, lane: lane === "deployment" ? "deployment" : "" } };
       writeGitOwners(next);
       return next;
     });
@@ -3550,6 +3553,25 @@ export default function App({ shellChrome = false } = {}) {
   // PiCode's surface). The system browser stays reachable by setting either to
   // "Default browser"; before 2026-09-17 every non-loopback link left the app
   // from the terminal, which is the one door that ignored that preference.
+  // The shell's external-links bridge (lib/externalLinks.js) hands every
+  // chrome link that leaves the app to this event — Documentation, guides,
+  // changelog — and the owner wants them in a PiCode browser tab, not the
+  // system browser (2026-09-21). Deliberately not openTermLink: the browser
+  // prefs govern links clicked inside a browsed page, not the app's own
+  // chrome.
+  useEffect(() => {
+    const onOpen = (e) => {
+      const url = typeof e.detail === "string" ? e.detail : "";
+      if (!url) return;
+      // A remote page hosts only in the shell's WebView2; a plain browser
+      // keeps the system browser (its own caption says exactly that).
+      if (shellChrome && window.__TAURI__) openWebTabRef.current(url);
+      else window.open(url, "_blank", "noopener,noreferrer");
+    };
+    window.addEventListener(OPEN_LINK_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_LINK_EVENT, onOpen);
+  }, []);
+
   const openTermLink = useCallback((href) => {
     const url = String(href || "").trim();
     if (!url) return;
@@ -3833,6 +3855,7 @@ export default function App({ shellChrome = false } = {}) {
                 key={id}
                 owner={o}
                 onView={view => setGitOwners(m => ({ ...m, [id]: { ...m[id], view } }))}
+                onLane={lane => setGitOwners(m => ({ ...m, [id]: { ...m[id], lane: lane === "deployment" ? "deployment" : "" } }))}
                 workspaces={workspaces}
                 freeAgents={freeAgents}
                 terminals={terminals}

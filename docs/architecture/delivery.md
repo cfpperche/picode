@@ -107,3 +107,54 @@ picker resolves the destination repository and tab (ADR-0022).
 
 Visual checks cover the shared selector in both views, its open and no-results
 menu, and Delivery's empty and missing-target states.
+
+## Deployment observation (ADR-0170, D2)
+
+The Deployment lens reads one environment: the PiCode instance answering the
+request. `internal/store/delivery_observer.go` owns the binding migration 065
+adds — `delivery_observers(workspace_id, repo, observer, updated_at)`, one row
+per workspace — and `SetDeliveryObserver` upserts it (`observer: none` deletes)
+while appending `delivery.observer.changed` in the same transaction, so the
+connection is as observable as every other store mutation.
+`POST /api/{workspaces|agents|terminals}/{id}/delivery/observer` is its only
+write: it resolves the owner's repository key (409 when the folder is not a
+repository) and stores `picode-self` or nothing. The selector conveys no path,
+credential or execution intent.
+
+`internal/install/delivery_receipt.go` writes the deployment receipts the lane
+reads: `<data>/var/delivery/<uuid>.json`, directory 0700 and file 0600, atomic
+temp plus rename. The producer runs around `picode deploy` and records the
+requested, built, previous and observed revisions, the boot before and after,
+the deploying checkout's cleanliness and the outcome. It is best effort — a
+receipt that cannot be written never changes the deploy's result or exit code.
+A record whose outcome is still `started` is observed as unknown, never as
+running and never as a failure.
+
+The running identity is the environment's own. `version.Revision()` is the full
+VCS stamp (`/api/version` `revision`; the semver string and the shortened build
+string are display only and are never compared against Git), `server.BootID()`
+names the process (`/api/health` `bootId`), and `cmd/picode/main.go` repeats both
+in `<data>/server.json` as `revision` and `boot` so the deploy producer can
+sample the identity before and after its restart. The read samples the same
+identity around its evidence and retries once when either value changes
+mid-read.
+
+`GET /api/{workspaces|agents|terminals}/{id}/delivery` adds `environments[]` —
+one entry for the `picode-self` observer, carrying `status`, `reasonCode`,
+`displayVersion`, `revision`, `boot`, `responding`, `artifact`, `observedAt`,
+`unpublished`, `lastAttempt`, `busy` and `issues` — and marks every change with
+`publication`. The environment is resolved from the viewed owner's own binding;
+another workspace's binding is never substituted. No binding reads
+`unconfigured`; a stored repository that no longer matches the resolved one
+reads `unknown`/`repository-mismatch`; a repository another workspace claims
+reads `conflict`/`binding-conflict`. A change is `published` only when the
+running revision contains its exact revision, `not-published` when the target
+does and the artifact does not, and `unknown` for every comparison the read
+could not establish: semver alone, a shortened hash, an artifact built from
+unfinished changes, a revision this repository does not have, a target whose
+divergence leaves membership unprovable, or a busy-guard read that failed.
+
+Nothing in this lane is an authorization: no safe or ready verdict, no queue, no
+deploy, retry or rollback, and no claim about an environment other than the
+connected local instance. Receipts and health answers are local evidence, not a
+tamper-proof audit boundary.

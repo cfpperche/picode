@@ -17,6 +17,7 @@ import { IconChevronDown, IconGit } from "../components/Icons.jsx";
 import { pickerOptions, triggerLabel, workspaceForOwner } from "@picode/shared/domain/workspacePicker.js";
 import { askableAgents } from "../lib/git/actions.js";
 import { branchSummary, gitURL, isMoved, rootProblem, shortHash, worktreeName } from "../lib/git/model.js";
+import { toolHash } from "../lib/mobileRoutes.js";
 import "../styles/mobile-git.css";
 
 // Mobile owns the presentation. The canonical root is pinned by /browse;
@@ -26,13 +27,17 @@ export default function Git(props) {
   return <GitView key={key} {...props} />;
 }
 
-function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onBack, onOpenFile, onOpenTerminal, onAskAgent, onOpen, onPickWorkspace, workspaces = [], freeAgents = [], terminals = [], runMode = false }) {
+function GitView({ owner, title, root: initialRoot = "", initialCommit = "", initialView = "", initialLane = "", onBack, onOpenFile, onOpenTerminal, onAskAgent, onOpen, onPickWorkspace, workspaces = [], freeAgents = [], terminals = [], runMode = false }) {
   const [root, setRoot] = useState(initialRoot);
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState("");
-  const [section, setSection] = useState(initialCommit ? "history" : new URLSearchParams(location.hash.split("?")[1]||"").get("view")==="delivery" ? "delivery" : "changes");
+  // Which view the screen opens on comes from the route (ADR-0170): Delivery
+  // and its lens are addressable as `?view=delivery&lane=deployment`, so a
+  // link from the desktop and a reload land on the same lens.
+  const [section, setSection] = useState(initialCommit ? "history" : initialView === "delivery" ? "delivery" : "changes");
+  const [lane, setLane] = useState(initialLane === "deployment" ? "deployment" : "integration");
   const [trail, setTrail] = useState(initialCommit ? [{ type: "commit", hash: initialCommit }] : []);
   const [actions, setActions] = useState(false);
   const [wsOpen, setWsOpen] = useState(false);
@@ -131,12 +136,23 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
   const ownerWorkspace = workspaceForOwner(owner, { workspaces, freeAgents, terminals });
   const wsLabel = triggerLabel(ownerWorkspace, title);
   const current = trail.at(-1);
-  const viewKey = current ? `${current.type}:${current.hash || current.file?.path || current.wt?.path}:${trail.length}` : section;
+  // Delivery's lens is its own view for scroll memory, the way each section is.
+  const viewKey = current ? `${current.type}:${current.hash || current.file?.path || current.wt?.path}:${trail.length}` : section === "delivery" ? `${section}:${lane}` : section;
   const saveScroll = () => { scroll.current[viewKey] = main.current?.scrollTop || 0; };
   const goSection = next => { saveScroll(); setVisited(v => ({ ...v, [next]: true })); setSection(next); };
+  const goLane = next => { saveScroll(); setLane(next); };
   const push = item => { if (!blockedRef.current) { saveScroll(); setTrail(items => [...items, item]); } };
   const back = () => { saveScroll(); if (trail.length) setTrail(items => items.slice(0, -1)); else onBack?.(); };
   useLayoutEffect(() => { if (main.current) main.current.scrollTop = scroll.current[viewKey] || 0; }, [viewKey]);
+  // Keep the address in step with the view on screen, so Delivery and its lens
+  // survive a reload, a bookmark or a link the desktop built — the same two
+  // parameters gitHash writes there (ADR-0170 D2). replaceState, because a lens
+  // is not a history entry and the router must not read this as a navigation:
+  // an owner the helper cannot address leaves the address alone.
+  useEffect(() => {
+    const next = toolHash("git", owner, { root, commit: initialCommit, view: section === "delivery" ? "delivery" : "", lane });
+    if (next.startsWith("#/git/") && next !== location.hash) history.replaceState(history.state, "", next);
+  }, [owner?.kind, owner?.id, root, initialCommit, section, lane]);
   const refresh = () => load();
   const headerTitle = current?.type === "delivery" ? "Delivery details" : current?.type === "commit" ? `Commit ${shortHash(current.hash)}` : current?.type === "working-file" || current?.type === "commit-file" ? "Diff" : current?.type === "worktree" ? "Worktree changes" : "Git";
   const openFile = file => { if (!blockedRef.current) onOpenFile?.(file); };
@@ -156,6 +172,7 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
           : !current && section !== "delivery" ? <button type="button" className="btn m-git-header-action" aria-label="Git actions" onClick={() => setActions(true)}>Actions</button> : null
     ) : null} />
     {!current && status?.git ? <nav className="m-git-tabs" aria-label="Git views">{[["changes", "Changes"], ["history", "History"], ["pr", "Pull request"], ["delivery", "Delivery"]].map(([id, label]) => <button type="button" key={id} aria-current={section === id ? "page" : undefined} onClick={() => goSection(id)}>{label}</button>)}</nav> : null}
+    {!current && status?.git && section === "delivery" ? <nav className="m-git-tabs" aria-label="Delivery lenses">{[["integration", "Integration"], ["deployment", "Deployment"]].map(([id, label]) => <button type="button" key={id} aria-current={lane === id ? "page" : undefined} onClick={() => goLane(id)}>{label}</button>)}</nav> : null}
     <main className="m-git-main" ref={main}>
       {blocked ? <div className="m-git-state m-git-warning" role="alert"><p>{blocked}</p><button type="button" className="btn" disabled={busy} onClick={() => { setActions(false); load(true); }}>Follow folder</button></div> : null}
       <GitReadState error={error} loading={!status && busy} onRetry={() => load()} />
@@ -179,7 +196,7 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
           {section !== "delivery" ? <button type="button" className="btn" disabled={busy || !!blocked} onClick={refresh}>{busy ? "Refreshing…" : "Refresh"}</button> : null}
         </div> : null}
         {content}
-        {section === "delivery" && (!current || current.type === "delivery") && !blocked ? <GitDelivery key={ownerKey+root} owner={owner} selection={current?.type === "delivery" ? current.changeId : ""} onDetail={id=>id?push({type:"delivery",changeId:id}):back()} onHistory={sha=>{setTrail(sha?[{type:"commit",hash:sha}]:[]);goSection("history");}}/> : null}
+        {section === "delivery" && (!current || current.type === "delivery") && !blocked ? <GitDelivery key={ownerKey+root} owner={owner} lane={lane} onLane={goLane} selection={current?.type === "delivery" ? current.changeId : ""} onDetail={id=>id?push({type:"delivery",changeId:id}):back()} onHistory={sha=>{setTrail(sha?[{type:"commit",hash:sha}]:[]);goSection("history");}}/> : null}
         <div className="m-git-view" hidden={!!current || section !== "changes"}><GitChanges status={status} onHistory={() => goSection("history")} onSelect={file => push({ type: "working-file", file })} /></div>
         {visited.history ? <div className="m-git-view" hidden={!!current || section !== "history"}><GitHistory key={root} owner={owner} root={root} nonce={nonce} blocked={!!blocked} onMoved={markMoved} onCommit={hash => push({ type: "commit", hash })} onWorktree={wt => push({ type: "worktree", wt })} onActions={(payload) => setSheet(targetFor(payload))} onGraph={setGraph} /></div> : null}
         {visited.pr ? <div className="m-git-view" hidden={!!current || section !== "pr"}><GitPullRequest key={root} owner={owner} root={root} nonce={nonce} onMoved={markMoved} onOpenTerminal={onOpenTerminal} blocked={!!blocked} /></div> : null}

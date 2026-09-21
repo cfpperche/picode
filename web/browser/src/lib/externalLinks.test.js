@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { EXTERNAL_COMMAND, shouldOpenExternally, installShellExternalLinks } from "./externalLinks.js";
+import { OPEN_LINK_EVENT, shouldOpenExternally, installShellExternalLinks } from "./externalLinks.js";
 
 // Decision table: href × origin → opens in the system browser?
 // | href                              | origin              | external |
@@ -43,6 +43,9 @@ function stubShell() {
     location: { origin: APP, href: APP + "/desktop/" },
     __TAURI__: { core: { invoke: (cmd, args) => { calls.push([cmd, args]); return Promise.resolve(); } } },
     open: (...args) => ["native", ...args],
+    dispatched: [],
+    dispatchEvent: (event) => { window.dispatched.push(event); },
+    CustomEvent,
   };
   const document = {
     addEventListener: (type, fn, capture) => listeners.set(type + !!capture, fn),
@@ -71,15 +74,32 @@ test("outside the shell nothing is installed and native behavior is untouched", 
   assert.equal(window.open, nativeOpen);
 });
 
-test("a _blank docs click hands the URL to the system browser", async () => {
+test("an external anchor click hands the URL to the app's browser tab", () => {
   const { window, document, calls } = stubShell();
   const uninstall = installShellExternalLinks({ window, document });
   assert.equal(typeof uninstall, "function");
-  const target = { closest: (sel) => (sel === 'a[target="_blank"]' ? anchorStub("https://cfpperche.github.io/picode/") : null) };
+  const target = { closest: (sel) => (sel === "a[href]" ? anchorStub("https://cfpperche.github.io/picode/") : null) };
   const event = document.fireClick(target);
   assert.equal(event.defaultPrevented, true);
-  assert.deepEqual(calls, [[EXTERNAL_COMMAND, { url: "https://cfpperche.github.io/picode/" }]]);
+  // The handoff is the app's own open-link event: the work browser tab opens
+  // it, the system browser is no longer the destination.
+  assert.deepEqual(calls, []);
+  assert.equal(window.dispatched.length, 1);
+  assert.equal(window.dispatched[0].type, OPEN_LINK_EVENT);
+  assert.equal(window.dispatched[0].detail, "https://cfpperche.github.io/picode/");
   uninstall();
+});
+
+test('an external anchor without target="_blank" is caught too', () => {
+  const { window, document, calls } = stubShell();
+  installShellExternalLinks({ window, document });
+  // In the shell this anchor used to navigate the webview in place — the
+  // same dead end as a _blank click.
+  const target = { closest: (sel) => (sel === "a[href]" ? anchorStub("https://docs.example/guide") : null) };
+  const event = document.fireClick(target);
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(window.dispatched.at(-1).detail, "https://docs.example/guide");
+  assert.deepEqual(calls, []);
 });
 
 test("same-origin and non-anchor clicks pass through untouched", () => {
@@ -99,15 +119,16 @@ test("window.open reroutes _blank http(s) and keeps in-app targets", () => {
   installShellExternalLinks({ window, document });
   assert.equal(window.open("https://docs.example/guide", "_blank", "noopener"), null);
   assert.equal(window.open("https://docs.example/guide"), null);
-  assert.deepEqual(calls, [
-    [EXTERNAL_COMMAND, { url: "https://docs.example/guide" }],
-    [EXTERNAL_COMMAND, { url: "https://docs.example/guide" }],
+  assert.deepEqual(calls, []);
+  assert.deepEqual(window.dispatched.map((e) => e.detail), [
+    "https://docs.example/guide",
+    "https://docs.example/guide",
   ]);
   // In-app targets keep the native contract (OAuth popups, same-tab).
   assert.deepEqual(window.open("https://localhost:8445/#/x", "_blank"), ["native", "https://localhost:8445/#/x", "_blank", undefined]);
   assert.deepEqual(window.open("https://auth.example/login", "picode-mcp-auth"), ["native", "https://auth.example/login", "picode-mcp-auth", undefined]);
   assert.deepEqual(window.open("https://docs.example/guide", "_self"), ["native", "https://docs.example/guide", "_self", undefined]);
-  assert.equal(calls.length, 2);
+  assert.deepEqual(calls, []);
 });
 
 test("uninstall restores the document listener and window.open", () => {
@@ -122,9 +143,9 @@ test("uninstall restores the document listener and window.open", () => {
   assert.deepEqual(calls, []);
 });
 
-test("a failing invoke never breaks the click", () => {
+test("a listener that never answers never breaks the click", () => {
   const { window, document } = stubShell();
-  window.__TAURI__.core.invoke = () => Promise.reject(new Error("gone"));
+  window.dispatchEvent = () => { throw new Error("no listener yet"); };
   installShellExternalLinks({ window, document });
   const target = { closest: () => anchorStub("https://docs.example/") };
   assert.doesNotThrow(() => document.fireClick(target));

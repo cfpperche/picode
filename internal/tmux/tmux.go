@@ -100,8 +100,10 @@ func KillIsolatedServer(ctx context.Context, dir string) error {
 	if dir == "" {
 		return errors.New("tmux: refusing kill-server without a socket directory — that is the user's own server")
 	}
-	if filepath.Clean(dir) == filepath.Clean(DefaultSocketDir()) {
-		return fmt.Errorf("tmux: refusing kill-server in %s — that is the user's own server", dir)
+	// tmux's socket under TMUX_TMPDIR=dir is dir/tmux-<uid>/default; the guard
+	// the socket-addressed kill uses decides whether that is the user's.
+	if err := refuseUserServer(filepath.Join(dir, "tmux-"+strconv.Itoa(os.Getuid()), "default")); err != nil {
+		return err
 	}
 	cmd := exec.CommandContext(ctx, "tmux", "kill-server")
 	cmd.Env = IsolatedEnv(dir)
@@ -113,6 +115,33 @@ func KillIsolatedServer(ctx context.Context, dir string) error {
 		return fmt.Errorf("tmux kill-server in %s: %w: %s", dir, err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// refuseUserServer is the safety property both kill paths share: a harness may
+// end a server it made, never the one the human is working in. An empty socket
+// is tmux's default, anything inside the user's socket directory is theirs
+// whatever it is named, and $TMUX names the server this very process is
+// attached to. It lives in one place because the failure it prevents is not
+// recoverable — an unguarded `kill-server` on 2026-09-13 took 140 sessions.
+func refuseUserServer(socket string) error {
+	if socket == "" {
+		return errors.New("tmux: refusing kill-server on the default socket — that is the user's own server")
+	}
+	clean := filepath.Clean(socket)
+	if dir := filepath.Clean(DefaultSocketDir()); clean == dir || strings.HasPrefix(clean, dir+string(os.PathSeparator)) {
+		return fmt.Errorf("tmux: refusing kill-server in %s — that is the user's own socket directory", dir)
+	}
+	if live := socketFromTmuxEnv(os.Getenv("TMUX")); live != "" && filepath.Clean(live) == clean {
+		return fmt.Errorf("tmux: refusing kill-server on %s ($TMUX) — that is the server this session is attached to", live)
+	}
+	return nil
+}
+
+// socketFromTmuxEnv reads the socket path out of $TMUX, which tmux writes as
+// "<socket>,<pid>,<session>".
+func socketFromTmuxEnv(v string) string {
+	socket, _, _ := strings.Cut(v, ",")
+	return socket
 }
 
 // Manager wraps tmux CLI operations. All methods are safe for concurrent
@@ -174,6 +203,28 @@ func NewWithSocket(path string) *Manager {
 // creates — empty on a Manager with no dedicated socket (tmux's default
 // server is shared, so no single data directory owns it).
 func (m *Manager) Instance() string { return m.instance }
+
+// KillServer ends the server this Manager talks to — the instance's own socket
+// (ADR-0139). It exists for a process that made such a server and must end it
+// on the way out: killing the process and removing the socket's directory is
+// NOT enough, because unlinking a live socket hides the server instead of
+// ending it, and the server keeps its panes' shells alive (the docs fixture
+// had piled up seven private servers and their sessions by 2026-09-21).
+// Refusals and the "nothing to kill" case match KillIsolatedServer; both go
+// through the same guard.
+func (m *Manager) KillServer(ctx context.Context) error {
+	if err := refuseUserServer(m.socket); err != nil {
+		return err
+	}
+	out, err := m.run(ctx, "kill-server")
+	if err != nil && (strings.Contains(out, "no server running") || strings.Contains(out, "error connecting")) {
+		return nil // nothing to kill is the state a harness wants
+	}
+	if err != nil {
+		return fmt.Errorf("tmux kill-server on %s: %w", m.socket, err)
+	}
+	return nil
+}
 
 func execTmux(ctx context.Context, stdin string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "tmux", args...)

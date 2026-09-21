@@ -543,6 +543,8 @@ export default function GitGraphSurface(props) {
         <Delivery
           key={props.owner.kind + ":" + props.owner.id}
           owner={props.owner}
+          lane={props.owner.lane || "integration"}
+          onLane={props.onLane}
           hidden={props.hidden}
           onHistory={(sha) => { setRevision(sha || ""); selectView("history"); }}
         />

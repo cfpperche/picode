@@ -16,7 +16,7 @@ import (
 func TestMachineSocketsDiscoverTheMachine(t *testing.T) {
 	requireDrainTmux(t)
 	ctx := context.Background()
-	base := t.TempDir()
+	base := socketDir(t)
 	home := filepath.Join(base, "tmuxdir")
 	if err := os.MkdirAll(home, 0o755); err != nil {
 		t.Fatal(err)
