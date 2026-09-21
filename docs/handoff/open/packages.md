@@ -55,3 +55,15 @@
   every plugin verb" reading was the vendor's per-machine feature gate measured
   with a fresh HOME — the harness now seeds that config from the machine's own
   cache.
+- [ ] **Omp's own `extensions` list is invisible in the guest packages pane.**
+  Measured 2026-09-21 while giving Omp the browser tool: the pane renders the
+  vendor's plugin roster (`omp plugin list --json`), but the extension loads
+  from a project `extensions` entry — `<ws>/.omp/settings.json` (ours) or
+  `.omp/config.yml`; user level is `~/.omp/agent/config.yml`, where
+  `omp config set extensions '<json array>'` writes. `omp config get extensions
+  --json` returns the value, so the pane can show it: read the CLI's own key
+  beside the roster and render one row per entry (LOCAL badge + path), the way
+  the Pi pane shows `.pi/settings.json` path packages. `omp plugin link <path>`
+  is *not* the answer — for a local package its scope is the machine
+  (`--scope=project` wrote nothing into the project; the flag is marketplace
+  installs only), which breaks the workspace-scope model.
