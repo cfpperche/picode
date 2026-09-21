@@ -6374,6 +6374,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-audit-detail-row + .set-audit-detail-row { margin-top: 4px; }
 .set-audit-detail-k { flex: none; width: 64px; color: var(--text-secondary); }
 .set-audit-row:has(.set-audit-head) { display: block; }
+.set-audit-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 /* A door refusal (working, occupied, busy) names its fix inside the attach
    card — the Send happened here, and a toast can lose the layering. */

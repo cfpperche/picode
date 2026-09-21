@@ -38,6 +38,17 @@ export function WsTag({ id, name }) {
 // Expandable audit list (Stripe log language). `rows` carry a stable `key`;
 // the accessors keep browser Raw calls and computer Recent steps on one
 // renderer. `detail` returns the expanded node, or null for no expansion.
+// Outcome color is semantic: allowed is ok, refused is the policy working
+// (neutral), anything else failed and reads danger.
+// Distinct lowercased outcomes in first-seen order, for the filter select.
+export function distinctOutcomes(list) {
+  const seen = [];
+  for (const item of list || []) {
+    const out = String(item.outcome || "").toLowerCase();
+    if (out && !seen.includes(out)) seen.push(out);
+  }
+  return seen;
+}
 export function AuditList({ rows, method, outcome, actor, when, detail, empty }) {
   const [open, setOpen] = useState(() => new Set());
   if (!rows || rows.length === 0) {
@@ -56,25 +67,27 @@ export function AuditList({ rows, method, outcome, actor, when, detail, empty })
       {rows.map((row) => {
         const key = row.key;
         const isOpen = open.has(key);
-        const body = detail ? detail(row) : null;
+        const expandable = !!detail;
+        const body = isOpen && detail ? detail(row) : null;
         const out = outcome(row);
-        const bad = String(out).toLowerCase() !== "allowed";
+        const norm = String(out).toLowerCase();
+        const outCls = norm === "allowed" ? " is-ok" : norm === "refused" ? "" : " is-bad";
         return (
           <li key={key} className={"set-audit-row" + (isOpen ? " is-open" : "")}>
             <button
               type="button"
               className="set-audit-head"
-              aria-expanded={body ? isOpen : undefined}
-              onClick={body ? () => toggle(key) : undefined}
-              style={body ? undefined : { cursor: "default" }}
+              aria-expanded={expandable ? isOpen : undefined}
+              onClick={expandable ? () => toggle(key) : undefined}
+              style={expandable ? undefined : { cursor: "default" }}
             >
               <code className="set-audit-method">{method(row)}</code>
-              <span className={"set-audit-outcome" + (bad ? " is-bad" : " is-ok")}>{out}</span>
+              <span className={"set-audit-outcome" + outCls}>{out}</span>
               <span className="set-audit-actor">{actor(row)}</span>
               <span className="set-audit-when">{when(row)}</span>
-              <span className="set-audit-toggle" aria-hidden="true">{body ? "▶" : ""}</span>
+              <span className="set-audit-toggle" aria-hidden="true">{expandable ? "▶" : ""}</span>
             </button>
-            {isOpen && body ? <div className="set-audit-detail">{body}</div> : null}
+            {body ? <div className="set-audit-detail">{body}</div> : null}
           </li>
         );
       })}
