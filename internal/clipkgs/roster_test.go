@@ -584,9 +584,11 @@ func TestMuseRealRoster(t *testing.T) {
 	}
 }
 
-// TestMuseEmptyAndCatalogFixtures: an empty install and the catalog envelope
-// the same CLI prints with nothing configured (`available`/`skipped`/
-// `warnings`, none of which is a plugin row).
+// TestMuseEmptyAndCatalogFixtures: an empty install, and the catalog row the
+// same CLI prints for a marketplace plugin (measured 2026-09-21). Two facts
+// move for the pane: the installable spec is `<name>@<marketplace>`, and the
+// path is where that marketplace resolved the plugin (not the kind word
+// "local-path", which is the transport).
 func TestMuseEmptyAndCatalogFixtures(t *testing.T) {
 	rows, _, err := parseMuse(fixture(t, "muse.empty.json"), false)
 	if err != nil {
@@ -595,19 +597,55 @@ func TestMuseEmptyAndCatalogFixtures(t *testing.T) {
 	if len(rows) != 0 {
 		t.Fatalf("rows = %+v, want none", rows)
 	}
+
 	cat, note, err := parseMuse(fixture(t, "muse.available.json"), true)
 	if err != nil {
 		t.Fatalf("parseMuse(catalog): %v", err)
 	}
-	if len(cat) != 0 || note != "" {
-		t.Fatalf("catalog rows/note = %+v / %q, want an empty catalog with no warning", cat, note)
+	if note != "" || len(cat) != 1 {
+		t.Fatalf("catalog rows/note = %+v / %q", cat, note)
 	}
+	row := cat[0]
+	if row.ID != "picode-spare" || row.Version != "0.2.0" || row.Name != "picode-spare" {
+		t.Errorf("catalog row = %+v", row)
+	}
+	if row.Source != "picode-spare@picode-probe-live" || row.Marketplace != "picode-probe-live" {
+		t.Errorf("installable spec = %q / marketplace %q, want name@marketplace", row.Source, row.Marketplace)
+	}
+	if row.SourceKind != "marketplace" || !strings.Contains(row.InstallPath, "plugins/picode-spare") {
+		t.Errorf("row = %+v, want the marketplace origin and the resolved path", row)
+	}
+	if row.Status != "available" || row.Installed {
+		t.Errorf("row = %+v, want the vendor's status word and not-installed", row)
+	}
+
 	mps, err := parseMarketplaces(fixture(t, "muse.marketplaces.json"))
 	if err != nil {
 		t.Fatalf("parseMarketplaces: %v", err)
 	}
-	if len(mps) != 0 {
-		t.Fatalf("marketplaces = %+v, want none (the envelope's other keys are not sources)", mps)
+	if len(mps) != 1 || mps[0].Name != "picode-probe-live" {
+		t.Fatalf("marketplaces = %+v", mps)
+	}
+	if !strings.Contains(mps[0].Source, "/mp") || mps[0].Source == "local-dir" {
+		t.Fatalf("marketplace source = %q, want the path the vendor resolved, not its kind word", mps[0].Source)
+	}
+}
+
+// TestMarkInstalledJoinsTheCatalogWithTheRoster: Muse's catalog does not mark
+// an installed plugin (measured: the same row still says "available" after a
+// successful install), so the pane would offer Install for something already
+// there. The join reads the CLI's own roster, not a PiCode record.
+func TestMarkInstalledJoinsTheCatalogWithTheRoster(t *testing.T) {
+	catalog := []Row{
+		{ID: "picode-spare", Name: "picode-spare", Source: "picode-spare@mp"},
+		{ID: "picode-gone", Name: "picode-gone", Source: "picode-gone@mp"},
+	}
+	markInstalled(catalog, []Row{{ID: "picode-spare", Name: "picode-spare"}})
+	if !catalog[0].Installed {
+		t.Error("an installed marketplace plugin must be marked installed")
+	}
+	if catalog[1].Installed {
+		t.Error("a plugin the roster does not carry must stay installable")
 	}
 }
 

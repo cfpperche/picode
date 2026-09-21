@@ -2408,6 +2408,35 @@ img.ws-face.term-cli-face {
   padding: 7px 10px; font: inherit; line-height: 20px;
   resize: none; overflow-y: hidden;
 }
+/* The attach bar follows the TERMINAL theme, not the app's: under a dark
+   terminal in a light app (or the reverse) the app-token card reads as a
+   foreign object. These two blocks re-point the tokens the bar's subtree
+   consumes at the matching app-scheme values (theme.css) — chips, inputs,
+   buttons, hovers and placeholders all follow with no per-element rules.
+   One place to move if that scheme moves. Accent stays the app's
+   everywhere: it is brand, and both accents read on both grounds. */
+:root[data-term-theme="dark"] .term-attach {
+  --bg-panel: #16161c;
+  --bg-base: #0e0e11;
+  --bg-elevated: #1c1c23;
+  --bg-hover: #202027;
+  --border: #232329;
+  --border-strong: #2c2c34;
+  --text-primary: #ececf1;
+  --text-secondary: #9b9ba7;
+  --danger: #f7768e;
+}
+:root[data-term-theme="light"] .term-attach {
+  --bg-panel: #fbfcfe;
+  --bg-base: #f0f2f7;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e4e9f2;
+  --border: #dde2ec;
+  --border-strong: #b3bccd;
+  --text-primary: #16181d;
+  --text-secondary: #5b6472;
+  --danger: #cf3b54;
+}
 /* The attach composer's sketch pad (SketchEditor.jsx). Excalidraw fills the
    board; the head carries Cancel / Insert. pointer-events stays auto: a
    modal that locks the page sets `none` on body, and the pad is a body
@@ -2473,41 +2502,6 @@ img.ws-face.term-cli-face {
    through beside it. .main-tabs stays visible so the open tabs are still
    there to click back into. */
 .workspace-view.dashboard-on > *:not(.main-tabs):not(.dashboard-view) { display: none !important; }
-
-.agent-view-toolbar {
-  flex: none;
-  display: flex;
-  justify-content: flex-end;
-  padding: 0;
-}
-.agent-view-switch {
-  display: inline-flex;
-  align-items: stretch;
-  height: var(--ctl-h);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--bg-base);
-}
-.agent-view-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--ctl-h);
-  width: 42px;
-  padding: 0;
-  border: 0;
-  border-right: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.agent-view-tab:last-child { border-right: 0; }
-.agent-view-tab:hover { color: var(--text-primary); background: var(--bg-hover); }
-.agent-view-tab[data-active="true"] { color: var(--text-primary); background: var(--bg-elevated); box-shadow: inset 0 -2px var(--accent); }
-.agent-view-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .file-surface {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   min-width: 0; background: var(--bg-panel);

@@ -11,6 +11,7 @@ const SECTION_ICONS = {
   providers: IconProvider,
   connectors: IconMcp,
   settings: IconSettings,
+  termset: IconSettings,
   browser: IconGlobe,
   computer: IconMonitor,
   integrations: IconMcp,

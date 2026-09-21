@@ -15,7 +15,7 @@ import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { extraSlash } from "@picode/shared/domain/slash.js";
 import { stuckToBottom } from "@picode/shared/domain/stickScroll.js";
-import { IconChat, IconTerminal, IconFolder, IconPanelRight } from "../components/Icons.jsx";
+import { IconFolder, IconPanelRight } from "../components/Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyUsage } from "@picode/shared/domain/feedReducers.js";
 import { agentDrafts } from "../lib/agentDrafts.js";
@@ -105,22 +105,8 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
     shortModel(agent.model || ""),
     workspace ? workspace.name : "free agent",
   ].filter(Boolean).join(" · ");
-
-  const viewSwitch = hasTerminal && (!agent.cli || agent.cli === "pi") ? (
-    <fieldset className="m-view-switch" aria-label="Agent view">
-      <legend className="sr-only">Agent view</legend>
-      {[['chat', 'Chat', IconChat], ['term', 'Terminal', IconTerminal]].map(([value, label, Icon]) => (
-        <label key={value} className="m-view-switch-option">
-          <input type="radio" name="m-agent-view" aria-label={label} value={value} checked={view === value} onChange={() => changeView(value)} />
-          <span title={label}><Icon size={16} /></span>
-        </label>
-      ))}
-    </fieldset>
-  ) : null;
-
   const right = (
     <>
-      {viewSwitch}
       <button type="button" className="btn btn-sm" aria-label="Inspector" title="Inspector" aria-haspopup="dialog" onClick={() => onOpenInspector?.()}><IconPanelRight size={16} /></button>
       <button type="button" className="btn btn-sm m-changes-btn" title="Project tools" aria-label="Project tools" aria-haspopup="dialog" aria-expanded={toolsOpen} onClick={() => setToolsOpen(true)}><IconFolder size={16} /></button>
       {stopped
@@ -135,7 +121,6 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
       term={resolved?.term}
       owner={resolved?.owner}
       title={name}
-      viewControl={viewSwitch}
       onBack={onBack}
       onRemove={resolved?.canonical ? onRemoveTerminal : undefined}
       onStop={!stopped ? () => onStop(agent, workspace) : undefined}

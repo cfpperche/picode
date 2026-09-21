@@ -45,6 +45,24 @@ export function filterOpenTabs(saved, exists) {
   return { ids, selected };
 }
 
+// The tab a reader lands on when `removed` leaves the strip: the neighbour
+// to the right of the first removed tab (browsers and editors close the gap
+// rightwards — the reader's eyes are already there), else the nearest one
+// to the left, else null — the caller then falls back to the dashboard.
+// `removed` lists every tab the operation takes away (an agent's removal
+// also takes its terminal tab; a workspace's, all of its agents'). Pure:
+// the caller owns the side effects of selecting the answer.
+export function pickNextTab(ids, removed) {
+  const list = (ids || []).map((x) => String(x || "")).filter(Boolean);
+  const gone = new Set((Array.isArray(removed) ? removed : [removed]).map((x) => String(x || "")).filter(Boolean));
+  if (!gone.size) return null;
+  const anchor = list.findIndex((id) => gone.has(id));
+  if (anchor < 0) return null;
+  for (let i = anchor + 1; i < list.length; i += 1) if (!gone.has(list[i])) return list[i];
+  for (let i = anchor - 1; i >= 0; i -= 1) if (!gone.has(list[i])) return list[i];
+  return null;
+}
+
 const TERM_KEY = "picode-term-view";
 
 // Which agents were last viewed in the terminal (TUI dock), so a reload
