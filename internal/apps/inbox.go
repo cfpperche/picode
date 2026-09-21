@@ -16,6 +16,14 @@ import (
 // is the done; replies to agent questions ride the durable task queue.
 type inboxApp struct{}
 
+// InboxAnswerRecordedNote is appended when a reply to a channel-less
+// question is recorded on the item instead of delivered. The store has
+// already annotated "reply not delivered — the item stays open" by the
+// time the caller records, so this corrects the visible story: the asker
+// (`picode inbox ask --wait`, ask_human) polls the item, and recording IS
+// the delivery (ADR-0154). Shared with the inbox respond route.
+const InboxAnswerRecordedNote = "Answer recorded on the item — the CLI that asked polls it here."
+
 func (inboxApp) Manifest() Manifest {
 	return Manifest{ID: "inbox", Name: "Inbox", Icon: "inbox", APIVersion: APIVersion}
 }
@@ -533,6 +541,15 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			// err.Error() straight through), so they read as UI copy —
 			// sentence case, not the lowercase Go error-string convention.
 			if errors.Is(err, store.ErrNoReplyChannel) {
+				// The ask door's record-the-answer rule (ADR-0154), for the
+				// guest whose source has no channel at all: `picode inbox
+				// ask --wait` and ask_human poll the item, so recording IS
+				// the delivery. Refusing here left the human clicking Reply
+				// on an item nothing could ever close.
+				if _, rerr := h.Store.RespondInboxItem(id, verb, text); rerr == nil {
+					_ = h.Store.AnnotateInboxItem(id, InboxAnswerRecordedNote)
+					return a.backTo(h, returnPath, "Answer recorded — the CLI that asked will pick it up here.")
+				}
 				return ActionResult{}, fmt.Errorf("Reply not delivered — this question came from a session PiCode has no reply channel for; answer it in its terminal. The item stays open")
 			}
 			if errors.Is(err, store.ErrAgentInteractive) {

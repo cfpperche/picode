@@ -691,24 +691,34 @@ func TestInboxTerminalSourcedReplyRoutesToTheTerminal(t *testing.T) {
 		t.Fatalf("ignored terminal item = %+v", got)
 	}
 
-	// Without a terminal channel the item cannot be answered silently.
+	// Without a terminal channel the reply cannot be delivered — it is
+	// recorded on the item instead, where the asking CLI polls (ADR-0154's
+	// ask door; production wires DeliverTerminalReply, this row pins the
+	// record-and-close fallback beneath it).
 	h.DeliverTerminalReply = nil
 	q2 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromTerminal, SourceID: "term-8", Reason: "r", Title: "q2", Body: "?"})
-	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q2.ID, Args: map[string]string{"reply": "hi"}}); err == nil {
-		t.Fatalf("terminal respond without a channel succeeded")
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q2.ID, Args: map[string]string{"reply": "hi"}}); err != nil {
+		t.Fatalf("terminal respond without a channel = %v", err)
 	}
-	if got, _ := h.Store.GetInboxItem(q2.ID); got.State == store.InboxDone {
-		t.Fatalf("channelless terminal item closed")
+	if got, _ := h.Store.GetInboxItem(q2.ID); got.State != store.InboxDone || got.Response == nil || *got.Response != "respond: hi" {
+		t.Fatalf("channelless terminal item = %+v, want the answer recorded and closed", got)
 	}
 
-	// A legacy system-sourced question refuses with the honest copy.
-	q3 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, SourceID: "pi (unmanaged)", Reason: "r", Title: "q3", Body: "?"})
-	_, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "hi"}})
-	if err == nil || !strings.Contains(err.Error(), "no reply channel") {
-		t.Fatalf("system-sourced respond = %v", err)
+	// A guest CLI's system-sourced question (no agent, no terminal — the
+	// caller of `picode inbox ask --wait` outside PiCode) is answered by
+	// recording the response on the item, with the note correcting the
+	// store's "reply not delivered" annotation.
+	q3 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, SourceID: "goat@box", Reason: "r", Title: "q3", Body: "?"})
+	res, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "hi"}})
+	if err != nil || !strings.Contains(res.Toast, "Answer recorded") {
+		t.Fatalf("system-sourced respond = %v, toast %+v", err, res.Toast)
 	}
-	if got, _ := h.Store.GetInboxItem(q3.ID); got.State == store.InboxDone {
-		t.Fatalf("system-sourced item closed")
+	got, _ := h.Store.GetInboxItem(q3.ID)
+	if got.State != store.InboxDone || got.Response == nil || *got.Response != "respond: hi" {
+		t.Fatalf("system-sourced item = %+v, want recorded and closed", got)
+	}
+	if !strings.Contains(got.Body, InboxAnswerRecordedNote) || !strings.Contains(got.Body, "no reply channel") {
+		t.Fatalf("item body = %q, want the refusal note corrected by the record note", got.Body)
 	}
 }
 

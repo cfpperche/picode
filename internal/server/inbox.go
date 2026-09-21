@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -125,6 +126,20 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 		it, err := deps.Store.RespondAndForward(r.PathValue("id"), req.Verb, req.Text, deliverable)
 		if err != nil {
 			if errors.Is(err, store.ErrNoReplyChannel) {
+				// ADR-0154's ask door, one row further: a question whose
+				// source has no delivery channel at all (a guest CLI with
+				// neither agent nor terminal identity) is answered by
+				// recording the response on the item — the same rule the
+				// terminal branch above applies to a non-pi terminal —
+				// because `picode inbox ask --wait` and ask_human poll the
+				// item for it. The refusal predates the polling askers: it
+				// left the item open forever with the asker hanging on a
+				// poll that could never end.
+				if done, rerr := deps.Store.RespondInboxItem(id, req.Verb, req.Text); rerr == nil {
+					_ = deps.Store.AnnotateInboxItem(id, apps.InboxAnswerRecordedNote)
+					writeJSON(w, http.StatusOK, done)
+					return
+				}
 				writeErr(w, http.StatusConflict, "this question came from a session PiCode has no reply channel for — answer it in its terminal; the item stays open")
 				return
 			}

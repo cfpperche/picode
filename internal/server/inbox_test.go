@@ -126,6 +126,39 @@ func TestInboxRespondForwardsToAgent(t *testing.T) {
 	}
 }
 
+// A guest CLI's question — a system source with no agent or terminal
+// identity — is answered by recording the response on the item, where
+// `picode inbox ask --wait` and ask_human poll it. The old refusal left
+// the item open forever with the asker hanging on a poll that could never
+// end; the delivery rows above keep their behavior.
+func TestInboxRespondRecordsForChannelLessSource(t *testing.T) {
+	ts, st := newInboxServer(t)
+	_, out := inboxPost(t, ts, "/api/inbox",
+		`{"kind":"question","sourceKind":"system","sourceId":"goat@box","reason":"agent needs your input","title":"postgres or sqlite?","body":"which one for this service?"}`)
+	id, _ := out["id"].(string)
+	res, body := inboxPost(t, ts, "/api/inbox/"+id+"/respond", `{"verb":"respond","text":"sqlite is fine"}`)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("channel-less respond = %d %v", res.StatusCode, body)
+	}
+	after, err := st.GetInboxItem(id)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if after.State != store.InboxDone || after.Response == nil || !strings.Contains(*after.Response, "sqlite is fine") {
+		t.Fatalf("item after respond = %+v, want the answer recorded and done", after)
+	}
+	if !strings.Contains(after.Body, apps.InboxAnswerRecordedNote) {
+		t.Fatalf("body = %q, want the record note", after.Body)
+	}
+	// An ignored channel-less item closes without a response, as before.
+	_, out2 := inboxPost(t, ts, "/api/inbox",
+		`{"kind":"question","sourceKind":"system","sourceId":"goat@box","reason":"r","title":"never mind","body":"actually skip this one"}`)
+	res, _ = inboxPost(t, ts, "/api/inbox/"+out2["id"].(string)+"/respond", `{"verb":"ignore"}`)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("ignore = %d", res.StatusCode)
+	}
+}
+
 func TestInboxRespondDeadAgent(t *testing.T) {
 	ts, st := newInboxServer(t)
 	_, out := inboxPost(t, ts, "/api/inbox",
