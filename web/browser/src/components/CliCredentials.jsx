@@ -180,7 +180,7 @@ export default function CliCredentials({ hidden, cli, add = false }) {
     } catch (ex) {
       setSignin((prev) => ({
         ...(prev || {}),
-        error: ex.status === 404 ? "Nothing saved yet — finish the sign-in in the terminal, then check again." : ex.message,
+        error: ex.status === 404 ? "Nothing saved yet — finish the sign-in, then check again." : ex.message,
       }));
     } finally {
       setBusy("");
@@ -299,12 +299,14 @@ export default function CliCredentials({ hidden, cli, add = false }) {
             the one action that files the result. */}
         {signin ? (
           <div className="cli-notice cred-signin" role="status">
-            <span className="cred-signin-hint">{signin.hint || "Finish the sign-in in the terminal."}</span>
+            <span className="cred-signin-hint">{signin.hint || "Finish the sign-in, then check again."}</span>
             {signin.error ? <span className="cred-signin-error" role="alert">{signin.error}</span> : null}
-            <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "check"} onClick={checkSignin}>
-              {busy === "check" ? "Checking…" : "Check now"}
-            </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSignin(null)}>Dismiss</button>
+            <span className="cred-signin-actions">
+              <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "check"} onClick={checkSignin}>
+                {busy === "check" ? "Checking…" : "Check now"}
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSignin(null)}>Dismiss</button>
+            </span>
           </div>
         ) : null}
 
