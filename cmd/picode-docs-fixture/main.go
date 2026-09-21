@@ -12,6 +12,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"log"
 	"net"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/apps"
+	"github.com/cfpperche/picode/internal/credentials"
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/llamaservice"
 	"github.com/cfpperche/picode/internal/presence"
@@ -30,6 +32,7 @@ import (
 	"github.com/cfpperche/picode/internal/share"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
+	"github.com/cfpperche/picode/internal/usage"
 )
 
 var dataDir string
@@ -86,6 +89,9 @@ func main() {
 	runtimes := server.NewTermRuntimes()
 	if err := seed(st, runtimes); err != nil {
 		log.Fatalf("fixture: seed: %v", err)
+	}
+	if err := seedProviders(); err != nil {
+		log.Fatalf("fixture: seed providers: %v", err)
 	}
 	runtime := rpc.NewRuntime("pi", st, nil) // never started: no real spawns
 	runtime.DataDir = dataDir
@@ -378,4 +384,91 @@ func portSuffix(addr string) string {
 		return "default"
 	}
 	return string(out)
+}
+
+// seedProviders writes the synthetic pi auth.json and Claude Code login the
+// Providers pane reads, imports two rows into the vault, and caches usage
+// reports for them — so the captures photograph the pane's real states
+// (native strip, naming note, Usage bars and a money window, the
+// not-checked row) without a vendor call. Every key, token and address is
+// invented and useless.
+func seedProviders() error {
+	home := filepath.Join(dataDir, "home")
+	// pi's own auth.json: the vault sync turns every entry into a row.
+	piAuth := map[string]any{
+		"anthropic": map[string]any{
+			"type": "oauth", "access": "fixture-anthropic-access",
+			"refresh": "fixture-anthropic-refresh", "expires": int64(4102444800),
+			"accountId": "acct-fixture-01",
+		},
+		"google":           map[string]any{"type": "api_key", "key": "AIzaSxFIXTURE0000001"},
+		"cheaperinference": map[string]any{"type": "api_key", "key": "ci_live-fixture-000000000000000000"},
+	}
+	raw, err := json.Marshal(piAuth)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(agentDir(), "auth.json"), raw, 0o600); err != nil {
+		return err
+	}
+	// Claude Code's own file: the guests' pane photographs its native strip.
+	claudeAuth := map[string]any{
+		"claudeAiOauth": map[string]any{
+			"accessToken": "fixture-claude-access", "refreshToken": "fixture-claude-refresh",
+			"expiresAt": int64(4102444800000), "subscriptionType": "max",
+		},
+	}
+	raw, err = json.Marshal(claudeAuth)
+	if err != nil {
+		return err
+	}
+	claudeDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(claudeDir, 0o700); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(claudeDir, ".credentials.json"), raw, 0o600); err != nil {
+		return err
+	}
+
+	// Two vault rows with two cached reports: one live (windows and a money
+	// balance), one healthy api_key left un-checked — the pane's honest
+	// variety on one screen.
+	vault := credentials.For(filepath.Join(home, ".picode"))
+	anthropic := json.RawMessage(`{"type":"oauth","access":"fixture-anthropic-access","refresh":"fixture-anthropic-refresh","expires":4102444800000,"accountId":"acct-fixture-01"}`)
+	row, err := vault.Import("anthropic", anthropic, "", "vault", "")
+	if err != nil {
+		return err
+	}
+	if err := vault.SetIdentity("anthropic", row.ID, "ada@example.com", "Max"); err != nil {
+		return err
+	}
+	xai := json.RawMessage(`{"type":"api_key","key":"sk-fixture-xai-0001"}`)
+	xrow, err := vault.Import("xai", xai, "", "vault", "")
+	if err != nil {
+		return err
+	}
+	// A healthy key that was never checked: the pane's honest "unknown".
+	_ = xrow
+	now := time.Now()
+	sixty := 66.0
+	fortyOne := 41.0
+	fourTen := 4.10
+	usage.Remember("anthropic", row.ID, usage.Report{
+		Provider: "anthropic", AccountLabel: "Default", AuthType: "oauth",
+		Plan: "Max", Email: "ada@example.com",
+		FetchedAt: now.UTC().Format(time.RFC3339), Status: usage.StatusOK,
+		Windows: []usage.Window{
+			{ID: "5h", Label: "5 hours", UsedPercent: &sixty},
+			{ID: "7d", Label: "Weekly", UsedPercent: &fortyOne},
+			{ID: "extra", Label: "Extra credits", Remaining: &fourTen, Unit: "USD"},
+		},
+	}, now)
+	return nil
+}
+
+// agentDir is pi's agent dir inside the fixture HOME.
+func agentDir() string {
+	d := filepath.Join(dataDir, "home", ".pi", "agent")
+	_ = os.MkdirAll(d, 0o755)
+	return d
 }

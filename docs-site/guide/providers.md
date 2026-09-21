@@ -72,6 +72,37 @@ PiCode asks you to name a second login; with a name, the next sign-in is kept
 beside it instead of on top of it. Accounts in the vault are unaffected by
 naming, and the CLI's file still holds one login at a time.
 
+## Adding a second account
+
+The pane looks like this — the bar on top, and one row per account under its
+provider:
+
+![Claude Code's Providers pane: its own login waiting to be imported, the naming note, and the vault row with Usage](../img/app-providers.png)
+
+1. **Sign in**. PiCode opens a terminal running that CLI's own login — the
+   vendor's binary, the vendor's OAuth. **Open terminal** takes you straight
+   to it.
+2. Sign in with the **other** account there. Two things trip people up:
+   - A CLI on its first run opens on its own setup (Claude Code offers a
+     theme before anything else). Finish that and you reach its prompt.
+   - A CLI that is already signed in — like Claude Code above — has **no
+     login screen**. Type `/login` (pi, Claude Code, Omp) or run the login
+     subcommand again (`codex login`, `grok login`…) and **sign out of the
+     current account in the browser first**, or use a private window —
+     otherwise the vendor approves the same account you are already using.
+3. **Check now**. PiCode reads the CLI's file: a different token becomes a
+   new row. Where the file carries no account name, PiCode asks you to name
+   the login — that name is what keeps the two apart from now on.
+4. **Use** switches the CLI between the accounts, one at a time.
+
+pi's pane adds its own doors, with Usage and 7d spend on every row:
+
+![pi's Providers pane: the grid with Usage bars, a money balance, and the Add provider door](../img/app-providers-pi.png)
+
+**Add provider** signs in through pi itself (OAuth in a window — no terminal)
+and **Custom provider** adds a gateway pi does not know. See
+[Custom provider](#custom-provider).
+
 **Use** never changes where the CLI keeps its state: no new folder, no
 `HOME`-style variable, nothing about settings, sessions or memory moves. It
 replaces one file — the CLI's own login file — and PiCode keeps a copy of what
