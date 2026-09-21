@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cfpperche/picode/internal/pipkg"
 )
 
 // listTimeout bounds one synchronous vendor call. A roster read must not hang
@@ -92,12 +94,17 @@ type Row struct {
 	// Installed separates "this CLI has it" from "it is turned on": Claude and
 	// Codex disable without uninstalling, and a marketplace catalog row is
 	// neither.
-	Installed       bool   `json:"installed"`
-	Source          string `json:"source,omitempty"`
-	SourceKind      string `json:"sourceKind,omitempty"`
-	Marketplace     string `json:"marketplace,omitempty"`
-	InstallPath     string `json:"installPath,omitempty"`
-	Status          string `json:"status,omitempty"`
+	Installed   bool   `json:"installed"`
+	Source      string `json:"source,omitempty"`
+	SourceKind  string `json:"sourceKind,omitempty"`
+	Marketplace string `json:"marketplace,omitempty"`
+	InstallPath string `json:"installPath,omitempty"`
+	Status      string `json:"status,omitempty"`
+	// Latest and UpdateAvailable are only ever set by CheckUpdates: they are a
+	// claim about the vendor's own catalog, so a row carries them only after
+	// that catalog was read and compared (never guessed from the roster).
+	Latest          string `json:"latest,omitempty"`
+	UpdateAvailable bool   `json:"updateAvailable,omitempty"`
 	Note            string `json:"note,omitempty"`
 	ManagedByPiCode bool   `json:"managedByPiCode,omitempty"`
 }
@@ -109,6 +116,10 @@ type Report struct {
 	Rows   []Row  `json:"rows"`
 	Note   string `json:"note,omitempty"`
 	ReadAt string `json:"readAt,omitempty"`
+	// CheckedAt is set when the rows went through an availability check, and
+	// stays empty for a plain roster read — the pane needs to tell "up to
+	// date" from "not asked yet".
+	CheckedAt string `json:"checkedAt,omitempty"`
 }
 
 // Caps is what the pane may offer. Every field is derived from the declaration
@@ -526,6 +537,86 @@ func markInstalled(catalog, installed []Row) {
 			catalog[i].Installed = true
 		}
 	}
+}
+
+// CheckUpdates compares what the CLI has installed with what its own catalog
+// offers, and marks the rows that are behind. Both halves come from the CLI
+// (ADRs 0150/0167: the vendor is the authority), so a CLI whose catalog cannot
+// be read reports no badge and carries the reason in the note instead of
+// claiming "up to date". A version pair the comparator cannot read is not a
+// claim either: pipkg.Newer answers false for anything that is not semver,
+// which is the honest default for a vendor that versions differently.
+//
+// The check is only offered where the CLI exposes an update verb (Caps.Update):
+// a badge the user cannot act on is noise, and ADR-0167 says a control appears
+// only where the vendor has one.
+func CheckUpdates(ctx context.Context, cli string, p Paths, scope string, fresh bool) (Report, error) {
+	s := lookup(cli)
+	if s == nil {
+		return Report{}, ErrNoDriver
+	}
+	if s.argv[VerbUpdate] == nil {
+		return Report{}, fmt.Errorf("%w: %s has no plugin update", ErrVerbAbsent, cli)
+	}
+	installed, err := List(ctx, cli, p, scope, fresh)
+	if err != nil {
+		return Report{}, err
+	}
+	catalog, err := Available(ctx, cli, p, scope)
+	if err != nil {
+		// The roster is real; the catalog is not readable. Report the roster
+		// with no badges and say why, never a silent "up to date".
+		installed.Note = "Could not read " + s.name + "'s catalog, so nothing was compared: " + firstLine(err.Error())
+		return installed, nil
+	}
+	behind := markUpdates(installed.Rows, catalog.Rows)
+	installed.Note = catalog.Note
+	_ = behind
+	installed.CheckedAt = time.Now().UTC().Format(time.RFC3339)
+	Invalidate(cli)
+	putList(listKey(cli, p, scope, false), installed.Rows, installed.Note)
+	return installed, nil
+}
+
+// markUpdates pairs each installed row with the catalog row describing the same
+// plugin and flags it when the catalog offers a newer version. Returns how many
+// rows are behind. Matching is by id first (`name@marketplace`, which Claude)
+// then by name (Grok, Hermes, Muse, Omp's npm rows).
+func markUpdates(installed, catalog []Row) int {
+	byID := map[string]Row{}
+	byName := map[string]Row{}
+	for _, c := range catalog {
+		if c.Version == "" {
+			continue
+		}
+		if c.ID != "" {
+			byID[strings.ToLower(c.ID)] = c
+		}
+		key := strings.ToLower(firstText(c.Name, c.ID))
+		if old, ok := byName[key]; !ok || pipkg.Newer(c.Version, old.Version) {
+			byName[key] = c
+		}
+	}
+	behind := 0
+	for i := range installed {
+		row := &installed[i]
+		match, ok := byID[strings.ToLower(row.ID)]
+		if !ok {
+			match, ok = byName[strings.ToLower(firstText(row.Name, row.ID))]
+		}
+		if !ok || match.Version == "" || row.Version == "" {
+			continue
+		}
+		// Latest is only ever the version behind the badge: a version PiCode
+		// cannot compare (or one that is not newer) is not a claim about what
+		// the CLI offers.
+		if pipkg.Newer(match.Version, row.Version) {
+			row.Latest = match.Version
+			row.UpdateAvailable = true
+			behind++
+		}
+	}
+	return behind
 }
 
 // Run executes one verb through the vendor binary, on the user's behalf and

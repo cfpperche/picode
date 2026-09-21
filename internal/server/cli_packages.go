@@ -31,6 +31,7 @@ func registerCLIPackageRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/cli-packages", handleCLIPackages(deps))
 	mux.HandleFunc("GET /api/cli-packages/available", handleCLIPackagesAvailable(deps))
 	mux.HandleFunc("GET /api/cli-packages/marketplaces", handleCLIPackageMarkets(deps))
+	mux.HandleFunc("GET /api/cli-packages/updates", handleCLIPackageUpdates(deps))
 	mux.HandleFunc("POST /api/cli-packages/install", handleCLIPackageJob(deps, "pkg-install"))
 	mux.HandleFunc("POST /api/cli-packages/remove", handleCLIPackageJob(deps, "pkg-remove"))
 	mux.HandleFunc("POST /api/cli-packages/update", handleCLIPackageJob(deps, "pkg-update"))
@@ -49,6 +50,9 @@ type cliPackagesView struct {
 	Rows   []clipkgs.Row     `json:"rows"`
 	Note   string            `json:"note,omitempty"`
 	ReadAt string            `json:"readAt,omitempty"`
+	// CheckedAt is set only by the availability check, which is how the pane
+	// tells "nothing is behind" from "not compared yet".
+	CheckedAt string `json:"checkedAt,omitempty"`
 }
 
 type cliPackageRequest struct {
@@ -239,13 +243,14 @@ func cliPackagesViewOf(cli string, rep clipkgs.Report) cliPackagesView {
 		rows = []clipkgs.Row{}
 	}
 	return cliPackagesView{
-		CLI:    cli,
-		Scopes: clipkgs.Scopes(cli),
-		Caps:   clipkgs.Capabilities(cli),
-		Notes:  clipkgs.Notes(cli),
-		Rows:   rows,
-		Note:   rep.Note,
-		ReadAt: rep.ReadAt,
+		CLI:       cli,
+		Scopes:    clipkgs.Scopes(cli),
+		Caps:      clipkgs.Capabilities(cli),
+		Notes:     clipkgs.Notes(cli),
+		Rows:      rows,
+		Note:      rep.Note,
+		ReadAt:    rep.ReadAt,
+		CheckedAt: rep.CheckedAt,
 	}
 }
 
@@ -290,6 +295,30 @@ func handleCLIPackagesAvailable(deps Deps) http.HandlerFunc {
 			"rows": rep.Rows,
 			"note": rep.Note,
 		})
+	}
+}
+
+// handleCLIPackageUpdates compares the CLI's installed plugins with its own
+// catalog and marks the rows that are behind (ADR-0167). It is a read: opening
+// the pane does not fetch anything, the check runs when the pane asks for it,
+// and the vendor's catalog is the only source of "latest".
+func handleCLIPackageUpdates(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		cli, scope := q.Get("cli"), q.Get("scope")
+		paths, err := cliPackagePaths(deps, cli, q.Get("workspace"), scope)
+		if err != nil {
+			writeErr(w, statusForPackageErr(err), err.Error())
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+		defer cancel()
+		rep, err := clipkgs.CheckUpdates(ctx, cli, paths, scope, q.Get("refresh") == "1")
+		if err != nil {
+			writeErr(w, statusForPackageErr(err), err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, cliPackagesViewOf(cli, rep))
 	}
 }
 

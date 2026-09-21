@@ -94,3 +94,17 @@ no auto-consent flag is ever sent.
 - **Shipping `update` with a blind button**: an action that runs without any
   availability signal is the "fabricated control" failure; the row names the
   vendor command and availability waits for a real comparison.
+
+## Amendment (2026-09-21)
+
+The Consequences above left an update badge out "until a real availability
+signal exists". That signal now exists and is the CLI's own: `GET
+/api/cli-packages/updates` compares the installed roster with the CLI's catalog
+(`clipkgs.CheckUpdates`), `pipkg.Newer` decides, and the pane offers **Update**
+only on the rows the catalog says are behind — before a check it offers the
+check itself, and a catalog that cannot be read says why instead of reporting
+everything current. A version pair the comparator cannot read is not a claim.
+Five CLIs gain the action (Claude Code, Grok, Hermes, Muse Code, Omp); Codex,
+OpenCode and Antigravity keep none, because no vendor update verb exists.
+Omp's version-only catalog supports the badge even though it cannot drive an
+Install (amendment above).

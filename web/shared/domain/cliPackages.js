@@ -148,6 +148,19 @@ export function catalogRowAction(caps, row) {
   return "none";
 }
 
+// rowUpdateState decides what an installed row offers as an update. The vendor
+// has to expose the verb (caps.update) AND its own catalog has to say something
+// newer: a blind Update button is a fabricated control (ADR-0167), so before
+// the first check the pane offers "Check for updates" instead of one button per
+// row, and a row that is current offers nothing.
+export function rowUpdateState(caps, row, checked) {
+  const c = caps || {};
+  const r = row || {};
+  if (!c.update) return "none";
+  if (r.updateAvailable) return "update";
+  return checked ? "current" : "unknown";
+}
+
 // refusalCommand reads the command a refusal carries. The server attaches it
 // (rendered by the same builder it executed) when the CLI refused and only a
 // person in a terminal can answer — Grok's `--trust`, Claude's
@@ -197,6 +210,8 @@ export function guestPackagesApi(cli, { workspaceId = "", scope = "user" } = {})
     // The CLI's own configured sources. A CLI with no source-management verb
     // answers 400, which is the contract's "it has none", not a failure.
     marketplaces: () => get("/api/cli-packages/marketplaces"),
+    // The availability check: the CLI's catalog compared with its roster.
+    updates: opts => get("/api/cli-packages/updates", opts),
     install: fields => post("/api/cli-packages/install", fields),
     remove: fields => post("/api/cli-packages/remove", fields),
     update: fields => post("/api/cli-packages/update", fields),

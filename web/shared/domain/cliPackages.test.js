@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cliPackagesHash, cliPackagesLocation, supportsCliPackages, loadPiPackagesContext, packageContextKey, GUEST_PACKAGES, usesGuestPackages, guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand } from "./cliPackages.js";
+import { cliPackagesHash, cliPackagesLocation, supportsCliPackages, loadPiPackagesContext, packageContextKey, GUEST_PACKAGES, usesGuestPackages, guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand, rowUpdateState } from "./cliPackages.js";
 import { cliLocation } from "./cliLaunch.js";
 
 test("canonical links round-trip CLI, package, scope and explicit context", () => {
@@ -195,4 +195,21 @@ test("a refusal carries the command a person has to run", () => {
   });
   assert.deepEqual(refusalCommand(new Error("plain")), { message: "plain", command: "" });
   assert.deepEqual(refusalCommand(null), { message: "", command: "" });
+});
+
+test("the availability check is one read, and refresh forces it", () => {
+  const api = guestPackagesApi("grok", { workspaceId: "w1", scope: "project" });
+  assert.equal(api.updates().path, "/api/cli-packages/updates?cli=grok&workspace=w1&scope=project");
+  assert.equal(api.updates({ refresh: true }).path, "/api/cli-packages/updates?cli=grok&workspace=w1&scope=project&refresh=1");
+});
+
+test("an Update control exists only for a row the CLI's catalog says is behind", () => {
+  const caps = { update: true };
+  assert.equal(rowUpdateState(caps, { updateAvailable: true, latest: "0.4.0" }, true), "update");
+  assert.equal(rowUpdateState(caps, { updateAvailable: false }, true), "current");
+  // Before the check nothing is claimed: the pane offers the check itself.
+  assert.equal(rowUpdateState(caps, {}, false), "unknown");
+  // A CLI with no update verb never offers one.
+  assert.equal(rowUpdateState({ update: false }, { updateAvailable: true }, true), "none");
+  assert.equal(rowUpdateState(undefined, undefined, false), "none");
 });

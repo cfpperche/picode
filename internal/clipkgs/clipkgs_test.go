@@ -1,6 +1,7 @@
 package clipkgs
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -242,5 +243,83 @@ func TestCLIListMatchesJS(t *testing.T) {
 		if id == "pi" {
 			t.Fatal("Pi keeps its own pane (ADR-0102) and must not be in this catalog")
 		}
+	}
+}
+
+// TestMarkUpdates is the comparison itself: pair by id then by name, and never
+// claim a version pair the comparator cannot read.
+func TestMarkUpdates(t *testing.T) {
+	installed := []Row{
+		{ID: "picode-spare@picode-probe-live", Name: "picode-spare", Version: "0.2.0"},
+		{ID: "grokly", Name: "grokly", Version: "1.0.0"},
+		{ID: "odd", Name: "odd", Version: "2024-05-01"},
+		{ID: "alone", Name: "alone", Version: "1.0.0"},
+	}
+	catalog := []Row{
+		{ID: "picode-spare@picode-probe-live", Name: "picode-spare", Version: "0.3.0"},
+		{ID: "grokly", Name: "grokly", Version: "1.0.0"},
+		{ID: "odd", Name: "odd", Version: "main"},
+		{ID: "other", Name: "other", Version: "9.9.9"},
+	}
+	if behind := markUpdates(installed, catalog); behind != 1 {
+		t.Fatalf("behind = %d, want exactly the one newer semver pair", behind)
+	}
+	if !installed[0].UpdateAvailable || installed[0].Latest != "0.3.0" {
+		t.Errorf("row = %+v, want the catalog's newer version named", installed[0])
+	}
+	if installed[1].UpdateAvailable || installed[1].Latest != "" {
+		t.Errorf("row = %+v, want equal versions to carry no badge and no latest", installed[1])
+	}
+	if installed[2].UpdateAvailable || installed[2].Latest != "" {
+		t.Errorf("row = %+v, want no claim about a version the comparator cannot read", installed[2])
+	}
+	if installed[3].UpdateAvailable {
+		t.Errorf("a plugin the catalog does not carry must not be marked: %+v", installed[3])
+	}
+}
+
+// TestCheckUpdatesAgainstAStubVendor covers the wiring: the roster and the
+// catalog are the CLI's own answers, and a catalog that cannot be read is a
+// note with no badges — never a silent "up to date".
+func TestCheckUpdatesAgainstAStubVendor(t *testing.T) {
+	writeStub := func(body string) {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "muse"), []byte("#!/bin/sh\n"+body), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+		Invalidate("muse")
+	}
+	const roster = `printf '%s' '{"plugins":[{"active":true,"plugin":{"id":"picode-probe","version":"0.1.0"},"record":{"id":"picode-probe","version":"0.1.0","enabled":true,"cache_path":"/tmp/c"}}]}'`
+	const catalog = `printf '%s' '{"available":[{"name":"picode-probe","version":"0.2.0","marketplace":"mp","status":"available","install":{"source":"/tmp/x"}}],"skipped":[],"warnings":[]}'`
+	writeStub(`case "$*" in *--available*) ` + catalog + ` ;; *) ` + roster + ` ;; esac`)
+
+	rep, err := CheckUpdates(context.Background(), "muse", Paths{Home: t.TempDir()}, "user", true)
+	if err != nil {
+		t.Fatalf("CheckUpdates: %v", err)
+	}
+	if len(rep.Rows) != 1 || !rep.Rows[0].UpdateAvailable || rep.Rows[0].Latest != "0.2.0" {
+		t.Fatalf("rows = %+v, want the installed row marked with the catalog's version", rep.Rows)
+	}
+	if rep.CheckedAt == "" {
+		t.Error("a check must say when it ran")
+	}
+
+	writeStub(`case "$*" in *--available*) printf '%s\n' 'marketplace read failed' >&2; exit 1 ;; *) ` + roster + ` ;; esac`)
+	rep, err = CheckUpdates(context.Background(), "muse", Paths{Home: t.TempDir()}, "user", true)
+	if err != nil {
+		t.Fatalf("a failed catalog must not fail the roster: %v", err)
+	}
+	if len(rep.Rows) != 1 || rep.Rows[0].UpdateAvailable {
+		t.Fatalf("rows = %+v, want no badge when nothing was compared", rep.Rows)
+	}
+	if !strings.Contains(rep.Note, "Could not read") {
+		t.Errorf("note = %q, want the reason no comparison happened", rep.Note)
+	}
+
+	// A CLI without an update verb refuses the check rather than inventing one.
+	if _, err := CheckUpdates(context.Background(), "codex", Paths{}, "user", true); err == nil {
+		t.Fatal("codex has no plugin update verb; the check must refuse")
 	}
 }

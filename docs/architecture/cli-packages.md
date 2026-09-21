@@ -97,6 +97,18 @@ absent for guests in v1 — an availability badge needs the vendor's catalog
 compared, and a button without that signal is a blind action; the row names the
 vendor's command instead (`docs/handoff/open/packages.md`).
 
+**Availability, and why Update is conditional.** `GET /api/cli-packages/updates`
+(`clipkgs.CheckUpdates`) compares the CLI's own roster with its own catalog and
+marks the rows the catalog publishes a newer version of; the pane runs it once
+per mount where the CLI has an update verb, and a row offers **Update** only
+there — before the check the pane offers **Check for updates** instead of one
+button per row. Versions are compared with `pipkg.Newer`, so a vendor that
+versions outside semver gets no badge rather than a wrong one, and a catalog
+that cannot be read leaves the roster unmarked with the reason in the note
+(never "everything is up to date"). Omp's version-only catalog is enough for
+the badge even though it cannot drive an Install; Codex, OpenCode and
+Antigravity have no update verb and so no Update action at all.
+
 A read that fails is never an empty list: unparsable vendor output is a 502
 carrying the CLI's own text, a missing binary is a 400, a changed file is a 409.
 `internal/clipkgs/live_test.go` exercises every driver against the real

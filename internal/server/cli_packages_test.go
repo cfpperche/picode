@@ -384,3 +384,37 @@ func TestCLIPackageJobCarriesTheCommand(t *testing.T) {
 	}
 	t.Fatal("the install job did not settle")
 }
+
+// TestCLIPackageUpdatesMarksWhatIsBehind: the badge comes from the CLI's own
+// catalog compared with its own roster, and a row is marked only when the
+// catalog offers something newer.
+func TestCLIPackageUpdatesMarksWhatIsBehind(t *testing.T) {
+	stubVendor(t, "grok", `case "$*" in
+  *--available*) printf '%s' '[{"status":"available","name":"probe","version":"0.4.0","marketplace":"mp"},{"status":"available","name":"steady","version":"1.0.0","marketplace":"mp"}]' ;;
+  *) printf '%s' '[{"status":"installed","name":"probe","version":"0.2.0","path":"/p"},{"status":"installed","name":"steady","version":"1.0.0","path":"/s"}]' ;;
+esac`)
+	ts := newTestServer(t, "cat")
+
+	v := cliRequest(t, ts, "GET", "/api/cli-packages/updates?cli=grok&scope=user&refresh=1", nil, 200)
+	if v["checkedAt"] == nil || v["checkedAt"] == "" {
+		t.Fatal("an availability check must report when it ran")
+	}
+	rows, _ := v["rows"].([]any)
+	if len(rows) != 2 {
+		t.Fatalf("rows = %v", rows)
+	}
+	byName := map[string]map[string]any{}
+	for _, raw := range rows {
+		row, _ := raw.(map[string]any)
+		byName[row["name"].(string)] = row
+	}
+	if byName["probe"]["updateAvailable"] != true || byName["probe"]["latest"] != "0.4.0" {
+		t.Fatalf("behind row = %v, want the badge and the catalog's version", byName["probe"])
+	}
+	if byName["steady"]["updateAvailable"] != nil && byName["steady"]["updateAvailable"] != false {
+		t.Fatalf("current row = %v, want no badge", byName["steady"])
+	}
+
+	// A CLI without an update verb refuses the check rather than inventing one.
+	cliRequest(t, ts, "GET", "/api/cli-packages/updates?cli=agy&scope=user", nil, 400)
+}
