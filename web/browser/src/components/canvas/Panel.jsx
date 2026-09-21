@@ -135,6 +135,7 @@ const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, ma
             onAttachClose={handlers.onAttachClose}
             find={handlers.findFor?.(model)}
             onFindClose={handlers.onFindClose}
+            onPasteFiles={handlers.onPasteFiles}
             onDirty={(dirty) => handlers.onDirty(model, dirty)}
             onSaveText={(text) => handlers.onSaveText(model, text)}
           />

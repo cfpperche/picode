@@ -2471,6 +2471,15 @@ export default function App({ shellChrome = false } = {}) {
       files: plan.mode === "file" ? [new File([plan.body], plan.name, { type: "text/plain" })] : [],
     });
   }
+  // A files-paste (screenshot, artifact) on a terminal pane opens the same
+  // bar the Attach menu does, seeded with the pasted files — the message
+  // stays empty and focused, the prompt-door check already happened in
+  // TermSurface, and a bar already open for this pane keeps its text while
+  // the new files stage alongside (the seed token re-runs addFiles).
+  function openTermAttachFiles(id, files) {
+    if (!id || !files || !files.length) return;
+    setTermAttach({ id, token: String(Date.now()), text: "", files: [...files] });
+  }
 
   function openTermHandoff(term, target) {
     const session = sessionFromTerminal(term);
@@ -3591,6 +3600,7 @@ export default function App({ shellChrome = false } = {}) {
                 onAttachClose={() => setTermAttach(null)}
                 find={termFind === tid}
                 onFindClose={() => { setTermFind(""); focusPane(tid); }}
+                onPasteFiles={openTermAttachFiles}
               />
             );
           })}
@@ -3710,6 +3720,7 @@ export default function App({ shellChrome = false } = {}) {
                       termFind,
                       onFindClose: (id) => { setTermFind(""); focusPane(id); },
                       onAttachClose: () => setTermAttach(null),
+                      onPasteFiles: (id, files) => openTermAttachFiles(id, files),
                       // The app says what it has in focus; the host decides
                       // what follows from that (ADR-0109, amendment
                       // 2026-09-12). An app never names the Inspector.
@@ -4018,6 +4029,7 @@ export default function App({ shellChrome = false } = {}) {
                     onAttachClose={() => setTermAttach(null)}
                     find={termFind === termId}
                     onFindClose={() => { setTermFind(""); focusPane(termId); }}
+                    onPasteFiles={openTermAttachFiles}
                   />
                 );
               })()

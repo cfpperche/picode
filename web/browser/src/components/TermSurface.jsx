@@ -8,6 +8,8 @@ import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { absTime, relTime } from "@picode/shared/domain/relTime.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { terms } from "../lib/terms.js";
+import { toast } from "../lib/toast.js";
+import { clipboardFiles, termHasPromptDoor } from "@picode/shared/domain/termPrompt.js";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -66,7 +68,7 @@ function TermWindow({ title, titleFull, children }) {
 
 // autoFocus (default true): the visible pane takes the keyboard. The Canvas
 // passes false for every panel but the focused one (ShellTerm).
-export default function TermSurface({ term, error, hidden, autoFocus = true, onOpenFile, onOpenLink, cwdKind, tabId, attach, onAttachClose, find, onFindClose }) {
+export default function TermSurface({ term, error, hidden, autoFocus = true, onOpenFile, onOpenLink, cwdKind, tabId, attach, onAttachClose, onPasteFiles, find, onFindClose }) {
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState("");
   // The message bar takes height from the pane; tmux hears about it in the
@@ -96,6 +98,24 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
     else if (e.key === "-") { e.preventDefault(); bumpTermFontSize(-1); }
     else if (e.key === "0") { e.preventDefault(); bumpTermFontSize(0); }
   }
+  function onPasteCapture(e) {
+    // Files-pasted (Ctrl+V and Ctrl+Shift+V both arrive as a paste event):
+    // screenshots and artifacts skip the terminal and open the attach bar
+    // seeded with them — text and empty pastes fall through to xterm
+    // untouched. Capture phase: xterm's own textarea listener (target
+    // phase) must never see a files-paste, or it would write the stray
+    // text around it as well.
+    const files = clipboardFiles(e.clipboardData);
+    if (!files.length || !term) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!termHasPromptDoor(term)) {
+      toast.error("Attach is for Agent CLI terminals.");
+      return;
+    }
+    if (onPasteFiles) onPasteFiles(term.id, files);
+  }
+
   const last = (term && term.lastSession) || null;
   const cli = term && term.launchCli ? terminalCliLabel(term.launchCli) : "";
   const session = last ? oneLine(last.name) || oneLine(last.preview) : "";
@@ -112,7 +132,7 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
   // the ground off the terminal's own (see .term-surface.is-empty).
   const empty = !!(error || (term && term.launchCli && !term.running));
   return (
-    <section className={"term-surface" + (empty ? " is-empty" : "")} hidden={!!hidden} aria-label={term ? term.name : "Terminal"} onKeyDown={onKey}>
+    <section className={"term-surface" + (empty ? " is-empty" : "")} hidden={!!hidden} aria-label={term ? term.name : "Terminal"} onKeyDown={onKey} onPasteCapture={onPasteCapture}>
       {error ? (
         <TermWindow title="Terminal">
           <TermMessage tone="warn" icon={<IconWarn size={18} />} head={error}>

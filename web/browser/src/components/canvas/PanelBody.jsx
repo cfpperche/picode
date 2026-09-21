@@ -38,7 +38,7 @@ function Line({ text, action, onAction, primary = false }) {
 // socket. Re-exported here because this is where the components already ask.
 export { hasChat, hasPane };
 
-export default function PanelBody({ model, loaded, body = "live", hidden, focused, onOpen, onRemove, onRun, onOpenFile, attach, onAttachClose, find, onFindClose, onDirty, onSaveText }) {
+export default function PanelBody({ model, loaded, body = "live", hidden, focused, onOpen, onRemove, onRun, onOpenFile, attach, onAttachClose, onPasteFiles, find, onFindClose, onDirty, onSaveText }) {
   switch (model.state) {
     case "terminal-gone": return <Line text="That terminal is gone." action="Remove" onAction={onRemove} />;
     case "agent-gone": return <Line text="That agent is gone." action="Remove" onAction={onRemove} />;
@@ -104,8 +104,8 @@ export default function PanelBody({ model, loaded, body = "live", hidden, focuse
       onOpenFile={onOpenFile}
       attach={attach}
       onAttachClose={onAttachClose}
+      onPasteFiles={onPasteFiles}
       find={find}
-      onFindClose={onFindClose}
       placeholder={placeholder}
     />
   );

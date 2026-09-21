@@ -20,7 +20,7 @@ import { resolveInteractiveTerminal } from "../../lib/agentTerminalView.js";
 // the server answers.
 const liveRecords = new Map();
 
-const TerminalPanel = memo(function TerminalPanel({ kind, target, terminals, cwd, hidden, focused, owned, onOpenFile, attach, onAttachClose, find, onFindClose, placeholder }) {
+const TerminalPanel = memo(function TerminalPanel({ kind, target, terminals, cwd, hidden, focused, owned, onOpenFile, attach, onAttachClose, onPasteFiles, find, onFindClose, placeholder }) {
   const resolved = kind === "agent" ? resolveInteractiveTerminal(target, terminals, cwd) : null;
   const id = kind === "agent" ? resolved?.id : target.id;
   const [live, setLive] = useState(() => liveRecords.get(id) || null);
@@ -72,8 +72,8 @@ const TerminalPanel = memo(function TerminalPanel({ kind, target, terminals, cwd
       onOpenFile={onOpenFile}
       attach={attach}
       onAttachClose={onAttachClose}
+      onPasteFiles={onPasteFiles}
       find={find}
-      onFindClose={() => onFindClose?.(id)}
     />
   );
 });
