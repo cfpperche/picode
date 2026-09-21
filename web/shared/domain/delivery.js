@@ -8,9 +8,24 @@ export function deliveryReason(c) {
   if (c.validation === "needs-recheck") return "These checks do not cover the current change and target.";
   if (c.validation === "scope-reusable") return "Prior scoped evidence is not confirmation of the current project's checks.";
   if (c.review === "other-target") return "The review request names another target branch.";
-  if (c.review === "requested") return "Review requested by the agent; approval is not recorded.";
+  if (c.review === "requested") return "An agent requested review; human approval is not recorded.";
   if (c.sourceStatus === "removed") return "The branch is gone; this record retains its revision.";
-  return "Review and queue approval have not been recorded.";
+  if (c.integration === "integrated") return "Included in the target branch. Publication is not shown here.";
+  return "No review request was recorded.";
+}
+export function integrationExplanation(state) {
+  if (state === "integrated") return "Included in the selected target branch.";
+  if (state === "not-integrated") return "The selected target does not include this change yet.";
+  if (state === "update-needed") return "The change and target moved independently; inspect before integrating.";
+  return "PiCode could not confirm whether the target includes this change.";
+}
+export function validationExplanation(state) {
+  if (state === "passed") return "A clean full-project check covers the selected revision.";
+  if (state === "scoped-passed") return "Relevant checks passed; this is not a full-project result.";
+  if (state === "scope-reusable") return "Earlier relevant checks may apply, but current checks are not confirmed.";
+  if (state === "needs-recheck") return "The recorded checks no longer cover the current change or target.";
+  if (state === "failed") return "A recorded check failed for this revision.";
+  return "No check evidence was found for this revision.";
 }
 export function attention(c) { return c.integration !== "integrated" || c.validation === "failed" || c.validation === "unknown"; }
 export function deliveryRows(rows = [], filter = "all") {
