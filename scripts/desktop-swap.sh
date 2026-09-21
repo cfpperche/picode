@@ -87,6 +87,33 @@ try {
 PS
 fi
 
+# The task's scheduler state lies in both directions across locales (a
+# "Running" status with a refusal Last Result is normal under IgnoreNew), so
+# probe the thing that actually holds the VM: a live `wsl.exe … sleep
+# infinity` process. Without it, the taskkill below is the documented way to
+# lose the whole distro to WSL's idle reclaim 31 s later (2026-09-18) — and
+# on 2026-09-21 the VM died with all 21 sessions while builds raced deploys.
+# Refuse instead; SWAP_FORCE=1 is the deliberate one-off.
+keepalive_alive() {
+  /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -Command \
+    "@(Get-CimInstance Win32_Process -Filter \"name='wsl.exe'\" | Where-Object { \$_.CommandLine -match 'sleep infinity' }).Count" \
+    2>/dev/null | tr -d '\r' | grep -qv '^0$'
+}
+echo "Verifying the distro keepalive is alive (a live wsl.exe sleep-infinity process)…"
+if [[ -n "$dry" ]]; then
+  echo "  [dry-run] probe: Get-CimInstance wsl.exe CommandLine -match 'sleep infinity'"
+else
+  if ! keepalive_alive; then
+    echo "desktop-swap: keepalive not running — starting the PiCodeDistro task and re-probing…" >&2
+    /mnt/c/Windows/System32/schtasks.exe /run /tn PiCodeDistro >/dev/null 2>&1 || true
+    sleep 2
+  fi
+  if ! keepalive_alive && [[ ${SWAP_FORCE:-} != "1" ]]; then
+    echo "desktop-swap: REFUSING — no live 'wsl.exe … sleep infinity' keepalive, and killing the shell in that state is how the whole distro (every agent, terminal and session) is lost to WSL's idle reclaim. Fix the PiCodeDistro task, or re-run with SWAP_FORCE=1 to accept that cost." >&2
+    exit 1
+  fi
+fi
+
 echo "Stopping the tray if it is running…"
 stop_exe picode-desktop.exe
 if [[ $shell_running == true ]]; then
@@ -140,4 +167,17 @@ if [[ $shell_running == true && $resident != "shell" ]]; then
     exit 1
   fi
 fi
-echo "Done. Server health: curl -sk https://localhost:8445/api/health"
+# The verdict the caller can trust — the 2026-09-21 incident ended a turn
+# with mutation jobs "still running" that nobody ever checked. Bounded, and
+# informational on purpose: the daemon may legitimately be provisioning, and
+# the swap itself never required it to be up.
+health=""
+for _ in $(seq 1 15); do
+  if curl -sk --max-time 2 https://localhost:8445/api/health >/dev/null 2>&1; then health="ok"; break; fi
+  sleep 2
+done
+if [[ $health == "ok" ]]; then
+  echo "Done. Daemon healthy at https://localhost:8445/api/health."
+else
+  echo "desktop-swap: daemon not answering /api/health after 30s — the shell may sit on its offline page until it does (check: curl -sk https://localhost:8445/api/health)" >&2
+fi
