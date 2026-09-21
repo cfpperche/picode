@@ -3285,6 +3285,213 @@
         ]
       }
     },
+    "/api/cli-packages": {
+      "get": {
+        "operationId": "getApiCli-packages",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
+    "/api/cli-packages/available": {
+      "get": {
+        "operationId": "getApiCli-packagesAvailable",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
+    "/api/cli-packages/inspect": {
+      "post": {
+        "operationId": "postApiCli-packagesInspect",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
+    "/api/cli-packages/install": {
+      "post": {
+        "operationId": "postApiCli-packagesInstall",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
+    "/api/cli-packages/marketplace": {
+      "post": {
+        "operationId": "postApiCli-packagesMarketplace",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
+    "/api/cli-packages/marketplaces": {
+      "get": {
+        "operationId": "getApiCli-packagesMarketplaces",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
+    "/api/cli-packages/remove": {
+      "post": {
+        "operationId": "postApiCli-packagesRemove",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
+    "/api/cli-packages/toggle": {
+      "post": {
+        "operationId": "postApiCli-packagesToggle",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
+    "/api/cli-packages/update": {
+      "post": {
+        "operationId": "postApiCli-packagesUpdate",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-packages"
+        ]
+      }
+    },
     "/api/cli-settings": {
       "get": {
         "operationId": "getApiCli-settings",
@@ -10812,6 +11019,9 @@
     },
     {
       "name": "cli-memory"
+    },
+    {
+      "name": "cli-packages"
     },
     {
       "name": "cli-settings"

@@ -46,8 +46,9 @@ has no desktop sidebar or Pin Studio. ADR-0095 adds mobile-owned Files and Git
 tools, one full-screen view at a time. The Inspector (ADR-0078's rail
 re-shaped for the phone) is one pushed screen per owner — Changes
 (folder-grouped sums, the `All | This agent` session scope, multi-worktree
-following), Files and PR — and, on the agent screen, a header toggle opens
-it as a right drawer over the conversation (Back or the overlay returns to
+following), Files and PR — and, on the agent screen (chat and terminal
+views) and the terminal screen, a header toggle opens
+it as a right drawer over the content (Back or the overlay returns to
 the agent); the change-shape logic is shared in
 `@picode/shared/domain/inspector.js`, and the legacy `#/changes` screen
 parses onto it. Its dialogs
@@ -141,7 +142,7 @@ remain `#/term/<id>`. Changing a view never starts a second writer.
 | `#/clis/<cli>/providers` | Native providers pane | Pi: catalog + signed-in state; Sign in; search; **custom provider definitions** (ADR-0129); **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break. `#/clis/<cli>/providers/new` opens Add provider; `#/clis/<cli>/providers/custom[/<id>]` opens the Custom provider page (new / Edit). Old `#/clis/providers*` and `#/providers*` rewrite here. Non-Pi CLIs stay blocked (ADR-0103). |
 | `#/clis/<cli>/connectors` | Pi MCP connectors | adapter manager on the selected CLI: list / add / toggle / remove / **Use from…**. `#/integrations`, `#/integrations/connectors` and `#/mcps` rewrite here. |
 | `#/integrations/webhooks` | Webhooks (ADR-0075) | signed durable event delivery, tests, pause, removal and secret rotation. PiCode surface, not a CLI pane. |
-| `#/clis/<cli>/packages` | Native CLI packages (Pi first) | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). **Configure** → `#/clis/<cli>/packages/config/<pkg>`. Old `#/clis/packages/pi*` rewrite. |
+| `#/clis/<cli>/packages` | Native CLI packages (Pi and the eight guest CLIs, ADR-0167) | Pi: machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010) with **Configure** → `#/clis/<cli>/packages/config/<pkg>`. Guests: the CLI's own scopes, plugin verbs and marketplace, never an agent scope; a verb the CLI lacks reads as one line instead of a control. Old `#/clis/packages/pi*` rewrite. |
 | `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line (every rule), 30-day runs sparkline, last run, Run now; `#/automations/new` editor (a list of schedules, each presets → cron + label + switch in the browser's zone; webhook, limits); `#/automations/<id>` detail + runs table naming the rule that fired. Polled every 15 s while visible. |
 | `#/snippets` | Snippets (ADR-0130) | host library of reusable prompts and commands. List + search + star/archive; `#/snippets/new` and `#/snippets/<id>` editor. Composer `/snip:` and palette **Send snippet** expand into the focused managed agent; terminal menus **Send to terminal…** (CLI panes) and **Run command…** (shells, one confirm that shows the exact command). |
 | `#/devices` | Devices (ADR-0043 + ADR-0049) | one surface for identity and liveness: paired sessions (Forget, Forget offline in one confirmed click, Pair a device with QR/link) with an online dot from the presence ping, which carries the session it came from; unpaired-but-online entries appear only in mode `off`. Access rules and the install token are in Preferences → Server. Auto-minted loopback browser sessions are ephemeral: the housekeeping sweep revokes a row once no authenticated request has refreshed it for 10 minutes, so closed headless-QA browsers leave without a manual Forget (ADR-0049 amendment 2026-09-06). |
@@ -233,9 +234,11 @@ caption plus `@path` into `picode-sh-<id>`. Proof is tmux accept ("Sent
 to the terminal"), not model delivery. Inspector type/run/Ask still must
 not target a CLI TUI (ADR-0078). Plain shells have no attach bar.
 Pasting files (Ctrl+V / Ctrl+Shift+V with screenshots or files on the
-clipboard) opens the same bar seeded with the staged files, and any
-accompanying text becomes the message; text-only pastes keep the native
-paste. The
+clipboard, or the PiCode menu's Paste row) opens the same bar seeded with
+the staged files, and any accompanying text becomes the message;
+text-only pastes keep the native paste. The keydown re-reads the clipboard
+and fires an equivalent paste event, because stopping xterm's ^V also stops
+the browser's own. The
 staging folder stays inside the project deliberately — the CLI reads the
 path itself, confined to its own cwd — but is never global-data material
 and never touches the project's own tracked `.gitignore`: a nested,

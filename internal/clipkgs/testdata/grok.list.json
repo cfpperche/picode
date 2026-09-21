@@ -1,0 +1,20 @@
+[
+  {
+    "status": "installed",
+    "name": "picode-probe",
+    "repo_key": "grok2-288ee1fa",
+    "version": "0.1.0",
+    "path": "/tmp/clipkgs-live-sb/.grok/installed-plugins/grok2-288ee1fa",
+    "source": "/tmp/clipkgs-bundles/grok2",
+    "marketplace": null
+  },
+  {
+    "status": "installed",
+    "name": "mp-probe",
+    "repo_key": "mp-probe-34daebcc",
+    "version": "0.2.0",
+    "path": "/tmp/clipkgs-live-sb/.grok/installed-plugins/mp-probe-34daebcc",
+    "source": "/tmp/clipkgs-bundles/grok-mp2/plugins/mp-probe",
+    "marketplace": "grok-mp2"
+  }
+]

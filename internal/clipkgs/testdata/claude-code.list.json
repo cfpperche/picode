@@ -1,0 +1,35 @@
+[
+  {
+    "id": "rust-analyzer-lsp@claude-plugins-official",
+    "version": "1.0.0",
+    "scope": "user",
+    "enabled": false,
+    "installPath": "/home/goat/.claude/plugins/cache/claude-plugins-official/rust-analyzer-lsp/1.0.0",
+    "installedAt": "2026-03-22T17:57:47.391Z",
+    "lastUpdated": "2026-03-22T17:57:47.391Z"
+  },
+  {
+    "id": "rust-analyzer-lsp@claude-plugins-official",
+    "version": "1.0.0",
+    "scope": "local",
+    "enabled": false,
+    "installPath": "/home/goat/.claude/plugins/cache/claude-plugins-official/rust-analyzer-lsp/1.0.0",
+    "installedAt": "2026-08-18T00:29:17.715Z",
+    "lastUpdated": "2026-08-18T00:29:17.715Z",
+    "projectPath": "/home/goat"
+  },
+  {
+    "id": "cowork-plugin-management@synced",
+    "version": "0.2.2",
+    "scope": "synced",
+    "enabled": true,
+    "installPath": "/home/goat/.claude/plugins/synced/44fcc8c0-fb4c-40b6-96e9-da7d4b05cadf_0ff21c73-f230-4a90-a166-2630c24db15e/cowork-plugin-management"
+  },
+  {
+    "id": "engineering@synced",
+    "version": "1.2.0",
+    "scope": "synced",
+    "enabled": true,
+    "installPath": "/home/goat/.claude/plugins/synced/44fcc8c0-fb4c-40b6-96e9-da7d4b05cadf_0ff21c73-f230-4a90-a166-2630c24db15e/engineering"
+  }
+]

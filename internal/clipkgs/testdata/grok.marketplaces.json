@@ -1,0 +1,23 @@
+[
+  {
+    "name": "grok-mp-empty",
+    "kind": "local",
+    "source": {
+      "path": "/tmp/clipkgs-bundles/grok-mp-empty"
+    }
+  },
+  {
+    "name": "grok-mp",
+    "kind": "local",
+    "source": {
+      "path": "/tmp/clipkgs-bundles/grok-mp"
+    }
+  },
+  {
+    "name": "grok-mp2",
+    "kind": "local",
+    "source": {
+      "path": "/tmp/clipkgs-bundles/grok-mp2"
+    }
+  }
+]

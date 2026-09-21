@@ -12,3 +12,12 @@
 - [x] Live status ceiling (ADR-0150 decision 4): opencode, hermes and claude expose headless signals.
   Paid 2026-09-19 (feat/connectors-status-parity): claude reuses its list health tails (✓/✘), opencode parses `mcp list` state glyphs, hermes its status column; probes run per pane load (15s budget, 60s cache, skip on hung/missing CLI). Codex/Grok/AGY/Muse/Omp keep the honest "configured" ceiling — no headless health (grok `mcp doctor` is a possible future signal).
 - [ ] Omp/Agy/Grok TUI sign-in paths (omp `/mcp reauth`, agy Agent Settings, grok first-use) are hint copy only — verifying them requires interactive TUIs. Owner check when next inside each TUI.
+- [ ] **OpenCode's project layer may miss `.opencode/opencode.json`.** Measured
+  by `internal/clipkgs`' live harness 2026-09-20: `opencode plugin <module>`
+  with no `-g` writes `<cwd>/.opencode/opencode.json`, and `opencode debug
+  config` lists it as a plugin origin (scope "local"). `OpenCodeConfigFiles`
+  names only `<cwd>/opencode.json[.c]` and `~/.config/opencode/`, so the MCP
+  project layer may hide a server written there by the vendor's own command.
+  `internal/clipkgs` reads that location for plugins (its own candidate list);
+  the MCP driver was not re-measured — check whether `opencode mcp add` writes
+  it too before adding it to the shared rule.

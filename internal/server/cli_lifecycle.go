@@ -378,7 +378,7 @@ func handleCLILifecycle(deps Deps) http.HandlerFunc {
 			writeErr(w, 400, fmt.Sprintf("Type %q to confirm uninstalling %s.", cli.Name, cli.Name))
 			return
 		}
-		j, err := deps.CLIJobs.Start(cli.ID, v.Action, v.RequestKey, v.ConfirmTerminals)
+		j, err := deps.CLIJobs.Start(cli.ID, v.Action, v.RequestKey, "", v.ConfirmTerminals)
 		if err != nil {
 			switch {
 			case errors.Is(err, store.ErrCLILifecycleConflict), errors.Is(err, clijob.ErrTerminalsRunning):
@@ -393,7 +393,10 @@ func handleCLILifecycle(deps Deps) http.HandlerFunc {
 }
 
 // resolveLifecycleByID adapts string IDs from the job service wiring.
-func resolveLifecycleByID(deps Deps, cliID, action string) (clijob.Exec, error) {
+func resolveLifecycleByID(deps Deps, cliID, action, payload string) (clijob.Exec, error) {
+	if isPackageAction(action) {
+		return resolvePackageJob(cliID, action, payload)
+	}
 	cli, ok := clilaunch.Find(cliID)
 	if !ok {
 		return clijob.Exec{}, fmt.Errorf("Unknown CLI.")

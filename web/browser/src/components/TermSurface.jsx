@@ -10,7 +10,6 @@ import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { terms } from "../lib/terms.js";
 import { toast } from "../lib/toast.js";
 import { clipboardFiles, clipboardText } from "@picode/shared/domain/termPrompt.js";
-import { suppressKeyPasteFor } from "@picode/shared/domain/termPasteClaim.js";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -100,14 +99,15 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
     else if (e.key === "0") { e.preventDefault(); bumpTermFontSize(0); }
   }
   function onPasteCapture(e) {
-    // Files-pasted (Ctrl+V and Ctrl+Shift+V both arrive as a paste event):
-    // screenshots and artifacts skip the terminal and open the attach bar
-    // seeded with them — text and empty pastes fall through to xterm
-    // untouched. Capture phase: xterm's own textarea listener (target
-    // phase) must never see a files-paste, or it would write the stray
-    // text around it as well. Accompanying text seeds the message (its
-    // keydown twin is claimed away below), and the door verdict belongs to
-    // the owner — this pane only answers the prop.
+    // Files-pasted (Ctrl+V and Ctrl+Shift+V both arrive as a paste event,
+    // including the synthetic one the keydown re-dispatches after killing
+    // the browser's own): screenshots and artifacts skip the terminal and
+    // open the attach bar seeded with them — text and empty pastes fall
+    // through to xterm untouched. Capture phase: xterm's own textarea
+    // listener (target phase) must never see a files-paste, or it would
+    // write the stray text around it as well. Accompanying text seeds the
+    // message, and the door verdict belongs to the owner — this pane only
+    // answers the prop.
     const files = clipboardFiles(e.clipboardData);
     if (!files.length || !term) return;
     e.preventDefault();
@@ -116,7 +116,6 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
       toast.error("Attach is for Agent CLI terminals.");
       return;
     }
-    suppressKeyPasteFor(e.target);
     if (onPasteFiles) onPasteFiles(term.id, files, clipboardText(e.clipboardData));
   }
 
