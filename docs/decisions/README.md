@@ -174,3 +174,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0167](0167-packages-for-every-cli.md) | Native packages for every agent CLI | accepted |
 | [0168](0168-credential-signin-and-identity.md) | The guided sign-in runs the CLI's own login (terminal, vendor binary, its client id), and a vault row is named by the store or by the person — never by a network answer — with `Store.Adopt` re-keying the live row instead of copying it | accepted, amends 0165 and 0166 |
 | [0169](0169-unified-providers-surface.md) | One providers surface for every agent CLI — the vault pane serves pi too (its editor is deleted), the roster carries per-row `usage` from the cache and 7d spend from session stats, and the per-CLI doors (Add provider + custom endpoints for pi, Sign in + native import for guests) stay where they can work | accepted, amends 0103 and 0165 |
+| [0170](0170-delivery-observation-contract.md) | Observe delivery through revision-bound evidence | proposed |

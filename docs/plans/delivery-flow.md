@@ -1,7 +1,7 @@
 # Delivery flow — execution baseline
 
 Status: scope and sequence fixed for planning on 2026-09-21 at the owner's
-request after the benchmark study. Implementation has not started. This records
+request after the benchmark study. D0 design is complete; product implementation has not started. This records
 an execution baseline, not authorization to change accepted ADRs or deploy.
 
 Evidence: [delivery-governance study](../benchmarks/2026-09-21-delivery-governance.md).
@@ -53,19 +53,21 @@ An environment with no configured observer says unconfigured, not undeployed.
 ## Execution slices and exit criteria
 
 Each implementation slice uses a new branch/session and the normal repository
-rite. Check off a slice only with linked evidence; no implementation is checked
-here.
+rite. Check off a slice only with linked evidence. D0 receipts: [inventory](delivery-flow-evidence.md),
+[surface contract](delivery-flow-design.md), and [proposed ADR-0170](../decisions/0170-delivery-observation-contract.md).
 
 ### D0 — Inventory and design contract
 
-- [ ] Trace existing Git/worktree readers, gate stamps, session attribution,
+- [x] Trace existing Git/worktree readers, gate stamps, session attribution,
   deploy readiness, deploy records, version/health evidence and event feed.
-- [ ] Produce a source-to-state matrix with ownership, freshness, failure modes
-  and unsupported cases. Measure the baseline terminal lookups and wait times.
-- [ ] Choose the host surface using existing Git/workspace conventions, inspect
+- [x] Produce a source-to-state matrix with ownership, freshness, failure modes
+  and unsupported cases. Seven source lookups were timed; actual queue wait has no
+  recorded start and remains unavailable (see inventory).
+- [x] Choose the host surface using existing Git/workspace conventions, inspect
   desktop/mobile empty/blocked/error states, and specify navigation before UI work.
-- [ ] Identify required protocol, persistence, security and process boundaries;
-  draft applicable ADRs and obtain owner decisions before crossing them.
+- [x] Identify required protocol, persistence, security and process boundaries;
+  draft applicable ADRs. ADR-0170 is proposed; obtain the owner decision before
+  crossing its boundaries in D1/D2. D0 crosses none of them.
 
 Exit: every displayed fact has a source and unknown behavior; an implementation
 contract and decision table exist. No new execution authority is introduced.
@@ -175,5 +177,6 @@ architecture docs, public help, changelog and handoff together. Deployment alway
 remains a separately authorized owner operation.
 
 Any expansion or reordering is recorded here with its reason and owner decision.
-The next task is D0 only, in a fresh session. This documentation session implements
-none of D0–D5 and performs no deployment.
+D0 is documented in the linked inventory and surface contract. The next task is
+D1, after the owner decision on proposed ADR-0170, in a fresh session. D1–D5 are
+not implemented; D0 changed documentation only and performed no deployment.

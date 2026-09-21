@@ -58,7 +58,7 @@ it — plus the five actions that belong to a CLI whose login is its own file:
 
 | Action | What it does |
 |---|---|
-| **Sign in** | opens a terminal running that CLI's own login (its binary, its browser or device-code flow). Finish it there, press **Check now**, and the account appears above |
+| **Sign in** | opens a terminal running that CLI's own login (its binary, its browser or device-code flow). **Open terminal** takes you straight to it; finish the login there, press **Check now**, and the account appears above |
 | **Import** | reads the login that CLI already has on this machine and stores a copy in the vault. The CLI's own file is never changed, and nothing is activated by importing |
 | **Add API key** | stores a key for a provider this CLI can use |
 | **Verify** | spends exactly one listing call to the provider with the stored key — the button says so — and remembers the answer with its age |

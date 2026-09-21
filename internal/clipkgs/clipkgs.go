@@ -314,7 +314,22 @@ func Notes(cli string) map[string]string {
 	return out
 }
 
+// normalizedScope resolves a scope for the read paths. The empty scope means the
+// machine's, and the vendors' parsers filter rows by that word: asking Claude
+// Code's roster with "" dropped every row it has, because its rows say "user"
+// (measured 2026-09-21 against a stub vendor — the web client omits the query
+// parameter for the default scope, so production hit exactly this).
+func (s *spec) normalizedScope(scope string) (string, error) {
+	sc, err := s.scope(scope)
+	if err != nil {
+		return "", err
+	}
+	return sc.ID, nil
+}
+
 // ValidateScope refuses a scope that is not this CLI's, by name and before any
+// path resolution: a link carrying `?scope=agent` must never edit a machine
+// file instead (ADR-0163's rule, applied here). that is not this CLI's, by name and before any
 // path resolution: a link carrying `?scope=agent` must never edit a machine
 // file instead (ADR-0163's rule, applied here).
 func ValidateScope(cli, scope string) error {
@@ -464,9 +479,11 @@ func List(ctx context.Context, cli string, p Paths, scope string, fresh bool) (R
 	if s == nil {
 		return Report{}, ErrNoDriver
 	}
-	if _, err := s.scope(scope); err != nil {
+	resolved, err := s.normalizedScope(scope)
+	if err != nil {
 		return Report{}, err
 	}
+	scope = resolved
 	if s.roster == nil {
 		return Report{}, ErrVerbAbsent
 	}
@@ -499,9 +516,11 @@ func Available(ctx context.Context, cli string, p Paths, scope string) (Report, 
 	if s.roster == nil || !s.available {
 		return Report{}, fmt.Errorf("%w: %s has no marketplace PiCode can list", ErrVerbAbsent, cli)
 	}
-	if _, err := s.scope(scope); err != nil {
+	resolved, err := s.normalizedScope(scope)
+	if err != nil {
 		return Report{}, err
 	}
+	scope = resolved
 	ctx, cancel := context.WithTimeout(ctx, listTimeout)
 	defer cancel()
 	key := listKey(cli, p, scope, true)
@@ -558,6 +577,12 @@ func CheckUpdates(ctx context.Context, cli string, p Paths, scope string, fresh 
 	if s.argv[VerbUpdate] == nil {
 		return Report{}, fmt.Errorf("%w: %s has no plugin update", ErrVerbAbsent, cli)
 	}
+	resolved, err := s.normalizedScope(scope)
+	if err != nil {
+		return Report{}, err
+	}
+	// Both halves and the cache key below read the same resolved scope.
+	scope = resolved
 	installed, err := List(ctx, cli, p, scope, fresh)
 	if err != nil {
 		return Report{}, err

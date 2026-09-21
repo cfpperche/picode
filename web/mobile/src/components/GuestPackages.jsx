@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "./MobileSheet.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
-import { guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand, rowUpdateState } from "@picode/shared/domain/cliPackages.js";
+import { guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand, rowUpdateState, matchParts, groupInstalledRows } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast } from "../lib/toast.js";
@@ -37,6 +37,61 @@ const acceptedJob = res => (res && !Array.isArray(res.rows) && res.cli && res.st
 const keyOf = row => String((row && (row.id || row.name || row.source)) || "");
 const newKey = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random());
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: body == null ? undefined : JSON.stringify(body) });
+
+// Highlight shows *why* a card survived the filter: the matched run in the
+// accent colour, the rest untouched. Backed by matchParts, so the needle is a
+// string and not a pattern.
+function Highlight({ text, needle }) {
+  const parts = matchParts(text, needle);
+  // A name the filter matches whole is still one part: mark on any hit, and keep
+  // the plain string (no `<mark>`) only when nothing matched at all.
+  if (!parts.some(part => part.hit)) return parts[0].text;
+  return <>{parts.map((part, index) => (part.hit ? <mark key={index} className="pkg-mark">{part.text}</mark> : part.text))}</>;
+}
+
+// PluginGrid is one card per plugin: the head (name + version + the catalog's
+// newer version), the vendor's description, the facts line, and the actions on a
+// footer the grid aligns across a row.
+function PluginGrid({ rows, needle, guard, caps, busy, checkedAt, rowError, keyOf, verbFor, toggle, update, openInspect, remove }) {
+  return (
+    <ul className="gpkg-grid" role="tabpanel" aria-busy={guard ? "true" : undefined}>
+      {rows.map(row => (
+        <li key={keyOf(row)} className={"gpkg-card" + (row.enabled === false ? " is-off" : "")}>
+          <div className="gpkg-card-head">
+            <span className="gpkg-card-name" title={row.source || row.name || row.id}><Highlight text={row.name || row.id} needle={needle} /></span>
+            {row.version ? <span className="pkg-type">{row.version}</span> : null}
+            {row.updateAvailable && row.latest ? <span className="pkg-type is-update" title={"The CLI's catalog offers " + row.latest}>{"\u2192 " + row.latest}</span> : null}
+          </div>
+          {row.description ? <p className="gpkg-card-desc" title={row.description}><Highlight text={row.description} needle={needle} /></p> : null}
+          {row.note ? <p className="gpkg-row-note" title={row.note}>{row.note}</p> : null}
+          <div className="gpkg-card-meta">
+            {row.scope ? <span className="pkg-type">{row.scope}</span> : null}
+            {row.status ? <span className="gpkg-status">{row.status}</span> : null}
+            {row.managedByPiCode ? <span className="is-picode">Installed by PiCode</span> : null}
+            {row.source ? <span className="gpkg-card-src" title={row.source}>{row.source}</span> : null}
+          </div>
+          <Problem entry={rowError[keyOf(row)]} />
+          <div className="gpkg-card-foot">
+            {caps.toggle ? (
+              <button type="button" className="btn btn-sm" disabled={guard} onClick={() => toggle(row, !row.enabled)}>
+                {verbFor(row) === "toggle" ? busy.label : row.enabled ? "Disable" : "Enable"}
+              </button>
+            ) : null}
+            {rowUpdateState(caps, row, !!checkedAt) === "update" ? (
+              <button type="button" className="btn btn-sm" disabled={guard} title={"Update to " + row.latest} onClick={() => update(row)}>{verbFor(row) === "update" ? busy.label : "Update"}</button>
+            ) : null}
+            {caps.inspect ? (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => openInspect(row)}>{verbFor(row) === "inspect" ? busy.label : "Inspect"}</button>
+            ) : null}
+            {caps.remove ? (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => remove(row)}>{verbFor(row) === "remove" ? busy.label : "Remove"}</button>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 // Problem is one failed action: the vendor's own words, and — when the fix is a
 // command only a person in a terminal can run — that exact line with a copy
@@ -400,7 +455,7 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
   const marketRows = (market && market.rows) || [];
   const mneedle = marketFilter.trim().toLowerCase();
   const shownMarket = mneedle
-    ? marketRows.filter(row => [row.name, row.id, row.source, row.description].some(value => String(value || "").toLowerCase().includes(mneedle)))
+    ? marketRows.filter(row => [row.name, row.id, row.source, row.description, row.marketplace].some(value => String(value || "").toLowerCase().includes(mneedle)))
     : marketRows;
   // The CLI's own source list when the route (or a marketplace call) answered;
   // an empty one is a real answer ("this CLI lists no sources"), so only a
@@ -410,6 +465,21 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
     : [...new Set(marketRows.map(row => row.marketplace).filter(Boolean))];
   const verbFor = row => (busy && busy.id && busy.id === keyOf(row) ? busy.verb : "");
   const marketplace = caps.available && tab === "marketplace";
+  // Groups only appear when the list actually mixes origins (the domain decides;
+  // one group is the whole list and gets no header).
+  const groups = groupInstalledRows(shown);
+  // The empty state points at the CLI's own catalog instead of asking the user
+  // to guess a name: real entries, and only where the CLI can install.
+  const emptyPicks = rows.length === 0 && !needsWorkspace
+    ? ((market && market.rows) || []).filter(row => catalogRowAction(caps, row) === "install").slice(0, 3)
+    : [];
+  useEffect(() => {
+    // An empty installed list is worth showing the catalog in: one extra read,
+    // cached server-side, and only while there is nothing to show.
+    if (hidden || needsWorkspace || rows.length > 0 || !caps.available || market || marketLoading) return;
+    loadMarket();
+  }, [hidden, needsWorkspace, rows.length, caps.available, market, marketLoading, loadMarket]);
+
 
   return (
     <PageFrame id="cli-packages-view" title="Packages" hidden={hidden} embedded>
@@ -510,29 +580,52 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
           {!marketplace ? (
             <>
               {rows.length > 1 ? (
-                <div className="pkg-installed-toolbar" data-align-row>
-                  <input
-                    className="pkg-search"
-                    value={installedFilter}
-                    onChange={event => setInstalledFilter(event.target.value)}
-                    placeholder="Filter installed plugins…"
-                    aria-label="Filter installed plugins"
-                  />
-                  <span className="pkg-count">{shown.length === rows.length ? rows.length + " installed" : shown.length + " of " + rows.length}</span>
+                <div className="gpkg-sticky">
+                  {rows.length > 1 ? (
+                    <div className="pkg-installed-toolbar" data-align-row>
+                      <input
+                        className="pkg-search"
+                        value={installedFilter}
+                        onChange={event => setInstalledFilter(event.target.value)}
+                        placeholder="Filter installed plugins…"
+                        aria-label="Filter installed plugins"
+                      />
+                      <span className="pkg-count">{shown.length === rows.length ? rows.length + " installed" : shown.length + " of " + rows.length}</span>
+                    </div>
+                  ) : null}
+                  {caps.update ? (
+                    <div className="gpkg-check" data-align-row>
+                      <button type="button" className="btn btn-ghost btn-sm" disabled={guard || checking} onClick={() => checkUpdates(true)}>
+                        {checking ? "Checking…" : checkedAt ? "Check again" : "Check for updates"}
+                      </button>
+                      {checkedAt ? <span className="pkg-fine">{behind ? behind + " can be updated." : "Everything is up to date."}</span> : <span className="pkg-fine">Compare these with what the CLI offers.</span>}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
-              {caps.update ? (
-                <div className="gpkg-check" data-align-row>
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={guard || checking} onClick={() => checkUpdates(true)}>
-                    {checking ? "Checking…" : checkedAt ? "Check again" : "Check for updates"}
-                  </button>
-                  {checkedAt ? <span className="pkg-fine">{behind ? behind + (behind === 1 ? " can be updated." : " can be updated.") : "Everything is up to date."}</span> : <span className="pkg-fine">Compare these with what the CLI offers.</span>}
-                </div>
-              ) : null}
+
               {rows.length === 0 ? (
                 <div className="pkg-empty">
                   <p className="pkg-empty-title">Nothing installed.</p>
-                  {caps.available ? (
+                  {emptyPicks.length ? (
+                    <>
+                      <p className="pkg-fine">{cliName + " offers these — install one, or name any source above."}</p>
+                      <ul className="gpkg-picks">
+                        {emptyPicks.map(row => (
+                          <li key={keyOf(row)} className="gpkg-pick">
+                            <span className="gpkg-pick-name" title={row.source || row.name}>{row.name || row.id}</span>
+                            {row.version ? <span className="pkg-type">{row.version}</span> : null}
+                            <button type="button" className="btn btn-sm" disabled={guard} onClick={() => install(row.source, row)}>
+                              {verbFor(row) === "install" ? busy.label : "Install"}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      {caps.available ? (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setTab("marketplace")}>See the whole catalog</button>
+                      ) : null}
+                    </>
+                  ) : caps.available ? (
                     <button type="button" className="btn btn-sm" onClick={() => setTab("marketplace")}>Open the Marketplace</button>
                   ) : caps.install ? (
                     <button type="button" className="btn btn-sm" onClick={() => sourceField.current && sourceField.current.focus()}>Install a plugin</button>
@@ -541,42 +634,23 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
               ) : shown.length === 0 ? (
                 <p className="pkg-fine">{"No installed plugin matches “" + installedFilter + "”."} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setInstalledFilter("")}>Clear filter</button></p>
               ) : (
-                <ul className="gpkg-grid" role="tabpanel" aria-busy={guard ? "true" : undefined}>
-                  {shown.map(row => (
-                    <li key={keyOf(row)} className={"gpkg-card" + (row.enabled === false ? " is-off" : "")}>
-                      <div className="gpkg-card-head">
-                        <span className="gpkg-card-name" title={row.source || row.name || row.id}>{row.name || row.id}</span>
-                        {row.version ? <span className="pkg-type">{row.version}</span> : null}
-                        {row.updateAvailable && row.latest ? <span className="pkg-type is-update" title={"The CLI's catalog offers " + row.latest}>{"\u2192 " + row.latest}</span> : null}
-                      </div>
-                      {row.description ? <p className="gpkg-card-desc" title={row.description}>{row.description}</p> : null}
-                      {row.note ? <p className="gpkg-row-note" title={row.note}>{row.note}</p> : null}
-                      <div className="gpkg-card-meta">
-                        {row.scope ? <span className="pkg-type">{row.scope}</span> : null}
-                        {row.status ? <span className="gpkg-status">{row.status}</span> : null}
-                        {row.managedByPiCode ? <span className="is-picode">Installed by PiCode</span> : null}
-                        {row.source ? <span className="gpkg-card-src" title={row.source}>{row.source}</span> : null}
-                      </div>
-                      <Problem entry={rowError[keyOf(row)]} />
-                      <div className="gpkg-card-foot">
-                        {caps.toggle ? (
-                          <button type="button" className="btn btn-sm" disabled={guard} onClick={() => toggle(row, !row.enabled)}>
-                            {verbFor(row) === "toggle" ? busy.label : row.enabled ? "Disable" : "Enable"}
-                          </button>
-                        ) : null}
-                        {rowUpdateState(caps, row, !!checkedAt) === "update" ? (
-                          <button type="button" className="btn btn-sm" disabled={guard} title={"Update to " + row.latest} onClick={() => update(row)}>{verbFor(row) === "update" ? busy.label : "Update"}</button>
-                        ) : null}
-                        {caps.inspect ? (
-                          <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => openInspect(row)}>{verbFor(row) === "inspect" ? busy.label : "Inspect"}</button>
-                        ) : null}
-                        {caps.remove ? (
-                          <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => remove(row)}>{verbFor(row) === "remove" ? busy.label : "Remove"}</button>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                groups.length ? groups.map(group => (
+                  <section key={group.key} className="gpkg-group">
+                    <h4 className="gpkg-group-head">
+                      <span>{group.label}</span>
+                      <span className="pkg-count">{group.rows.length}</span>
+                    </h4>
+                    <PluginGrid
+                      rows={group.rows} needle={installedFilter} guard={guard} caps={caps} busy={busy} checkedAt={checkedAt}
+                      rowError={rowError} keyOf={keyOf} verbFor={verbFor} toggle={toggle} update={update} openInspect={openInspect} remove={remove}
+                    />
+                  </section>
+                )) : (
+                  <PluginGrid
+                    rows={shown} needle={installedFilter} guard={guard} caps={caps} busy={busy} checkedAt={checkedAt}
+                    rowError={rowError} keyOf={keyOf} verbFor={verbFor} toggle={toggle} update={update} openInspect={openInspect} remove={remove}
+                  />
+                )
               )}
             </>
           ) : (
@@ -613,7 +687,13 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                 <ul className="gpkg-sources" aria-label={marketplaces ? "Marketplace sources" : "Marketplace sources in this catalog"}>
                   {sources.map(name => (
                     <li key={name} className="gpkg-source-chip">
-                      <span className="gpkg-source-name" title={name}>{name}</span>
+                      <button
+                        type="button"
+                        className="gpkg-source-name"
+                        aria-pressed={marketFilter === name}
+                        title={"Show only " + name + "'s plugins"}
+                        onClick={() => setMarketFilter(marketFilter === name ? "" : name)}
+                      >{name}</button>
                       <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => marketSource("update", name)}>{busy && busy.id === name && busy.verb === "source:update" ? busy.label : "Update"}</button>
                       <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => marketSource("remove", name)}>{busy && busy.id === name && busy.verb === "source:remove" ? busy.label : "Remove"}</button>
                     </li>
@@ -622,16 +702,19 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
               ) : null}
               <Problem entry={sourceProblem} />
 
-              <section className="pkg-toolbar" data-align-row>
-                <input
-                  className="pkg-search"
-                  value={marketFilter}
-                  onChange={event => setMarketFilter(event.target.value)}
-                  placeholder="Filter this catalog…"
-                  aria-label="Filter this catalog"
-                />
-                <span className="pkg-count">{marketLoading ? (marketRows.length ? "Updating…" : "Loading…") : marketRows.length ? (mneedle ? shownMarket.length + " of " + marketRows.length : marketRows.length + " shown") : null}</span>
-              </section>
+              {/* The catalog runs to hundreds of rows: the filter rides along. */}
+              <div className="gpkg-sticky">
+                <section className="pkg-toolbar" data-align-row>
+                  <input
+                    className="pkg-search"
+                    value={marketFilter}
+                    onChange={event => setMarketFilter(event.target.value)}
+                    placeholder="Filter this catalog…"
+                    aria-label="Filter this catalog"
+                  />
+                  <span className="pkg-count">{marketLoading ? (marketRows.length ? "Updating…" : "Loading…") : marketRows.length ? (mneedle ? shownMarket.length + " of " + marketRows.length : marketRows.length + " shown") : null}</span>
+                </section>
+              </div>
 
               {marketLoading && !marketRows.length ? (
                 <div className="gpkg-grid gpkg-skel" role="status" aria-label="Loading the marketplace">
@@ -664,11 +747,19 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                   {shownMarket.map(row => (
                     <li key={keyOf(row)} className="gpkg-card">
                       <div className="gpkg-card-head">
-                        <span className="gpkg-card-name" title={row.source || row.name || row.id}>{row.name || row.id}</span>
+                        <span className="gpkg-card-name" title={row.source || row.name || row.id}><Highlight text={row.name || row.id} needle={marketFilter} /></span>
                         {row.version ? <span className="pkg-type">{row.version}</span> : null}
-                        {row.marketplace ? <span className="pkg-type">{row.marketplace}</span> : null}
+                        {row.marketplace ? (
+                          <button
+                            type="button"
+                            className="pkg-type is-filter"
+                            aria-pressed={marketFilter === row.marketplace}
+                            title={"Show only " + row.marketplace + "'s plugins"}
+                            onClick={() => setMarketFilter(marketFilter === row.marketplace ? "" : row.marketplace)}
+                          >{row.marketplace}</button>
+                        ) : null}
                       </div>
-                      {row.description ? <p className="gpkg-card-desc" title={row.description}>{row.description}</p> : null}
+                      {row.description ? <p className="gpkg-card-desc" title={row.description}><Highlight text={row.description} needle={marketFilter} /></p> : null}
                       <div className="gpkg-card-meta">
                         {row.source ? <span className="gpkg-card-src" title={row.source}>{row.source}</span> : null}
                       </div>

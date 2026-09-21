@@ -241,7 +241,9 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     setBusy("signin");
     try {
       const started = await api("/api/credentials/signin", json("POST", { cli }));
-      setSignin({ hint: started.hint || "", error: "", launched: true });
+      // The terminal the server opened is the whole point of the flow: keep
+      // its id so the strip can lead to it (2026-09-21).
+      setSignin({ hint: started.hint || "", error: "", terminalId: started.terminalId || "" });
     } catch (ex) {
       toastError(ex);
     } finally {
@@ -446,13 +448,19 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
           </div>
         ) : null}
 
-        {/* The sign-in is in flight in a terminal of its own: one line, and
-            the one action that files the result. */}
+        {/* The sign-in is in flight in a terminal of its own: the hint, the
+            door to that terminal (the owner asked "where do I type /login?"
+            on 2026-09-21 — a strip that says "in the terminal" and offers no
+            way there is a dead end), and the one action that files the
+            result. */}
         {signin ? (
           <div className="cli-notice cred-signin" role="status">
             <span className="cred-signin-hint">{signin.hint || "Finish the sign-in, then check again."}</span>
             {signin.error ? <span className="cred-signin-error" role="alert">{signin.error}</span> : null}
             <span className="cred-signin-actions">
+              {signin.terminalId ? (
+                <a className="btn btn-ghost btn-sm" href={"#/term/" + encodeURIComponent(signin.terminalId)}>Open terminal</a>
+              ) : null}
               <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "check"} onClick={checkSignin}>
                 {busy === "check" ? "Checking…" : "Check now"}
               </button>
