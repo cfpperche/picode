@@ -86,7 +86,10 @@ open with a supervised `sleep infinity` child, learns the address from
 `wsl.exe` on a timer. The main window disables Tauri's native drag-drop
 handler (`disable_drag_drop_handler`), which is required for the HTML5
 drag and drop the UI's tab reorder and file drop depend on — on Windows
-the native handler otherwise swallows those events before the webview. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
+the native handler otherwise swallows those events before the webview. The
+chrome child also turns off WebView2's browser accelerators so Ctrl+R and
+F5 are the app's: a visible work tab reloads that page, a terminal keeps
+reverse search, everywhere else reloads PiCode. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
 output is decoded by inspecting the bytes.
 
 `picode-desktop disk` reports the one number a Windows user cannot get

@@ -70,6 +70,13 @@ channel for a new push: the page already listens.
 - Tabs carry a title, a favicon and a history stack; `btab_meta` is the
   receipt the UI paints from. Downloads land in the shell's download folder
   and are announced on the feed.
+- **Ctrl+R / F5 on the chrome reloads the page on screen.** The chrome
+  webview turns WebView2's own accelerators off so a terminal keeps
+  Ctrl+R (readline) and a work tab does not reload PiCode. The chrome
+  then reloads the visible work webview (`btab_reload`) or PiCode itself.
+  Page webviews keep the engine accelerators, so a focused page still
+  reloads itself.
+
 
 ## Live native layers (ADR-0161)
 

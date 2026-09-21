@@ -28,7 +28,7 @@ browser tab can live beside your agents.
 Click the tile and the app opens in its own tab. Web apps that declare
 themselves installable open **app-style**: no address bar, the page fills
 the tab — what you installed is all you see. <kbd>Ctrl</kbd>+<kbd>F</kbd>
-finds in the page, <kbd>F5</kbd> reloads, right-click is the page's own.
+finds in the page, <kbd>Ctrl</kbd>+<kbd>R</kbd> or <kbd>F5</kbd> reloads, right-click is the page's own.
 
 ## More than one account
 

@@ -655,6 +655,8 @@ fn build_main_window(
         tauri::LogicalPosition::new(0., 0.),
         win.inner_size()?.to_logical::<f64>(win.scale_factor()?),
     )?;
+    disable_chrome_accelerators(app);
+
     // Remember the handle here, where both the first build and a rebuild
     // land: show_main drives this one, not a registry lookup that has been
     // observed to miss.
@@ -673,6 +675,35 @@ fn build_main_window(
     }
     Ok(win)
 }
+
+/// WebView2's browser accelerators (Ctrl+R, F5, Ctrl+P, F12, …) fire on
+/// whichever webview has focus. The chrome child is that webview whenever
+/// the human is in PiCode UI — including a terminal pane — so Ctrl+R would
+/// reload the whole app instead of reaching readline, and would reload
+/// chrome instead of a work-browser page painted through a region hole.
+/// Page webviews keep the engine default (on). Chrome handles reload in JS:
+/// a visible work tab → `btab_reload`, else PiCode; a terminal is left alone.
+fn disable_chrome_accelerators(app: &tauri::AppHandle) {
+    let Some(wv) = app.get_webview("main-content") else {
+        return;
+    };
+
+    let _ = wv.with_webview(|platform| unsafe {
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings3;
+        use windows::core::Interface;
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            return;
+        };
+        let Ok(settings) = core.Settings() else {
+            return;
+        };
+        let Ok(s3) = settings.cast::<ICoreWebView2Settings3>() else {
+            return;
+        };
+        let _ = s3.SetAreBrowserAcceleratorKeysEnabled(false);
+    });
+}
+
 
 fn show_main(app: &tauri::AppHandle) {
     // Open PiCode must never silently no-op. Order: the handle kept at build

@@ -83,6 +83,11 @@ Keyboard**, and the agent's own key map in **Settings → Keys**.
 | `Alt+[` / `Alt+]` | Previous / next tab |
 | `Alt+W` | Close tab |
 
+In **PiCode Desktop**, `Ctrl+R` and `F5` reload the page on screen: a
+work-browser or web-app tab reloads that site, everywhere else reloads
+PiCode. Inside a terminal they stay with the CLI — `Ctrl+R` is still
+reverse search.
+
 In a terminal pane: `Ctrl+C` copies a selection or interrupts, `Ctrl+V`
 pastes, `Ctrl+Shift+C` / `Ctrl+Shift+V` always copy / paste, and
 `Shift+Esc` hands the keyboard back to the app from a Canvas panel.

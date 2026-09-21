@@ -6,6 +6,7 @@ import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
 import { enabledKeys } from "./lib/computerChannel.js";
 import { matchAction } from "./lib/appKeys.js";
+import { isReloadKey, desktopReloadAction } from "./lib/desktopReload.js";
 import { DESKTOP_REQUIRED, webappTabId, webappIdFromTab, webappOpenPlan, webappChromeless, watchWebapps, removedWebappTabs, webappBadge, updateWebappMeta } from "./lib/webapps.js";
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
 import { closeTerm } from "./lib/terms.js";
@@ -1932,6 +1933,26 @@ export default function App({ shellChrome = false } = {}) {
     if (!shellChrome) return undefined;
     return openBrowserChannel(() => boundWorkTab(selectedTabRef.current, agentPanesRef.current));
   }, [shellChrome]);
+  useEffect(() => {
+    if (!shellChrome || !window.__TAURI__) return undefined;
+    const invoke = window.__TAURI__.core.invoke;
+    const onKey = (e) => {
+      if (!isReloadKey(e) || e.defaultPrevented) return;
+      const action = desktopReloadAction({
+        inTerminal: !!paneAt(document.activeElement),
+        selectedTab: selectedTabRef.current,
+        panes: agentPanesRef.current,
+        onPane: parseRoute() !== "workspace",
+      });
+      if (!action) return;
+      e.preventDefault();
+      if (action.kind === "page") invoke("btab_reload", { id: action.id }).catch(() => {});
+      else location.reload();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [shellChrome]);
+
   // ADR-0148: the shell keeps a mirror of the computer grants (one bit per
   // principal) and refuses on its own copy too. Pushed at load and whenever a
   // setting changes; the daemon stays the decision point.
