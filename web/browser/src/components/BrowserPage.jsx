@@ -864,7 +864,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
         <section className="set-group">
           <h2 className="set-grouph">Agent permissions</h2>
-          <p className="set-groupdesc">Which agents and terminals may use the built-in browser, and on which sites.</p>
+          <p className="set-groupdesc">Which agents and terminals may drive the built-in browser, and on what terms.</p>
           {rows !== null && rows.length > 0 ? (
             <div className="set-toolbar" role="search">
               <input

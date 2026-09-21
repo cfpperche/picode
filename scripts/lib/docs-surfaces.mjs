@@ -77,6 +77,23 @@ export const SURFACE_PROFILES = Object.freeze({
       "internal/server/slash_res.go",
     ],
   },
+  "desktop-providers": {
+    shell: "desktop",
+    entries: [
+      "web/browser/src/components/CliCredentials.jsx",
+      "web/browser/src/components/AddProviderDialog.jsx",
+      "web/browser/src/components/QuotaStrip.jsx",
+    ],
+    files: [
+      "internal/server/credentials.go",
+      "internal/clicreds/specs.go",
+      "internal/clicreds/parse.go",
+      "internal/credentials/vault.go",
+      "internal/catalog/accounts.go",
+      "internal/usage/cache.go",
+      "cmd/picode-docs-fixture/main.go",
+    ],
+  },
   "desktop-canvas": {
     shell: "desktop",
     entries: [
@@ -171,6 +188,8 @@ export const SURFACE_PROFILES = Object.freeze({
 });
 
 export const DOC_SCREENSHOT_SURFACES = Object.freeze({
+  "app-providers": "desktop-providers",
+  "app-providers-pi": "desktop-providers",
   "app-fleet": "desktop-dashboard",
   "app-inspector": "desktop-inspector",
   "app-canvas": "desktop-canvas",
