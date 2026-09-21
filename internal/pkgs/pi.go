@@ -71,14 +71,28 @@ func (p piDriver) List(_ context.Context, q Query) (Report, error) {
 	return rep, nil
 }
 
+// Available refuses, and says why: Pi's installable list is PiCode's own npm
+// gallery, read by search through its own route and page shape, never a roster
+// of plugins a caller can be handed as rows.
+func (piDriver) Available(context.Context, Query) (Report, error) {
+	return Report{}, ErrNoCatalog
+}
+
+// Marketplaces refuses for the same reason: Pi keeps no source list of its own
+// — its Marketplace tab is the gallery above.
+func (piDriver) Marketplaces(context.Context, Query) ([]Row, error) {
+	return nil, ErrNoMarketplaces
+}
+
 // CheckUpdates asks npm which of Pi's rows the registry has moved ahead of —
 // the badge read. The engine keeps the rules: path, git, agent and pinned
 // npm:@ver rows are skipped, a registry miss skips that row and the rest
-// still answer.
-func (p piDriver) CheckUpdates(ctx context.Context, q Query) ([]Row, error) {
+// still answer. Pi's payload is the upgrades alone, so its rows carry the ones
+// behind and its mapper drops the rest.
+func (p piDriver) CheckUpdates(ctx context.Context, q Query) (Report, error) {
 	legacy, err := pipkg.CheckUpdates(ctx, pipkg.UserDir(), q.WorkspacePath)
 	if err != nil {
-		return nil, err
+		return Report{}, err
 	}
 	rows := make([]Row, 0, len(legacy.Updates))
 	for _, u := range legacy.Updates {
@@ -90,7 +104,7 @@ func (p piDriver) CheckUpdates(ctx context.Context, q Query) ([]Row, error) {
 			Behind:  u.Latest,
 		})
 	}
-	return rows, nil
+	return Report{CLI: p.ID(), Rows: rows}, nil
 }
 
 // SourceName is what a pane prints for a package source: the npm name without

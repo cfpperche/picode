@@ -57,12 +57,12 @@ func handlePackageUpdates(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 		defer cancel()
-		rows, err := driver.CheckUpdates(ctx, pkgs.Query{WorkspacePath: dir})
+		rep, err := driver.CheckUpdates(ctx, pkgs.Query{WorkspacePath: dir})
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, pkgs.LegacyUpdates(rows))
+		writeJSON(w, http.StatusOK, pkgs.LegacyUpdates(rep.Rows))
 	}
 }
 

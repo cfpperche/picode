@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/clipkgs"
 	"github.com/cfpperche/picode/internal/pipkg"
 )
 
@@ -133,28 +134,52 @@ func TestPiDriverCheckUpdatesAnswersWithNothingInstalled(t *testing.T) {
 	pipkg.UserDir = func() string { return t.TempDir() }
 	t.Cleanup(func() { pipkg.UserDir = old })
 
-	rows, err := DriverFor("pi").CheckUpdates(context.Background(), Query{})
+	rep, err := DriverFor("pi").CheckUpdates(context.Background(), Query{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 0 {
-		t.Fatalf("rows = %+v, want none", rows)
+	if len(rep.Rows) != 0 {
+		t.Fatalf("rows = %+v, want none", rep.Rows)
 	}
 }
 
-// A guest has no catalog check of its own here (its route is
-// /api/cli-packages/updates): the read refuses instead of inventing an empty
-// list, which is also what its Caps says.
-func TestGuestCheckUpdatesRefuses(t *testing.T) {
-	d := DriverFor("omp")
-	if d.Caps().Update {
-		t.Fatal("omp must not declare an update check yet")
+// A guest's badge read is its own CLI's catalog against its own roster, so the
+// capability is declared where the vendor exposes an update verb — and a guest
+// whose declaration has none refuses instead of inventing an empty list, which
+// is what its Caps says (ADR-0176: the model declares what the pane gates on).
+func TestGuestCheckUpdatesFollowsTheVendorsUpdateVerb(t *testing.T) {
+	stubGuest(t, "grok", grokScript)
+	ws := t.TempDir()
+
+	rep, err := DriverFor("grok").CheckUpdates(context.Background(), Query{Vendor: "user", WorkspacePath: ws, Fresh: true})
+	if err != nil {
+		t.Fatal(err)
 	}
-	rows, err := d.CheckUpdates(context.Background(), Query{})
-	if !errors.Is(err, ErrNoUpdateCheck) {
-		t.Fatalf("err = %v, want ErrNoUpdateCheck", err)
+	if !DriverFor("grok").Caps().Update || rep.CheckedAt == "" || rep.ReadAt == "" {
+		t.Fatalf("report = %+v, caps = %+v", rep, DriverFor("grok").Caps())
 	}
-	if rows != nil {
-		t.Fatalf("rows = %+v, want none", rows)
+	if len(rep.Rows) != 2 || rep.Rows[0].Behind == "" && rep.Rows[1].Behind == "" {
+		t.Fatalf("rows = %+v, want the catalog's own comparison", rep.Rows)
+	}
+
+	// agy declares no update verb: the read refuses with the vendor's own
+	// reason, and the capability stays false.
+	agy := DriverFor("agy")
+	if agy.Caps().Update {
+		t.Fatal("agy must not declare an update check")
+	}
+	if _, err := agy.CheckUpdates(context.Background(), Query{}); !errors.Is(err, clipkgs.ErrVerbAbsent) {
+		t.Fatalf("err = %v, want the vendor's own refusal", err)
+	}
+}
+
+// Pi's own catalog is PiCode's gallery, so the two reads that hand back a
+// CLI's list refuse rather than answering with something invented.
+func TestPiDriverRefusesTheCatalogReadsItHasNoListFor(t *testing.T) {
+	if _, err := DriverFor("pi").Available(context.Background(), Query{}); !errors.Is(err, ErrNoCatalog) {
+		t.Fatalf("err = %v, want ErrNoCatalog", err)
+	}
+	if rows, err := DriverFor("").Marketplaces(context.Background(), Query{}); !errors.Is(err, ErrNoMarketplaces) || rows != nil {
+		t.Fatalf("rows = %+v, err = %v, want ErrNoMarketplaces", rows, err)
 	}
 }

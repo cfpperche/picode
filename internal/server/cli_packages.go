@@ -13,15 +13,18 @@ import (
 
 	"github.com/cfpperche/picode/internal/clijob"
 	"github.com/cfpperche/picode/internal/clipkgs"
+	"github.com/cfpperche/picode/internal/pkgs"
 	"github.com/cfpperche/picode/internal/store"
 )
 
 // Native CLI packages (ADR-0167). The eight guest CLIs manage their own
 // plugins; PiCode declares what each one exposes (internal/clipkgs), runs the
-// vendor's own command, and keeps no package database. Reads are synchronous;
-// every mutation that installs or fetches is a durable job in the lane
-// ADR-0087 built, so a PiCode restart never replays one and the pane can show
-// progress from the events that lane already publishes.
+// vendor's own command, and keeps no package database. Reads are synchronous
+// and answer from the unified driver (ADR-0176: pkgs.DriverFor(cli), mapped
+// back to the bytes this pane has always parsed); every mutation that installs
+// or fetches is a durable job in the lane ADR-0087 built, so a PiCode restart
+// never replays one and the pane can show progress from the events that lane
+// already publishes.
 //
 // A job carries its own arguments in the job payload: `Resolve` runs after a
 // restart too, and the argv of `pkg-install` depends on the plugin, the scope
@@ -38,21 +41,6 @@ func registerCLIPackageRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/cli-packages/toggle", handleCLIPackageToggle(deps))
 	mux.HandleFunc("POST /api/cli-packages/marketplace", handleCLIPackageMarketplace(deps))
 	mux.HandleFunc("POST /api/cli-packages/inspect", handleCLIPackageInspect(deps))
-}
-
-// cliPackagesView is one pane load: what the CLI declares, and what it holds.
-// The rows are the CLI's own answer, never a PiCode roster.
-type cliPackagesView struct {
-	CLI    string            `json:"cli"`
-	Scopes []clipkgs.Scope   `json:"scopes"`
-	Caps   clipkgs.Caps      `json:"caps"`
-	Notes  map[string]string `json:"notes"`
-	Rows   []clipkgs.Row     `json:"rows"`
-	Note   string            `json:"note,omitempty"`
-	ReadAt string            `json:"readAt,omitempty"`
-	// CheckedAt is set only by the availability check, which is how the pane
-	// tells "nothing is behind" from "not compared yet".
-	CheckedAt string `json:"checkedAt,omitempty"`
 }
 
 type cliPackageRequest struct {
@@ -170,6 +158,8 @@ func statusForPackageErr(err error) int {
 		errors.Is(err, clipkgs.ErrVerbAbsent),
 		errors.Is(err, clipkgs.ErrBadTarget),
 		errors.Is(err, clipkgs.ErrNoWorkspace),
+		errors.Is(err, pkgs.ErrNoCatalog),
+		errors.Is(err, pkgs.ErrNoMarketplaces),
 		errors.Is(err, store.ErrNotFound):
 		return http.StatusBadRequest
 	case errors.Is(err, clipkgs.ErrRosterShape):
@@ -237,21 +227,11 @@ func packageJobCommand(j store.CLIJob) string {
 	return cmd
 }
 
-func cliPackagesViewOf(cli string, rep clipkgs.Report) cliPackagesView {
-	rows := rep.Rows
-	if rows == nil {
-		rows = []clipkgs.Row{}
-	}
-	return cliPackagesView{
-		CLI:       cli,
-		Scopes:    clipkgs.Scopes(cli),
-		Caps:      clipkgs.Capabilities(cli),
-		Notes:     clipkgs.Notes(cli),
-		Rows:      rows,
-		Note:      rep.Note,
-		ReadAt:    rep.ReadAt,
-		CheckedAt: rep.CheckedAt,
-	}
+// guestQuery is one guest read as the driver takes it: the scope word the
+// request carried (the class cannot say `local`) and the folder a project-scope
+// read runs in.
+func guestQuery(scope, cwd string) pkgs.Query {
+	return pkgs.Query{Vendor: scope, WorkspacePath: cwd}
 }
 
 func handleCLIPackages(deps Deps) http.HandlerFunc {
@@ -263,14 +243,16 @@ func handleCLIPackages(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
+		read := guestQuery(scope, paths.Cwd)
+		read.Fresh = q.Get("refresh") == "1"
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		rep, err := clipkgs.List(ctx, cli, paths, scope, q.Get("refresh") == "1")
+		rep, err := pkgs.DriverFor(cli).List(ctx, read)
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, cliPackagesViewOf(cli, rep))
+		writeJSON(w, http.StatusOK, pkgs.Guest(cli, rep))
 	}
 }
 
@@ -285,16 +267,12 @@ func handleCLIPackagesAvailable(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		rep, err := clipkgs.Available(ctx, cli, paths, scope)
+		rep, err := pkgs.DriverFor(cli).Available(ctx, guestQuery(scope, paths.Cwd))
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"cli":  cli,
-			"rows": rep.Rows,
-			"note": rep.Note,
-		})
+		writeJSON(w, http.StatusOK, pkgs.GuestAvailable(cli, rep))
 	}
 }
 
@@ -311,14 +289,16 @@ func handleCLIPackageUpdates(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
+		read := guestQuery(scope, paths.Cwd)
+		read.Fresh = q.Get("refresh") == "1"
 		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 		defer cancel()
-		rep, err := clipkgs.CheckUpdates(ctx, cli, paths, scope, q.Get("refresh") == "1")
+		rep, err := pkgs.DriverFor(cli).CheckUpdates(ctx, read)
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, cliPackagesViewOf(cli, rep))
+		writeJSON(w, http.StatusOK, pkgs.Guest(cli, rep))
 	}
 }
 
@@ -336,12 +316,12 @@ func handleCLIPackageMarkets(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		rows, err := clipkgs.Marketplaces(ctx, cli, paths)
+		rows, err := pkgs.DriverFor(cli).Marketplaces(ctx, guestQuery(scope, paths.Cwd))
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"cli": cli, "marketplaces": rows})
+		writeJSON(w, http.StatusOK, pkgs.GuestMarketplaces(cli, rows))
 	}
 }
 
@@ -421,7 +401,7 @@ func handleCLIPackageToggle(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, cliPackagesViewOf(v.CLI, rep))
+		writeJSON(w, http.StatusOK, pkgs.GuestViewOf(v.CLI, rep))
 	}
 }
 

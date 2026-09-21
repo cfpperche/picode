@@ -63,43 +63,75 @@ type Caps struct {
 	Inspect     bool `json:"inspect"`
 	Config      bool `json:"config"`
 	Marketplace bool `json:"marketplace"`
+	// CatalogInstall says the CLI's own catalog names the spec an install
+	// takes, so a pane may offer Install on a catalog row. A catalog that
+	// prints a name and a version and never says where the plugin comes from
+	// (Omp's) is information: its rows carry no control.
+	CatalogInstall bool `json:"catalogInstall"`
 }
 
 // Row is one package, from either engine. Source is what a removal takes back
 // (a pi source string, a vendor plugin spec, or a path); Name is what the CLI's
 // own list prints.
 type Row struct {
-	CLI     string `json:"cli"`
-	Name    string `json:"name"`
-	Source  string `json:"source,omitempty"`
-	Kind    string `json:"kind,omitempty"`   // npm | git | path | plugin | extension
-	Scope   Scope  `json:"scope"`            // the class
-	Vendor  string `json:"vendor,omitempty"` // the CLI's own word for the scope
-	Enabled bool   `json:"enabled"`
-	// Installed separates "the CLI has it" from "it is turned on": Claude and
-	// Codex disable without uninstalling. Pi's rows are installed when stored.
+	CLI string `json:"cli"`
+	// ID is the CLI's own identifier for the row — what its commands take and
+	// what a pane keys a row by where that is not the printed name
+	// (Claude Code's `name@marketplace`).
+	ID     string `json:"id,omitempty"`
+	Name   string `json:"name"`
+	Source string `json:"source,omitempty"`
+	Kind   string `json:"kind,omitempty"`   // npm | git | path | plugin | extension
+	Scope  Scope  `json:"scope"`            // the class
+	Vendor string `json:"vendor,omitempty"` // the CLI's own word for the scope
+	// Enabled is what the CLI loads the row as; Installed separates "the CLI
+	// has it" from "it is turned on" (Claude and Codex disable without
+	// uninstalling, and a catalog row is neither). Pi's rows are installed
+	// when stored.
+	Enabled   bool   `json:"enabled"`
 	Installed bool   `json:"installed"`
 	Version   string `json:"version,omitempty"`
 	// InstalledPath is where the CLI keeps it, when that is known.
 	InstalledPath string `json:"installedPath,omitempty"`
 	// ConfigKind names a PiCode config editor for the source (ADR-0119).
 	ConfigKind string `json:"configKind,omitempty"`
+	// Status is the vendor's own word for the row (`installed`, `available`,
+	// a trust level), shown verbatim where the CLI prints one.
+	Status string `json:"status,omitempty"`
+	// Marketplace is the marketplace a row came from, when the CLI names one:
+	// it is what a pane groups and filters a mixed list by.
+	Marketplace string `json:"marketplace,omitempty"`
 	// Behind is the catalog's version when this row is out of date. It is only
 	// ever set from a read of that catalog — never guessed (clipkgs' rule).
 	Behind string `json:"behind,omitempty"`
-	// Detail is the vendor's own line for the row.
-	Detail string `json:"detail,omitempty"`
+	// Description is the vendor's own sentence about the package; Note is the
+	// one line the row must carry (a PiCode-managed integration, a text-parsed
+	// roster, a vendor caveat). Two facts, so a row may carry both.
+	Description string `json:"description,omitempty"`
+	Note        string `json:"note,omitempty"`
+	// ManagedByPiCode marks a row PiCode wrote itself, so a reader finds it
+	// without knowing which CLI installed it.
+	ManagedByPiCode bool `json:"managedByPiCode,omitempty"`
 }
 
 // Report is one pane load for one CLI.
 type Report struct {
-	CLI     string            `json:"cli"`
-	Scopes  []ScopeRow        `json:"scopes"`
-	Rows    []Row             `json:"rows"`
-	Caps    Caps              `json:"caps"`
-	Catalog Catalog           `json:"catalog,omitempty"`
-	Gallery string            `json:"gallery,omitempty"`
-	Notes   map[string]string `json:"notes,omitempty"`
+	CLI     string     `json:"cli"`
+	Scopes  []ScopeRow `json:"scopes"`
+	Rows    []Row      `json:"rows"`
+	Caps    Caps       `json:"caps"`
+	Catalog Catalog    `json:"catalog,omitempty"`
+	Gallery string     `json:"gallery,omitempty"`
+	// Notes are the declaration's own sentences, one per verb or concept a
+	// pane looks up by name; Note is about this read (a marketplace that
+	// needed the network, a text roster), never about a package.
+	Notes map[string]string `json:"notes,omitempty"`
+	Note  string            `json:"note,omitempty"`
+	// ReadAt is when the roster was read; CheckedAt is when its catalog was
+	// compared, and stays empty until that check ran — a pane tells "up to
+	// date" from "not compared yet" by it.
+	ReadAt    string `json:"readAt,omitempty"`
+	CheckedAt string `json:"checkedAt,omitempty"`
 	// Capabilities are derived facts a surface may gate on (webSearch, …).
 	Capabilities map[string]bool `json:"capabilities,omitempty"`
 	// Isolated is Pi's "only this agent's packages" switch, carried so a pane
@@ -110,6 +142,11 @@ type Report struct {
 // Query is one read. AgentSources and AgentIsolated are how the caller hands
 // the agent scope in: the engine does not reach the store, so Pi's per-agent
 // list — and its "only this agent's packages" switch — travel as data.
+//
+// Vendor is the CLI's own word for the scope, which the class cannot always
+// say: Claude Code's `local` is a workspace-class layer with its own command
+// word. A driver asks its CLI with Vendor when the caller named one, and with
+// the class's spelling when it did not.
 type Query struct {
 	Scope         Scope
 	Vendor        string
@@ -119,22 +156,47 @@ type Query struct {
 	Fresh         bool
 }
 
-// ErrNoUpdateCheck is a driver's answer when its CLI has no catalog check to
-// run. Caps.Update is the pane's gate; this is the read's own refusal, so a
-// caller that asks anyway gets a reason instead of an invented empty list.
+// ErrNoUpdateCheck is the refusal a caller that asks for an update check its
+// CLI does not have gets. Caps.Update is the pane's gate; this is the same fact
+// as a sentence, so a route that cannot draw the control has something to say
+// instead of an invented empty list.
 var ErrNoUpdateCheck = errors.New("this CLI has no update check")
+
+// ErrNoCatalog is the refusal a caller that asks for a CLI's installable list
+// gets where that CLI has no such list: Pi's catalog is PiCode's own npm
+// gallery, read by search through its own route and page shape, never a roster
+// of plugins.
+var ErrNoCatalog = errors.New("this CLI's catalog is not a plugin list")
+
+// ErrNoMarketplaces is the refusal for a CLI that keeps no marketplace sources
+// of its own: Pi's Marketplace tab is the gallery above, so there is nothing
+// the CLI holds to list.
+var ErrNoMarketplaces = errors.New("this CLI keeps no marketplace sources")
 
 // Driver is the read surface: what the CLI declares, and what it holds.
 type Driver interface {
 	ID() string
 	Scopes() []ScopeRow
 	Caps() Caps
+	// List reads what the CLI holds in one scope, from the CLI's own roster
+	// command or its own files.
 	List(ctx context.Context, q Query) (Report, error)
-	// CheckUpdates is the badge read: the rows whose catalog has published a
-	// higher version than the one installed (Row.Version, Row.Behind). It is
-	// a read, never the Update mutation. A driver whose Caps.Update is false
-	// answers ErrNoUpdateCheck.
-	CheckUpdates(ctx context.Context, q Query) ([]Row, error)
+	// Available reads the CLI's own catalog: the rows it can install from,
+	// with the ones it already has marked. A driver whose Caps.Available is
+	// false (or whose catalog is not a list, ErrNoCatalog) refuses rather than
+	// answering an empty catalog.
+	Available(ctx context.Context, q Query) (Report, error)
+	// Marketplaces lists the marketplace sources the CLI is configured with —
+	// what the pane's Marketplace tab header shows before anything is managed.
+	// A CLI that keeps none answers ErrNoMarketplaces.
+	Marketplaces(ctx context.Context, q Query) ([]Row, error)
+	// CheckUpdates is the badge read: the pane load the update badge comes
+	// from — every row the read could compare, each carrying Row.Behind when
+	// the CLI's own catalog has moved ahead, plus the read's own note and
+	// stamps. It is a read, never the Update mutation; a driver whose
+	// Caps.Update is false declares no such read and refuses with
+	// ErrNoUpdateCheck or the vendor's own reason.
+	CheckUpdates(ctx context.Context, q Query) (Report, error)
 }
 
 // DriverFor resolves a CLI to its driver. "" is Pi, the default surface.

@@ -55,16 +55,17 @@
   every plugin verb" reading was the vendor's per-machine feature gate measured
   with a fresh HOME — the harness now seeds that config from the machine's own
   cache.
-- [ ] **The unified reads still split the badge route and the isolation
-  switch.** Slice 1c (2026-09-21, `feat/packages-engine`) made
-  `GET /api/packages` and `GET /api/packages/updates` answer through
-  `pkgs.Driver` — but with two deltas: a guest asked for the badge at
-  `/api/packages/updates?cli=<guest>` is refused with 400 (its check is its own
-  route, `/api/cli-packages/updates`, and no guest driver declares
-  `Caps.Update` yet), and `GET /api/packages/report` does not pass
-  `Query.AgentIsolated`, so "only this agent's packages" is still visible only
-  through the legacy route. Both close when the guests land behind the
-  interface (slice 2) and one pane renders the unified shape (slice 3).
+- [ ] **`GET /api/packages/report` still drops the isolation switch.** The badge
+  half of this debt was paid 2026-09-21 (`feat/packages-guests`, slice 2): the
+  four guest reads answer from `pkgs.DriverFor(cli)` — a pure mapper
+  (`internal/pkgs/guest_view.go`) reproduces the pane's bytes, proven over
+  fixtures and over the real routes — and every guest driver now maps the
+  vendor's whole capability set, `Caps.Update` included. So
+  `/api/packages/updates?cli=<guest>` answers the vendor's own check where the
+  CLI has the update verb instead of 400. What remains: `GET
+  /api/packages/report` does not pass `Query.AgentIsolated`, so "only this
+  agent's packages" is still visible only through the legacy route. Closes when
+  one pane renders the unified shape (slice 3).
   Plan: `docs/plans/packages-unification.md`.
 
 - [ ] **Omp's own `extensions` list is invisible in the guest packages pane.**
