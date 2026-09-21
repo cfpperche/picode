@@ -1627,6 +1627,47 @@
         ]
       }
     },
+    "/api/apps/order": {
+      "get": {
+        "operationId": "getApiAppsOrder",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "apps"
+        ]
+      },
+      "put": {
+        "operationId": "putApiAppsOrder",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "apps"
+        ]
+      }
+    },
     "/api/apps/{id}/action": {
       "post": {
         "operationId": "postApiAppsAction",
