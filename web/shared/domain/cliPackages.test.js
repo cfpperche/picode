@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cliPackagesHash, cliPackagesLocation, supportsCliPackages, loadPiPackagesContext, packageContextKey, GUEST_PACKAGES, usesGuestPackages, guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand, rowUpdateState } from "./cliPackages.js";
+import { cliPackagesHash, cliPackagesLocation, supportsCliPackages, loadPiPackagesContext, packageContextKey, GUEST_PACKAGES, usesGuestPackages, guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand, rowUpdateState, matchParts, groupInstalledRows, sourceGroupKey } from "./cliPackages.js";
 import { cliLocation } from "./cliLaunch.js";
 
 test("canonical links round-trip CLI, package, scope and explicit context", () => {
@@ -212,4 +212,55 @@ test("an Update control exists only for a row the CLI's catalog says is behind",
   // A CLI with no update verb never offers one.
   assert.equal(rowUpdateState({ update: false }, { updateAvailable: true }, true), "none");
   assert.equal(rowUpdateState(undefined, undefined, false), "none");
+});
+
+test("the filter's highlights are literal, case-insensitive and keep the text whole", () => {
+  assert.deepEqual(matchParts("Browser Use", "use"), [
+    { text: "Browser ", hit: false },
+    { text: "Use", hit: true },
+  ]);
+  assert.deepEqual(matchParts("aXa", "x"), [
+    { text: "a", hit: false }, { text: "X", hit: true }, { text: "a", hit: false },
+  ]);
+  // A filter with regex characters is a string, not a pattern.
+  assert.deepEqual(matchParts("pi (web)", "(web"), [
+    { text: "pi ", hit: false }, { text: "(web", hit: true }, { text: ")", hit: false },
+  ]);
+  assert.deepEqual(matchParts("anything", "  "), [{ text: "anything", hit: false }]);
+  assert.deepEqual(matchParts("anything", "zzz"), [{ text: "anything", hit: false }]);
+  // Always at least one part: the renderer never has to special-case an empty box.
+  assert.deepEqual(matchParts("", "x"), [{ text: "", hit: false }]);
+});
+
+test("installed rows group by where they came from, and one group gets no header", () => {
+  const hermes = [
+    { name: "picode-native", sourceKind: "user" },
+    { name: "chronos", sourceKind: "bundled" },
+    { name: "browser-browser-use", sourceKind: "bundled" },
+  ];
+  const groups = groupInstalledRows(hermes);
+  assert.deepEqual(groups.map(g => [g.key, g.rows.length]), [["user", 1], ["bundled", 2]]);
+  // A single-kind list is the whole list: no chrome.
+  assert.deepEqual(groupInstalledRows([{ sourceKind: "bundled" }, { sourceKind: "bundled" }]), []);
+  assert.deepEqual(groupInstalledRows([]), []);
+});
+
+test("the vendor's own provenance words decide the group", () => {
+  assert.equal(sourceGroupKey({ sourceKind: "bundled", managedByPiCode: false }), "bundled");
+  assert.equal(sourceGroupKey({ sourceKind: "synced" }), "synced");
+  // Claude Code names a synced plugin's marketplace "synced" as well: the
+  // vendor's own word decides, or the whole file was filed under marketplaces.
+  assert.equal(sourceGroupKey({ sourceKind: "synced", marketplace: "synced" }), "synced");
+  assert.equal(sourceGroupKey({ sourceKind: "bundled", marketplace: "hermes" }), "bundled");
+  assert.equal(sourceGroupKey({ sourceKind: "marketplace-user-added" }), "marketplace");
+  assert.equal(sourceGroupKey({ sourceKind: "local-file" }), "local");
+  assert.equal(sourceGroupKey({ sourceKind: "native-local" }), "path");
+  assert.equal(sourceGroupKey({ sourceKind: "import" }), "imported");
+  assert.equal(sourceGroupKey({ sourceKind: "npm" }), "npm");
+  assert.equal(sourceGroupKey({ sourceKind: "git" }), "git");
+  // PiCode's own integration is findable without knowing the vendor's word.
+  assert.equal(sourceGroupKey({ sourceKind: "user", managedByPiCode: true }), "picode");
+  // A vendor that said nothing falls back on what the row shows.
+  assert.equal(sourceGroupKey({ source: "x", installPath: "/p" }), "path");
+  assert.equal(sourceGroupKey({}), "other");
 });

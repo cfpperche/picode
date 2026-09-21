@@ -114,3 +114,30 @@ carrying the CLI's own text, a missing binary is a 400, a changed file is a 409.
 `internal/clipkgs/live_test.go` exercises every driver against the real
 binaries in a sandbox HOME (`PICODE_PKGS_LIVE=1`), which is where a vendor's
 shape change is meant to be caught.
+
+### How a guest list reads (2026-09-21)
+
+The defaults are the machine's scope: the web clients **omit** `scope` for it,
+so `clipkgs.List`, `Available` and `CheckUpdates` resolve the scope once at the
+top (`normalizedScope`) and use the resolved id for the vendor's argv, the rows'
+filter and the cache key. Passing the empty string through was a defect, not a
+shorthand: Claude Code's parser compares a row's scope with the requested one,
+its rows say `user`, so the pane showed an empty list for a CLI that has plugins
+(regression test `TestTheDefaultScopeReadsTheMachineScope`).
+
+`web/shared/domain/cliPackages.js` decides what the pane shows without touching
+the rows: `groupInstalledRows` groups a list that mixes origins by the vendor's
+own provenance word (`sourceKind` — the specific kinds before the marketplace
+fallback, since Claude names a synced plugin's marketplace `synced` too) and
+returns nothing for a single-origin list, so a header only ever explains a
+mixture; `matchParts` splits text around the filter's needle for the highlight.
+Both are pure and tested in `cliPackages.test.js`.
+
+The list is the same card grid Pi's Packages pane uses. The filter row and the
+availability check sit in one `position: sticky` block, because a vendor catalog
+runs to hundreds of rows; actions live on a card footer the grid aligns across a
+row, and the two app files differ only on their dialog line. A card carries no
+preview frame: Pi's has one because a package may ship a capture, a vendor plugin
+has none. On an empty installed list the pane reads the catalog once (where the
+CLI has one and can install) and offers up to three real entries with Install —
+the vendor's own data, never a suggestion PiCode made up.

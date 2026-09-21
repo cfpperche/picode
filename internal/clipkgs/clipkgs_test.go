@@ -323,3 +323,49 @@ func TestCheckUpdatesAgainstAStubVendor(t *testing.T) {
 		t.Fatal("codex has no plugin update verb; the check must refuse")
 	}
 }
+
+// TestTheDefaultScopeReadsTheMachineScope covers a defect that shipped. The web
+// client omits `scope` for the machine — it sets the query only for another
+// scope — and Claude Code's rows name theirs ("user"), so a read that passed the
+// empty scope through to the parser dropped every row: the pane showed an empty
+// list for a CLI that has plugins, and the file's own rows were unreachable.
+func TestTheDefaultScopeReadsTheMachineScope(t *testing.T) {
+	const installed = `{"installed":[` +
+		`{"id":"picode-native@local","version":"1.0.0","scope":"user","enabled":true,"installPath":"/tmp/p"},` +
+		`{"id":"memory-kit@synced","version":"2.1.0","scope":"user","enabled":false}],"available":[]}`
+	const catalog = `{"installed":[],"available":[{"pluginId":"picode-native@local","name":"picode-native","version":"1.1.0","marketplaceName":"local"}]}`
+	dir := t.TempDir()
+	stub := "#!/bin/sh\ncase \" $* \" in *\" --available \"*) printf '%s' '" + catalog + "' ;; *) printf '%s' '" + installed + "' ;; esac\n"
+	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte(stub), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	Invalidate("claude-code")
+
+	rep, err := List(context.Background(), "claude-code", Paths{}, "", true)
+	if err != nil {
+		t.Fatalf("List with the default scope: %v", err)
+	}
+	if len(rep.Rows) != 2 {
+		t.Fatalf("rows = %d (%+v), want the machine's two: the empty scope is the machine scope", len(rep.Rows), rep.Rows)
+	}
+
+	// The check reads both halves through the same scope, and its cache write
+	// must land under the key the roster read later uses.
+	checked, err := CheckUpdates(context.Background(), "claude-code", Paths{}, "", true)
+	if err != nil {
+		t.Fatalf("CheckUpdates with the default scope: %v", err)
+	}
+	if len(checked.Rows) != 2 {
+		t.Fatalf("checked rows = %d, want the same two", len(checked.Rows))
+	}
+	var marked bool
+	for _, row := range checked.Rows {
+		if row.Name == "picode-native" && row.UpdateAvailable && row.Latest == "1.1.0" {
+			marked = true
+		}
+	}
+	if !marked {
+		t.Fatalf("rows = %+v, want the catalog's newer version marked on picode-native", checked.Rows)
+	}
+}

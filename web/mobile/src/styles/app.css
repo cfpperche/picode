@@ -637,6 +637,62 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .gpkg-source-chip .btn { height: 28px; min-height: 28px; }
+/* --- the pane's toolbar sticks (ADR-0167) ------------------------------------
+   The filter box and the check row are this pane's controls, and a catalog of
+   300 rows scrolls them off the top. The opaque background is what keeps the
+   rows from reading through the bar as they pass under it. */
+.gpkg-sticky {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--bg-panel); padding: 8px 0;
+}
+.gpkg-sticky .pkg-installed-toolbar, .gpkg-sticky .gpkg-check { margin: 0; }
+
+/* Installed rows, grouped by where they came from — in the vendor's own word for
+   it. A group header exists only when the list actually mixes origins: one group
+   is the whole list and explaining it would be chrome. */
+.gpkg-group + .gpkg-group { margin-top: 16px; }
+.gpkg-group-head {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px;
+  font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.gpkg-group-head .pkg-count { padding: 0; font-weight: 500; }
+
+/* The run of text that matched the filter, in the accent colour: a filtered card
+   shows why it is there instead of just surviving. */
+.pkg-mark { background: none; color: var(--accent); font-weight: 650; }
+
+/* An empty installed list points at the CLI's own catalog — real entries with a
+   real Install, not a guessed suggestion. */
+.gpkg-picks {
+  list-style: none; margin: 12px 0 2px; padding: 0; width: 100%; max-width: 520px;
+  display: flex; flex-direction: column; gap: 6px; text-align: left;
+}
+.gpkg-pick {
+  display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 10px;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-ctl);
+}
+.gpkg-pick-name {
+  flex: 1; min-width: 0; font-family: var(--mono); font-size: 12.5px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* A chip that filters: the marketplace name on a catalog card, the source name
+   above the list. Pressed reads as the active filter. */
+.pkg-type.is-filter, .gpkg-source-name {
+  cursor: pointer; font: inherit;
+  background: none; color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px;
+  transition: color var(--motion-fast), border-color var(--motion-fast);
+}
+.pkg-type.is-filter { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
+.gpkg-source-name { font-family: var(--mono); font-size: 11.5px; padding: 2px 6px; max-width: 220px; text-align: left; }
+.pkg-type.is-filter:hover, .gpkg-source-name:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.pkg-type.is-filter[aria-pressed="true"], .gpkg-source-name[aria-pressed="true"] {
+  color: var(--accent); border-color: var(--accent);
+}
+.pkg-type.is-filter:focus-visible, .gpkg-source-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .gpkg-output {
   margin: 0 0 12px; padding: 10px; max-height: 320px; overflow: auto;
   background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl);
