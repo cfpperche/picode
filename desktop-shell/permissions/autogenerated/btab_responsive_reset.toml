@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-responsive-reset"
+description = "Enables the btab_responsive_reset command without any pre-configured scope."
+commands.allow = ["btab_responsive_reset"]
+
+[[permission]]
+identifier = "deny-btab-responsive-reset"
+description = "Denies the btab_responsive_reset command without any pre-configured scope."
+commands.deny = ["btab_responsive_reset"]

@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use picode_shell::{cdppolicy, origins, permissions, preview};
+use picode_shell::{cdppolicy, origins, permissions, preview, responsive};
 use windows::core::Interface;
 use tauri::webview::{NewWindowResponse, WebviewBuilder};
 use tauri::WebviewUrl;
@@ -53,6 +53,17 @@ pub struct BtabState {
     // paint at the placeholder rect over the pane's own empty state until the
     // first bounds call places it (owner report 2026-09-17).
     pub unplaced: Mutex<HashSet<String>>,
+    // The full pane rect each tab last reported through btab_bounds — the
+    // raw one, before any responsive narrowing. The device toolbar's width
+    // command centers the page inside it; reset hands the whole rect back.
+    pub panes: Mutex<HashMap<String, (f64, f64, f64, f64)>>,
+    // Per-tab device-toolbar state ("Responsive width", the native half):
+    // the preset width the page is narrowed to and the zoom that rides with
+    // it. Rides btab_meta back to the UI, so the strip survives tab switches
+    // and route returns; an entry exists only while the toolbar is shown —
+    // hiding it resets the tab (a hidden toolbar must not leave a narrowed
+    // page behind with no control to fix it).
+    pub responsive: Mutex<HashMap<String, responsive::Width>>,
     // Per-tab CDP event rings. The event handlers run on the UI thread and
     // append here; btab_cdp_events drains them by sequence number.
     rings: Arc<Mutex<HashMap<String, Ring>>>,
@@ -243,6 +254,23 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
         //   tab closed before any of them  → nothing to show
         false
     };
+    // A tab recreated under an active device-toolbar width is born at the
+    // narrowed rect — the per-tab state survives the close of the webview,
+    // and the first bounds push alone would flash the page full-width.
+    if placed {
+        let st = app
+            .state::<BtabState>()
+            .responsive
+            .lock()
+            .unwrap()
+            .get(id)
+            .copied()
+            .unwrap_or_default();
+        if st.narrowed() {
+            let r = responsive::width_rect(responsive::Rect::new(x, y, w, h), st.w);
+            (x, y, w, h) = (r.x, r.y, r.w, r.h);
+        }
+    }
     let emitter = app.clone();
     let page = WebviewBuilder::new(label, WebviewUrl::External(parsed))
         .data_directory(super::browserlab::profile_for(id))
@@ -361,6 +389,24 @@ pub async fn btab_bounds(
     w: f64,
     h: f64,
 ) -> Result<(), String> {
+    // The raw pane rect is remembered either way: the device toolbar centers
+    // the page inside it, and reset hands the whole rect back.
+    state.panes.lock().unwrap().insert(id.clone(), (x, y, w, h));
+    let (x, y, w, h) = {
+        let st = state
+            .responsive
+            .lock()
+            .unwrap()
+            .get(&id)
+            .copied()
+            .unwrap_or_default();
+        if st.narrowed() {
+            let r = responsive::width_rect(responsive::Rect::new(x, y, w, h), st.w);
+            (r.x, r.y, r.w, r.h)
+        } else {
+            (x, y, w, h)
+        }
+    };
     match app.get_webview(&label(&id)) {
         Some(wv) => {
             wv.set_bounds(tauri::Rect {
@@ -428,9 +474,19 @@ pub async fn btab_reload(app: AppHandle, id: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-// The active tab polls this; title is the host for now (v1).
+// The active tab polls this; title is the host for now (v1). The receipt
+// also carries the tab's device-toolbar state (`responsive`), which is what
+// makes the strip survive tab switches and route returns — the UI paints
+// from this, never from its own memory of the last click.
 #[tauri::command]
-pub async fn btab_meta(app: AppHandle, id: String) -> Result<serde_json::Value, String> {
+pub async fn btab_meta(
+    app: AppHandle,
+    state: State<'_, BtabState>,
+    id: String,
+) -> Result<serde_json::Value, String> {
+    let responsive = state.responsive.lock().unwrap().get(&id).map(|st| {
+        serde_json::json!({ "on": true, "width": st.w, "zoom": st.zoom })
+    });
     match app.get_webview(&label(&id)) {
         Some(wv) => {
             let url = wv.url().map(|u| u.to_string()).unwrap_or_default();
@@ -438,9 +494,9 @@ pub async fn btab_meta(app: AppHandle, id: String) -> Result<serde_json::Value, 
                 .ok()
                 .and_then(|u| u.host_str().map(|s| s.to_string()))
                 .unwrap_or_default();
-            Ok(serde_json::json!({ "url": url, "title": title }))
+            Ok(serde_json::json!({ "url": url, "title": title, "responsive": responsive }))
         }
-        None => Ok(serde_json::json!({ "url": "", "title": "" })),
+        None => Ok(serde_json::json!({ "url": "", "title": "", "responsive": responsive })),
     }
 }
 
@@ -706,16 +762,38 @@ pub async fn btab_print(app: AppHandle, id: String) -> Result<(), String> {
 // The tab's zoom factor, as the options menu shows it (1.0 = 100%).
 #[tauri::command]
 pub async fn btab_zoom(app: AppHandle, id: String) -> Result<f64, String> {
-    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
-    let (tx, rx) = mpsc::channel::<Result<f64, String>>();
+    read_zoom(&app, &id).ok_or_else(|| "zoom: no answer".to_string())
+}
+
+// The controller's current ZoomFactor, read on the UI thread. `None` when
+// the tab is not open or the round-trip died — callers treat it as best
+// effort (the device toolbar only inherits it when the strip first shows).
+fn read_zoom(app: &AppHandle, id: &str) -> Option<f64> {
+    let wv = app.get_webview(&label(id))?;
+    let (tx, rx) = mpsc::channel::<f64>();
     let done = tx.clone();
     let sent = wv.with_webview(move |platform| unsafe {
         let controller = platform.controller();
         let mut z = 1.0f64;
+        if controller.ZoomFactor(&mut z).is_ok() {
+            let _ = done.send(z);
+        }
+    });
+    sent.ok()?;
+    rx.recv_timeout(Duration::from_secs(5)).ok()
+}
+
+// Apply a zoom factor to one tab's controller (the UI-thread half of both
+// zoom commands).
+fn write_zoom(app: &AppHandle, id: &str, factor: f64) -> Result<(), String> {
+    let wv = app.get_webview(&label(id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let controller = platform.controller();
         let _ = done.send(
             controller
-                .ZoomFactor(&mut z)
-                .map(|_| z)
+                .SetZoomFactor(factor)
                 .map_err(|e| format!("zoom: {e}")),
         );
     });
@@ -732,23 +810,133 @@ pub async fn btab_set_zoom(app: AppHandle, id: String, factor: f64) -> Result<f6
     if !(0.25..=5.0).contains(&factor) {
         return Err(format!("{factor} is outside the zoom range (25%–500%)"));
     }
-    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
-    let (tx, rx) = mpsc::channel::<Result<f64, String>>();
-    let done = tx.clone();
-    let sent = wv.with_webview(move |platform| unsafe {
-        let controller = platform.controller();
-        let _ = done.send(
-            controller
-                .SetZoomFactor(factor)
-                .map(|_| factor)
-                .map_err(|e| format!("zoom: {e}")),
-        );
-    });
-    sent.map_err(|e| format!("with_webview: {e}"))?;
-    match rx.recv_timeout(Duration::from_secs(5)) {
-        Ok(result) => result,
-        Err(_) => Err("zoom: no answer".into()),
+    write_zoom(&app, &id, factor)?;
+    Ok(factor)
+}
+
+// --- device toolbar ("Responsive width", the native half) -------------------
+//
+// The strip narrows the page to a preset width (bounds arithmetic in
+// `picode_shell::responsive`) and applies a ZoomFactor zoom — no CDP, so no
+// ADR (owner 2026-09-19); mobile UA / touch / DPR would be that other half
+// and is deliberately absent. The state is per tab in BtabState and rides
+// btab_meta back, so it survives tab switches and route returns.
+
+// One place for applying the toolbar's state to a live webview: center the
+// narrowed rect in the pane's last raw rect, and (when the call carries a
+// zoom) set the controller's factor. A tab with no webview yet, or no rect
+// yet, simply picks the state up on its next bounds push.
+fn apply_responsive(
+    app: &AppHandle,
+    state: &BtabState,
+    id: &str,
+    st: responsive::Width,
+    with_zoom: bool,
+) -> Result<(), String> {
+    let Some(wv) = app.get_webview(&label(id)) else {
+        return Ok(());
+    };
+    if st.narrowed() {
+        if let Some((x, y, w, h)) = state.panes.lock().unwrap().get(id).copied() {
+            let r = responsive::width_rect(responsive::Rect::new(x, y, w, h), st.w);
+            wv.set_bounds(tauri::Rect {
+                position: LogicalPosition::new(r.x, r.y).into(),
+                size: LogicalSize::new(r.w, r.h).into(),
+            })
+            .map_err(|e| e.to_string())?;
+        }
     }
+    if with_zoom {
+        write_zoom(app, id, st.zoom)?;
+    }
+    Ok(())
+}
+
+// The inverse, shared by reset and hide: the full pane rect and 100% zoom.
+fn restore_full(app: &AppHandle, state: &BtabState, id: &str) -> Result<(), String> {
+    let Some(wv) = app.get_webview(&label(id)) else {
+        return Ok(());
+    };
+    if let Some((x, y, w, h)) = state.panes.lock().unwrap().get(id).copied() {
+        wv.set_bounds(tauri::Rect {
+            position: LogicalPosition::new(x, y).into(),
+            size: LogicalSize::new(w, h).into(),
+        })
+        .map_err(|e| e.to_string())?;
+    }
+    write_zoom(app, id, responsive::ZOOM_RESET)
+}
+
+/// `btab_responsive_set` shows or hides one tab's device toolbar and sets
+/// its width or zoom — the UI sends only what changed. First show inherits
+/// the controller's live zoom (the options menu may have moved it before the
+/// strip existed), so the strip never shows a stale percent. Hiding resets:
+/// zoom to 100%, full pane bounds — a hidden toolbar must not leave a
+/// narrowed page behind with no control to fix it. Returns the state as
+/// `btab_meta` paints it.
+#[tauri::command]
+pub async fn btab_responsive_set(
+    app: AppHandle,
+    state: State<'_, BtabState>,
+    id: String,
+    on: Option<bool>,
+    width: Option<f64>,
+    zoom: Option<f64>,
+) -> Result<serde_json::Value, String> {
+    if on == Some(false) {
+        state.responsive.lock().unwrap().remove(&id);
+        restore_full(&app, &state, &id)?;
+        return Ok(serde_json::json!({
+            "on": false, "width": 0.0, "zoom": responsive::ZOOM_RESET
+        }));
+    }
+    // First show inherits the controller's live zoom — the options menu may
+    // have moved it before the strip existed. The read is a UI-thread
+    // round-trip, so it happens outside the map lock.
+    let fresh = !state.responsive.lock().unwrap().contains_key(&id);
+    let inherited = if fresh { read_zoom(&app, &id) } else { None };
+    let mut st = state
+        .responsive
+        .lock()
+        .unwrap()
+        .get(&id)
+        .copied()
+        .unwrap_or_default();
+    if let Some(live) = inherited {
+        st.zoom = live;
+    }
+    if let Some(w) = width {
+        st.w = responsive::normalize_width(w);
+    }
+    if let Some(z) = zoom {
+        st.zoom = responsive::clamp_zoom(z);
+    }
+    state.responsive.lock().unwrap().insert(id.clone(), st);
+    apply_responsive(&app, &state, &id, st, zoom.is_some())?;
+    Ok(serde_json::json!({ "on": true, "width": st.w, "zoom": st.zoom }))
+}
+
+/// `btab_responsive_reset` is the strip's reset: full pane width, zoom back
+/// to 100%. The toolbar itself stays up — hiding it is
+/// `btab_responsive_set { on: false }`.
+#[tauri::command]
+pub async fn btab_responsive_reset(
+    app: AppHandle,
+    state: State<'_, BtabState>,
+    id: String,
+) -> Result<serde_json::Value, String> {
+    let mut map = state.responsive.lock().unwrap();
+    let Some(st) = map.get_mut(&id) else {
+        return Ok(serde_json::json!({
+            "on": false, "width": 0.0, "zoom": responsive::ZOOM_RESET
+        }));
+    };
+    st.w = 0.0;
+    st.zoom = responsive::ZOOM_RESET;
+    let st = *st;
+    drop(map);
+    restore_full(&app, &state, &id)?;
+    Ok(serde_json::json!({ "on": true, "width": 0.0, "zoom": st.zoom }))
 }
 
 // Find in page through the runtime's find session. `forward` = None starts a
@@ -939,6 +1127,8 @@ fn close_inner(
     state.pending.lock().unwrap().remove(id);
     state.unplaced.lock().unwrap().remove(id);
     state.rings.lock().unwrap().remove(id);
+    state.panes.lock().unwrap().remove(id);
+    state.responsive.lock().unwrap().remove(id);
     grants().lock().unwrap().remove(id);
     Ok(())
 }

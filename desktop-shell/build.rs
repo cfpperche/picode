@@ -19,6 +19,8 @@ fn main() {
             "btab_print",
             "btab_zoom",
             "btab_set_zoom",
+            "btab_responsive_set",
+            "btab_responsive_reset",
             "btab_find",
             "btab_cdp_call",
             "btab_cdp_events",

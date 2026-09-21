@@ -33,6 +33,8 @@
     "allow-btab-print",
     "allow-btab-zoom",
     "allow-btab-set-zoom",
+    "allow-btab-responsive-set",
+    "allow-btab-responsive-reset",
     "allow-btab-find",
     "allow-btab-cdp-call",
     "allow-btab-cdp-events",

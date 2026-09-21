@@ -17,8 +17,13 @@ reviewed by the owner against the reference, one item at a time.
   non-empty pixels, and a tab gone mid-capture no longer reports as a
   timeout. The COM calls and the on-screen hide/restore were **accepted by
   the owner on Windows (2026-09-20)** — nothing left open on this row.
-- **Responsive width:** implement the native device-toolbar half (bounds,
-  width/height presets, zoom, reset, per-tab state); CDP emulation needs an ADR.
+- **Responsive width:** ~~implement the native device-toolbar half (bounds,
+  width/height presets, zoom, reset, per-tab state)~~ — **native half landed
+  2026-09-20** (`feat/responsive-width`): the ⋮ menu row + strip above the
+  page, presets 390/768/1024/1280, zoom −/+, reset; pure
+  `desktop-shell/src/responsive.rs` + `lib/responsive.js`, both host-tested;
+  per-tab state rides `btab_meta`. The on-screen Windows resize/zoom is
+  **pending the owner's live acceptance**. CDP emulation still needs an ADR.
 - **Prompt endpoints:** finish wire tests for agent→terminal, stopped terminal,
   unknown terminal, and mismatched agent/terminal identity.
 - **Declaration order:** add a static component check plus a regression fixture
@@ -68,9 +73,10 @@ were verified by the owner on 2026-09-20 after the profile reset fix.
 ## Options menu — landed (2026-09-15)
 
 The ⋮ menu matches the reference (ChatGPT Work): Find in page · Print ·
-Zoom (−/100%/+/reset) · Take a screenshot · Passwords and autofill › ·
-Downloads · History · Clear browsing data · Browser settings. Show device
-toolbar and Import cookies and passwords… stay out until they exist.
+Zoom (−/100%/+/reset) · Show device toolbar (native half, 2026-09-20) ·
+Take a screenshot · Passwords and autofill › ·
+Downloads · History · Clear browsing data · Browser settings. Import cookies
+and passwords… stays out (refused, see the table above).
 
 Two facts the slice established:
 
@@ -372,9 +378,10 @@ gallery hit is worth a look before anyone installs it expecting this one.
   (owner, 2026-09-20)**: the live capture and the on-screen hide/restore
   passed the owner's run — this debt is fully paid (the architecture doc's
   evidence table keeps saying which layer proves what).
-- **Device toolbar** — the reference menu entry still missing; the owner's
-  call is the native half first ("Responsive width": bounds + zoom, no ADR),
-  with CDP device emulation a later ADR (2026-09-19).
+- [x] **Device toolbar** — the native half landed 2026-09-20
+  (`feat/responsive-width`): the reference menu entry ("Show device
+  toolbar") plus the strip — bounds + presets + zoom + reset, per-tab state,
+  no ADR needed. CDP device emulation remains a later ADR (2026-09-19).
 - **Import cookies and passwords…** — **refused by the owner (2026-09-19)**
   with the reasons in the table above. Do not re-add the ⋮ entry without a
   new decision; passwords need PiCode's own vault, cookies need a fragile

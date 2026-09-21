@@ -20,6 +20,7 @@ pub mod keys;
 pub mod origins;
 pub mod permissions;
 pub mod preview;
+pub mod responsive;
 
 use std::collections::BTreeMap;
 

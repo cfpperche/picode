@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChevronRight, IconCollapse, IconExpand, IconGlobe, IconMonitor, IconReload, IconSettings, IconX } from "./Icons.jsx";
+import { IconCheck, IconChevronRight, IconCollapse, IconExpand, IconGlobe, IconMonitor, IconReload, IconSettings, IconX } from "./Icons.jsx";
 import { toast } from "../lib/toast.js";
 import { isLoopbackUrl } from "@picode/shared/client/devservers.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -8,6 +8,7 @@ import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { coverDecision, previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
+import { PRESETS, stepZoom, zoomLabel, presetTitle } from "../lib/responsive.js";
 import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage, parseStatePayload, pastePaths, resolveSendTarget } from "../lib/annotate.js";
 import AnnotateStrip from "./AnnotateStrip.jsx";
 import WebTabAddress from "./WebTabAddress.jsx";
@@ -46,6 +47,11 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   const [still, setStill] = useState(""); // the page, frozen while the menu is over it
   const [previewFailed, setPreviewFailed] = useState(false); // the capture proved worthless
   const [zoom, setZoom] = useState(1);
+  // The device toolbar's per-tab state ("Responsive width"): the shell owns
+  // it (BtabState, keyed by tab id); this mirror is the receipt btab_meta
+  // paints from, so a tab switch or a route return lands back on the same
+  // shape. Null = the strip is hidden.
+  const [resp, setResp] = useState(null);
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
   const [findState, setFindState] = useState({ count: 0, active: 0 });
@@ -572,6 +578,8 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     const tick = () =>
       invoke("btab_meta", { id })
         .then((m) => {
+          setResp(m.responsive?.on ? m.responsive : null);
+          if (m.responsive?.on) setZoom(m.responsive.zoom);
           if (m.url) {
             setStarted(true);
             liveUrlRef.current = m.url;
@@ -636,19 +644,56 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     }
   };
 
-  // Zoom steps: the reference's own ladder, 25% to 500%.
-  const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
-
   const applyZoom = (factor) => {
     if (!invoke) return;
+    // With the device toolbar up, zoom is per-tab state: it rides
+    // btab_responsive_set so the strip and this menu print the same percent.
+    if (resp) {
+      invoke("btab_responsive_set", { id, zoom: factor })
+        .then((st) => { if (st.on) { setResp(st); setZoom(st.zoom); } })
+        .catch((e) => toast("Zoom failed: " + (e?.message || e)));
+      return;
+    }
     invoke("btab_set_zoom", { id, factor })
       .then((next) => setZoom(typeof next === "number" ? next : factor))
       .catch((e) => toast("Zoom failed: " + (e?.message || e)));
   };
   const zoomStep = (dir) => {
-    const at = ZOOM_STEPS.findIndex((z) => z >= zoom - 0.001);
-    const next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, (at < 0 ? ZOOM_STEPS.indexOf(1) : at) + dir))];
-    if (next && next !== zoom) applyZoom(next);
+    const next = stepZoom(zoom, dir);
+    if (next !== zoom) applyZoom(next);
+  };
+
+  // The device toolbar ("Responsive width", the native half): preset widths,
+  // zoom and reset — bounds arithmetic and clamps live in the shell
+  // (picode_shell::responsive); the strip renders the receipt btab_meta
+  // carries. Hiding the toolbar resets the tab: a hidden strip must not
+  // leave a narrowed page behind with no control to fix it.
+  const respState = (st) => setResp(st?.on ? st : null);
+  const toggleDeviceToolbar = () => {
+    if (!invoke) return;
+    invoke("btab_responsive_set", { id, on: !resp })
+      .then(respState)
+      .catch((e) => toast("Device toolbar failed: " + (e?.message || e)));
+  };
+  const setRespWidth = (w) => {
+    if (!invoke) return;
+    invoke("btab_responsive_set", { id, width: w })
+      .then(respState)
+      .catch((e) => toast("Width failed: " + (e?.message || e)));
+  };
+  const respZoomStep = (dir) => {
+    if (!invoke) return;
+    const next = stepZoom(resp?.zoom ?? 1, dir);
+    if (next === resp?.zoom) return;
+    invoke("btab_responsive_set", { id, zoom: next })
+      .then(respState)
+      .catch((e) => toast("Zoom failed: " + (e?.message || e)));
+  };
+  const resetResponsive = () => {
+    if (!invoke) return;
+    invoke("btab_responsive_reset", { id })
+      .then(respState)
+      .catch((e) => toast("Reset failed: " + (e?.message || e)));
   };
 
   const printPage = () => invoke && invoke("btab_print", { id })
@@ -831,6 +876,19 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
                     <button type="button" onClick={() => applyZoom(1)} aria-label="Reset zoom" title="Reset zoom"><IconReload /></button>
                   </span>
                 </div>
+                {/* "Show device toolbar" — the reference's row, now that the
+                    native half exists (owner 2026-09-19: bounds + ZoomFactor
+                    need no ADR; CDP device emulation stays out). Toggling it
+                    hides with a reset, so no narrowed page is stranded. */}
+                <DropdownMenu.CheckboxItem
+                  className="um-item web-tab-menu-check"
+                  checked={!!resp}
+                  onCheckedChange={() => toggleDeviceToolbar()}
+                >
+                  <span className="web-tab-menu-tick" aria-hidden="true"><DropdownMenu.ItemIndicator><IconCheck size={12} /></DropdownMenu.ItemIndicator></span>
+                  <span>Show device toolbar</span>
+                </DropdownMenu.CheckboxItem>
+                <DropdownMenu.Separator className="web-tab-menu-sep" />
                 <DropdownMenu.Item className="um-item" onSelect={shot}><span className="um-item-name"><IconMonitor />Take a screenshot</span></DropdownMenu.Item>
                 <DropdownMenu.Separator className="web-tab-menu-sep" />
                 <DropdownMenu.Sub>
@@ -859,6 +917,27 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
             </button>
           ) : null}
           {onClose ? <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button> : null}
+        </div>
+      ) : null}
+      {resp ? (
+        <div className="web-tab-responsive" role="toolbar" aria-label="Device toolbar">
+          <span className="web-tab-resp-label">Width</span>
+          {PRESETS.map((p) => (
+            <button
+              key={p.width}
+              type="button"
+              className={resp.width === p.width ? "on" : ""}
+              aria-pressed={resp.width === p.width}
+              title={presetTitle(p)}
+              onClick={() => setRespWidth(p.width)}
+            >{p.width}</button>
+          ))}
+          <span className="web-tab-resp-sep" aria-hidden="true" />
+          <button type="button" onClick={() => respZoomStep(-1)} aria-label="Zoom out" title="Zoom out">−</button>
+          <span className="web-tab-resp-zoom">{zoomLabel(resp.zoom)}</span>
+          <button type="button" onClick={() => respZoomStep(1)} aria-label="Zoom in" title="Zoom in">+</button>
+          <span className="web-tab-resp-sep" aria-hidden="true" />
+          <button type="button" onClick={resetResponsive} aria-label="Reset width and zoom" title="Reset width and zoom"><IconReload /></button>
         </div>
       ) : null}
       {findOpen ? (

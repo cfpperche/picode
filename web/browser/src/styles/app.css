@@ -2192,6 +2192,36 @@ img.ws-face.term-cli-face {
   display: inline-flex; align-items: center; justify-content: center;
 }
 .web-tab-find button:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+/* The device toolbar ("Responsive width", the native half): a strip above
+   the page, like the Ask bar — the page is a native sibling, so the strip
+   makes room above it instead of overlaying it. One control height
+   (--ctl-h). The width buttons highlight the preset the shell narrowed the
+   page to; reset hands the whole pane back. */
+.web-tab-responsive {
+  flex: none; display: flex; align-items: center; gap: 4px;
+  padding: 5px 8px; border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.web-tab-resp-label { flex: none; padding: 0 2px; font-size: 12px; color: var(--text-secondary); }
+.web-tab-responsive button {
+  flex: none; height: var(--ctl-h, 36px); min-width: 34px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: none; color: var(--text-secondary); cursor: pointer;
+  font-size: 12px; font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.web-tab-responsive button:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.web-tab-responsive button.on { border-color: var(--accent); color: var(--accent); }
+.web-tab-responsive button svg { display: block; }
+.web-tab-resp-sep { flex: none; width: 1px; height: 18px; margin: 0 4px; background: var(--border); }
+.web-tab-resp-zoom {
+  flex: none; min-width: 42px; text-align: center; font-size: 12px;
+  color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+/* The ⋮ menu's checkbox row ("Show device toolbar"), same shape as the
+   Inspector's run-mode row. */
+.web-tab-menu-check { padding-left: 6px; }
+.web-tab-menu-tick { width: 16px; height: 16px; display: grid; place-items: center; flex: none; color: var(--accent); }
 /* The menu's still: the page as it was when the menu opened. The native
    webview is hidden while it stands in, so the menu paints over the page. */
 .web-tab-still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }

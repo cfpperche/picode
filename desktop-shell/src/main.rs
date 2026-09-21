@@ -108,6 +108,8 @@ fn main() {
             btab::btab_print,
             btab::btab_zoom,
             btab::btab_set_zoom,
+            btab::btab_responsive_set,
+            btab::btab_responsive_reset,
             btab::btab_find,
             btab::btab_cdp_call,
             btab::btab_cdp_events,
