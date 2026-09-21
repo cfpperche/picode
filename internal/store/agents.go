@@ -252,6 +252,7 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 	if err != nil {
 		return Agent{}, err
 	}
+	previousName := a.Name
 	if p.Name != nil {
 		n := stringsTrimSpace(*p.Name)
 		if n == "" {
@@ -311,6 +312,18 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 		// (resume/fork/clone/adopt/import) gets historized here, in one
 		// place, so no call site can forget (ADR-0039).
 		_ = s.RecordAgentSessionPath(id, *a.SessionPath)
+	}
+	if p.Name != nil && previousName != a.Name && a.TerminalID != nil {
+		// A bound terminal borrows its agent's name (attachAgentTerminal,
+		// EnsureAgentTerminal). The rename keeps the loan current, or the
+		// tab strip — which labels a t:<id> tab with term.name — keeps the
+		// name the agent had at bind time. Best-effort: a terminal that
+		// vanished mid-flight does not fail the agent rename.
+		if _, err := s.db.Exec(`UPDATE terminals SET name = ? WHERE id = ?`, normalizeTerminalName(a.Name), *a.TerminalID); err == nil {
+			if t, terr := s.GetTerminal(*a.TerminalID); terr == nil {
+				s.note("terminal.updated", nil, nil, t)
+			}
+		}
 	}
 	return s.agentChanged(id)
 }
