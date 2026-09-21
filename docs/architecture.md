@@ -33,6 +33,10 @@ copies a repo build and restarts that unit — but first asks the daemon
 `GET /api/deploy/readiness` and refuses while any agent or terminal other
 than the calling pane is mid-turn (ADR-0086; the caller is always working
 by the act of asking, so it never blocks itself; `--force` overrides).
+Deploy, `make desktop-restart` and the CLI share one
+mutation lock (`/tmp/picode-mutate.lock`), so two owner-grade restarts never
+interleave on a machine (2026-09-21); the swap script also refuses to kill
+the shell while no live `wsl.exe … sleep infinity` keepalive holds the VM.
 `main` ships when the owner runs `make deploy` (ADR-0105), never from a
 branch session.
 The supervised daemon does not

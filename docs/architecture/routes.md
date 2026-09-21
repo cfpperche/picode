@@ -226,6 +226,9 @@ it in the terminal — replying never closes an item while nothing was
 sent.
 
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
+The paste path polls the live pane until the composer reads empty, retries
+Enter once, and answers 502 `staged` (the bar stays open) instead of a
+blind success; TUIs without a reader keep the unverified paste.
 The composer also opens a device file picker (Photos / camera / files on a
 phone) so attach does not depend on clipboard paste.
 Agent CLI terminals have no composer. ADR-0089 is a user-initiated prompt

@@ -123,12 +123,20 @@ cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
 install: build ## Copy bin/picode to ~/.local/bin and enable systemd --user
 	./bin/picode install
 
+# One lock for every owner-grade restart (2026-09-21: a forced deploy racing
+# a desktop-restart's cargo build wedged WSL's IO and the whole VM went down
+# with all sessions). `picode deploy` takes the same lock itself (that is
+# what PICODE_MUTATION_LOCK_HELD hands down — a child flocking its parent's
+# held file would deadlock), so make-driven and CLI-driven mutations can
+# never interleave either.
+MUTATION_LOCK := /tmp/picode-mutate.lock
+
 # Deploy is the owner's call (ADR-0105): a branch session never deploys; the
 # owner runs `make deploy` from the root whenever they want main live. The
 # ADR-0086 guard stays: `picode deploy` refuses while anyone is mid-turn
 # (exit 2); PICODE_DEPLOY_FORCE=1 overrides for a deliberate one-off.
 deploy: ## Rebuild UI+binary, refresh stale public captures, restart the service (owner's call; refuses while agents work)
-	flock -x /tmp/picode-deploy.lock $(MAKE) --no-print-directory _deploy
+	PICODE_MUTATION_LOCK_HELD=1 flock -x $(MUTATION_LOCK) $(MAKE) --no-print-directory _deploy
 
 # Body of deploy, held under the lock: parallel sessions deploying between
 # one agent's gate and its restart have shipped the wrong tree (2026-09-05).
@@ -171,8 +179,12 @@ desktop-test: ## Host-test the shell's pure half (rustc only, no Windows toolcha
 	rustc --edition 2021 --test src/lib.rs -o target/host-tests/lib.test && target/host-tests/lib.test && \
 	rustc --edition 2021 --test src/annotate.rs -o target/host-tests/annotate.test && target/host-tests/annotate.test
 
-desktop-restart: desktop desktop-shell ## Build every exe, swap them, relaunch the resident — NEVER `&` from WSL (scripts/desktop-swap.sh)
-	./scripts/desktop-swap.sh
+# The whole body — builds included, not just the swap — sits under the same
+# lock as deploy: the 2026-09-21 VM death was the cargo release build
+# overlapping two deploys, and a lock that freed between build and swap would
+# hand a deploy exactly the mid-flight window that bricks the resident.
+desktop-restart: ## Build every exe (serialized with deploy), swap them, relaunch the resident — NEVER `&` from WSL (scripts/desktop-swap.sh)
+	flock -x $(MUTATION_LOCK) bash -c '$(MAKE) --no-print-directory desktop desktop-shell && ./scripts/desktop-swap.sh'
 
 restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 

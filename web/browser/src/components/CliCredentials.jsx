@@ -284,12 +284,20 @@ export default function CliCredentials({ hidden, cli, add = false }) {
         {providers.length ? (
           <div className="set-row cred-bar" data-align-row>
             {total ? <span className="cred-count">{total === 1 ? "1 account" : total + " accounts"}</span> : null}
-            {data.signin && data.signin.available ? (
-              <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "signin"} onClick={startSignin}>
-                {busy === "signin" ? "Opening…" : "Sign in"}
-              </button>
-            ) : null}
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => openAdd("")}>Add API key</button>
+            {/* The bar's controls are one group at the end of the row, never a
+                set of items each claiming the free space. Add lives in the
+                provider group as soon as there is more than one provider, so
+                the bar never shows a second one right above it. */}
+            <span className="cred-bar-actions">
+              {data.signin && data.signin.available ? (
+                <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "signin"} onClick={startSignin}>
+                  {busy === "signin" ? "Opening…" : "Sign in"}
+                </button>
+              ) : null}
+              {multiProvider ? null : (
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => openAdd("")}>Add API key</button>
+              )}
+            </span>
           </div>
         ) : (
           <p className="cred-empty"><span>{"No provider credentials for " + cliName + " yet."}</span></p>

@@ -111,14 +111,16 @@ func TestNoAutoConsentFlag(t *testing.T) {
 // edit to a declaration cannot quietly claim a verb the vendor lacks.
 func TestCapabilitiesAreDerived(t *testing.T) {
 	want := map[string]Caps{
-		"claude-code": {Install: true, Remove: true, Toggle: true, Update: true, Marketplace: true, Available: true},
-		"codex":       {Install: true, Remove: true, Marketplace: true, Available: true},
-		"grok":        {Install: true, Remove: true, Toggle: true, Update: true, Inspect: true, Marketplace: true, Available: true},
-		"hermes":      {Install: true, Remove: true, Toggle: true, Update: true, Available: true},
+		"claude-code": {Install: true, Remove: true, Toggle: true, Update: true, Marketplace: true, Available: true, CatalogInstall: true},
+		"codex":       {Install: true, Remove: true, Marketplace: true, Available: true, CatalogInstall: true},
+		"grok":        {Install: true, Remove: true, Toggle: true, Update: true, Inspect: true, Marketplace: true, Available: true, CatalogInstall: true},
+		"hermes":      {Install: true, Remove: true, Toggle: true, Update: true, Available: true, CatalogInstall: true},
 		"opencode":    {Install: true, Remove: true, Toggle: true},
-		"muse":        {Install: true, Remove: true, Toggle: true, Update: true, Inspect: true, Marketplace: true, Available: true},
+		"muse":        {Install: true, Remove: true, Toggle: true, Update: true, Inspect: true, Marketplace: true, Available: true, CatalogInstall: true},
 		"agy":         {Install: true, Remove: true, Toggle: true},
-		"omp":         {Install: true, Remove: true, Toggle: true, Update: true, Inspect: true, Marketplace: true},
+		// Omp's catalog is information only: `omp plugin discover` prints a name
+		// and a version and never the marketplace an install needs.
+		"omp": {Install: true, Remove: true, Toggle: true, Update: true, Inspect: true, Marketplace: true, Available: true},
 	}
 	for cli, expect := range want {
 		if got := Capabilities(cli); got != expect {

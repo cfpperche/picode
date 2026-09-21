@@ -59,6 +59,7 @@ import { openRepoKeys, openTreeKeys, ownerIdOf, pickTarget } from "./lib/workspa
 import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk, paneCapabilities } from "./lib/termMenu.js";
+import { globeBindId, globeClickAction } from "./lib/globeMenu.js";
 import { promptDoorFor } from "@picode/shared/domain/termPrompt.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
@@ -554,6 +555,21 @@ export default function App({ shellChrome = false } = {}) {
       const { bypassModifier } = readContextMenuPrefs();
       if (modifierHeld(bypassModifier, e)) return; // let the native/system menu show
       e.preventDefault();
+      // The header globe is a launcher, not chrome: its menu is the work
+      // browser's (Open browser / Open in new tab), not Copy / Reload.
+      const globeBtn = e.target && e.target.closest && e.target.closest("[data-browser-globe]");
+      if (globeBtn) {
+        const selected = selectedRef.current;
+        const term = isTermTab(selected) ? terminalsRef.current.find((t) => t.id === tabTermId(selected)) : null;
+        const bindId = globeBindId(selected, term);
+        setCtxMenu({
+          x: e.clientX,
+          y: e.clientY,
+          target: e.target,
+          globe: { tabId: bindId, splitOn: !!agentPanesRef.current[bindId] },
+        });
+        return;
+      }
       // A terminal pane answers for itself: xterm owns the selection, and
       // what the pane is — a bare shell, a launched CLI, an agent's TUI —
       // decides which rows exist at all (lib/termMenu.js). Everything else
@@ -1756,6 +1772,7 @@ export default function App({ shellChrome = false } = {}) {
     if (url) window.__TAURI__?.core.invoke("btab_navigate", { id, url }).catch(() => {});
   }, [bootstrapped, selectedId, agentPanes]);
   function openAgentSplit(agentId) {
+    if (!agentId || agentPanesRef.current[agentId]) return;
     webSeqRef.current += 1;
     const id = String(webSeqRef.current);
     setWebTabs((m) => ({ ...m, [id]: { url: "", title: "" } }));
@@ -1781,6 +1798,19 @@ export default function App({ shellChrome = false } = {}) {
   }
   const openWebTabRef = useRef(openWebTab);
   openWebTabRef.current = openWebTab;
+
+  function onGlobeClick(e) {
+    const selected = selectedId;
+    const term = isTermTab(selected) ? terminals.find((t) => t.id === tabTermId(selected)) : null;
+    const bindId = globeBindId(selected, term);
+    const action = globeClickAction({
+      shiftKey: !!e.shiftKey,
+      bindId,
+      splitOn: !!agentPanesRef.current[bindId],
+    });
+    if (action === "new-tab") openWebTab("");
+    else if (action === "split") openAgentSplit(bindId);
+  }
 
   function closeInstalledTab(tab) {
     if (!webappIdFromTab(tab)) return;
@@ -2600,6 +2630,7 @@ export default function App({ shellChrome = false } = {}) {
     },
     "open-browser": (ctx) => openAgentSplit(ctx.tabId),
     "close-browser": (ctx) => closeAgentSplit(ctx.tabId),
+    "new-tab": () => openWebTab(""),
   };
 
   async function renameTerminal(t) {
@@ -2803,6 +2834,54 @@ export default function App({ shellChrome = false } = {}) {
     } catch (err) { toastError(err); }
   }
 
+  // Best-effort reversal of removeAgent: the old row's id is gone for good
+  // (automations pointing at it stay broken), but the agent comes back in
+  // the same workspace with the same name, cli and config, and its session
+  // history re-attached — unless the dialog's purge was picked, in which
+  // case the sessions are already deleted and nothing pretends otherwise.
+  // Per-agent package selection rides the packages surface, not PATCH, so
+  // it is the one setting this cannot carry over.
+  async function undoRemoveAgent(snap) {
+    try {
+      let created;
+      if (snap.workspaceId && snap.workspaceId !== "ws_free") {
+        created = await api("/api/workspaces/" + snap.workspaceId + "/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cli: snap.cli, name: snap.name, workPath: snap.workPath || "",
+            provider: snap.provider || "", model: snap.model || "", thinking: snap.thinking || "",
+          }),
+        });
+      } else {
+        created = await api("/api/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: snap.name, path: snap.workPath || "" }),
+        });
+      }
+      const patch = {};
+      if (snap.opMode) patch.opMode = snap.opMode;
+      if (snap.checklist) patch.checklist = snap.checklist;
+      if (snap.extraPrompt) patch.extraPrompt = snap.extraPrompt;
+      if (snap.packagesIsolated) patch.packagesIsolated = true;
+      if (!snap.sessionsPurged && snap.sessionPath) patch.sessionPath = snap.sessionPath;
+      if (Object.keys(patch).length) {
+        await api("/api/agents/" + created.id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+      }
+      // The feed may not have delivered the brand-new row yet (and
+      // refreshFleetFallback returns nothing when it is live), so undo
+      // refetches and hands the fresh list to openTab itself.
+      const list = await loadWorkspaces();
+      openTab(created.id, list);
+      toast.ok(`"${snap.name}" is back.`);
+    } catch (err) { toastError(err); }
+  }
+
   async function removeAgent(ag) {
     const choice = await confirmCleanup({
       title: "Remove agent",
@@ -2815,6 +2894,21 @@ export default function App({ shellChrome = false } = {}) {
     // filter lands, while the strip still anchors the reader's place.
     const removedTabs = [ag.id, ag.terminalId ? termTabId(ag.terminalId) : ""].filter(Boolean);
     const next = removedTabs.includes(selectedRef.current) ? pickNextTab(tabsRef.current, removedTabs) : null;
+    const undoSnapshot = {
+      workspaceId: ag.workspaceId || "",
+      cli: ag.cli || "pi",
+      name: ag.name,
+      workPath: ag.workPath || "",
+      provider: ag.provider || "",
+      model: ag.model || "",
+      thinking: ag.thinking || "",
+      opMode: ag.opMode || "",
+      checklist: ag.checklist || "",
+      sessionPath: ag.sessionPath || "",
+      extraPrompt: ag.extraPrompt || "",
+      packagesIsolated: !!ag.packagesIsolated,
+      sessionsPurged: (choice.query || "").includes("sessions=1"),
+    };
     try {
       await api("/api/agents/" + ag.id + choice.query, { method: "DELETE" });
     } catch (err) {
@@ -2840,6 +2934,13 @@ export default function App({ shellChrome = false } = {}) {
     // A removal is rare and final: refetch even when the feed is live, so
     // the row leaves on this answer and not only on the next event.
     await loadWorkspaces();
+    // Feedback + the way back. An action carries the notice model's floor
+    // (8s), so the Undo is readable without pinning the screen.
+    notify({
+      level: "ok",
+      title: `Removed "${ag.name}".`,
+      actions: [{ label: "Undo", primary: true, run: () => undoRemoveAgent(undoSnapshot) }],
+    });
   }
 
   async function removeWorkspace(ws) {
@@ -3448,7 +3549,7 @@ export default function App({ shellChrome = false } = {}) {
     keepVisible={focus.on}
     endSlot={!narrow ? (
       <>
-        <button type="button" className="insp-toggle" aria-label="New browser tab" title="New browser tab" onClick={() => openWebTab("")}>
+        <button type="button" className="insp-toggle" data-browser-globe="" aria-label="Open browser" title="Open browser" onClick={onGlobeClick}>
           <IconGlobe />
         </button>
         <InspectorToggle

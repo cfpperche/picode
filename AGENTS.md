@@ -194,6 +194,16 @@ For any UI work:
 
 ## Rules for the agent itself
 
+- **Owner-grade restarts are serialized, one at a time, verified.** `make
+  deploy`, `make desktop-restart` and a direct `picode deploy` all take
+  `/tmp/picode-mutate.lock` — never run two of them concurrently, and never
+  work around the wait. Each one finishes and is *verified* (daemon health,
+  `tasklist` for the shell) before the next starts; a turn never ends with a
+  mutation command still running, and `--force` is never used while any
+  background job of yours is in flight (2026-09-21: a forced deploy racing a
+  desktop-restart's cargo build wedged WSL's IO; the VM died with all 21
+  sessions and the resident was dead until a machine reboot).
+
 - **Never `pkill -f <pattern>`** (or `killall`) from a session: the pattern
   matches the command line running it, so the shell that issued it dies first
   (a session killed its own `make` chain this way, and an earlier

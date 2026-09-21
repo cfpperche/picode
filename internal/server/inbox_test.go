@@ -150,6 +150,12 @@ func TestInboxRespondRecordsForChannelLessSource(t *testing.T) {
 	if !strings.Contains(after.Body, apps.InboxAnswerRecordedNote) {
 		t.Fatalf("body = %q, want the record note", after.Body)
 	}
+	// The note must stay honest for askers that cannot poll: a plain `ask`
+	// and an unmanaged pi never read the item, so a note that only promised
+	// a pickup would be a lie the human acts on. It names both paths.
+	if !strings.Contains(apps.InboxAnswerRecordedNote, "--wait") || !strings.Contains(apps.InboxAnswerRecordedNote, "not polling") {
+		t.Fatalf("record note = %q, want the polling and non-polling clauses", apps.InboxAnswerRecordedNote)
+	}
 	// An ignored channel-less item closes without a response, as before.
 	_, out2 := inboxPost(t, ts, "/api/inbox",
 		`{"kind":"question","sourceKind":"system","sourceId":"goat@box","reason":"r","title":"never mind","body":"actually skip this one"}`)

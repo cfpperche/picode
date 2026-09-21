@@ -506,3 +506,21 @@ func TestSpawnFlagsInjectReplyReceiver(t *testing.T) {
 		t.Fatalf("spawn flags %v do not inject the reply receiver", flags)
 	}
 }
+
+func TestTuiReaderFor(t *testing.T) {
+	for _, tc := range []struct{ cli, want string }{
+		{"omp", "pi"},
+		{"pi", "pi"},
+		{"claude-code", "claude-code"},
+		{"codex", "codex"},
+		{"opencode", "opencode"},
+		{"grok", "grok"},
+		{"hermes", "hermes"},
+		{"agy", "agy"},
+		{"", ""},
+	} {
+		if got := tuiReaderFor(tc.cli); got != tc.want {
+			t.Errorf("tuiReaderFor(%q) = %q, want %q", tc.cli, got, tc.want)
+		}
+	}
+}

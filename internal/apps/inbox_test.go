@@ -720,6 +720,13 @@ func TestInboxTerminalSourcedReplyRoutesToTheTerminal(t *testing.T) {
 	if !strings.Contains(got.Body, InboxAnswerRecordedNote) || !strings.Contains(got.Body, "no reply channel") {
 		t.Fatalf("item body = %q, want the refusal note corrected by the record note", got.Body)
 	}
+	// The toast is the copy the human acts on: it must name the non-polling
+	// case too, or a guest told "pick it up here" waits for nothing. The
+	// toast speaks human ("a waiting asker"), not flags — the note carries
+	// the `--wait` detail.
+	if !strings.Contains(InboxAnswerRecordedToast, "waiting asker") || !strings.Contains(InboxAnswerRecordedToast, "non-polling") {
+		t.Fatalf("record toast = %q, want the waiting and non-polling clauses", InboxAnswerRecordedToast)
+	}
 }
 
 // ADR-0160 Fatia E: a CLI agent's needs-you names the agent, and the way in is

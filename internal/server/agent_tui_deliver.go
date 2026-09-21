@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -83,6 +84,9 @@ func (deps Deps) deliverToInteractiveAgent(ctx context.Context, agent store.Agen
 	}
 	if err != nil {
 		settle.failed(task, err.Error())
+		if errors.Is(err, errPayloadStaged) {
+			return http.StatusBadGateway, map[string]any{"error": errPayloadStaged.Error(), "reason": "staged"}
+		}
 		return http.StatusBadGateway, map[string]any{"error": "the terminal did not take the message: " + err.Error()}
 	}
 	return http.StatusOK, map[string]any{"ok": true, "typed": true, "text": text}

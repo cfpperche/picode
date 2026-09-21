@@ -119,7 +119,14 @@ func opencodeModules(file string) ([]string, error) {
 	case nil:
 		return nil, nil
 	case string:
-		return []string{strings.TrimSpace(v)}, nil
+		// Measured 2026-09-21: OpenCode refuses this file itself. Running its
+		// own `opencode plugin <module>` against `"plugin": "is-odd"` prints
+		// *"Configuration is invalid … Expected array | undefined, got
+		// \"is-odd\" plugin"* and writes nothing. Listing the string as an
+		// installed module would show a plugin the CLI never loads, so the read
+		// fails loudly instead and the pane names the file and the vendor's
+		// expectation.
+		return nil, fmt.Errorf("%s declares a plugin as a string; OpenCode expects a list (\"plugin\": [\"name\"])", file)
 	case []any:
 		out := make([]string, 0, len(v))
 		for _, item := range v {

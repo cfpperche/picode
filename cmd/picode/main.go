@@ -282,6 +282,15 @@ func runDeploy(args []string) {
 			force = true
 		}
 	}
+	// One machine, one owner-grade restart at a time (2026-09-21): a deploy
+	// racing a desktop-restart wedged WSL and cost every session. Make holds
+	// the same lock for its targets and hands it down via the env var, so a
+	// make-driven deploy never deadlocks on its own parent here.
+	release, err := install.MutationLock(install.MutationLockPath, os.Getenv("PICODE_MUTATION_LOCK_HELD") == "1")
+	if err != nil {
+		log.Fatalf("deploy: %v", err)
+	}
+	defer release()
 	exe, err := os.Executable()
 	if err != nil {
 		log.Fatalf("deploy: %v", err)

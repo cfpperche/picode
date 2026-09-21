@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"strings"
+
 	"github.com/cfpperche/picode/internal/clipkgs"
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -84,7 +86,10 @@ func TestCLIPackagesListReadsTheVendor(t *testing.T) {
 		t.Fatalf("scopes = %v (the declaration says machine + workspace)", scopes)
 	}
 	caps, _ := v["caps"].(map[string]any)
-	if caps["install"] != true || caps["toggle"] != true || caps["available"] != false {
+	// Omp has a catalog (`omp plugin discover`) and no per-row Install: the
+	// list never says which marketplace provides a plugin, so the pane offers
+	// the rows as information and states the install form in the note.
+	if caps["install"] != true || caps["toggle"] != true || caps["available"] != true || caps["catalogInstall"] != false {
 		t.Fatalf("caps = %v", caps)
 	}
 	rows, _ := v["rows"].([]any)
@@ -315,4 +320,67 @@ func jobsNow(t *testing.T, ts *httptest.Server) ([]map[string]any, error) {
 		return nil, err
 	}
 	return body.Jobs, nil
+}
+
+// TestCLIPackageRefusalCarriesTheCommand: when the CLI refuses and only a
+// person in a terminal can answer (Grok's --trust), the answer carries the
+// exact command — rendered by the builder the request itself used — so the pane
+// offers the line to run instead of a dead end.
+func TestCLIPackageRefusalCarriesTheCommand(t *testing.T) {
+	stubVendor(t, "grok", `printf '%s\n' 'refusing to disable without confirmation'; exit 1`)
+	ts := newTestServer(t, "cat")
+
+	res := cliRequestRaw(t, ts, "POST", "/api/cli-packages/toggle", map[string]any{
+		"cli": "grok", "scope": "user", "name": "probe", "on": false,
+	})
+	defer res.Body.Close()
+	if res.StatusCode != 502 && res.StatusCode != 400 {
+		t.Fatalf("status = %d, want the vendor failure reported", res.StatusCode)
+	}
+	var body struct {
+		Error   string `json:"error"`
+		Command string `json:"command"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body.Error, "refusing to disable") {
+		t.Fatalf("error = %q, want the vendor's own words", body.Error)
+	}
+	if body.Command != "grok plugin disable probe" {
+		t.Fatalf("command = %q, want the exact line the pane can run", body.Command)
+	}
+}
+
+// TestCLIPackageJobCarriesTheCommand: the asynchronous half needs the same
+// affordance, so a failed package job answers with the command it ran.
+func TestCLIPackageJobCarriesTheCommand(t *testing.T) {
+	stubVendor(t, "omp", `printf '%s' '{"npm":[],"marketplace":[]}'`)
+	ts := newTestServer(t, "cat")
+
+	started := cliRequest(t, ts, "POST", "/api/cli-packages/install", map[string]any{
+		"cli": "omp", "scope": "user", "source": "my-ext", "requestKey": "cmd-1",
+	}, 202)
+	if started["command"] != "omp plugin install my-ext --json" {
+		t.Fatalf("202 command = %v, want the line the job runs", started["command"])
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		jobs, err := jobsNow(t, ts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range jobs {
+			if row["id"] == started["id"] {
+				if row["state"] == "succeeded" {
+					if row["command"] != "omp plugin install my-ext --json" {
+						t.Fatalf("job command = %v", row["command"])
+					}
+					return
+				}
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("the install job did not settle")
 }

@@ -2,8 +2,12 @@
 
 ## Debts
 
-- [ ] Attribute the two instance terminations that did not coincide with a
-  desktop-restart (2026-09-18 16:44 and 17:06 local): enable WSL's
+- [ ] Attribute the instance terminations that did not coincide with a
+  desktop-restart (2026-09-18 16:44 and 17:06 local, and **2026-09-21 ~11:20**:
+  boot `b6e59a61`, forensics "21 of 21 session(s) … did NOT survive", preceded
+  by mass TLS write timeouts 11:19:47–52 — a cargo xwin release build and two
+  deploys were in flight; root cause unresolved, so the mutation lock added
+  that day is prevention by serialization, not attribution): enable WSL's
   Operational event log on Windows (Task Scheduler log was disabled) and
   check whether `sparseVhd=true` / `autoMemoryReclaim` in `.wslconfig`
   triggers WSL-side reclaims that a keepalive cannot prevent. If sparse
