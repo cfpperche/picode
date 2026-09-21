@@ -4235,7 +4235,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    page title, section cards, and rows that carry a title + description on
    the left with the control pinned right, divided by hairlines. The chrome
    around the page stays PiCode's. */
-.set-page { display: flex; flex-direction: column; gap: 22px; max-width: 780px; }
+.set-page { display: flex; flex-direction: column; gap: 22px; max-width: none; width: 100%; }
 .set-title { margin: 18px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
 .set-lede { margin: 3px 0 0; font-size: 13.5px; color: var(--text-secondary); }
 .set-group { display: flex; flex-direction: column; gap: 8px; }
@@ -4266,7 +4266,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-item { display: flex; align-items: center; gap: 14px; padding: 13px 16px; }
 .set-item + .set-item { border-top: 1px solid var(--border); }
 .set-item-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.set-item-t { font-size: 13.5px; font-weight: 550; color: var(--text-primary); }
+.set-item-t { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13.5px; font-weight: 550; color: var(--text-primary); }
 .set-item-d { font-size: 12.5px; color: var(--text-secondary); line-height: 1.35; }
 .set-item-ctl { display: flex; align-items: center; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
 .set-item-stack { flex-direction: column; align-items: stretch; }
@@ -4276,14 +4276,14 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-item-stack .set-item-body { flex: none; }
 .set-item-stack .set-item-ctl { width: 100%; }
 .set-btn {
-  display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 12px;
+  display: inline-flex; align-items: center; justify-content: center; height: var(--ctl-h, 36px); padding: 0 12px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-panel);
   color: var(--text-primary); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; white-space: nowrap;
 }
 .set-btn:hover { background: var(--bg-hover); }
 .set-btn-danger { border-color: var(--danger); color: var(--danger); }
 .set-select {
-  height: 30px; padding: 0 26px 0 10px;
+  height: var(--ctl-h, 36px); padding: 0 26px 0 10px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
   background: var(--bg-panel) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%23888f9e' stroke-width='1.5' stroke-linecap='round'/></svg>") no-repeat right 9px center;
   color: var(--text-primary); font: inherit; font-size: 12.5px; appearance: none; cursor: pointer;
@@ -6305,7 +6305,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .grant-row:last-child { border-bottom: none; }
 .grant-name { display: inline-flex; align-items: center; gap: 6px; min-width: 140px; font-size: 13px; color: var(--text-primary); }
 .grant-tier { height: var(--ctl-h); padding: 0 8px; font-size: 12.5px; font-family: inherit; background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-ctl); }
-.grant-domains { height: 30px; padding: 0 8px; font-size: 12.5px; font-family: inherit; background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-ctl); flex: 1 1 220px; min-width: 180px; }
+.grant-domains { height: var(--ctl-h, 36px); padding: 0 8px; font-size: 12.5px; font-family: inherit; background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-ctl); flex: 1 1 220px; min-width: 180px; }
 .grant-domains:focus-visible, .grant-tier:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .grant-domains-bad { border-color: var(--danger, #c42b1c); }
 .grant-error { font-size: 12px; color: var(--danger, #c42b1c); flex-basis: 100%; }
@@ -6328,6 +6328,53 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .grant-cover.is-dead .grant-cover-label,
 .grant-cover.is-dead .grant-cover-d { color: var(--warn); }
 .devs-tag-off { opacity: .6; }
+
+/* Grants toolbar (Carbon toolbar language): search + filters + count share
+   one --ctl-h row above the panel they act on, like .pkg-installed-toolbar. */
+.set-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.set-toolbar > * { box-sizing: border-box; min-height: var(--ctl-h, 36px); }
+.set-search {
+  flex: 1 1 200px; min-width: 140px; height: var(--ctl-h, 36px); padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--text-primary); font: inherit; font-size: 12.5px;
+}
+.set-search::placeholder { color: var(--text-secondary); }
+.set-search:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.set-toolbar .set-select { flex: none; max-width: 220px; }
+.set-count { margin-left: auto; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.set-more { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); }
+.set-more .set-count { margin-left: 0; }
+/* Workspace provenance (VS Code modified-marker language): which workspace
+   a grant belongs to, on the row itself. Neutral chip; dimmed when none. */
+.grant-ws {
+  font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 6px;
+  border-radius: 999px; color: var(--text-secondary); background: var(--bg-hover);
+  max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grant-ws-none { opacity: 0.65; }
+/* Expandable audit rows (Stripe log language): collapsed head is one ≤32px
+   grid row; the detail opens below with the full reason, target and time. */
+.set-audit-head {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto auto; align-items: center;
+  gap: 10px; width: 100%; margin: 0; padding: 5px 0; border: 0; background: none;
+  font: inherit; font-size: 12px; color: var(--text-secondary); text-align: left; cursor: pointer;
+}
+.set-audit-head:hover .set-audit-method { color: var(--accent); }
+.set-audit-toggle { color: var(--text-secondary); font-size: 10px; }
+.set-audit-row.is-open .set-audit-toggle { transform: rotate(90deg); }
+.set-audit-outcome.is-bad { color: var(--danger, var(--text-secondary)); }
+.set-audit-detail {
+  grid-column: 1 / -1; margin: 2px 0 6px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); font-size: 12px; line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.set-audit-detail code { font-family: var(--mono); font-size: 11.5px; color: var(--text-primary); }
+.set-audit-detail-row { display: flex; align-items: baseline; gap: 8px; }
+.set-audit-detail-row + .set-audit-detail-row { margin-top: 4px; }
+.set-audit-detail-k { flex: none; width: 64px; color: var(--text-secondary); }
+.set-audit-row:has(.set-audit-head) { display: block; }
+.set-audit-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 /* A door refusal (working, occupied, busy) names its fix inside the attach
    card — the Send happened here, and a toast can lose the layering. */

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isImageFile, planAttachFiles, clipboardFiles, termHasPromptDoor, MAX_ATTACH, MAX_ATTACH_BYTES } from "./termPrompt.js";
+import { isImageFile, planAttachFiles, clipboardFiles, termHasPromptDoor, promptDoorFor, clipboardText, MAX_ATTACH, MAX_ATTACH_BYTES } from "./termPrompt.js";
 
 test("isImageFile", () => {
   assert.equal(isImageFile({ type: "image/png", name: "a.png" }), true);
@@ -32,4 +32,27 @@ test("termHasPromptDoor", () => {
   assert.equal(termHasPromptDoor({ launchCli: "codex", running: false }), false);
   assert.equal(termHasPromptDoor({ launchCli: "codex", running: true }), true);
   assert.equal(termHasPromptDoor({ launchCli: "pi", running: true }), true);
+});
+
+test("promptDoorFor mirrors the context menu rule", () => {
+  const cli = { launchCli: "codex", running: true };
+  assert.equal(promptDoorFor({ kind: "term", term: cli }), true);
+  assert.equal(promptDoorFor({ kind: "term", term: { launchCli: "", running: true } }), false);
+  assert.equal(promptDoorFor({ kind: "term", term: { launchCli: "codex", running: false } }), false);
+  // An interactive agent pane has the door even when its bound record
+  // carries no launch fields (store struct, untracked binding).
+  assert.equal(promptDoorFor({ kind: "agent", agentMode: "interactive", term: { id: "t1" } }), true);
+  assert.equal(promptDoorFor({ kind: "agent", agentMode: "interactive", term: cli }), true);
+  assert.equal(promptDoorFor({ kind: "agent", agentMode: "managed", term: { id: "t1" } }), false);
+  assert.equal(promptDoorFor({ kind: "agent", agentMode: "managed", term: cli }), true);
+  assert.equal(promptDoorFor({}), false);
+  assert.equal(promptDoorFor(), false);
+});
+
+test("clipboardText", () => {
+  assert.equal(clipboardText(null), "");
+  assert.equal(clipboardText({}), "");
+  assert.equal(clipboardText({ getData: () => "hello" }), "hello");
+  assert.equal(clipboardText({ getData: () => null }), "");
+  assert.equal(clipboardText({ getData: () => { throw new Error("denied"); } }), "");
 });
