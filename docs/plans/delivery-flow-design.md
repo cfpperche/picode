@@ -211,9 +211,10 @@ are not accepted. See ADR-0170 for receipt and configuration ownership.
 
 ## Ready-to-build package and acceptance
 
-D1 touches owner-scoped server reads, pure shared delivery helpers/client, browser
-Git content and mobile Git screens. D2 adds explicit local observer configuration,
-receipt producers and runtime identity observations. Shared code has no React UI;
+D1 touches owner-scoped server reads, validation/land receipt producers, pure shared
+delivery helpers/client, browser Git content and mobile Git screens. D2 adds explicit
+local observer configuration, deployment receipts and runtime identity observations.
+Shared code has no React UI;
 no changes belong in desktop shell window chrome.
 
 Required receipts and protocol/configuration changes are a proposed boundary;
