@@ -8,6 +8,7 @@ import {
 } from "./Icons.jsx";
 import { isEditableTarget, insertAtCaret } from "../lib/contextMenuClipboard.js";
 import { buildTermMenu } from "../lib/termMenu.js";
+import { buildGlobeMenu } from "../lib/globeMenu.js";
 import { runTermCommand, focusPane } from "../lib/termActions.js";
 import { formatChord, primaryChord } from "../lib/appKeys.js";
 import { focusRowLabel } from "@picode/shared/domain/focusMode.js";
@@ -21,7 +22,12 @@ const TERM_ICONS = {
   file: IconFile, external: IconExternal, end: IconScrollEnd, text: IconTextSize,
   clear: IconClear, search: IconSearch, pencil: IconPencil, settings: IconSettings, folders: IconFolders,
   x: IconX, trash: IconTrash, expand: IconExpand, collapse: IconCollapse, globe: IconGlobe,
+  plus: IconPlus,
 };
+
+// Above .shell-row (60) so a menu opened from the header globe is not
+// painted behind the tab strip; below dialogs (70).
+const MENU_Z = 65;
 
 // The one PiCode context menu. Anchored to the cursor through a zero-size
 // virtual trigger rather than @radix-ui/react-context-menu: that primitive's
@@ -40,6 +46,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
   const target = open ? state.target : null;
   const link = open ? state.link : null;
   const graph = open ? state.graph : null;
+  const globe = open ? state.globe : null;
   // Read once per render, like `graph` above: a row's handler must not reach
   // back into `state` at click time, when the menu may already be closing.
   const graphCtx = open ? state.graphCtx : null;
@@ -62,7 +69,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
   function runTerm(id) {
     return () => {
       ran.current = true;
-      runTermCommand(id, { ...term, selection, link }, termHandlers || {});
+      runTermCommand(id, { ...(term || globe || {}), selection, link }, termHandlers || {});
     };
   }
 
@@ -103,6 +110,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           className="um-popover"
+          style={{ zIndex: MENU_Z }}
           side="bottom"
           align="start"
           sideOffset={2}
@@ -123,6 +131,11 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
                 focusKey: fullscreenChord,
                 clis,
               })
+                .map((row, i) => (row.sep
+                  ? <div key={"s" + i} className="um-divider" />
+                  : <TermRow key={row.id} row={row} onRun={runTerm} />))
+            ) : globe ? (
+              buildGlobeMenu(globe)
                 .map((row, i) => (row.sep
                   ? <div key={"s" + i} className="um-divider" />
                   : <TermRow key={row.id} row={row} onRun={runTerm} />))
@@ -223,7 +236,7 @@ function TermRow({ row, onRun }) {
           <IconChevronRight size={13} className="um-chev" />
         </DropdownMenu.SubTrigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.SubContent className="um-popover" sideOffset={2} collisionPadding={8}>
+          <DropdownMenu.SubContent className="um-popover" style={{ zIndex: MENU_Z }} sideOffset={2} collisionPadding={8}>
             {row.sub.map((s) => s.sub ? (
               <DropdownMenu.Sub key={s.id}>
                 <DropdownMenu.SubTrigger className="um-item">
@@ -231,7 +244,7 @@ function TermRow({ row, onRun }) {
                   <IconChevronRight size={13} className="um-chev" />
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.Portal>
-                  <DropdownMenu.SubContent className="um-popover" sideOffset={2} collisionPadding={8}>
+                  <DropdownMenu.SubContent className="um-popover" style={{ zIndex: MENU_Z }} sideOffset={2} collisionPadding={8}>
                     {s.sub.map((s2) => (
                       <DropdownMenu.Item
                         key={s2.id}

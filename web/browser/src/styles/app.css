@@ -1307,7 +1307,9 @@ img.ws-face.term-cli-face {
 .um-sub { font-size: 11px; color: var(--text-secondary); }
 .um-chev { color: var(--text-secondary); flex: none; }
 .um-popover {
-  z-index: 40;
+  /* Above .shell-row (60) so a menu opened from the header is not painted
+     behind the tab strip; below dialogs (70). */
+  z-index: 65;
   width: 304px; padding: 6px;
   /* The cap has to follow the anchor, not the viewport: a menu opened low on
      a long list has far less room than one opened at the top, and the old
@@ -1322,6 +1324,12 @@ img.ws-face.term-cli-face {
   background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 16px color-mix(in srgb, #000 16%, transparent);
+}
+/* Radix puts .um-popover on the content; the wrapper is the stacking
+   context (position:fixed, z-index auto). Without this, a menu opened from
+   the shell row paints behind the tabs. */
+[data-radix-popper-content-wrapper]:has(.um-popover) {
+  z-index: 65;
 }
 .um-search { padding: 4px 4px 6px; }
 .um-search-input {
@@ -1412,7 +1420,7 @@ img.ws-face.term-cli-face {
 }
 .um-item[data-highlighted] .um-key { color: var(--text-primary); }
 .ctx-tip {
-  z-index: 41; max-width: 200px;
+  z-index: 66; max-width: 200px;
   padding: 6px 8px; border-radius: 8px;
   background: var(--bg-elevated); border: 1px solid var(--border);
   box-shadow: 0 4px 16px color-mix(in srgb, #000 16%, transparent);

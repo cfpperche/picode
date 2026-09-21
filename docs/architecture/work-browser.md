@@ -70,6 +70,11 @@ channel for a new push: the page already listens.
 - Tabs carry a title, a favicon and a history stack; `btab_meta` is the
   receipt the UI paints from. Downloads land in the shell's download folder
   and are announced on the feed.
+- **Header globe** (shell row): click opens a split bound to the selected
+  agent or agent-CLI terminal — the same door as the pane's **Open browser**.
+  Shift+click, and the right-click **Open in new tab**, mint a tab with no
+  agent. A second click while that split is already open does not mint
+  another webview. Right-click is this menu, not the generic window menu.
 
 ## Live native layers (ADR-0161)
 

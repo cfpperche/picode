@@ -58,6 +58,7 @@ import { openRepoKeys, openTreeKeys, ownerIdOf, pickTarget } from "./lib/workspa
 import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk, paneCapabilities } from "./lib/termMenu.js";
+import { globeBindId, globeClickAction } from "./lib/globeMenu.js";
 import { promptDoorFor } from "@picode/shared/domain/termPrompt.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
@@ -553,6 +554,21 @@ export default function App({ shellChrome = false } = {}) {
       const { bypassModifier } = readContextMenuPrefs();
       if (modifierHeld(bypassModifier, e)) return; // let the native/system menu show
       e.preventDefault();
+      // The header globe is a launcher, not chrome: its menu is the work
+      // browser's (Open browser / Open in new tab), not Copy / Reload.
+      const globeBtn = e.target && e.target.closest && e.target.closest("[data-browser-globe]");
+      if (globeBtn) {
+        const selected = selectedRef.current;
+        const term = isTermTab(selected) ? terminalsRef.current.find((t) => t.id === tabTermId(selected)) : null;
+        const bindId = globeBindId(selected, term);
+        setCtxMenu({
+          x: e.clientX,
+          y: e.clientY,
+          target: e.target,
+          globe: { tabId: bindId, splitOn: !!agentPanesRef.current[bindId] },
+        });
+        return;
+      }
       // A terminal pane answers for itself: xterm owns the selection, and
       // what the pane is — a bare shell, a launched CLI, an agent's TUI —
       // decides which rows exist at all (lib/termMenu.js). Everything else
@@ -1755,6 +1771,7 @@ export default function App({ shellChrome = false } = {}) {
     if (url) window.__TAURI__?.core.invoke("btab_navigate", { id, url }).catch(() => {});
   }, [bootstrapped, selectedId, agentPanes]);
   function openAgentSplit(agentId) {
+    if (!agentId || agentPanesRef.current[agentId]) return;
     webSeqRef.current += 1;
     const id = String(webSeqRef.current);
     setWebTabs((m) => ({ ...m, [id]: { url: "", title: "" } }));
@@ -1780,6 +1797,19 @@ export default function App({ shellChrome = false } = {}) {
   }
   const openWebTabRef = useRef(openWebTab);
   openWebTabRef.current = openWebTab;
+
+  function onGlobeClick(e) {
+    const selected = selectedId;
+    const term = isTermTab(selected) ? terminals.find((t) => t.id === tabTermId(selected)) : null;
+    const bindId = globeBindId(selected, term);
+    const action = globeClickAction({
+      shiftKey: !!e.shiftKey,
+      bindId,
+      splitOn: !!agentPanesRef.current[bindId],
+    });
+    if (action === "new-tab") openWebTab("");
+    else if (action === "split") openAgentSplit(bindId);
+  }
 
   function closeInstalledTab(tab) {
     if (!webappIdFromTab(tab)) return;
@@ -2579,6 +2609,7 @@ export default function App({ shellChrome = false } = {}) {
     },
     "open-browser": (ctx) => openAgentSplit(ctx.tabId),
     "close-browser": (ctx) => closeAgentSplit(ctx.tabId),
+    "new-tab": () => openWebTab(""),
   };
 
   async function renameTerminal(t) {
@@ -3427,7 +3458,7 @@ export default function App({ shellChrome = false } = {}) {
     keepVisible={focus.on}
     endSlot={!narrow ? (
       <>
-        <button type="button" className="insp-toggle" aria-label="New browser tab" title="New browser tab" onClick={() => openWebTab("")}>
+        <button type="button" className="insp-toggle" data-browser-globe="" aria-label="Open browser" title="Open browser" onClick={onGlobeClick}>
           <IconGlobe />
         </button>
         <InspectorToggle
