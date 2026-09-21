@@ -256,6 +256,27 @@ the Go registry's, and `make keys-drift` re-reads the installed pi's own
 `docs/keybindings.md` against `pikeys.Catalog` — the probe that would have caught
 the 89-of-90 catalog and the nine platform defaults.
 
+**Every CLI answers for itself** (P2a, 2026-09-21): the pane takes its CLI from
+the route and the registry decides what it shows. A row whose map PiCode can
+edit — Pi today — falls through to its own editor; every other row draws its own
+answer: one line and one action from `blockNote()`, plus the pickup sentence only
+when there is a map to pick up. `noteIsExternal()` decides how the action opens
+(a vendor's page in a new tab, an in-app route in the tab), and the harness
+asserts both, because a note whose action does nothing is not an action. The
+"in development — coming soon" placeholder is gone from this pane: it was a
+promise about PiCode dressed as a fact about the CLI.
+
+Hermes is the first row whose answer is not "wait": it keeps no key map file, so
+its three rebindable keys — `voice.record_key`, `copy_shortcut`,
+`display.busy_input_mode` — are declared rows in its Settings pane (group
+**Keyboard**, defaults and value ranges read from the CLI's own
+`hermes_cli/config_defaults.py` on 2026-09-21), and its Keyboard pane sends the
+reader there. Its registry row stays `planned` because there is nothing for a
+key-map writer to do — the *shape* says so (`Keymap: Partial`) and names it in
+the refusal: "Hermes Agent keeps no key map file; the keys it does allow are in
+Settings". The front table carries that shape too, and
+`TestJSListMatchesTheKeyboardRegistry` compares it with the registry's.
+
 Two things the pane deliberately does not claim:
 
 - **A shared key is not a conflict.** 52 of pi's 90 actions share a chord with

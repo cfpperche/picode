@@ -3,23 +3,39 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { api } from "@picode/shared/client/api.js";
 import { cliSettingsHash, supportsCliSettings, loadPiSettingsContext } from "@picode/shared/domain/cliSettings.js";
 import { supportsNativeSettings } from "@picode/shared/domain/cliNative.js";
+import { keyboardRow } from "@picode/shared/domain/cliKeys.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import PiSettings from "./PiSettings.jsx";
 import CliNativeSettings from "./CliNativeSettings.jsx";
+import CliKeyboard from "./CliKeyboard.jsx";
 
 const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext } };
 
-// Two editors behind one pane. Pi keeps its own API, layers and trust rules
+// Three answers behind one pane. Pi keeps its own API, layers and trust rules
 // (ADR-0101); every other managed CLI is edited through its own config file by
-// the schema-driven editor (ADR-0163). The keyboard map stays Pi's: no guest
-// CLI exposes a key map PiCode can write.
+// the schema-driven editor (ADR-0163). The Keyboard pane is answered for every
+// CLI the registry knows (ADR-0174): the map editor where one has shipped, and
+// the CLI's own state plus one action where none has.
 export default function CliSettings({ hidden, route, catalog, onAgentConfig, pane = "settings", workspaceId = "" }) {
   const native = pane === "settings" && supportsNativeSettings(route.id);
   const supported = supportsCliSettings(route.id) || native;
   const body = () => {
     if (route.invalid) return <div className="cli-notice" role="status"><span>This settings link is invalid.</span></div>;
+    // The Keyboard pane answers for every CLI the registry knows (ADR-0174).
+    // A CLI whose map PiCode can edit (Pi today) falls through to its own
+    // editor below — its frame, its layers, its trust rules (ADR-0101). Every
+    // other CLI is answered here instead: what its map is, and one action. The
+    // unknown id and the shipped-without-an-editor case are both bugs rather
+    // than states, and say so rather than borrowing a state's copy.
+    if (pane === "keyboard") {
+      const row = keyboardRow(route.id);
+      if (!row || row.state !== "shipped" || !EDITORS[route.id]) {
+        if (!row || row.state === "shipped") return <div className="cli-notice" role="status"><span>{"PiCode has no keyboard pane for " + terminalCliLabel(route.id) + "."}</span></div>;
+        return <CliKeyboard row={row} />;
+      }
+    }
     if (!supported) {
-      return <div className="cli-notice" role="status"><span>{(pane === "keyboard" ? "Keyboard settings for " : "Settings for ") + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>;
+      return <div className="cli-notice" role="status"><span>{"Settings for " + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>;
     }
     if (hidden) return null;
     if (native) return <CliNativeSettings key={route.id + ":" + route.layer} route={route} workspaceId={workspaceId} />;

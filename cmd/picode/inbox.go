@@ -207,16 +207,22 @@ func runInboxNotify(args []string, out, errOut io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	d, err := inboxDial(*url)
-	if err != nil {
-		fmt.Fprintf(errOut, "picode inbox: PiCode is not running (%v) — start it, or point --url / PICODE_URL at it\n", err)
-		return 1
-	}
+	// What the caller typed is judged before the daemon is looked for, the
+	// way `inbox ask` already does it. The other order told someone who
+	// forgot --title that "PiCode is not running", which is both the wrong
+	// diagnosis and the wrong exit code — and it made the usage test pass
+	// on a developer's machine, where a daemon answers, while failing on
+	// every clean runner.
 	kind, source := inboxIdentity(mcptool.Env(os.Getenv))
 	p, err := inboxNotifyPayload(kind, source, *title, *body, *reason)
 	if err != nil {
 		fmt.Fprintln(errOut, "picode inbox:", err)
 		return 2
+	}
+	d, err := inboxDial(*url)
+	if err != nil {
+		fmt.Fprintf(errOut, "picode inbox: PiCode is not running (%v) — start it, or point --url / PICODE_URL at it\n", err)
+		return 1
 	}
 	id, err := inboxFile(d, p)
 	if err != nil {

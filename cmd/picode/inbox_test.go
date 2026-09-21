@@ -180,7 +180,7 @@ func TestInboxFlagParsing(t *testing.T) {
 		t.Fatalf("notify without --title = %d, stderr %q", code, errOut.String())
 	}
 	errOut.Reset()
-	if code := inboxMain([]string{"ask", "--url", "http://127.0.0.1:1"}, &out, &errOut); code != 2 {
+	if code := inboxMain([]string{"ask"}, &out, &errOut); code != 2 {
 		t.Fatalf("ask without --question = %d, stderr %q", code, errOut.String())
 	}
 }

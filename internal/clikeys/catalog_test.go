@@ -21,14 +21,14 @@ func TestJSListMatchesTheKeyboardRegistry(t *testing.T) {
 	if block == nil {
 		t.Fatal("KEYBOARD_CLIS not found in web/shared/domain/cliKeys.js")
 	}
-	row := regexp.MustCompile(`\{ id: "([^"]+)", label: "([^"]+)", state: "([^"]+)", pickup: "([^"]+)"`)
-	js := map[string][2]string{}
+	row := regexp.MustCompile(`\{ id: "([^"]+)", label: "([^"]+)", state: "([^"]+)", pickup: "([^"]+)", keymap: "([^"]+)"`)
+	js := map[string][3]string{}
 	order := []string{}
 	for _, m := range row.FindAllStringSubmatch(string(block[1]), -1) {
 		if _, seen := js[m[1]]; !seen {
 			order = append(order, m[1])
 		}
-		js[m[1]] = [2]string{m[3], m[4]}
+		js[m[1]] = [3]string{m[3], m[4], m[5]}
 	}
 	if len(js) != len(Registry) {
 		t.Fatalf("the UI lists %d CLIs, the registry has %d", len(js), len(Registry))
@@ -38,9 +38,9 @@ func TestJSListMatchesTheKeyboardRegistry(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s is in the registry and not in the UI list", cli.ID)
 		}
-		if got[0] != string(cli.State) || got[1] != string(cli.Pickup) {
-			t.Fatalf("%s: UI says state=%s pickup=%s, registry says state=%s pickup=%s",
-				cli.ID, got[0], got[1], cli.State, cli.Pickup)
+		if got[0] != string(cli.State) || got[1] != string(cli.Pickup) || got[2] != string(cli.Keymap) {
+			t.Fatalf("%s: UI says state=%s pickup=%s keymap=%s, registry says state=%s pickup=%s keymap=%s",
+				cli.ID, got[0], got[1], got[2], cli.State, cli.Pickup, cli.Keymap)
 		}
 	}
 	goOrder := append([]string{}, Supported()...)

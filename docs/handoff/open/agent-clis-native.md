@@ -87,3 +87,14 @@
   never comes back (screenshot `failure.png` in the run's output dir, a11y tree
   in `failure.json`). Their owner should re-point them
   (`docs/handoff/2026-09-21-keyboard-row.md`).
+
+  **2026-09-21 (P2a, `feat/keyboard-guests`), re-measured:** three more stale
+  assertions, not two. The `settings-desc code` row still demanded
+  `/keybindings\.json$/` after P0 moved the period *inside* the code box — fixed
+  in the branch (accepts the trailing period again). The app's toast stack sits
+  on the phone's bottom edge at capture time and covered whatever pane was drawn
+  next; the guest captures now wait for it to leave (`settleToasts()`), and with
+  that the mobile trust-matrix rows that used to die on "Element covered by
+  `span.notice-text`" pass in the same run. Row (1) is still red and still
+  reproduced: the run stopped at the same blocked-project-layer `ready()`. Row
+  (2) lives in `qa-cli-settings-recovery.mjs`, not re-measured here.

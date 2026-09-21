@@ -37,6 +37,14 @@ func (g guestDriver) Caps() Caps {
 	}
 }
 
+// CheckUpdates refuses: the eight guests' catalog check is their own read
+// (clipkgs, at /api/cli-packages/updates) and no guest driver declares
+// Caps.Update yet — a pane gates the control there, and a caller that asks
+// anyway is told why instead of handed an empty list.
+func (guestDriver) CheckUpdates(context.Context, Query) ([]Row, error) {
+	return nil, ErrNoUpdateCheck
+}
+
 // List reads the CLI's own roster (or its files, where it has no roster verb).
 // Vendor output PiCode cannot parse is ErrRosterShape, never an empty list.
 func (g guestDriver) List(ctx context.Context, q Query) (Report, error) {

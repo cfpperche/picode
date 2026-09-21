@@ -19,7 +19,8 @@ import (
 )
 
 func TestSocketFlagIsCarried(t *testing.T) {
-	m := NewWithSocket("/tmp/picode-socket-test.sock")
+	sock := socketPath(t, "socket.sock")
+	m := NewWithSocket(sock)
 	var got [][]string
 	m.exec = func(_ context.Context, _ string, args ...string) ([]byte, error) {
 		got = append(got, append([]string(nil), args...))
@@ -31,7 +32,7 @@ func TestSocketFlagIsCarried(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("no tmux call recorded")
 	}
-	if got[0][0] != "-S" || got[0][1] != "/tmp/picode-socket-test.sock" {
+	if got[0][0] != "-S" || got[0][1] != sock {
 		t.Fatalf("argv = %v, want it to start with -S <path>", got[0])
 	}
 	if got[0][2] != "has-session" {
@@ -64,7 +65,7 @@ func requireDrainTmux(t *testing.T) {
 func TestDrainFindsAndActsOnALegacySession(t *testing.T) {
 	requireDrainTmux(t)
 	ctx := context.Background()
-	root := t.TempDir()
+	root := socketDir(t)
 	legacyPath := filepath.Join(root, "legacy.sock")
 	primaryPath := filepath.Join(root, "primary.sock")
 	legacy := NewWithSocket(legacyPath)
@@ -124,7 +125,7 @@ func TestDrainFindsAndActsOnALegacySession(t *testing.T) {
 func TestDrainPaneCommandFallsBackToLegacy(t *testing.T) {
 	requireDrainTmux(t)
 	ctx := context.Background()
-	root := t.TempDir()
+	root := socketDir(t)
 	legacy := NewWithSocket(filepath.Join(root, "legacy.sock"))
 	primary := NewWithSocket(filepath.Join(root, "primary.sock")).WithLegacy(legacy)
 
@@ -168,7 +169,7 @@ func TestDrainPaneCommandFallsBackToLegacy(t *testing.T) {
 func TestDrainWithoutLegacyBehavesLikeBefore(t *testing.T) {
 	requireDrainTmux(t)
 	ctx := context.Background()
-	root := t.TempDir()
+	root := socketDir(t)
 	primary := NewWithSocket(filepath.Join(root, "only.sock"))
 	if _, err := os.Stat(filepath.Join(root, "only.sock")); !os.IsNotExist(err) {
 		t.Fatal("socket exists before any call")

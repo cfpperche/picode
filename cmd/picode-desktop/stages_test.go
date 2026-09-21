@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -159,7 +160,17 @@ func TestFetchLinuxBinaryRefusesTamperedSums(t *testing.T) {
 }
 
 func TestRunInstallPicodeSkipsMatching(t *testing.T) {
-	releaseServer(t, "v0.3.1", "picode-linux-amd64", []byte("bin"))
+	// runInstallPicode asks for the asset matching the host it runs on
+	// (desktop.LinuxAssetName(runtime.GOARCH)), so a fixture that always
+	// served picode-linux-amd64 failed on the arm64 macOS runner with
+	// "release 0.3.1 has no picode-linux-arm64" — a fixture assumption,
+	// not a product fault. The other tests here name the asset themselves
+	// and stay arch-independent.
+	asset, err := desktop.LinuxAssetName(runtime.GOARCH)
+	if err != nil {
+		t.Skipf("no Linux picode binary for %s", runtime.GOARCH)
+	}
+	releaseServer(t, "v0.3.1", asset, []byte("bin"))
 	stamp(t, "0.3.1", "release")
 	stub := &diskStub{}
 	a := &app{runner: stub}
