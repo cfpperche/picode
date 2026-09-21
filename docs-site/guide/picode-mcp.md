@@ -70,6 +70,43 @@ claude mcp add picode-browser -- picode mcp browser
 `picode mcp computer browser inbox checklist` serves every family from one
 process; the cards add one each.
 
+## Without MCP: the `picode inbox` command
+
+Not every agent gets MCP servers. A CLI you run once in a while, a script,
+a sandbox whose config you cannot touch — none of them will read a
+`.mcp.json`. For those, the same two moves the Inbox tools give pi are one
+plain command away. The agent works in its terminal, reaches you through
+the [Inbox](/guide/inbox-tools), and never needs a config file.
+
+`picode inbox notify` files a non-blocking FYI — finished work, a state
+change, anything you must know but need not answer:
+
+```bash
+picode inbox notify --title "Migration finished" --body "All 42 rows moved; report at docs/migration.md" --reason "the agent you left migrating"
+```
+
+`picode inbox ask` files a blocking question. With `--wait` the command
+stays open, polls every 2 s, and prints your answer on stdout when you
+give it — hours if needed, so a CLI harness's own tool timeout is the only
+clock that matters:
+
+```bash
+picode inbox ask --question "postgres or sqlite for this service?" \
+  --context "one service, two developers, no ops team" --wait
+# waiting for your answer in the Inbox (item in-…)…        ← stderr
+# The human answered: sqlite is fine                       ← stdout
+```
+
+Answer in the Inbox app — the item shows the question, the source (the
+agent's name in a PiCode terminal, otherwise an honest `user@host`), and a
+reply box. The reply is recorded on the item, which is exactly what the
+waiting command picks up. Without `--wait`, the command prints the item id
+and returns; `--timeout 30m` caps the wait when you want it capped.
+
+Discovery is the same as every PiCode client: `--url`, else `PICODE_URL`,
+else `<data dir>/server.json`, re-read on every poll so a restarted daemon
+is found on its new port.
+
 ## What it will not do
 
 - Give a CLI anything a pi agent could not get: the grant, the tier and the
