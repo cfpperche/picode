@@ -63,7 +63,7 @@ func TestRenameTerminal(t *testing.T) {
 	}
 }
 
-func TestListTerminalsByName(t *testing.T) {
+func TestListTerminalsKeepsSidebarOrder(t *testing.T) {
 	s := openTest(t)
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -79,7 +79,9 @@ func TestListTerminalsByName(t *testing.T) {
 	if err != nil || len(list) != 2 {
 		t.Fatalf("list=%+v %v", list, err)
 	}
-	if list[0].Name != "Claude/PiCode" || list[1].Name != "Pi/PiCode" {
+	// Insertion order, not name order (ADR-0173). Claude sorts first by
+	// name and used to come first.
+	if list[0].Name != "Pi/PiCode" || list[1].Name != "Claude/PiCode" {
 		t.Fatalf("order=%q %q", list[0].Name, list[1].Name)
 	}
 }

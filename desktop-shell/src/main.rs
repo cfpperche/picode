@@ -7,9 +7,10 @@
 // shell that renders the PiCode UI served by the daemon inside WSL, holds
 // the distro open with a keepalive, and keeps one tray. The daemon is the
 // source of truth; this process is a client and a supervisor, never a
-// second backend. The keepalive, the disk line and the Give-back, Restart
-// and Logs actions live here now; the Go tray owned them until this shell
-// took over.
+// second backend. The keepalive and the Restart and Logs actions live here;
+// the Go tray owned them until this shell took over. The disk line and the
+// Give-back tray item moved into the Management window (its Disk tab runs
+// the same compact flow), so the tray no longer carries them.
 
 mod btab;
 mod layers;
@@ -28,7 +29,6 @@ mod embed;
 mod desktop;
 mod dialog;
 mod disk;
-mod diskline;
 mod health;
 mod input;
 mod keepalive;
@@ -44,11 +44,10 @@ mod wslconfig;
 use std::process::Command;
 use std::sync::OnceLock;
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, WebviewUrl,
+    Manager, WebviewUrl,
 };
-use tauri_plugin_notification::NotificationExt;
 
 /// The main window, kept from the moment it is built. The registry lookup
 /// (`get_webview_window("main")`) answered None on a resident started by the
@@ -177,19 +176,6 @@ fn main() {
             let status_item =
                 MenuItem::with_id(app, "status", "Starting…", false, None::<&str>)?;
             let status_sep = PredefinedMenuItem::separator(app)?;
-            // The one fact a person otherwise leaves PiCode to check in
-            // Explorer: what the distro's disk costs Windows, and how much
-            // room is left — plus the action the number exists for.
-            let disk_item =
-                MenuItem::with_id(app, "disk", "Disk: reading…", false, None::<&str>)?;
-            let compact_item = MenuItem::with_id(
-                app,
-                "compact",
-                "No held space to give back",
-                false,
-                None::<&str>,
-            )?;
-            let disk_sep = PredefinedMenuItem::separator(app)?;
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
             let restart = MenuItem::with_id(
                 app,
@@ -200,17 +186,17 @@ fn main() {
             )?;
             let logs =
                 MenuItem::with_id(app, "logs", "View logs", true, None::<&str>)?;
+            let management =
+                MenuItem::with_id(app, "management", "Management\u{2026}", true, None::<&str>)?;
             let actions_sep = PredefinedMenuItem::separator(app)?;
+            // The labs are owner-acceptance spikes (ADR-0148 M1), not
+            // product: they sit one level down so the tray keeps its product
+            // actions up front.
             let lab = MenuItem::with_id(app, "browserlab", "Browser lab", true, None::<&str>)?;
             let computerlab_item =
                 MenuItem::with_id(app, "computerlab", "Computer lab", true, None::<&str>)?;
-            let newbtab = MenuItem::with_id(app, "newbtab", "New browser tab", true, None::<&str>)?;
-            let management =
-                MenuItem::with_id(app, "management", "Management\u{2026}", true, None::<&str>)?;
-            // Phase 1 spike (docs/plans/desktop-v2.md): prove native
-            // notifications from the shell — the agent-finished notice of
-            // Phase 2 hangs off this same door.
-            let notify = MenuItem::with_id(app, "notify", "Test notification", true, None::<&str>)?;
+            let labs = Submenu::with_items(app, "Labs", true, &[&lab, &computerlab_item])?;
+            let labs_sep = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(
                 app,
                 "quit",
@@ -223,18 +209,13 @@ fn main() {
                 &[
                     &status_item,
                     &status_sep,
-                    &disk_item,
-                    &compact_item,
-                    &disk_sep,
                     &open,
                     &restart,
                     &logs,
-                    &actions_sep,
-                    &lab,
-                    &computerlab_item,
-                    &newbtab,
                     &management,
-                    &notify,
+                    &actions_sep,
+                    &labs,
+                    &labs_sep,
                     &quit,
                 ],
             )?;
@@ -246,13 +227,6 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, ev| match ev.id.as_ref() {
                     "open" => show_main(app),
-                    // The heavy actions never run on the event thread: a
-                    // compact takes minutes, and a blocked menu is a hung
-                    // tray.
-                    "compact" => {
-                        let app = app.clone();
-                        std::thread::spawn(move || compact_flow(&app));
-                    }
                     "restart" => {
                         std::thread::spawn(restart_flow);
                     }
@@ -261,25 +235,7 @@ fn main() {
                     }
                     "browserlab" => browserlab::open(app),
                     "computerlab" => computerlab::open(app),
-                    "newbtab" => {
-                        let _ = app.emit("btab://new", "");
-                    }
                     "management" => open_management_window(app),
-                    "notify" => {
-                        // Windows shows toasts for unpackaged apps only when a
-                        // Start Menu shortcut with the app identity exists; a
-                        // silent drop here is the spike saying the installer
-                        // (Phase 2) must create that shortcut.
-                        if let Err(e) = app
-                            .notification()
-                            .builder()
-                            .title("PiCode")
-                            .body("Native notifications work.")
-                            .show()
-                        {
-                            eprintln!("notification: {e}");
-                        }
-                    }
                     "quit" => app.exit(0),
                     _ => {}
                 })
@@ -297,18 +253,15 @@ fn main() {
                 })
                 .build(app)?;
 
-            // The resident loops report to one board: health every five
-            // seconds, disk every five minutes, the way the retired Go tray
-            // did. The board composes, so no timer erases another's write.
+            // The health thread reports to one board: one render composes
+            // the status line and the tooltip, so no timer erases another's
+            // write.
             board::init(board::Board::new(
                 app.handle().clone(),
                 status_item.clone(),
-                disk_item.clone(),
-                compact_item.clone(),
                 open.clone(),
             ));
             std::thread::spawn(poll_loop);
-            std::thread::spawn(disk_loop);
 
             Ok(())
         })
@@ -319,10 +272,6 @@ fn main() {
 // How often the resident asks PiCode whether it is up: one curl to a
 // loopback port, cheap enough for a timer.
 const POLL_EVERY_SECS: u64 = 5;
-// How often the resident re-reads the disk. Those numbers move over hours,
-// and every read spawns the tool, wsl.exe and PowerShell — five minutes
-// keeps the line current without turning the tray into a poller.
-const DISK_EVERY_SECS: u64 = 5 * 60;
 
 fn poll_loop() {
     let Some(board) = board::get() else { return };
@@ -337,7 +286,7 @@ fn poll_loop() {
                     url = Some(found.to_string());
                 }
                 None => {
-                    board.set_health(false, "PiCode has not started yet", None);
+                    board.set_health(false, "PiCode has not started yet");
                     std::thread::sleep(std::time::Duration::from_secs(POLL_EVERY_SECS));
                     continue;
                 }
@@ -356,135 +305,15 @@ fn poll_loop() {
                 if restarted {
                     detail.push_str(" (restarted)");
                 }
-                board.set_health(true, &detail, Some(&base));
+                board.set_health(true, &detail);
             }
             Err(_) => {
                 url = None;
-                board.set_health(false, "not answering", None);
+                board.set_health(false, "not answering");
             }
         }
         board.ensure_keepalive();
         std::thread::sleep(std::time::Duration::from_secs(POLL_EVERY_SECS));
-    }
-}
-
-fn disk_loop() {
-    let Some(board) = board::get() else { return };
-    loop {
-        refresh_disk(board);
-        std::thread::sleep(std::time::Duration::from_secs(DISK_EVERY_SECS));
-    }
-}
-
-fn refresh_disk(board: &board::Board) {
-    match disk::line_facts() {
-        Ok(facts) => board.set_disk(Some(facts)),
-        Err(e) => {
-            eprintln!("disk: {e}");
-            board.set_disk(None);
-        }
-    }
-}
-
-// compact_flow is what the Give-back item runs. Every refusal before the
-// compact is a dialog that says why; the compact itself is the one thing
-// this tray does that ends sessions, so the dialog asking about it names
-// that in plain words.
-fn compact_flow(app: &tauri::AppHandle) {
-    let Some(board) = board::get() else { return };
-    if !board.begin_compact() {
-        return;
-    }
-    let distro = board.distro().unwrap_or_else(|| "the distro".to_string());
-
-    let done = |board: &board::Board| {
-        board.end_compact();
-        refresh_disk(board);
-    };
-
-    // The interlock first: this is the one action here that ends other
-    // people's work, so a server that cannot answer is a refusal.
-    let Some(url) = board.url() else {
-        dialog::alert(
-            "PiCode",
-            "PiCode is not answering, so the tray cannot check whether agents are working.\n\nOpen PiCode, wait for it to come up, and try again.",
-        );
-        done(board);
-        return;
-    };
-    let busy = match health::deploy_ready(&url) {
-        Ok(busy) => busy,
-        Err(e) => {
-            dialog::alert(
-                "PiCode",
-                &format!("Could not ask PiCode whether agents are working:\n{e}"),
-            );
-            done(board);
-            return;
-        }
-    };
-    if !busy.is_empty() {
-        dialog::alert(
-            "PiCode",
-            &format!(
-                "Someone is still working:\n\n  {}\n\nAsk them to finish, then give the space back.",
-                busy.join("\n  ")
-            ),
-        );
-        done(board);
-        return;
-    }
-
-    let held = board.facts().map(|f| f.held).unwrap_or(0);
-    if !dialog::confirm(
-        "Give back disk space",
-        &format!(
-            "Stopping {distro} returns ≈{} to C:.\n\nEverything inside it ends now — agents, terminals and tmux sessions do not come back.\n\nContinue?",
-            diskline::bytes(held)
-        ),
-    ) {
-        done(board);
-        return;
-    }
-
-    let outcome = disk::disk_compact(app.clone());
-    // wsl --terminate took the keepalive's child down with the distro. The
-    // distro is starting again; without this it would idle out from under
-    // it sixty seconds later.
-    board.rearm_keepalive();
-    done(board);
-
-    match outcome {
-        Ok(o) if !o.error.is_empty() => dialog::alert(
-            "PiCode",
-            &format!(
-                "The compact failed and {distro} was started again:\n{}",
-                o.error
-            ),
-        ),
-        Ok(o) if !o.refused.is_empty() => {
-            dialog::alert("PiCode", &format!("PiCode refused the compact:\n{}", o.refused))
-        }
-        Ok(o) => {
-            let (before, after, back) = (
-                o.before,
-                o.after.unwrap_or(o.before),
-                o.returned.unwrap_or(0),
-            );
-            dialog::alert(
-                "PiCode",
-                &format!(
-                    "Before: {} on disk\nAfter: {}\nBack on C: ≈{}\n\n{distro} is starting again; its sessions do not come back.",
-                    diskline::bytes(before),
-                    diskline::bytes(after),
-                    diskline::bytes(back)
-                ),
-            );
-        }
-        Err(e) => dialog::alert(
-            "PiCode",
-            &format!("The compact failed and {distro} was started again:\n{e}"),
-        ),
     }
 }
 
@@ -509,7 +338,7 @@ fn restart_flow() {
         return;
     }
     // The next health tick reports the truth; until then say what is true.
-    board.set_health(false, "restarting…", None);
+    board.set_health(false, "restarting…");
 }
 
 fn logs_flow() {
@@ -563,18 +392,6 @@ fn hide_console(_cmd: &mut std::process::Command) {}
 // open_management_window opens the Management page on demand — the second
 // window of the shell: the WSL disk view, the cache prunes and the
 // .wslconfig form, local pages, Rust commands behind them.
-// management_url points the Management webview at the served bundle.
-fn management_url(app: &tauri::AppHandle) -> tauri::Url {
-    let mut url = discover_server()
-        .map(|(_, u)| u)
-        .unwrap_or_else(|| {
-            tauri::Url::parse("https://localhost:8445/").expect("static fallback origin")
-        });
-    url.set_path("/desktop/management.html");
-    let _ = app;
-    url
-}
-
 fn open_management_window(app: &tauri::AppHandle) {
     if let Some(win) = app.get_webview_window("management") {
         show(&win.as_ref().window());

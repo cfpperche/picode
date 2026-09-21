@@ -12,6 +12,7 @@ import { DESKTOP_REQUIRED, webappTabId, webappIdFromTab, webappOpenPlan, webappC
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
 import { closeTerm } from "./lib/terms.js";
 import { termWorkspaceId, workspaceForTerminal } from "./lib/termGroups.js";
+import { containerIds, optimisticFleet, putSidebarOrder, sameIds } from "./lib/sidebarOrder.js";
 import { closeShellTerm } from "./components/ShellTerm.jsx";
 import { summarizeArgs } from "./components/Conversation.jsx";
 import { fileChangeFromTool } from "@picode/shared/domain/diff.js";
@@ -892,7 +893,7 @@ export default function App({ shellChrome = false } = {}) {
           if (ownerAlive(fromTree)) openTreeTab(fromTree.kind, fromTree.id);
           else { setGoneId(provisionalTreeId(fromTree.kind, fromTree.id)); setSelectedId(null); }
         } else if (fromGit) {
-          if (ownerAlive(fromGit)) openGitTab(fromGit.kind, fromGit.id);
+          if (ownerAlive(fromGit)) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view);
           else { setGoneId(provisionalGitId(fromGit.kind, fromGit.id)); setSelectedId(null); }
         } else if (fromTerm) {
           if (terms.some((t) => t.id === fromTerm)) openTermTab(fromTerm);
@@ -1013,6 +1014,28 @@ export default function App({ shellChrome = false } = {}) {
   // refetches the fleet; (re)open and reset refetch everything.
   const fleetRef = useRef({ workspaces: [], freeAgents: [], terminals: [] });
   fleetRef.current = { workspaces, freeAgents, terminals };
+  const orderTicket = useRef(0);
+  const reorderSidebar = useCallback(async (kind, workspaceId, ids) => {
+    const before = fleetRef.current;
+    const next = optimisticFleet(before, kind, workspaceId, ids);
+    if (!next || next === before) return;
+    const ticket = ++orderTicket.current;
+    setWorkspaces(next.workspaces);
+    setFreeAgents(next.freeAgents);
+    setTerminals(next.terminals);
+    try {
+      await putSidebarOrder(kind, workspaceId, ids);
+    } catch {
+      if (orderTicket.current !== ticket) return;
+      const cur = fleetRef.current;
+      if (!sameIds(containerIds(cur, kind, workspaceId), ids)) return;
+      const restored = optimisticFleet(cur, kind, workspaceId, containerIds(before, kind, workspaceId));
+      if (!restored || restored === cur) return;
+      setWorkspaces(restored.workspaces);
+      setFreeAgents(restored.freeAgents);
+      setTerminals(restored.terminals);
+    }
+  }, []);
   useEffect(() => startFeed(), []);
   const webappsWatchRef = useRef(null);
   const [webappsLoaded, setWebappsLoaded] = useState(false);
@@ -1157,7 +1180,8 @@ export default function App({ shellChrome = false } = {}) {
       if (ok) {
         setGoneId((g) => (g ? "" : g));
         const known = Object.entries(gitOwners).find(([, o]) => o && o.kind === fromGit.kind && o.id === fromGit.id);
-        if (!known || selectedRef.current !== known[0]) openGitTab(fromGit.kind, fromGit.id);
+        if (!known || selectedRef.current !== known[0]) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view);
+        else if ((known[1].view || "") !== (fromGit.view || "")) setGitOwners(m => ({ ...m, [known[0]]: { ...m[known[0]], view: fromGit.view || "" } }));
       } else {
         const gid = provisionalGitId(fromGit.kind, fromGit.id);
         setGoneId((g) => (g === gid ? g : gid));
@@ -1235,7 +1259,7 @@ export default function App({ shellChrome = false } = {}) {
       : isAppTab(selectedId)
         ? appHash(tabAppId(selectedId), appRoute(location.hash) === tabAppId(selectedId) ? appPath(location.hash) : "")
         : gitOwner
-        ? gitHash(gitOwner.kind, gitOwner.id)
+        ? gitHash(gitOwner.kind, gitOwner.id, gitOwner.view)
         : treeOwner
           ? treeHash(treeOwner.kind, treeOwner.id)
           : file
@@ -1559,13 +1583,13 @@ export default function App({ shellChrome = false } = {}) {
   // The repository is unknown until the server answers, so a graph tab opens
   // under a provisional id and onGitKey renames it to g:<key> — which is also
   // where two owners of the same repo collapse onto one tab (ADR-0022).
-  function openGitTab(kind, ownerId, ownerName) {
+  function openGitTab(kind, ownerId, ownerName, view = "") {
     setDashboardPinned(false);
     if (!ownerId) return;
     const known = Object.entries(gitOwners).find(([, o]) => o && o.kind === kind && o.id === ownerId);
     const id = known ? known[0] : provisionalGitId(kind, ownerId);
     setGitOwners((m) => {
-      const next = { ...m, [id]: { kind, id: ownerId, name: ownerName || "" } };
+      const next = { ...m, [id]: { kind, id: ownerId, name: ownerName || "", view } };
       writeGitOwners(next);
       return next;
     });
@@ -1610,7 +1634,7 @@ export default function App({ shellChrome = false } = {}) {
     if (!isGitTab(tabId)) return;
     const ws = workspaces.find((w) => w && w.id === wsId);
     if (!ws) return;
-    const owner = { kind: "workspace", id: wsId, name: ws.name || "" };
+    const owner = { kind: "workspace", id: wsId, name: ws.name || "", view: gitOwners[tabId]?.view || "" };
     // The resolution and its two failure rows (a request that throws, an answer
     // that names no repository) live in the pure module, where they are tests.
     const { key, action, error } = await pickTarget({
@@ -3661,6 +3685,7 @@ export default function App({ shellChrome = false } = {}) {
         clis={clis}
         onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
+        onReorder={reorderSidebar}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
         onOpenDashboard={openDashboard}
@@ -3799,6 +3824,7 @@ export default function App({ shellChrome = false } = {}) {
               <GitGraphSurface
                 key={id}
                 owner={o}
+                onView={view => setGitOwners(m => ({ ...m, [id]: { ...m[id], view } }))}
                 workspaces={workspaces}
                 freeAgents={freeAgents}
                 terminals={terminals}

@@ -14,6 +14,8 @@ import (
 
 func registerAppsRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/apps", handleListApps(deps))
+	mux.HandleFunc("GET /api/apps/order", handleAppsOrderGet(deps))
+	mux.HandleFunc("PUT /api/apps/order", handleAppsOrderPut(deps))
 	mux.HandleFunc("GET /api/apps/{id}/view", handleAppView(deps))
 	mux.HandleFunc("POST /api/apps/{id}/action", handleAppAction(deps))
 }

@@ -155,16 +155,16 @@ func TestChecklistNormalizeSummarizeAndPublish(t *testing.T) {
 	}
 }
 
-func TestAllFourFamiliesListTheirTools(t *testing.T) {
+func TestAllFamiliesListTheirTools(t *testing.T) {
 	s := NewServer("picode", "x", Families(), &Caller{Daemon: &fakeDaemon{}, Identity: Identity{Term: "t"}})
 	names := []string{}
 	for _, tool := range s.Tools() {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "ask_human,browser,checklist,computer,notify_human" {
+	if strings.Join(names, ",") != "ask_human,browser,checklist,computer,delivery,notify_human" {
 		t.Fatalf("tools = %v", names)
 	}
-	if strings.Join(FamilyNames(), ",") != "computer,browser,inbox,checklist" {
+	if strings.Join(FamilyNames(), ",") != "computer,browser,inbox,checklist,delivery" {
 		t.Fatalf("families = %v", FamilyNames())
 	}
 }

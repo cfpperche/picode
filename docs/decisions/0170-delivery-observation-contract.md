@@ -1,6 +1,6 @@
 # ADR-0170: Observe delivery through revision-bound evidence
 
-- **Status**: proposed — owner decision required before implementation
+- **Status**: accepted — D1 observation; D2 association remains a planned slice
 - **Date**: 2026-09-21
 - **Boundary**: protocol and persistence — owner-scoped delivery observations,
   durable producer receipts and explicit local environment association; process —
@@ -18,11 +18,13 @@ records carry neither failed attempts nor full repository/artifact identity.
 Current occupancy does not prove authorship. A queue-like UI built from these
 alone would invent readiness, health or wait times.
 
-The owner approved D0 research and design, not this boundary implementation.
+The owner approved continuing into D1 observation on 2026-09-21 after the common
+agent declaration interface landed. This accepts the D1 read and receipt boundary;
+D2 association and runtime provenance remain planned implementation work.
 The [surface contract](../plans/delivery-flow-design.md) separates Integration and
 Deployment, with explicit unknown states and read-only actions in D1/D2.
 
-## Decision proposed
+## Decision
 
 Add a versioned, authenticated owner-scoped delivery read contract. Resolve the
 repository through the existing owner and expected-root check. Resolve explicit
@@ -121,11 +123,11 @@ migration deletes existing state, and no observer automatically retries work.
 
 ## Approval and validation
 
-Owner decision requested: accept the read protocol, producer-receipt persistence
-and explicit local-observer association described above for D1/D2. Status stays
-proposed until that decision is recorded; D0 completion does not imply acceptance.
+The D1 owner decision is recorded above. D2 observer association and runtime
+provenance remain unimplemented; D3/D4 execution authority is not granted.
 
 Implementation must cover the surface contract's O01–O26 rows, receipt atomicity,
 malformed/untrusted files, symlink confinement, permissions, duplicate IDs,
 write-failure exit-code preservation, version compatibility, moved bindings and
-stable-boot sampling. No test or UI verification is claimed in this ADR draft.
+stable-boot sampling. D1 evidence is recorded in the implementation plan and session handoff; this
+document does not claim D2 acceptance.

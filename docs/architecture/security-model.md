@@ -16,6 +16,13 @@
   `bind`, `publicUrl`); a client on another machine reads
   `~/.picode/remote.json` (`url`, `token`, `caFile`) instead.
 - **Trust boundary**: a paired device (ADR-0049), no longer a network.
+  What `Wrap` inspects at all is `guarded()`: `/api/`, `/ws/` and
+  `/mcp/communication`. Everything else — the UI and its assets, `/pair`,
+  and the ticketed `/preview/**` routes (ADR-0136/0137, where the capability
+  token is the gate because the sandbox sends no cookie) — passes straight
+  through, and so never reaches the `Host` and `Origin` checks either. Whether
+  `/pair` should instead be guarded-and-exempt is an open question in
+  `docs/handoff/open/process.md`; it changes who can reach pairing.
   `internal/auth` gates every `/api` and `/ws` request: principal from
   the `picode_session` cookie or `Authorization: Bearer` (install token
   at `<data>/token`, or a token session); `Host` and `Origin` checked in
@@ -24,6 +31,17 @@
   session with its user-agent label (secret rotated in place, presence
   asked first so an active browser keeps its cookie — ADR-0049
   amendment 2026-09-03) instead of minting a duplicate row per launch.
+  Route registration is unconditional, including the auth surface itself:
+  `Routes()` records `registerAll` against a zero `Deps`, so a helper that
+  registered only when its dependency was present wrote its routes out of
+  the published OpenAPI document. `registerAuthRoutes` did exactly that and
+  the nine `/api/auth` and `/pair` patterns were missing from the public API
+  reference while the daemon served them all; `docs-check` compares the
+  committed JSON against the same generator, so nothing failed.
+  `TestRoutesCoverEveryRegisteredPattern` now holds the line — a nil
+  dependency answers at request time, the way `Deps` already documents
+  ("nil-safe = 503 on the routes").
+
   Pairing codes (`/pair?code=`, ten minutes, one use, lockout after five
   failures) mint browser sessions; Preferences → Server lists and revokes
   them. Expired sessions stop listing; a daily sweep prunes

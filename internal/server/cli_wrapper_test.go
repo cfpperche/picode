@@ -171,7 +171,13 @@ func TestWrapperInstallShape(t *testing.T) {
 // injected -e. Preview names the conflict; prepare refuses; integration
 // off stays clean.
 func TestOmpTrustedExtensionConflictTable(t *testing.T) {
-	agyTestHome(t)
+	home := agyTestHome(t)
+	// Preview checks arguments without launching the CLI. Use a local fixture
+	// so this decision table does not depend on an installed Omp executable.
+	tool := filepath.Join(home, "omp-preview")
+	if err := os.WriteFile(tool, []byte("#!/bin/sh\nexit 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
 	ts, _, _ := cleanupServer(t)
 	for _, tc := range []struct {
 		name        string
@@ -186,7 +192,7 @@ func TestOmpTrustedExtensionConflictTable(t *testing.T) {
 		{"integration on, lookalike flag", true, []string{"--trusted-extension-something"}, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			c := clilaunch.Config{Integration: tc.integration, Args: tc.args}
+			c := clilaunch.Config{Executable: tool, Integration: tc.integration, Args: tc.args}
 			v := cliRequest(t, ts, "POST", "/api/clis/omp/preview", map[string]any{"config": c}, 200)
 			plan, _ := v["plan"].(map[string]any)
 			problem, _ := plan["problem"].(string)

@@ -69,6 +69,8 @@ test("llama.cpp is reachable from Tools and searchable", () => {
 
 test("Terminal defaults sits under PiCode and is searchable", () => {
   const picode = menuGroups("").find(g => g.title === "PiCode");
-  assert.deepEqual(picode.rows.find(row => row[0] === "termset"), ["termset", "Terminal defaults", "Font, colors, cursor, tmux guard"]);
+  assert.deepEqual(picode.rows.find(row => row[0] === "termset"), ["termset", "Terminal defaults", "Font, colors, cursor"]);
   assert.ok(menuGroups("terminal").some(group => group.rows.some(row => row[0] === "termset")));
+  assert.ok(menuGroups("guard").some(group => group.rows.some(row => row[0] === "clis")));
+  assert.ok(!menuGroups("guard").flatMap(g => g.rows).some(row => row[0] === "termset"));
 });

@@ -1,9 +1,9 @@
 # Delivery flow D0 — surface and implementation contract
 
-Status: D0 design complete, 2026-09-21. No product UI or delivery executor is
-implemented. Parent: [execution baseline](delivery-flow.md). Evidence and measured
+Status: D0 design complete, 2026-09-21. D1b integration observation is now
+implemented; publication and execution remain planned. See [D1b evidence](delivery-observation.md). Parent: [execution baseline](delivery-flow.md). Evidence and measured
 limits: [inventory](delivery-flow-evidence.md). Boundary proposal:
-[ADR-0170](../decisions/0170-delivery-observation-contract.md), awaiting owner decision.
+[ADR-0170](../decisions/0170-delivery-observation-contract.md), accepted for D1.
 
 ## Product decisions
 
@@ -168,7 +168,7 @@ Keep separate axes: `integration`, `validation`, `review`, `publication`, and
 | Same source appears in multiple changes in one publication | list changes; deduplicate commits in publication set | O26 |
 
 O01–O15, O22–O24 are D1 requirements. O16–O21, O25–O26 are D2 requirements.
-Tests do not exist yet; this table is the contract for implementation. Semantic
+D1 coverage is mapped in the D1b evidence document; D2 rows remain planned. Semantic
 squash/cherry-pick equivalence is unsupported; show unconfirmed inclusion rather
 than asserting that identical-looking text is the same delivered change.
 
@@ -179,13 +179,17 @@ returns `schemaVersion`, `repositoryKey`, `target {ref, oid}`, `observedAt`,
 `coverage {complete, issues}`, `changes[]`, `environments[]` and source-specific
 observations with `status: known|unknown|stale|unsupported` and `reasonCode`.
 Zero/false are real values, not substitutes for unknown. Source and target OIDs
-are read before/after; one retry then unstable. This route does not exist today.
+are read before/after; one retry then unstable. D1b implements this read route; the current target fields are `target` and
+`targetOid`, with coverage exposed as `complete` and `issues`. Publication is
+deferred to D2.
 
 A change contains an observation ID (repository/ref/source OID), source OID,
 worktree presence/dirty status, integration and validation facts, associated
 agent IDs, optional explicit session refs, and sanitized evidence references.
-New revision means new evidence scope. A full historical task identity is deferred
-to D3; repository commit history remains navigable if no receipt tracks a branch.
+New revision means new evidence scope. ADR-0171 now supplies a stable ID for explicitly registered declarations;
+this does not reconstruct historical tasks from Git. Native session association
+and execution history remain separate work. Repository commit history remains
+navigable if no receipt tracks a branch.
 
 Evidence references return bounded structured summaries, never arbitrary filesystem
 paths for the browser to fetch. D1 adds parity tests for ADR-0124 and explicit
@@ -234,3 +238,11 @@ integrated changes absent from the connected runtime. Count terminal lookups and
 elapsed human task time; compare with the D0 source-lookup baseline without
 presenting machine-query latency as human time. Real queue wait remains unavailable
 until explicit operation events exist in D3/D4.
+
+## D1a implementation clarification
+
+The common [agent interface](delivery-agent-interface.md) records explicit
+declarations independently of discovered Git candidates. The observation
+view distinguishes these, correlates by repository/ref/revision and retains the
+stable declaration ID across updates. `review: requested` is attributed intent
+for the recorded revision, never human approval or queue enrollment. D1b now implements the integration read endpoint and screen above.

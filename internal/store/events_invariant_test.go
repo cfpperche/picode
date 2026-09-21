@@ -25,6 +25,31 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		want []string
 	}
 	cases := []tc{
+		{"ApplyDelivery/register", func(s *Store) { s.OnEvent = recorder(s); deliveryFixture(t, s) }, []string{"delivery.changed"}},
+		{"ApplyDelivery/update", func(s *Store) {
+			d := deliveryFixture(t, s)
+			s.OnEvent = recorder(s)
+			_, err := s.ApplyDelivery("repo", "agent", DeliveryMutation{Action: "update", RequestID: "u", ID: d.ID, ExpectedVersion: 1, Title: d.Title, Branch: d.Branch, Revision: d.Revision, Target: d.Target})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.changed"}},
+		{"ApplyDelivery/review", func(s *Store) {
+			d := deliveryFixture(t, s)
+			s.OnEvent = recorder(s)
+			_, err := s.ApplyDelivery("repo", "agent", DeliveryMutation{Action: "request-review", RequestID: "r", ID: d.ID, ExpectedVersion: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.changed"}},
+		{"ApplyDelivery/withdraw", func(s *Store) {
+			d := deliveryFixture(t, s)
+			s.OnEvent = recorder(s)
+			_, err := s.ApplyDelivery("repo", "agent", DeliveryMutation{Action: "withdraw-review", RequestID: "w", ID: d.ID, ExpectedVersion: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.changed"}},
 		{"EnsureAgentTerminal", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "pi", "")
 			s.OnEvent = recorder(s)
@@ -173,6 +198,26 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_, _ = s.AddSessionHandoff(SessionHandoff{SourceCLI: "claude-code", SourceID: "cc-1", TargetCLI: "codex", Mode: "native", Window: "recent"})
 		}, []string{"session.handoff"}},
 		{"AddWorkspace", func(s *Store) { _, _ = s.AddWorkspace("W", proj) }, []string{"workspace.added"}},
+		{"ReorderWorkspaces", func(s *Store) {
+			a, _ := s.AddWorkspace("A", proj)
+			other := filepath.Join(dir, "other-ws")
+			_ = os.MkdirAll(other, 0o755)
+			b, _ := s.AddWorkspace("B", other)
+			s.OnEvent = recorder(s)
+			_ = s.ReorderWorkspaces([]string{b.ID, a.ID})
+		}, []string{"workspace.reordered"}},
+		{"ReorderAgents", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			b, _ := s.AddAgent(FreeWorkspaceID, "b", "")
+			s.OnEvent = recorder(s)
+			_ = s.ReorderAgents(FreeWorkspaceID, []string{b.ID, a.ID})
+		}, []string{"agent.reordered"}},
+		{"ReorderTerminals", func(s *Store) {
+			a, _ := s.CreateTerminalIn("", "a", proj)
+			b, _ := s.CreateTerminalIn("", "b", proj)
+			s.OnEvent = recorder(s)
+			_ = s.ReorderTerminals(FreeWorkspaceID, []string{b.ID, a.ID})
+		}, []string{"terminal.reordered"}},
 		{"RemoveWorkspace", func(s *Store) {
 			w, _ := s.AddWorkspace("W", proj)
 			s.OnEvent = nil

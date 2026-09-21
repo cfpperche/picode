@@ -27,6 +27,7 @@
 // resolves conflicts, never commits.
 
 import { execFileSync, spawnSync } from "node:child_process";
+import { startReceipt, finishReceipt, recordSafely } from "./delivery-receipts.mjs";
 import { fileURLToPath } from "node:url";
 
 // land runs from the root checkout — the tree it merges into — so that is the
@@ -128,4 +129,9 @@ function isAncestor(a, b) {
 }
 
 const invoked = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
-if (invoked) process.exit(main());
+if (invoked) {
+  const id = recordSafely(() => startReceipt(root, "land", process.argv[2] || ""));
+  let code = 1;
+  try { code = main(); } finally { if (id) recordSafely(() => finishReceipt(root, id, code)); }
+  process.exit(code);
+}

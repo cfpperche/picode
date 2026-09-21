@@ -267,3 +267,7 @@ test("boundWorkTab — the channel reads the selected tab's binding (ADR-0135)",
   assert.equal(boundWorkTab("t:desktop-51c42d", {}), null);
   assert.equal(boundWorkTab(null, { "": "3" }), null);
 });
+
+test("delivery links keep owner identity separate from view",()=>{
+ assert.deepEqual(gitRoute(gitHash("workspace","project","delivery")),{kind:"workspace",id:"project",view:"delivery"});
+});

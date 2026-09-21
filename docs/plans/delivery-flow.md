@@ -1,8 +1,10 @@
 # Delivery flow — execution baseline
 
 Status: scope and sequence fixed for planning on 2026-09-21 at the owner's
-request after the benchmark study. D0 design is complete; product implementation has not started. This records
-an execution baseline, not authorization to change accepted ADRs or deploy.
+request after the benchmark study. D0 design, D1a declarations and D1b integration observation are implemented.
+On 2026-09-21 the owner approved adding that interface before the observation
+screen (ADR-0171). Observation, execution queues and deployment remain separate
+slices; this baseline is not deployment authorization.
 
 Evidence: [delivery-governance study](../benchmarks/2026-09-21-delivery-governance.md).
 
@@ -19,7 +21,7 @@ actually serving each observed environment, without opening agent terminals.
 - Separate integration and publication lifecycles; many changes may share one
   deployment. Cancellation and abandonment are not successful delivery.
 - Evidence, observation time, blocker and next action for each relevant state.
-- Read-only observation first; explicit governance follows in separate slices.
+- Common agent declarations and read-only observation first; execution governance follows in separate slices.
 - PiCode's own repository is the first measured workflow. The product model must
   allow other projects to use different integration and publication providers.
 - Desktop and mobile share headless semantics; each retains its own presentation.
@@ -54,7 +56,7 @@ An environment with no configured observer says unconfigured, not undeployed.
 
 Each implementation slice uses a new branch/session and the normal repository
 rite. Check off a slice only with linked evidence. D0 receipts: [inventory](delivery-flow-evidence.md),
-[surface contract](delivery-flow-design.md), and [proposed ADR-0170](../decisions/0170-delivery-observation-contract.md).
+[surface contract](delivery-flow-design.md), and [ADR-0170](../decisions/0170-delivery-observation-contract.md).
 
 ### D0 — Inventory and design contract
 
@@ -66,19 +68,33 @@ rite. Check off a slice only with linked evidence. D0 receipts: [inventory](deli
 - [x] Choose the host surface using existing Git/workspace conventions, inspect
   desktop/mobile empty/blocked/error states, and specify navigation before UI work.
 - [x] Identify required protocol, persistence, security and process boundaries;
-  draft applicable ADRs. ADR-0170 is proposed; obtain the owner decision before
-  crossing its boundaries in D1/D2. D0 crosses none of them.
+  draft applicable ADRs. D0 proposed ADR-0170 without crossing its boundaries.
+  Its D1 observation/receipt boundary is now accepted; D2 remains planned.
 
 Exit: every displayed fact has a source and unknown behavior; an implementation
 contract and decision table exist. No new execution authority is introduced.
 
-### D1 — Observe integration
+### D1a — Common agent declarations
 
-- [ ] Implement read-only project changes with revision, branch/base relation,
+- [x] Implement `picode delivery` and optional MCP over one contract: register,
+  update, request/withdraw review, show, list and capabilities.
+- [x] Derive project and actor from the PiCode launch; bind intent to a revision;
+  persist retry receipts, optimistic versions and feed events atomically.
+- [x] Test common paths for all nine catalog identifiers and a generic terminal;
+  real authenticated vendor acceptance remains separate, recorded in the open topic.
+
+Contract and decision table: [agent interface](delivery-agent-interface.md).
+This adds durable intent, not test evidence, a browser surface, queue enrollment,
+human approval or execution authority. The owner-approved insertion avoids
+requiring a different registration mechanism for every CLI.
+
+### D1b — Observe integration
+
+- [x] Implement read-only project changes with revision, branch/base relation,
   known validation, attribution links and explicit blockers.
-- [ ] Distinguish ready for review, validated candidate, stale validation,
+- [x] Distinguish ready for review, validated candidate, stale validation,
   integrated awaiting validation, integrated healthy, and integrated failing.
-- [ ] Refresh from existing events where available; justify any external Git
+- [x] Refresh from existing events where available; justify any external Git
   observation/polling separately, with visible observation timestamps.
 
 Exit: seeded concurrent-worktree cases and a scratch-instance walkthrough answer
@@ -178,5 +194,6 @@ remains a separately authorized owner operation.
 
 Any expansion or reordering is recorded here with its reason and owner decision.
 D0 is documented in the linked inventory and surface contract. The next task is
-D1, after the owner decision on proposed ADR-0170, in a fresh session. D1–D5 are
-not implemented; D0 changed documentation only and performed no deployment.
+D2 publication observation in a fresh session. D2–D5 are not implemented.
+D1b implementation/coverage: [observation receipt](delivery-observation.md).
+No deployment was performed.

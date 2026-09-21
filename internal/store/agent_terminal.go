@@ -21,7 +21,7 @@ func (s *Store) EnsureAgentTerminal(id, cwd string) (Agent, error) {
 		return a, nil
 	}
 	t := Terminal{ID: newID(a.Name, "term"), Name: a.Name, Cwd: cwd, WorkspaceID: a.WorkspaceID, CreatedAt: nowUTC()}
-	if _, err = tx.Exec(`INSERT INTO terminals(id,name,cwd,workspace_id,created_at) VALUES(?,?,?,?,?)`, t.ID, t.Name, t.Cwd, t.WorkspaceID, t.CreatedAt); err != nil {
+	if _, err = tx.Exec(`INSERT INTO terminals(id,name,cwd,workspace_id,created_at,position) VALUES(?,?,?,?,?,`+nextPositionExpr("terminals", "workspace_id = ?")+`)`, t.ID, t.Name, t.Cwd, t.WorkspaceID, t.CreatedAt, t.WorkspaceID); err != nil {
 		return a, err
 	}
 	if _, err = tx.Exec(`INSERT INTO terminal_launches(terminal_id,cli,overrides,updated_at) VALUES(?,?,?,?)`, t.ID, CLIPi, "{}", nowUTC()); err != nil {

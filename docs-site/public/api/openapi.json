@@ -568,6 +568,32 @@
         ]
       }
     },
+    "/api/agents/{id}/delivery": {
+      "get": {
+        "operationId": "getApiAgentsDelivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agents"
+        ]
+      }
+    },
     "/api/agents/{id}/drop": {
       "post": {
         "operationId": "postApiAgentsDrop",
@@ -1601,6 +1627,47 @@
         ]
       }
     },
+    "/api/apps/order": {
+      "get": {
+        "operationId": "getApiAppsOrder",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "apps"
+        ]
+      },
+      "put": {
+        "operationId": "putApiAppsOrder",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "apps"
+        ]
+      }
+    },
     "/api/apps/{id}/action": {
       "post": {
         "operationId": "postApiAppsAction",
@@ -1659,6 +1726,179 @@
         },
         "tags": [
           "apps"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "postApiAuthLogout",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/mode": {
+      "put": {
+        "operationId": "putApiAuthMode",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/pairings": {
+      "post": {
+        "operationId": "postApiAuthPairings",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/session": {
+      "get": {
+        "operationId": "getApiAuthSession",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/sessions": {
+      "get": {
+        "operationId": "getApiAuthSessions",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/sessions/{id}": {
+      "delete": {
+        "operationId": "deleteApiAuthSessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/token/rotate": {
+      "post": {
+        "operationId": "postApiAuthTokenRotate",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "auth"
         ]
       }
     },
@@ -4778,6 +5018,32 @@
         },
         "tags": [
           "credentials"
+        ]
+      }
+    },
+    "/api/delivery/tool": {
+      "post": {
+        "operationId": "postApiDeliveryTool",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "delivery"
         ]
       }
     },
@@ -8767,6 +9033,32 @@
         ]
       }
     },
+    "/api/terminals/{id}/delivery": {
+      "get": {
+        "operationId": "getApiTerminalsDelivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
     "/api/terminals/{id}/drop": {
       "post": {
         "operationId": "postApiTerminalsDrop",
@@ -10127,6 +10419,32 @@
         ]
       }
     },
+    "/api/workspaces/order": {
+      "put": {
+        "operationId": "putApiWorkspacesOrder",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}": {
       "delete": {
         "operationId": "deleteApiWorkspaces",
@@ -10165,6 +10483,41 @@
     "/api/workspaces/{id}/agents": {
       "post": {
         "operationId": "postApiWorkspacesAgents",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/api/workspaces/{id}/agents/order": {
+      "put": {
+        "operationId": "putApiWorkspacesAgentsOrder",
         "parameters": [
           {
             "in": "path",
@@ -10297,6 +10650,32 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/api/workspaces/{id}/delivery": {
+      "get": {
+        "operationId": "getApiWorkspacesDelivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success"
@@ -10891,6 +11270,41 @@
         ]
       }
     },
+    "/api/workspaces/{id}/terminals/order": {
+      "put": {
+        "operationId": "putApiWorkspacesTerminalsOrder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}/text": {
       "get": {
         "operationId": "getApiWorkspacesText",
@@ -11011,6 +11425,9 @@
       "name": "apps"
     },
     {
+      "name": "auth"
+    },
+    {
       "name": "automations"
     },
     {
@@ -11057,6 +11474,9 @@
     },
     {
       "name": "credentials"
+    },
+    {
+      "name": "delivery"
     },
     {
       "name": "deploy"
@@ -11163,6 +11583,8 @@
   ],
   "x-undocumented": [
     "/ (embedded UI)",
-    "/assets/** (UI bundle)"
+    "/assets/** (UI bundle)",
+    "/pair (pairing page and form — ADR-0049)",
+    "/preview/** (capability-ticket HTML previews — ADR-0136/0137)"
   ]
 }

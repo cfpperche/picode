@@ -36,18 +36,40 @@ export function fromEvent(ev) {
   return parts.join("+");
 }
 
-export function effectiveKeys(action, user) {
-  if (user && Object.prototype.hasOwnProperty.call(user, action.id)) return user[action.id] || [];
+// The default Pi binds on a platform. Nine of pi's own actions carry a
+// different binding on Windows or WSL (the catalog's alt map, read out of
+// pi's docs/keybindings.md on 2026-09-21); an alternate is the whole binding
+// there, not an addition to the base list, and a declared empty list means pi
+// binds nothing.
+export function defaultKeys(action, platform) {
+  const alt = action.alt || {};
+  if (platform && Object.prototype.hasOwnProperty.call(alt, platform)) return alt[platform] || [];
   return action.defaults || [];
+}
+
+export function effectiveKeys(action, user, platform) {
+  if (user && Object.prototype.hasOwnProperty.call(user, action.id)) return user[action.id] || [];
+  return defaultKeys(action, platform);
 }
 
 export function isOverride(action, user) {
   return !!(user && Object.prototype.hasOwnProperty.call(user, action.id));
 }
 
-export function matchKeys(action, user, q) {
+// The other platforms' bindings for this action, for the line under a row that
+// has them. Excludes the platform the pane is reading, whose binding is the
+// one already shown.
+export function platformAlternates(action, platform) {
+  const out = [];
+  for (const [name, keys] of Object.entries(action.alt || {})) {
+    if (name !== platform) out.push({ platform: name, keys: keys || [] });
+  }
+  return out;
+}
+
+export function matchKeys(action, user, q, platform) {
   const needle = (q || "").trim().toLowerCase();
   if (!needle) return true;
-  const keys = effectiveKeys(action, user).join(" ");
+  const keys = effectiveKeys(action, user, platform).join(" ");
   return (action.label + " " + action.group + " " + action.id + " " + keys).toLowerCase().includes(needle);
 }

@@ -16,6 +16,7 @@ import { terminalCli, terminalCliLabel, terminalStatusLabel, terminalStatus } fr
 import { termHash } from "../lib/routes.js";
 import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
+import TmuxGuardRow from "./TmuxGuardRow.jsx";
 import CliSettings from "./CliSettings.jsx";
 import CliMemory from "./CliMemory.jsx";
 import PeerMessages from "./PeerMessages.jsx";
@@ -157,6 +158,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
 
   return <AgentClisFrame hidden={hidden}>
     <CliTabs view={route.view} />
+    {route.view === "clis" ? <TmuxGuardRow hidden={hidden} /> : null}
     {error ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
     {!data && !error ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}

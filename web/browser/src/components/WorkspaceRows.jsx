@@ -134,6 +134,17 @@ function ContextLine({ line, ownerKind, ownerId, ownerLabel, onFileTree, onGitGr
 // Compact supervision row shared by the desktop sidebar and dashboard. The
 // row is intentionally flat: identity and activity lead, location recedes,
 // and secondary actions live behind one keyboard-accessible menu.
+export function OrderMoves({ up, down }) {
+  if (!up && !down) return null;
+  return (
+    <>
+      {up ? <RowMenuItem onSelect={up}>Move up</RowMenuItem> : null}
+      {down ? <RowMenuItem onSelect={down}>Move down</RowMenuItem> : null}
+      <RowMenuSep />
+    </>
+  );
+}
+
 export function AgentRow({
   agent: ag, ws,
   selectedId, onSelect,
@@ -142,6 +153,7 @@ export function AgentRow({
   actions = true, meta = false,
   onRenameAgent, onRun, onRemoveAgent, onRemove, onChat, onTerm, termView,
   clis, terms, onLaunchAction, onContinueTerm,
+  drag, onMoveUp, onMoveDown,
 }) {
   const mode = ag.mode || "stopped";
   // A CLI agent's process is its bound terminal (ADR-0160): the status pill
@@ -171,7 +183,12 @@ export function AgentRow({
     }
   };
   return (
-    <li className={"ws-item is-" + status + (ag.id === selectedId ? " active" : "")}>
+    <li
+      ref={drag ? drag.setNodeRef : undefined}
+      style={drag ? drag.style : undefined}
+      data-drag-id={ag.id}
+      className={"ws-item is-" + status + (ag.id === selectedId ? " active" : "") + (drag && drag.isDragging ? " is-placeholder" : "")}
+    >
       <div className="ws-row-main">
         <div
           className="ws-row-hit"
@@ -179,8 +196,10 @@ export function AgentRow({
           tabIndex={0}
           aria-current={ag.id === selectedId ? "page" : undefined}
           aria-label={title}
+          aria-describedby={drag ? drag.describedBy : undefined}
           onClick={select}
           onKeyDown={(e) => openRow(e, select)}
+          onPointerDown={drag ? drag.onPointerDown : undefined}
         >
           <span className="ws-identity-mark">
             <ProviderFace agent={ag} />
@@ -194,6 +213,7 @@ export function AgentRow({
         </div>
         {actions ? (
           <RowMenu label={label}>
+            <OrderMoves up={onMoveUp} down={onMoveDown} />
             {agentRowMenu(ag, { clis, term }).map((r, i) => {
               if (r.sep) return <RowMenuSep key={"sep" + i} />;
               if (r.sub) return (
@@ -269,6 +289,7 @@ export function TermRow({
   onFileTree, onGitGraph,
   actions = true,
   onRenameTerm, onRemoveTerm, onLaunchAction, onContinueTerm, clis,
+  drag, onMoveUp, onMoveDown,
 }) {
   const line = termLine(t);
   const cli = terminalDisplayCli(t);
@@ -277,9 +298,14 @@ export function TermRow({
   const selected = selectedId === "t:" + t.id;
   const select = () => onSelectTerm && onSelectTerm(t.id);
   return (
-    <li className={"ws-item is-terminal is-" + terminalStatus(t) + (selected ? " active" : "")}>
+    <li
+      ref={drag ? drag.setNodeRef : undefined}
+      style={drag ? drag.style : undefined}
+      data-drag-id={t.id}
+      className={"ws-item is-terminal is-" + terminalStatus(t) + (selected ? " active" : "") + (drag && drag.isDragging ? " is-placeholder" : "")}
+    >
       <div className="ws-row-main">
-        <div className="ws-row-hit" role="button" tabIndex={0} aria-current={selected ? "page" : undefined} aria-label={(t.name || "Terminal") + " — " + cliLabel} onClick={select} onKeyDown={(e) => openRow(e, select)}>
+        <div className="ws-row-hit" role="button" tabIndex={0} aria-current={selected ? "page" : undefined} aria-describedby={drag ? drag.describedBy : undefined} aria-label={(t.name || "Terminal") + " — " + cliLabel} onClick={select} onKeyDown={(e) => openRow(e, select)} onPointerDown={drag ? drag.onPointerDown : undefined}>
           <span className="ws-identity-mark">
             <TerminalCliBadge term={t} />
             {terminalStatus(t) === "working" ? <span className="ws-activity-dot" aria-hidden="true" /> : null}
@@ -292,6 +318,7 @@ export function TermRow({
         </div>
         {actions ? (
           <RowMenu label={t.name || "Terminal"}>
+            <OrderMoves up={onMoveUp} down={onMoveDown} />
             {termRowMenu(t, { clis }).map((r, i) => r.sep ? <RowMenuSep key={"sep" + i} /> : r.sub ? (
               <DropdownMenu.Sub key={r.id}>
                 <DropdownMenu.SubTrigger className="ws-row-menu-item" title={r.title}>

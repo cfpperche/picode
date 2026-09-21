@@ -1,0 +1,25 @@
+.delivery { padding: 16px; overflow: auto; min-height: 0; font-size: 13px; }
+.delivery-tabs, .delivery-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.delivery-tabs { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.delivery-tabs [aria-current="page"] { color: var(--accent); background: var(--bg-elevated); }
+.delivery-toolbar label { display: flex; gap: 8px; align-items: center; height: var(--ctl-h); }
+.delivery-toolbar select, .delivery-toolbar button { height: var(--ctl-h); max-width: 100%; }
+.delivery-status, .delivery-meta { color: var(--text-secondary); }
+.delivery-list { list-style: none; padding: 0; margin: 12px 0; }
+.delivery-list li { display: grid; grid-template-columns: minmax(0,1fr) 200px; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); animation: delivery-enter 150ms ease-out; }
+.delivery h3 { margin: 0 0 6px; font-size: 14px; }
+.delivery p { margin: 6px 0; }
+.delivery-facts { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.delivery [data-failed="true"] { color: var(--danger); }
+.delivery-warning, .delivery-empty, .delivery-detail { padding: 16px 0; }
+.delivery-detail dd { margin: 4px 0 12px; overflow-wrap: anywhere; }
+.delivery-detail code, .delivery-list h3, .delivery-meta { overflow-wrap: anywhere; }
+.delivery-skeleton div { height: 82px; margin: 12px 0; border-radius: 6px; background: var(--bg-elevated); animation: delivery-enter 800ms ease-in-out infinite alternate; }
+@keyframes delivery-enter { from { opacity: .4; } to { opacity: 1; } }
+@media (max-width: 620px) { .delivery-list li { grid-template-columns: 1fr; gap: 8px; } .delivery-facts { flex-direction: row; align-items: center; flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { .delivery * { animation: none !important; } }
+
+.delivery-actions { display: flex; gap: 8px; align-items: center; }
+
+.git-workspace-control, .git-view-tabs { display: flex; align-items: center; gap: 8px; }
+.delivery-tabs .btn { height: var(--ctl-h); }

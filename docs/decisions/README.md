@@ -114,7 +114,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0107](0107-unified-native-messages.md) | One mailbox with CLI and native TUI integrations | accepted |
 | [0108](0108-matrix-persistence.md) | Matrix persistence: one row per panel, six feed events, a subset layout patch under ifUpdatedAt | accepted; amended by 0113; amended 2026-09-12 (a text panel keeps its words on the panel row) |
 | [0109](0109-native-app-surfaces.md) | Native app surfaces — a first-party app's body may be a component compiled into the shell; the manifest names its surface | accepted, amends 0036; amended 2026-09-11 (an app does not leak into PiCode's interface — the doors are a closed list); amended 2026-09-12 (an app may publish its tab's subject; the host decides the Inspector follows it); amended 2026-09-14 (the dashboard's attention line may name an app) |
-| [0110](0110-workspace-communication-onboarding.md) | Workspace communication preferences and guided connection setup | proposed |
+| [0110](0110-workspace-communication-onboarding.md) | Workspace communication preferences and guided connection setup | accepted (owner approval, 2026-09-09) |
 | [0111](0111-codex-native-message-client.md) | Codex native message client | accepted |
 | [0112](0112-native-observation-recovery.md) | Private native event observations recover exact CLI conversations and activity after daemon restart; pending connection and native approval stay separate | accepted, amends 0056/0062/0107 |
 | [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | superseded by 0118 |
@@ -124,7 +124,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0117](0117-remove-browser-surface.md) | remove-browser-surface | accepted |
 | [0118](0118-canvas-replaces-matrix.md) | Canvas replaces Matrix — grid mode and react-grid-layout removed, coordinates converted once, and the rename carried into tables, routes, events, the app id and the hash | accepted, supersedes 0113, renames 0108/0116 |
 | [0119](0119-package-config-descriptors.md) | package-config-descriptors | accepted |
-| [0120](0120-tauri-desktop-shell.md) | Desktop v2 shell — Tauri 2 + WebView2 | proposed |
+| [0120](0120-tauri-desktop-shell.md) | Desktop v2 shell — Tauri 2 + WebView2 | accepted |
 | [0121](0121-window-frame-contract.md) | window-frame-contract | superseded by 0122 |
 | [0122](0122-shell-app-bar.md) | shell-app-bar | accepted |
 | [0123](0123-derived-handoff-board.md) | The handoff board is derived, not written — in flight from git, next up and debts from `docs/handoff/open/<topic>.md` and the session notes, generated and git-ignored | accepted, supersedes the board clauses of 0086/0105 |
@@ -139,14 +139,14 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0132](0132-browser-command-channel.md) | browser-command-channel | accepted |
 | [0133](0133-tmux-app.md) | The tmux app — PiCode reads the whole tmux server, and acts only on sessions it can attribute | accepted; surface amended 2026-09-14 (primitives, not native); reap scope narrowed by ADR-0141 |
 | [0134](0134-browser-default-policy.md) | browser-default-policy | accepted (amends 0128) |
-| [0135](0135-agent-browser-binding.md) | agent-browser-binding | proposed |
+| [0135](0135-agent-browser-binding.md) | agent-browser-binding | accepted |
 | [0136](0136-html-file-preview.md) | HTML file preview through a sandboxed, cookie-less capability route (scripts and relative assets run; `allow-same-origin` never) | accepted |
 | [0137](0137-html-preview-origin.md) | HTML preview on a real per-ticket origin (`<label>.localhost`, Host-routed before the auth gate; storage and workers, sandbox fallback) | accepted |
 | [0138](0138-tmux-terminal-guard.md) | tmux terminal guard — a `tmux` wrapper on the ADR-0056 session PATH refuses `kill-server`/pattern kills and exact-name kills without the terminal's marker; `send-keys` payload check; on by default; dedicated socket named as next step | accepted, extends 0056; amends nothing |
 | [0139](0139-tmux-dedicated-socket.md) | tmux dedicated socket — per-instance `-S <dataDir>/tmux.sock`; new sessions there, `$TMUX`-inherited panes keep working, the daemon drains legacy sessions through a fallback Manager (no live migration exists); scratch instances stop sharing the owner's server | accepted, extends 0138 |
 | [0140](0140-handoff-note-debt-expiry.md) | Session-note debts expire from the board after 30 days | accepted, supersedes 0131 (note debts) |
 | [0141](0141-instance-stamp-and-the-reap-scope.md) | The instance stamp — one PiCode does not reap another's sessions | accepted |
-| [0142](0142-retire-go-tray.md) | retire-go-tray | proposed |
+| [0142](0142-retire-go-tray.md) | retire-go-tray | accepted (owner approved 2026-09-15; amends 0120 and 0071) |
 | [0143](0143-terminal-agents-as-principals.md) | terminal-agents-as-principals | accepted |
 | [0144](0144-developer-mode-cdp.md) | Developer mode — raw CDP for a full-tier agent | accepted |
 | [0145](0145-board-bounded-view.md) | The handoff board is a bounded view | accepted |
@@ -154,14 +154,14 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0147](0147-user-installed-webapps.md) | user-installed-webapps | accepted |
 | [0148](0148-computer-tool.md) | Computer use for agents — one grant, the whole desktop, refinements later | accepted |
 | [0149](0149-post-land-note.md) | A post-merge correction to an existing handoff note lands on main | accepted, amends 0105 |
-| [0150](0150-connectors-for-every-agent-cli.md) | connectors-for-every-agent-cli | proposed |
+| [0150](0150-connectors-for-every-agent-cli.md) | connectors-for-every-agent-cli | accepted (owner approved the plan and its four decisions, 2026-09-17) |
 | [0151](0151-devservers-stop.md) | devservers-stop — the panel may end what it started | accepted |
 | [0152](0152-annotation-delivery.md) | annotation-delivery — one staged file, its path in the prompt door | accepted |
-| [0153](0153-webapp-partitions.md) | webapp-partitions | proposed |
+| [0153](0153-webapp-partitions.md) | webapp-partitions | accepted |
 | [0154](0154-picode-mcp.md) | picode-mcp — PiCode tools for every agent CLI over MCP; one server per pi package, scope and toggle are the CLI's, guests' agent scope is launch injection | proposed |
-| [0155](0155-distro-keepalive-task.md) | The distro keepalive is a scheduled task, not the shell's child | proposed |
+| [0155](0155-distro-keepalive-task.md) | The distro keepalive is a scheduled task, not the shell's child | accepted (amends 0142's keepalive-lifetime clause) |
 | [0156](0156-computer-foreground-guard.md) | computer-foreground-guard — input acts only in the window the agent last saw (amends ADR-0148, refinement d) | proposed |
-| [0157](0157-curated-connector-catalog.md) | curated-connector-catalog | proposed |
+| [0157](0157-curated-connector-catalog.md) | curated-connector-catalog | accepted (owner approved the direction and the three design decisions) |
 | [0158](0158-cli-restart-resumes-session.md) | Restart an Agent CLI terminal resumes its pinned conversation | accepted, amends 0069 and 0084 |
 | [0159](0159-managed-cli-principals.md) | CLI terminals as managed principals — bind a guest TUI to a workspace without an agent row or chat | superseded by 0160 |
 | [0160](0160-cli-runtimes-are-agents.md) | CLI runtimes are agents — catalog `cli` on `agents`; managed RPC stays Pi-only | accepted, supersedes 0159's never-an-agent-row, amends 0006/0011/0069 |
@@ -174,5 +174,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0167](0167-packages-for-every-cli.md) | Native packages for every agent CLI | accepted |
 | [0168](0168-credential-signin-and-identity.md) | The guided sign-in runs the CLI's own login (terminal, vendor binary, its client id), and a vault row is named by the store or by the person — never by a network answer — with `Store.Adopt` re-keying the live row instead of copying it | accepted, amends 0165 and 0166 |
 | [0169](0169-unified-providers-surface.md) | One providers surface for every agent CLI — the vault pane serves pi too (its editor is deleted), the roster carries per-row `usage` from the cache and 7d spend from session stats, and the per-CLI doors (Add provider + custom endpoints for pi, Sign in + native import for guests) stay where they can work | accepted, amends 0103 and 0165 |
-| [0170](0170-delivery-observation-contract.md) | Observe delivery through revision-bound evidence | proposed |
+| [0170](0170-delivery-observation-contract.md) | Observe delivery through revision-bound evidence | accepted |
+| [0171](0171-delivery-agent-interface.md) | Common delivery declarations for agent CLIs | accepted |
 | [0172](0172-session-browser.md) | An identified agent drives the browser split bound to its session; headless tools stay separate | accepted, amends 0134 and 0135 |
+| [0173](0173-sidebar-order.md) | Sidebar order is a stored position shared by every client; drag is a later gesture | accepted |

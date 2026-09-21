@@ -1,3 +1,4 @@
+import GitDelivery from "./GitDelivery.jsx";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -31,7 +32,7 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState("");
-  const [section, setSection] = useState(initialCommit ? "history" : "changes");
+  const [section, setSection] = useState(initialCommit ? "history" : new URLSearchParams(location.hash.split("?")[1]||"").get("view")==="delivery" ? "delivery" : "changes");
   const [trail, setTrail] = useState(initialCommit ? [{ type: "commit", hash: initialCommit }] : []);
   const [actions, setActions] = useState(false);
   const [wsOpen, setWsOpen] = useState(false);
@@ -137,7 +138,7 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
   const back = () => { saveScroll(); if (trail.length) setTrail(items => items.slice(0, -1)); else onBack?.(); };
   useLayoutEffect(() => { if (main.current) main.current.scrollTop = scroll.current[viewKey] || 0; }, [viewKey]);
   const refresh = () => load();
-  const headerTitle = current?.type === "commit" ? `Commit ${shortHash(current.hash)}` : current?.type === "working-file" || current?.type === "commit-file" ? "Diff" : current?.type === "worktree" ? "Worktree changes" : "Git";
+  const headerTitle = current?.type === "delivery" ? "Delivery details" : current?.type === "commit" ? `Commit ${shortHash(current.hash)}` : current?.type === "working-file" || current?.type === "commit-file" ? "Diff" : current?.type === "worktree" ? "Worktree changes" : "Git";
   const openFile = file => { if (!blockedRef.current) onOpenFile?.(file); };
   let content;
   if (current?.type === "commit") content = <GitCommit key={current.hash} owner={owner} root={root} hash={current.hash} onMoved={markMoved} onBack={back} onCommit={hash => push({ type: "commit", hash })} onFile={(file, commit) => push({ type: "commit-file", file, commit })} />;
@@ -152,9 +153,9 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
         ? <button type="button" className="btn m-git-header-action" aria-label="Actions on this commit" onClick={() => setSheet(targetFor({ commit: (graph?.commits || []).find((c) => c.hash === current.hash) || { hash: current.hash }, refs: graph?.refs || [] }))}>Actions</button>
         : current?.type === "worktree"
           ? <button type="button" className="btn m-git-header-action" aria-label="Actions on this worktree" onClick={() => setSheet(targetFor({ worktree: current.wt, uncommitted: true }))}>Actions</button>
-          : !current ? <button type="button" className="btn m-git-header-action" aria-label="Git actions" onClick={() => setActions(true)}>Actions</button> : null
+          : !current && section !== "delivery" ? <button type="button" className="btn m-git-header-action" aria-label="Git actions" onClick={() => setActions(true)}>Actions</button> : null
     ) : null} />
-    {!current && status?.git ? <nav className="m-git-tabs" aria-label="Git views">{[["changes", "Changes"], ["history", "History"], ["pr", "Pull request"]].map(([id, label]) => <button type="button" key={id} aria-current={section === id ? "page" : undefined} onClick={() => goSection(id)}>{label}</button>)}</nav> : null}
+    {!current && status?.git ? <nav className="m-git-tabs" aria-label="Git views">{[["changes", "Changes"], ["history", "History"], ["pr", "Pull request"], ["delivery", "Delivery"]].map(([id, label]) => <button type="button" key={id} aria-current={section === id ? "page" : undefined} onClick={() => goSection(id)}>{label}</button>)}</nav> : null}
     <main className="m-git-main" ref={main}>
       {blocked ? <div className="m-git-state m-git-warning" role="alert"><p>{blocked}</p><button type="button" className="btn" disabled={busy} onClick={() => { setActions(false); load(true); }}>Follow folder</button></div> : null}
       <GitReadState error={error} loading={!status && busy} onRetry={() => load()} />
@@ -175,9 +176,10 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
             )}
             <p>{branchSummary(status)}</p>
           </div>
-          <button type="button" className="btn" disabled={busy || !!blocked} onClick={refresh}>{busy ? "Refreshing…" : "Refresh"}</button>
+          {section !== "delivery" ? <button type="button" className="btn" disabled={busy || !!blocked} onClick={refresh}>{busy ? "Refreshing…" : "Refresh"}</button> : null}
         </div> : null}
         {content}
+        {section === "delivery" && (!current || current.type === "delivery") && !blocked ? <GitDelivery key={ownerKey+root} owner={owner} selection={current?.type === "delivery" ? current.changeId : ""} onDetail={id=>id?push({type:"delivery",changeId:id}):back()} onHistory={sha=>{setTrail(sha?[{type:"commit",hash:sha}]:[]);goSection("history");}}/> : null}
         <div className="m-git-view" hidden={!!current || section !== "changes"}><GitChanges status={status} onHistory={() => goSection("history")} onSelect={file => push({ type: "working-file", file })} /></div>
         {visited.history ? <div className="m-git-view" hidden={!!current || section !== "history"}><GitHistory key={root} owner={owner} root={root} nonce={nonce} blocked={!!blocked} onMoved={markMoved} onCommit={hash => push({ type: "commit", hash })} onWorktree={wt => push({ type: "worktree", wt })} onActions={(payload) => setSheet(targetFor(payload))} onGraph={setGraph} /></div> : null}
         {visited.pr ? <div className="m-git-view" hidden={!!current || section !== "pr"}><GitPullRequest key={root} owner={owner} root={root} nonce={nonce} onMoved={markMoved} onOpenTerminal={onOpenTerminal} blocked={!!blocked} /></div> : null}

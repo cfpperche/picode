@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +20,7 @@ import (
 	"github.com/cfpperche/picode/internal/clicreds"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/credentials"
+	"github.com/cfpperche/picode/internal/tmux"
 	"github.com/cfpperche/picode/internal/usage"
 )
 
@@ -432,6 +435,10 @@ func handleCredentialImport(deps Deps) http.HandlerFunc {
 		out["who"] = who
 		out["identity"] = row.Identity
 		out["created"] = created
+		// A stamp of the access token, not the token: Check now must tell a
+		// finished sign-in from the account that was already in the file.
+		// Nameless stores (Claude Code) keep one row id either way.
+		out["stamp"] = tokenStamp(login.Cred)
 		writeJSON(w, http.StatusCreated, out)
 	}
 }
@@ -476,6 +483,18 @@ func liveRowID(provider string, rows []catalog.Account, login clicreds.Login) st
 
 // accessTokenOf reads the OAuth access token out of a vault credential, for
 // the callers that need to ask a vendor who the account is.
+// tokenStamp is a short hash of the access token. It is safe to send to
+// the pane: it cannot be turned back into the token, and it changes exactly
+// when the CLI's file starts holding a different login.
+func tokenStamp(cred json.RawMessage) string {
+	access := accessTokenOf(cred)
+	if access == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(access))
+	return hex.EncodeToString(sum[:8])
+}
+
 func accessTokenOf(cred json.RawMessage) string {
 	var m struct {
 		Access string `json:"access"`
@@ -512,6 +531,27 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "This CLI cannot be launched here.")
 			return
 		}
+		// One sign-in terminal per CLI. A second click must lead back to the
+		// terminal that is already waiting — thirteen "Claude Code sign-in"
+		// sessions piled up in one machine's tmux before this check existed
+		// (2026-09-21). A record whose session is gone is a husk: remove it so
+		// the terminals list does not fill with sign-in ghosts.
+		want := spec.Name + " sign-in"
+		if rows, err := deps.Store.ListTerminals(); err == nil {
+			for _, t := range rows {
+				if t.Name != want {
+					continue
+				}
+				alive, e := deps.Tmux.HasSession(r.Context(), tmux.ShellSessionName(t.ID))
+				if e == nil && alive {
+					writeJSON(w, http.StatusOK, map[string]any{
+						"terminalId": t.ID, "hint": spec.Login.Hint, "reused": true,
+					})
+					return
+				}
+				_ = deps.Store.DeleteTerminal(t.ID)
+			}
+		}
 		args := append([]string{}, spec.Login.Args...)
 		v := cliTerminalRequest{
 			Name:      spec.Name + " sign-in",
@@ -522,8 +562,12 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 			writeErr(w, status, err.Error())
 			return
 		}
+		prior := ""
+		if login, found := clicreds.Detect(spec.CLI); found {
+			prior = tokenStamp(login.Cred)
+		}
 		writeJSON(w, status, map[string]any{
-			"terminalId": t.ID, "hint": spec.Login.Hint, "terminal": view,
+			"terminalId": t.ID, "hint": spec.Login.Hint, "terminal": view, "stamp": prior,
 		})
 	}
 }

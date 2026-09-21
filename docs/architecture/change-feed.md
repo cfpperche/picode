@@ -22,3 +22,45 @@ registry lock but before the heartbeat returns, so a sequential expiry cannot
 overtake a detached `online` callback. Rule: a state
 change that is not in `events` did not happen — write through the
 store, never around it.
+
+A sidebar reorder (ADR-0173) is one of `workspace.reordered`,
+`agent.reordered` or `terminal.reordered`. The payload is the full id
+list of that container (`workspaceId` plus `ids` for agents and
+terminals). The same order emits nothing. A client that cannot apply
+the ids refetches, the same as any other fleet event it does not
+understand. New workspaces append; the reducer no longer re-sorts them
+by name.
+
+## How the rule is enforced
+
+"Every mutation announces itself" is checked two ways, because the first
+one alone was a checklist. `TestEveryMutationAppendsAnEvent` exercises 118
+hand-written cases and proves each one emits what it should — but a new
+mutator that forgets its event is simply not on the list, and nothing
+notices.
+
+`TestEveryExportedMutationAnnouncesOrIsListed`
+(`internal/store/mutation_coverage_test.go`) is the invariant itself: it
+parses the package, finds every exported `*Store` method that writes to a
+table, and requires each one to append an event — or to appear in
+`silentMutators` **with a reason**. An entry without a reason fails, so "I
+could not think of the event" cannot pass as a decision, and a companion
+test removes a name that stopped being a mutator.
+
+**Both signals follow calls on the receiver**, and the first version of
+this test followed only one of them. Scanning a method's own body for SQL
+missed every exported mutator that delegates the write — `AddAgent` through
+`AddAgentWithCLI`, `CreateTerminal`, `EnablePeer`, `ReplaceFrom` and
+thirteen more: seventeen writes waved through because the literal lived one
+call away. Fourteen of them did announce, so the gate was right by luck
+rather than by construction. Bodies are also read with line comments
+stripped, since "we deliberately do not AppendEvent here" must not be the
+thing that satisfies the check.
+
+The sixteen deliberate exceptions are the event log's own machinery
+(`AppendEvent` and `AppendEventTx` *are* announcing; pruning would refill
+what it emptied), a restore's whole-database swap, auth last-seen and
+expiry housekeeping, Web Push delivery marks, the extension's actuation
+batches (ADR-0053/0054 — the panel polls for its own batch, so the feed has
+no subscriber for it) and the ADR-0039 session-identity bookkeeping, whose
+visible change is carried by `agent.updated`.

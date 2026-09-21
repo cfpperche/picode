@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import * as Switch from "@radix-ui/react-switch";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
-import { toastError, toast } from "../lib/toast.js";
+import { toastError } from "../lib/toast.js";
 import PageFrame from "./PageFrame.jsx";
 import TermAppearance from "./TermAppearance.jsx";
 import { termsetRoute } from "../lib/routes.js";
@@ -35,45 +34,7 @@ export default function TermSettingsPage({ hidden, terminals }) {
   const [data, setData] = useState(null);
   const [catalog, setCatalog] = useState(null);
   const [query, setQuery] = useState("");
-  // The tmux guard (ADR-0138) is a wrapper on the session PATH, not a tmux
-  // option: it gets its own state, fetched from the wiring rows.
-  const [guard, setGuard] = useState(null);
-  const [guardErr, setGuardErr] = useState("");
-  const [guardBusy, setGuardBusy] = useState(false);
 
-  const loadGuard = useCallback(async () => {
-    try {
-      const d = await api("/api/terminals/wiring");
-      const row = (d.clis || []).find((r) => r.id === "tmux-guard") || null;
-      setGuard(row);
-      setGuardErr(row ? "" : "The guard row is missing from the wiring list.");
-    } catch (e) {
-      setGuardErr(e?.message || "Could not read the guard state.");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (hidden || !isGlobal) return;
-    loadGuard();
-  }, [hidden, isGlobal, loadGuard]);
-
-  async function setGuardOn(on) {
-    if (!guard || guardBusy) return;
-    const prev = guard;
-    setGuard({ ...guard, wired: on }); // optimistic: a switch must not sit on the old value
-    setGuardBusy(true);
-    try {
-      const d = await api(`/api/terminals/wiring/tmux-guard/${on ? "enable" : "disable"}`, { method: "POST" });
-      const fresh = (d.clis || []).find((r) => r.id === "tmux-guard");
-      if (fresh) setGuard(fresh);
-      toast.ok(on ? "Terminal guard is on for terminals opened from now on." : "Terminal guard is off for terminals opened from now on.");
-    } catch (e) {
-      setGuard(prev);
-      toastError(e);
-    } finally {
-      setGuardBusy(false);
-    }
-  }
 
   useEffect(() => {
     if (hidden) return;
@@ -126,42 +87,6 @@ export default function TermSettingsPage({ hidden, terminals }) {
     <PageFrame id="termset-view" title={title} context={context} hidden={hidden}>
       {!data || !catalog ? <PageSkeleton /> : (
         <div className="termset-page">
-          {isGlobal ? (
-            <section className="termset-cat">
-              <h3 className="termset-cat-title">Safety</h3>
-              {guard ? (
-                <div className="termset-guard">
-                  <div>
-                    <strong>tmux guard</strong>
-                    <p className="termset-cat-note">
-                      {guard.wired
-                        ? "On — refuses kill-server, pattern kills and other terminals’ sessions inside PiCode terminals. Your own sessions stay killable by exact name."
-                        : "Off — every tmux command reaches the server, including kill-server."}
-                    </p>
-                    <p className="termset-cat-note">
-                      Applies to terminals opened from now on.{" "}
-                      <a className="termset-guard-docs" href="https://cfpperche.github.io/picode/guide/agent-clis#tmux-guard" target="_blank" rel="noreferrer">How it works ↗</a>
-                    </p>
-                  </div>
-                  <Switch.Root
-                    className="rx-switch"
-                    checked={!!guard.wired}
-                    disabled={guardBusy}
-                    aria-label="tmux guard"
-                    onCheckedChange={setGuardOn}
-                  >
-                    <Switch.Thumb className="rx-switch-thumb" />
-                  </Switch.Root>
-                </div>
-              ) : null}
-              {guardErr ? (
-                <div className="cli-notice is-error" role="alert">
-                  <span>{guard ? "Couldn't refresh the guard state — this switch may be out of date." : guardErr}</span>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={loadGuard}>Try again</button>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
           {isGlobal ? (
             <section className="termset-cat">
               <h3 className="termset-cat-title">Appearance — this browser</h3>

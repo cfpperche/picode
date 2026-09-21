@@ -53,6 +53,7 @@ fn main() {
             "computer_call",
             "computer_set_grants",
             "computer_preview",
+            "clipboard_files",
             "computerlab_open",
             "computer_embed",
             "computer_unembed",

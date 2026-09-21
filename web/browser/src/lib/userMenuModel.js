@@ -20,7 +20,7 @@ export const MENU_SECTIONS = [
   ["computer", "Computer", "Agents using this computer"],
   ["devices", "Devices", "Who is connected"],
   ["system", "System", "Version, host, paths"],
-  ["termset", "Terminal defaults", "Font, colors, cursor, tmux guard"],
+  ["termset", "Terminal defaults", "Font, colors, cursor"],
 ];
 
 export const MENU_GROUPS = [
@@ -41,7 +41,7 @@ export function menuGroups(query) {
       rows: ids.map(id => MENU_SECTIONS.find(row => row[0] === id)).filter(row => matchesListSearch(query, ...row)),
     }))
     .filter(group => group.rows.length);
-  if (query.trim() && matchesListSearch(query, "Agent CLIs", "launches sessions CLI configuration")) {
+  if (query.trim() && matchesListSearch(query, "Agent CLIs", "launches sessions CLI configuration", "tmux guard")) {
     const row = ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"];
     const tools = groups.find(g => g.title === "Tools");
     if (tools) tools.rows.unshift(row);
