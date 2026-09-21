@@ -1,5 +1,7 @@
 # Docs shots — the mobile inbox fixture gate fails
 
+## Debts
+
 - [ ] `make deploy` (and bare `make docs-shots`) keeps failing on
   `app-mobile-inbox: waitText "Bump the Go toolchain" never appeared` — the
   fixture seeds that inbox question, but the mobile screen never renders it
