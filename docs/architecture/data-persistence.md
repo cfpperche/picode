@@ -28,3 +28,10 @@ would miss OS aliases such as macOS `/var` → `/private/var`.
 | empty | any | refuse |
 | either live data root, or any descendant | existing, missing, direct, or reached through a symlinked ancestor | refuse |
 | outside both live trees | canonical roots differ | allow |
+
+## Delivery declarations
+
+Migration 063 adds `delivery_intents` and `delivery_requests` for ADR-0171. The
+store commits each declaration, original retry receipt and `delivery.changed`
+event atomically. These are agent declarations, not gate or deploy evidence.
+See [delivery architecture](delivery.md) for scope, ownership and limits.

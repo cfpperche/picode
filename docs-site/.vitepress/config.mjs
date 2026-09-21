@@ -76,6 +76,7 @@ export default defineConfig({
             items: [
               { text: "Canvas", link: "/guide/canvas" },
               { text: "Session messages", link: "/guide/communication" },
+              { text: "Delivery requests", link: "/guide/delivery" },
               { text: "Inbox tools", link: "/guide/inbox-tools" },
               { text: "Checklist", link: "/guide/checklist" },
               { text: "Compact earlier", link: "/guide/compact" },
