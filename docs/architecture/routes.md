@@ -231,10 +231,11 @@ door: `POST /api/terminals/{id}/drop` writes a file under
 `<cwd>/.picode/drop/`, and `POST /api/terminals/{id}/prompt` pastes the
 caption plus `@path` into `picode-sh-<id>`. Proof is tmux accept ("Sent
 to the terminal"), not model delivery. Inspector type/run/Ask still must
-not target a CLI TUI (ADR-0078). Plain shells have no attach bar. A
-files-paste (Ctrl+V / Ctrl+Shift+V with screenshots or files on the
-clipboard) opens the same bar seeded with the staged files; text pastes
-keep the terminal's native paste. The
+not target a CLI TUI (ADR-0078). Plain shells have no attach bar.
+Pasting files (Ctrl+V / Ctrl+Shift+V with screenshots or files on the
+clipboard) opens the same bar seeded with the staged files, and any
+accompanying text becomes the message; text-only pastes keep the native
+paste. The
 staging folder stays inside the project deliberately — the CLI reads the
 path itself, confined to its own cwd — but is never global-data material
 and never touches the project's own tracked `.gitignore`: a nested,

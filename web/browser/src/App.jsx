@@ -59,6 +59,7 @@ import { openRepoKeys, openTreeKeys, ownerIdOf, pickTarget } from "./lib/workspa
 import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk, paneCapabilities } from "./lib/termMenu.js";
+import { promptDoorFor } from "@picode/shared/domain/termPrompt.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
@@ -2472,13 +2473,13 @@ export default function App({ shellChrome = false } = {}) {
     });
   }
   // A files-paste (screenshot, artifact) on a terminal pane opens the same
-  // bar the Attach menu does, seeded with the pasted files — the message
-  // stays empty and focused, the prompt-door check already happened in
-  // TermSurface, and a bar already open for this pane keeps its text while
-  // the new files stage alongside (the seed token re-runs addFiles).
-  function openTermAttachFiles(id, files) {
+  // bar the Attach menu does, seeded with the pasted files and any
+  // accompanying text as the message — a bar already open for this pane
+  // keeps its text while the new files stage alongside (the seed token
+  // re-runs addFiles; the seed effect appends the text with a space).
+  function openTermAttachFiles(id, files, text) {
     if (!id || !files || !files.length) return;
-    setTermAttach({ id, token: String(Date.now()), text: "", files: [...files] });
+    setTermAttach({ id, token: String(Date.now()), text: text || "", files: [...files] });
   }
 
   function openTermHandoff(term, target) {
@@ -3601,6 +3602,7 @@ export default function App({ shellChrome = false } = {}) {
                 find={termFind === tid}
                 onFindClose={() => { setTermFind(""); focusPane(tid); }}
                 onPasteFiles={openTermAttachFiles}
+                promptDoor={promptDoorFor({ kind: "term", term: t })}
               />
             );
           })}
@@ -3720,7 +3722,7 @@ export default function App({ shellChrome = false } = {}) {
                       termFind,
                       onFindClose: (id) => { setTermFind(""); focusPane(id); },
                       onAttachClose: () => setTermAttach(null),
-                      onPasteFiles: (id, files) => openTermAttachFiles(id, files),
+                      onPasteFiles: (id, files, text) => openTermAttachFiles(id, files, text),
                       // The app says what it has in focus; the host decides
                       // what follows from that (ADR-0109, amendment
                       // 2026-09-12). An app never names the Inspector.
@@ -4030,6 +4032,7 @@ export default function App({ shellChrome = false } = {}) {
                     find={termFind === termId}
                     onFindClose={() => { setTermFind(""); focusPane(termId); }}
                     onPasteFiles={openTermAttachFiles}
+                    promptDoor={promptDoorFor({ kind: "agent", agentMode: agent.mode, term })}
                   />
                 );
               })()

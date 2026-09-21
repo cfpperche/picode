@@ -24,6 +24,7 @@
 // Ctrl+Shift+C/V still copy/paste.
 
 import { readTermPrefs, TERM_NEWLINES } from "./termTheme.js";
+import { keyPasteSuppressed } from "./termPasteClaim.js";
 
 const SEQ = {
   "shift-enter": "\x1b[27;2;13~",
@@ -129,7 +130,13 @@ export function wireTermKeys(term, send, passthrough) {
     }
     if (clip === "paste") {
       if (navigator.clipboard && navigator.clipboard.readText) {
-        navigator.clipboard.readText().then((t) => { if (t && term.paste) term.paste(t); }).catch(() => {});
+        // The paste *event* may claim this gesture for the attach bar
+        // (files-paste); its claim lands synchronously, this text
+        // asynchronously — so the claim wins and no stray text reaches the
+        // composer's draft. Text-only pastes never claim: this path stays
+        // the fallback where the native paste does not deliver.
+        const el = (ev && ev.target) || null;
+        navigator.clipboard.readText().then((t) => { if (t && term.paste && !keyPasteSuppressed(el)) term.paste(t); }).catch(() => {});
       }
       if (typeof ev.preventDefault === "function") ev.preventDefault();
       return false;

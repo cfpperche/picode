@@ -28,6 +28,10 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
   const inputRef = useRef(null);
   const seeded = useRef("");
   const [items, setItems] = useState([]);
+  // Live count for planning: two rapid pastes overlap in flight, and the
+  // `items` closure each carries goes stale — the ref never does.
+  const itemsRef = useRef([]);
+  itemsRef.current = items;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -48,20 +52,22 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
   }, [seed]);
 
   async function addFiles(list) {
-    const plan = planAttachFiles(list, items.length);
+    const plan = planAttachFiles(list, itemsRef.current.length);
     if (plan.tooMany) toast.error("Up to 4 files.");
     if (plan.tooLarge) toast.error("Each file must be under 4 MB.");
     if (!plan.files.length) return;
-    const next = items.slice();
+    // One functional append per file: concurrent addFiles calls each see
+    // the latest list, so a double-paste stages both instead of last-win.
+    // The cap is re-checked inside, so overlap can never stage a fifth.
     for (const f of plan.files) {
       try {
         const row = await readAttachFile(f);
-        next.push({ id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + next.length, ...row });
+        const id = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random().toString(16).slice(2);
+        setItems((cur) => (cur.length >= MAX_ATTACH ? cur : cur.concat([{ id, ...row }])));
       } catch (err) {
         if (err && err.message === "too-large") toast.error("Each file must be under 4 MB.");
       }
     }
-    setItems(next);
   }
 
   function addWorkspace(hit) {
