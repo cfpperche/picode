@@ -14,8 +14,34 @@ function agentView(a, prev) {
   return { running: false, mode: "stopped", streaming: false, waiting: false, ...(prev || {}), ...a };
 }
 
-function byName(list) {
-  return [...list].sort((x, y) => String(x.name || "").localeCompare(String(y.name || "")));
+// orderByIds returns list permuted to ids, or null when ids are not exactly
+// that list (ADR-0173). A miss means the caller refetches.
+function orderByIds(list, ids) {
+  if (!Array.isArray(ids) || ids.length !== list.length) return null;
+  const byId = new Map(list.map((x) => [x.id, x]));
+  const seen = new Set();
+  const next = [];
+  for (const id of ids) {
+    if (seen.has(id) || !byId.has(id)) return null;
+    seen.add(id);
+    next.push(byId.get(id));
+  }
+  return next;
+}
+
+// reorderSubset permutes the rows whose ids are in `ids`, leaving every
+// other row where it is. Unknown or repeated ids cannot be applied.
+function reorderSubset(list, ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return null;
+  const byId = new Map(list.map((x) => [x.id, x]));
+  const seen = new Set();
+  for (const id of ids) {
+    if (seen.has(id) || !byId.has(id)) return null;
+    seen.add(id);
+  }
+  const ordered = ids.map((id) => byId.get(id));
+  let i = 0;
+  return list.map((x) => (seen.has(x.id) ? ordered[i++] : x));
 }
 
 function compareDecimal(a, b) {
@@ -68,7 +94,27 @@ function applyFleetRaw(state, ev) {
   switch (ev.type) {
     case "workspace.added": {
       if (!d.id || workspaces.some((w) => w.id === d.id)) return state;
-      return { ...state, workspaces: byName([...workspaces, { ...d, agents: [], managedClis: [] }]) };
+      return { ...state, workspaces: [...workspaces, { ...d, agents: [], managedClis: [] }] };
+    }
+    case "workspace.reordered": {
+      const next = orderByIds(workspaces, d.ids);
+      return next ? { ...state, workspaces: next } : null;
+    }
+    case "agent.reordered": {
+      if (!d.workspaceId) return null;
+      if (d.workspaceId === FREE) {
+        const next = orderByIds(freeAgents, d.ids);
+        return next ? { ...state, freeAgents: next } : null;
+      }
+      const home = workspaces.find((w) => w.id === d.workspaceId);
+      if (!home) return null;
+      const agents = orderByIds(home.agents || [], d.ids);
+      if (!agents) return null;
+      return { ...state, workspaces: workspaces.map((w) => (w.id === home.id ? { ...w, agents } : w)) };
+    }
+    case "terminal.reordered": {
+      const next = reorderSubset(terminals, d.ids);
+      return next ? { ...state, terminals: next } : null;
     }
     case "workspace.deleted":
       return {

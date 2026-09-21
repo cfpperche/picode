@@ -11,6 +11,7 @@ import { DESKTOP_REQUIRED, webappTabId, webappIdFromTab, webappOpenPlan, webappC
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
 import { closeTerm } from "./lib/terms.js";
 import { termWorkspaceId, workspaceForTerminal } from "./lib/termGroups.js";
+import { containerIds, optimisticFleet, putSidebarOrder, sameIds } from "./lib/sidebarOrder.js";
 import { closeShellTerm } from "./components/ShellTerm.jsx";
 import { summarizeArgs } from "./components/Conversation.jsx";
 import { fileChangeFromTool } from "@picode/shared/domain/diff.js";
@@ -1012,6 +1013,28 @@ export default function App({ shellChrome = false } = {}) {
   // refetches the fleet; (re)open and reset refetch everything.
   const fleetRef = useRef({ workspaces: [], freeAgents: [], terminals: [] });
   fleetRef.current = { workspaces, freeAgents, terminals };
+  const orderTicket = useRef(0);
+  const reorderSidebar = useCallback(async (kind, workspaceId, ids) => {
+    const before = fleetRef.current;
+    const next = optimisticFleet(before, kind, workspaceId, ids);
+    if (!next || next === before) return;
+    const ticket = ++orderTicket.current;
+    setWorkspaces(next.workspaces);
+    setFreeAgents(next.freeAgents);
+    setTerminals(next.terminals);
+    try {
+      await putSidebarOrder(kind, workspaceId, ids);
+    } catch {
+      if (orderTicket.current !== ticket) return;
+      const cur = fleetRef.current;
+      if (!sameIds(containerIds(cur, kind, workspaceId), ids)) return;
+      const restored = optimisticFleet(cur, kind, workspaceId, containerIds(before, kind, workspaceId));
+      if (!restored || restored === cur) return;
+      setWorkspaces(restored.workspaces);
+      setFreeAgents(restored.freeAgents);
+      setTerminals(restored.terminals);
+    }
+  }, []);
   useEffect(() => startFeed(), []);
   const webappsWatchRef = useRef(null);
   const [webappsLoaded, setWebappsLoaded] = useState(false);
@@ -3628,6 +3651,7 @@ export default function App({ shellChrome = false } = {}) {
         clis={clis}
         onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
+        onReorder={reorderSidebar}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
         onOpenDashboard={openDashboard}

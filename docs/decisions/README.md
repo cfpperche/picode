@@ -176,3 +176,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0169](0169-unified-providers-surface.md) | One providers surface for every agent CLI — the vault pane serves pi too (its editor is deleted), the roster carries per-row `usage` from the cache and 7d spend from session stats, and the per-CLI doors (Add provider + custom endpoints for pi, Sign in + native import for guests) stay where they can work | accepted, amends 0103 and 0165 |
 | [0170](0170-delivery-observation-contract.md) | Observe delivery through revision-bound evidence | accepted |
 | [0171](0171-delivery-agent-interface.md) | Common delivery declarations for agent CLIs | accepted |
+| [0173](0173-sidebar-order.md) | Sidebar order is a stored position shared by every client; drag is a later gesture | accepted |

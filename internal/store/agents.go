@@ -132,8 +132,8 @@ func ensureDefaultAgentTx(tx txRunner, workspaceID, wsName, createdAt string) (A
 		CreatedAt:   createdAt,
 		LastStatus:  "never_started",
 	}
-	if _, err := tx.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status) VALUES (?, ?, ?, ?, 'never_started')`,
-		a.ID, a.WorkspaceID, a.Name, a.CreatedAt); err != nil {
+	if _, err := tx.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status, position) VALUES (?, ?, ?, ?, 'never_started', `+nextPositionExpr("agents", "workspace_id = ?")+`)`,
+		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.WorkspaceID); err != nil {
 		return Agent{}, fmt.Errorf("store: insert agent: %w", err)
 	}
 	return a, nil
@@ -503,8 +503,8 @@ func (s *Store) AddAgentWithCLI(workspaceID, cli, name, workPath string) (Agent,
 		LastStatus:  StatusNeverStarted,
 		WorkPath:    emptyToNil(workPath),
 	}
-	if _, err := s.db.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status, work_path, cli) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus, a.WorkPath, a.CLI); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status, work_path, cli, position) VALUES (?, ?, ?, ?, ?, ?, ?, `+nextPositionExpr("agents", "workspace_id = ?")+`)`,
+		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus, a.WorkPath, a.CLI, a.WorkspaceID); err != nil {
 		return Agent{}, fmt.Errorf("store: insert agent: %w", err)
 	}
 	a, err = s.GetAgent(a.ID)
@@ -515,9 +515,10 @@ func (s *Store) AddAgentWithCLI(workspaceID, cli, name, workPath string) (Agent,
 	return a, nil
 }
 
-// ListAgents returns agents in a workspace, oldest first.
+// ListAgents returns agents in a workspace in sidebar order (ADR-0173).
+// DefaultAgent stays the oldest; this list is the one the sidebar shows.
 func (s *Store) ListAgents(workspaceID string) ([]Agent, error) {
-	rows, err := s.db.Query(`SELECT `+agentCols+` FROM agents WHERE workspace_id = ? ORDER BY created_at`, workspaceID)
+	rows, err := s.db.Query(`SELECT `+agentCols+` FROM agents WHERE workspace_id = ? ORDER BY position, id`, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list agents: %w", err)
 	}

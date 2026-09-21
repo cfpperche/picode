@@ -7,17 +7,14 @@ export function termWorkspaceId(t) {
   return (t && t.workspaceId) || FREE_WS;
 }
 
-export function sortTermsByName(list) {
-  return [...(list || [])].sort((a, b) =>
-    String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
-}
-
+// Order is the server's sidebar position (ADR-0173). Grouping stays here;
+// sorting again would throw away a reorder.
 export function freeTerminals(terminals) {
-  return sortTermsByName((terminals || []).filter((t) => termWorkspaceId(t) === FREE_WS));
+  return (terminals || []).filter((t) => termWorkspaceId(t) === FREE_WS);
 }
 
 export function workspaceTerminals(terminals, wsId) {
-  return sortTermsByName((terminals || []).filter((t) => termWorkspaceId(t) === wsId));
+  return (terminals || []).filter((t) => termWorkspaceId(t) === wsId);
 }
 
 // Workspace a terminal tab belongs to. Free terminals (and unknown ids) yield null.

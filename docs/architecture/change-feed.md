@@ -23,6 +23,14 @@ overtake a detached `online` callback. Rule: a state
 change that is not in `events` did not happen — write through the
 store, never around it.
 
+A sidebar reorder (ADR-0173) is one of `workspace.reordered`,
+`agent.reordered` or `terminal.reordered`. The payload is the full id
+list of that container (`workspaceId` plus `ids` for agents and
+terminals). The same order emits nothing. A client that cannot apply
+the ids refetches, the same as any other fleet event it does not
+understand. New workspaces append; the reducer no longer re-sorts them
+by name.
+
 ## How the rule is enforced
 
 "Every mutation announces itself" is checked two ways, because the first

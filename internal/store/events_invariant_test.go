@@ -198,6 +198,26 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_, _ = s.AddSessionHandoff(SessionHandoff{SourceCLI: "claude-code", SourceID: "cc-1", TargetCLI: "codex", Mode: "native", Window: "recent"})
 		}, []string{"session.handoff"}},
 		{"AddWorkspace", func(s *Store) { _, _ = s.AddWorkspace("W", proj) }, []string{"workspace.added"}},
+		{"ReorderWorkspaces", func(s *Store) {
+			a, _ := s.AddWorkspace("A", proj)
+			other := filepath.Join(dir, "other-ws")
+			_ = os.MkdirAll(other, 0o755)
+			b, _ := s.AddWorkspace("B", other)
+			s.OnEvent = recorder(s)
+			_ = s.ReorderWorkspaces([]string{b.ID, a.ID})
+		}, []string{"workspace.reordered"}},
+		{"ReorderAgents", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			b, _ := s.AddAgent(FreeWorkspaceID, "b", "")
+			s.OnEvent = recorder(s)
+			_ = s.ReorderAgents(FreeWorkspaceID, []string{b.ID, a.ID})
+		}, []string{"agent.reordered"}},
+		{"ReorderTerminals", func(s *Store) {
+			a, _ := s.CreateTerminalIn("", "a", proj)
+			b, _ := s.CreateTerminalIn("", "b", proj)
+			s.OnEvent = recorder(s)
+			_ = s.ReorderTerminals(FreeWorkspaceID, []string{b.ID, a.ID})
+		}, []string{"terminal.reordered"}},
 		{"RemoveWorkspace", func(s *Store) {
 			w, _ := s.AddWorkspace("W", proj)
 			s.OnEvent = nil
