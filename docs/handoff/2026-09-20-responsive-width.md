@@ -25,9 +25,11 @@ Branch cut from bc3dfa6e.
   hide-resets — all exercised on the built bundle; boot stays clean (no
   blank-window class).
 - **Windows on-screen behavior (real resize + zoom of the native page) is
-  PENDING the owner's live acceptance** — the COM bounds/zoom calls are not
-  host-provable; everything above them is tested.
+  ACCEPTED by the owner on Windows (2026-09-21)** — the strip toggles,
+  the page narrows/centers, zoom applies, reset and tab-switch persistence
+  hold. Live proof of the COM bounds/zoom calls; everything above them is
+  host-tested.
 
 ## Next up
-- Owner's Windows run: strip toggles, page narrows/centers on screen, zoom
-  applies, reset and tab-switch persistence, hide-resets.
+- Nothing — the row is closed. CDP device emulation (mobile UA, touch,
+  devicePixelRatio) is a separate ADR when wanted.
