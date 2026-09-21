@@ -13,6 +13,10 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-notification = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# base64 serializes clipboard file bytes for the existing drop door (the
+# web paste event never carries Explorer file copies, so the shell reads
+# CF_HDROP natively and hands the bytes back).
+base64 = "0.22"
 webview2-com = "0.38"
 windows = { version = "0.61", features = [
   "Win32_UI_Shell",

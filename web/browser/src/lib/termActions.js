@@ -17,6 +17,7 @@ import { terms } from "./terms.js";
 import { bumpTermFontSize } from "@picode/shared/domain/termTheme.js";
 import { cellFromMouse, linkAt } from "@picode/shared/domain/termLinks.js";
 import { readPasteClipboard } from "@picode/shared/domain/termPrompt.js";
+import { shellClipboardFiles } from "./shellClipboard.js";
 
 const key = (id) => "sh:" + id;
 
@@ -88,12 +89,18 @@ export function runTermCommand(cmd, ctx, handlers = {}) {
     case "paste": {
       // Images ride files, not text: read the clipboard the way a paste
       // event would carry it, and stage files through the attach bar
-      // instead of dropping them silently like readText() did.
+      // instead of dropping them silently like readText() did. Explorer
+      // file copies carry no web-visible bytes — in the desktop shell an
+      // empty paste also asks the native clipboard before giving up.
       readPasteClipboard()
-        .then(({ files, text, blocked }) => {
+        .then(async ({ files, text, blocked }) => {
           if (files.length && handlers.pasteFiles) { handlers.pasteFiles(ctx, files, text); focus(); return; }
           if (text && term && term.paste) term.paste(text);
-          else if (blocked) toast.error("Clipboard blocked — paste manually with Ctrl+Shift+V.");
+          else if (!files.length && !text) {
+            const shelled = await shellClipboardFiles();
+            if (shelled && shelled.length && handlers.pasteFiles) { handlers.pasteFiles(ctx, shelled, ""); focus(); return; }
+            if (blocked) toast.error("Clipboard blocked — paste manually with Ctrl+Shift+V.");
+          }
           focus();
         })
         .catch(() => toast.error("Clipboard blocked — paste manually with Ctrl+Shift+V."));

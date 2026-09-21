@@ -405,6 +405,12 @@
           "markdownDescription": "Enables the clean_list command without any pre-configured scope."
         },
         {
+          "description": "Enables the clipboard_files command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clipboard-files",
+          "markdownDescription": "Enables the clipboard_files command without any pre-configured scope."
+        },
+        {
           "description": "Enables the computer_call command without any pre-configured scope.",
           "type": "string",
           "const": "allow-computer-call",
@@ -745,6 +751,12 @@
           "type": "string",
           "const": "deny-clean-list",
           "markdownDescription": "Denies the clean_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clipboard_files command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clipboard-files",
+          "markdownDescription": "Denies the clipboard_files command without any pre-configured scope."
         },
         {
           "description": "Denies the computer_call command without any pre-configured scope.",

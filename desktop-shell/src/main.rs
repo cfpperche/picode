@@ -142,6 +142,7 @@ fn main() {
             computer::computer_call,
             computer::computer_set_grants,
             computer::computer_preview,
+            clipboard::clipboard_files,
             computerlab::computerlab_open,
             embed::computer_embed,
             embed::computer_unembed,
