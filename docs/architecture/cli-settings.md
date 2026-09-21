@@ -234,6 +234,28 @@ Measured: rows 32-90px (a note wraps on the longest rows), 3 199px for all 90,
 action and its keycap on one line, the keycaps within 48px of the label, and a
 row/total height ceiling per app.
 
+**Two doors, one screen** (P1, 2026-09-21): `/api/pi-keys` stays pi's own store
+and contract, and `/api/cli-keys?cli=<id>` answers the pane for any CLI the
+registry knows (`internal/clikeys`). Pi's report is *wrapped* into that envelope
+— never restated, so the catalog and the write path stay in one place — and a
+CLI whose editor has not shipped answers with its state and nothing else: no
+file, no actions, and a `PUT` refused by name ("PiCode cannot write Codex's key
+map yet" versus "Grok does not allow its keys to be remapped"). The envelope
+carries what a guest editor will need and pi does not use yet: `state`,
+`keymap`, `pickup`, `vocab` and `contexts`. The pane talks only to the envelope,
+so a guest's editor is a server-side declaration, not a second component.
+
+The registry declares each CLI's vendor facts — the map's shape, when the CLI
+picks an edit up, its contexts — and every row cites where those were read,
+because that is a claim about software PiCode does not own. `unknown` is a
+first-class pickup: nothing vendor-published says, so the pane promises nothing.
+`web/shared/domain/cliKeys.js` holds the copy (the pickup sentence per state,
+and one line + one action for a pane with no editor);
+`TestJSListMatchesTheKeyboardRegistry` holds its ids, states and pickups equal to
+the Go registry's, and `make keys-drift` re-reads the installed pi's own
+`docs/keybindings.md` against `pikeys.Catalog` — the probe that would have caught
+the 89-of-90 catalog and the nine platform defaults.
+
 Two things the pane deliberately does not claim:
 
 - **A shared key is not a conflict.** 52 of pi's 90 actions share a chord with

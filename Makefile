@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh docs-changelog build restart deploy _deploy cert-timer changelog adr install test test-js desktop-test fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff land worktree worktree-status worktree-gc clean desktop desktop-shell desktop-restart
+.PHONY: help hooks hooks-check keys-drift dev ui web docs docs-videos docs-videos-check docs-videos-fresh docs-changelog build restart deploy _deploy cert-timer changelog adr install test test-js desktop-test fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff land worktree worktree-status worktree-gc clean desktop desktop-shell desktop-restart
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -18,6 +18,9 @@ hooks: ## Point git at the repo's hooks (.githooks — keeps the root on main)
 
 hooks-check: hooks ## Prove the guards work (policy matrix on a throwaway repo)
 	./scripts/hooks-selftest.sh
+
+keys-drift: ## Compare the pi key catalog with the installed pi's own docs (skips when pi is absent)
+	node scripts/keys-drift.mjs
 
 dev: hooks ## Run the Go server (HTTPS, port 8445+; serves last `make web` build)
 	@printf 'dev: %s on %s\n' "$$(pwd)" "$$(git branch --show-current 2>/dev/null || echo '(no git)')"

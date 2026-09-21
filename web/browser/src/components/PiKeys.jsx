@@ -5,6 +5,12 @@ import { askConfirm } from "../lib/confirm.js";
 import { isReservedChord } from "@picode/shared/domain/browserChord.js";
 import { effectiveKeys, isOverride, matchKeys, platformAlternates, fromEvent } from "@picode/shared/domain/piKey.js";
 import { formatChord } from "../lib/appKeys.js";
+import { KEYBOARD_CLIS, pickupLine } from "@picode/shared/domain/cliKeys.js";
+
+// The pane's own CLI. Today only Pi ships an editor, so this constant is the
+// only thing that would move when a guest's adapter lands (P2): the report
+// carries the rest — the file, the host's platform, the catalog.
+const CLI = KEYBOARD_CLIS[0];
 
 // The keyboard map of the agent CLI this pane belongs to. Pi is the only CLI
 // whose map PiCode can write today; the report carries the file it writes, the
@@ -24,7 +30,7 @@ export default function PiKeys({ disabled = false }) {
 
   function load() {
     setErr("");
-    api("/api/pi-keys").then(setRep).catch((e) => { setRep(null); setErr(e.message || "Can't load keys."); });
+    api("/api/cli-keys?cli=" + CLI.id).then(setRep).catch((e) => { setRep(null); setErr(e.message || "Can't load keys."); });
   }
 
   useEffect(() => { load(); }, []);
@@ -96,10 +102,10 @@ export default function PiKeys({ disabled = false }) {
     const before = rep;
     setRep({ ...rep, user: nextUser });
     try {
-      const next = await api("/api/pi-keys", {
+      const next = await api("/api/cli-keys", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ cli: CLI.id, ...body }),
       });
       setRep(next);
       toast.ok(done);
@@ -186,8 +192,15 @@ export default function PiKeys({ disabled = false }) {
     <section className="settings-section key-pane">
       <h3>Keyboard</h3>
       <p className="settings-desc">
-        This machine. Writes <code>{rep.file}</code>{rep.exists ? "" : " (not created yet)"}. Pi applies a change on{" "}
-        <code>/reload</code> or the next run.
+        {/* The period rides inside the code box: that box has padding, so a
+            period after </code> sits one padding-width from the path and reads
+            as a stray mark (visual review, 2026-09-21). A path that is not
+            there yet carries its own sentence instead. */}
+        This machine. Writes{" "}
+        {rep.exists
+          ? <code>{rep.file}.</code>
+          : <><code>{rep.file}</code> (not created yet).</>}{" "}
+        {pickupLine(rep.cli || CLI.id)}
       </p>
 
       <div className="key-bar" data-align-row data-align-wrap>
