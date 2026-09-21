@@ -16,6 +16,8 @@ changelog entries included.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-21
+
 ### Added
 
 - **The key-map API is documented for every agent CLI**: `GET /api/cli-keys?cli=`
@@ -4272,6 +4274,9 @@ changelog entries included.
   binary (0001), dual-channel tmux+RPC agent control (0002), dependence on
   user-installed `pi` (0003).
 
-[Unreleased]: https://github.com/cfpperche/picode/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/cfpperche/picode/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/cfpperche/picode/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/cfpperche/picode/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/cfpperche/picode/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/cfpperche/picode/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/cfpperche/picode/releases/tag/v0.1.0
