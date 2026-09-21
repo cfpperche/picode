@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/clikeys"
 	"github.com/cfpperche/picode/internal/pipkg"
 )
 
@@ -128,14 +129,22 @@ func TestCLIKeysRefusesWhatPiCodeCannotWrite(t *testing.T) {
 	t.Cleanup(func() { pipkg.UserDir = old })
 	ts := newTestServer(t, "cat")
 
-	for _, tc := range []struct {
-		cli, state, wantIn string
-	}{
-		{"codex", "planned", "cannot write"},
-		{"grok", "refused", "does not allow"},
-		{"muse", "refused", "does not allow"},
-		{"omp", "planned", "cannot write"},
-	} {
+	// Every CLI whose editor has not shipped, not a sample of them: the answer
+	// is per row, and the refusal says which of the three it is — a vendor that
+	// does not allow remapping, a CLI with no key map file at all (the few keys
+	// it allows are rows in Settings), or an adapter not written yet.
+	for _, cli := range clikeys.Registry {
+		if cli.State == clikeys.Shipped {
+			continue
+		}
+		wantIn := "cannot write"
+		switch {
+		case cli.State == clikeys.Refused:
+			wantIn = "does not allow"
+		case cli.Keymap == clikeys.Partial:
+			wantIn = "keeps no key map file"
+		}
+		tc := struct{ cli, state, wantIn string }{cli.ID, string(cli.State), wantIn}
 		res, err := ts.Client().Get(ts.URL + "/api/cli-keys?cli=" + tc.cli)
 		if err != nil {
 			t.Fatal(err)

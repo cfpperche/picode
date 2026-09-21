@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
+import { OPEN_LINK_EVENT } from "./lib/externalLinks.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
@@ -3550,6 +3551,25 @@ export default function App({ shellChrome = false } = {}) {
   // PiCode's surface). The system browser stays reachable by setting either to
   // "Default browser"; before 2026-09-17 every non-loopback link left the app
   // from the terminal, which is the one door that ignored that preference.
+  // The shell's external-links bridge (lib/externalLinks.js) hands every
+  // chrome link that leaves the app to this event — Documentation, guides,
+  // changelog — and the owner wants them in a PiCode browser tab, not the
+  // system browser (2026-09-21). Deliberately not openTermLink: the browser
+  // prefs govern links clicked inside a browsed page, not the app's own
+  // chrome.
+  useEffect(() => {
+    const onOpen = (e) => {
+      const url = typeof e.detail === "string" ? e.detail : "";
+      if (!url) return;
+      // A remote page hosts only in the shell's WebView2; a plain browser
+      // keeps the system browser (its own caption says exactly that).
+      if (shellChrome && window.__TAURI__) openWebTabRef.current(url);
+      else window.open(url, "_blank", "noopener,noreferrer");
+    };
+    window.addEventListener(OPEN_LINK_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_LINK_EVENT, onOpen);
+  }, []);
+
   const openTermLink = useCallback((href) => {
     const url = String(href || "").trim();
     if (!url) return;

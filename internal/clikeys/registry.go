@@ -22,7 +22,9 @@ const (
 	// Inverted keys *chords* to actions, grouped by context (claude-code), so a
 	// row's "add key" is a different edit.
 	Inverted Keymap = "inverted"
-	// Partial is a handful of scalar chord settings, not a map (hermes).
+	// Partial is a handful of scalar chord settings, not a map (hermes): there
+	// is nothing for a key-map writer to do, so its support stays Planned while
+	// the settings driver edits the keys it has.
 	Partial Keymap = "partial"
 	// None is a CLI that will not read a user key map at all (grok, muse).
 	None Keymap = "none"

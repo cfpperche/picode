@@ -27,6 +27,7 @@ import "path/filepath"
 const (
 	groupModel    = "Model"
 	groupApproval = "Approvals"
+	groupKeyboard = "Keyboard"
 	groupMemory   = "Memory"
 	groupSurface  = "Interface"
 	groupUpdates  = "Updates"
@@ -141,6 +142,24 @@ var catalog = []spec{
 			{Key: "agent.max_turns", Label: "Turn limit", Kind: KindNumber, Group: groupApproval, Fallback: "20", Help: "How many turns one run may take before it stops."},
 			{Key: "display.compact", Label: "Compact display", Kind: KindBool, Group: groupSurface, Fallback: "Off"},
 			{Key: "display.show_reasoning", Label: "Show reasoning", Kind: KindBool, Group: groupSurface, Fallback: "On", DefaultOn: true},
+			// The three keys Hermes lets you rebind (docs/plans/keyboard-pane.md):
+			// the rest are built into cli.py, so this group is the whole of the
+			// CLI's keyboard surface. Defaults and value ranges read from the
+			// CLI's own hermes_cli/config_defaults.py on 2026-09-21 —
+			// display.busy_input_mode "interrupt | queue | steer", copy_shortcut
+			// "auto | ctrl_c | ctrl_shift_c | disabled", record_key "ctrl+b".
+			{Key: "voice.record_key", Label: "Push-to-talk key", Kind: KindText, Group: groupKeyboard, Fallback: "ctrl+b", Help: "Hold it down to record; the transcription goes into the prompt."},
+			{Key: "copy_shortcut", Label: "Copy shortcut", Kind: KindSelect, Group: groupKeyboard, Fallback: "Auto", Options: opts(
+				[2]string{"auto", "Automatic"},
+				[2]string{"ctrl_c", "Ctrl+C"},
+				[2]string{"ctrl_shift_c", "Ctrl+Shift+C"},
+				[2]string{"disabled", "Disabled"},
+			)},
+			{Key: "display.busy_input_mode", Label: "Typing while it works", Kind: KindSelect, Group: groupKeyboard, Fallback: "Interrupt the turn", Options: opts(
+				[2]string{"interrupt", "Interrupt the turn"},
+				[2]string{"queue", "Queue it for after"},
+				[2]string{"steer", "Steer the running turn"},
+			)},
 			{Key: "memory.memory_enabled", Label: "Agent notes", Kind: KindBool, Group: groupMemory, Fallback: "On", DefaultOn: true, Help: "What Hermes learned about this environment."},
 			{Key: "memory.user_profile_enabled", Label: "Profile of you", Kind: KindBool, Group: groupMemory, Fallback: "On", DefaultOn: true},
 			{Key: "memory.memory_char_limit", Label: "Notes size limit", Kind: KindNumber, Group: groupMemory, Fallback: "2200 characters"},
