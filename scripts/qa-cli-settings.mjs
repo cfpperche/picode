@@ -54,6 +54,10 @@ writeFileSync((await api("/api/pi-settings")).global.path, "{}\n");
 // the same reason the settings file above starts empty (a previous run, or a
 // manual probe on this fixture, otherwise leaves one behind).
 await api("/api/pi-keys", "PUT", { resetAll: true });
+// Same for the guest CLI this run edits (P2b): its map lives in the fixture's
+// isolated HOME, and a leftover row from an earlier run would read as a change
+// this run did not make.
+await api("/api/cli-keys", "PUT", { cli: "omp", resetAll: true });
 const compactRowSet = () => evaluate('[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compactionEnabled"))?.classList.contains("is-set") === true');
 // Toasts are the app's, not the pane's: a save two steps earlier leaves a stack
 // at the viewport's bottom edge, which on a phone lands on top of whatever the
@@ -62,10 +66,27 @@ const compactRowSet = () => evaluate('[...document.querySelectorAll("#pi-setting
 // column (.m-screen.m-more-page, 844px tall with 1042 of content), so a capture
 // at scrollTop 0 photographs the header and the pane's edge. Center it first —
 // the same reason every other mobile target in this file is centered.
-const centerPane = (cli) => evaluate(`(() => { const p = document.querySelector('#cli-settings-view .key-pane[data-cli="${cli}"]'); p.scrollIntoView({ block: "center" }); return true; })()`);
+const centerPane = (cli, block = "center") => evaluate(`(() => { const p = document.querySelector('#cli-settings-view .key-pane[data-cli="${cli}"]'); p.scrollIntoView({ block: ${JSON.stringify(block)} }); return true; })()`);
+// A tall pane cannot be centered: its head is what a reader judges, and on a
+// phone the shell's sticky header sits over the first line — so scroll it to the
+// top, then back off by the header's height.
+const headPane = (cli) => evaluate(`(() => {
+  const p = document.querySelector('#cli-settings-view .key-pane[data-cli="${cli}"]');
+  p.scrollIntoView({ block: "start" });
+  for (let el = p.parentElement; el; el = el.parentElement) {
+    const oy = getComputedStyle(el).overflowY;
+    if (/auto|scroll/.test(oy) && el.scrollHeight > el.clientHeight + 1) { el.scrollTop -= 120; break; }
+  }
+  return true;
+})()`);
 const settleToasts = async () => {
   for (let i = 0; i < 40; i++) {
-    if (evaluate('!document.querySelector("[data-sonner-toast]")')) return;
+    // The element leaving the DOM is not the pixels leaving: a capture two
+    // frames later caught the fade as an unlabelled pill.
+    if (evaluate('!document.querySelector("[data-sonner-toast]")')) {
+      await new Promise(resolve => setTimeout(resolve, 450));
+      return;
+    }
     await new Promise(resolve => setTimeout(resolve, 200));
   }
 };
@@ -210,6 +231,50 @@ try {
     navigate("#/clis/pi/settings?agentId=" + encodeURIComponent(id) + "&tab=keys");
     browser("wait", "--fn", 'location.hash.endsWith("/keyboard") && !!document.querySelector("#keys-filter")');
     results.push(app + ": the keyboard map is its own pane, and the old sub-tab link lands on it");
+
+    // The same screen for a CLI whose map PiCode writes through its own file
+    // (P2b): Omp's rows come from the registry's catalog, a captured chord lands
+    // in Omp's file, and Reset all hands every row back. The fixture's HOME is
+    // its own, so none of this touches the machine's real ~/.omp.
+    navigate("#/clis/omp/keyboard");
+    browser("wait", "--fn", 'document.querySelectorAll("#cli-settings-view .key-pane[data-cli=omp] .key-row").length > 60');
+    const ompReport = await api("/api/cli-keys?cli=omp");
+    assert.equal(ompReport.state, "shipped");
+    assert.equal(ompReport.keymap, "flat");
+    assert.equal(evaluate('document.querySelectorAll("#cli-settings-view .key-pane[data-cli=omp] .key-row").length'), ompReport.actions.length, "the pane lists the catalog the CLI has");
+    assert.equal(evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-bar .key-facet").textContent'), "All" + ompReport.actions.length);
+    assert.match(evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .settings-desc code").textContent'), /keybindings\.(yml|yaml|json)/, "the pane names the file it writes");
+    assert.match(evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .settings-desc").textContent'), /restart it/, "the pane says how the CLI picks a change up");
+    headPane("omp");
+    await settleToasts();
+    await capture(app + "-keyboard-omp");
+    const ompRow = ompReport.actions[0];
+    evaluate('(() => { const row = document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-row"); row.scrollIntoView({ block: "center" }); [...row.querySelectorAll("button")].find(b => b.textContent === "Add key").click(); return true; })()');
+    browser("wait", "--fn", '!!document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-chip.is-listen")');
+    browser("press", "Control+Alt+o");
+    let ompBound = "";
+    for (let i = 0; i < 20 && !ompBound; i++) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+      ompBound = (((await api("/api/cli-keys?cli=omp")).user || {})[ompRow.id] || []).find(key => /ctrl\+alt\+o/i.test(key)) || "";
+    }
+    assert.ok(ompBound, "the captured chord must reach the CLI's own file");
+    assert.equal(evaluate('document.querySelectorAll("#cli-settings-view .key-pane[data-cli=omp] .key-row.is-changed").length'), 1);
+    assert.equal(evaluate('!!document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-bar .btn")'), true, "a changed map offers Reset all");
+    headPane("omp");
+    await settleToasts();
+    await capture(app + "-keyboard-omp-changed");
+    evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-bar .btn").click(); true');
+    browser("wait", "[role=alertdialog], .dlg");
+    browser("wait", "--fn", '(() => { const d = document.querySelector("[role=alertdialog], .dlg"); if (!d) return false; const r = d.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()');
+    await capture(app + "-keyboard-omp-reset-all", true);
+    evaluate('(() => { const d = document.querySelector("[role=alertdialog]") || document.querySelector(".dlg"); [...d.querySelectorAll("button")].find(b => b.textContent.trim() === "Reset all").click(); return true; })()');
+    let ompCleared = false;
+    for (let i = 0; i < 20 && !ompCleared; i++) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+      ompCleared = Object.keys((await api("/api/cli-keys?cli=omp")).user || {}).length === 0;
+    }
+    assert.ok(ompCleared, "Reset all must hand every row back");
+    results.push(app + ": another CLI's map is edited through the same screen and its own file");
 
     // Every CLI the registry knows answers its own Keyboard pane (ADR-0174): a
     // guest gets its state and one action, and never Pi's rows — which is what

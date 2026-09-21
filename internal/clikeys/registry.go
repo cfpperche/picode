@@ -69,8 +69,14 @@ type CLI struct {
 	State    State
 	// Vocab names the chord spelling family, by id. The pane turns it into
 	// display; it is not a wire format.
-	Vocab  string
-	Source string
+	Vocab string
+	// OwnStore is true for the one CLI whose map PiCode keeps through its own
+	// store, API and trust rules (pi, ADR-0101): the pane's envelope wraps that
+	// report instead of reading a file. Every other shipped row is read and
+	// written by the flat engine over the settings package's document
+	// primitives (ADR-0174).
+	OwnStore bool
+	Source   string
 }
 
 // Registry is every CLI the pane can be opened for, in catalog order (the pane
@@ -78,7 +84,7 @@ type CLI struct {
 var Registry = []CLI{
 	{
 		ID: "pi", Label: "Pi",
-		Keymap: Flat, Pickup: PickupReload, State: Shipped, Vocab: "pi",
+		Keymap: Flat, Pickup: PickupReload, State: Shipped, Vocab: "pi", OwnStore: true,
 		Source: "pi 0.86.1 docs/keybindings.md (installed bundle, read 2026-09-21): " +
 			"~/<cli>/agent/keybindings.json, applied on /reload or the next run",
 	},
@@ -132,15 +138,19 @@ var Registry = []CLI{
 	},
 	{
 		ID: "omp", Label: "Omp",
-		Keymap: Flat, Pickup: PickupUnknown, State: Planned, Vocab: "pi",
-		Source: "read 2026-09-21 out of the installed bundle (@oh-my-pi/pi-coding-agent 18.2.8, " +
-			"which pins @oh-my-pi/pi-tui 18.2.8 — the inlined keybinding module) and its published " +
-			"sources: ONE file in the agent dir, keybindings.yml, else .yaml, else legacy .json " +
-			"(resolved yml -> yaml -> json, and a JSON file is migrated to .yml on its next write); " +
-			"flat action -> chord | [chord], [] unbinds, no contexts; 70 action ids (32 tui.* + 38 " +
-			"app.*), each with a description, and the id namespaces are the only grouping the CLI " +
-			"has. Pickup: KeybindingsManager.reload() exists and re-reads the files, but no " +
-			"user-facing trigger is documented — unknown, not guessed",
+		Keymap: Flat, Pickup: PickupRestart, State: Shipped, Vocab: "pi",
+		Source: "the bundle installed on this machine, @oh-my-pi/pi-coding-agent " +
+			"18.2.8 (which pins @oh-my-pi/pi-tui 18.2.8), read 2026-09-21: ONE file " +
+			"in its agent dir — keybindings.yml, else .yaml, else the legacy .json, " +
+			"which the CLI migrates to YAML on its next own write — flat " +
+			"action -> chord | [chord], [] unbinds, no contexts; 70 action ids (32 " +
+			"tui.* + 38 app.*), each with a description, and the id namespaces are " +
+			"the only grouping the CLI has (the pane's headings are PiCode's). The " +
+			"agent dir is the CLI's own resolution: $PI_CONFIG_DIR or ~/.omp, then " +
+			"profiles/$OMP_PROFILE or $PI_PROFILE, then agent. Pickup: KeybindingsManager " +
+			"has a reload() nothing user-facing is documented to call, so the pane " +
+			"reads the file when the manager is " +
+			"created, at startup. ",
 	},
 }
 

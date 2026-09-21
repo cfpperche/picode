@@ -277,6 +277,39 @@ the refusal: "Hermes Agent keeps no key map file; the keys it does allow are in
 Settings". The front table carries that shape too, and
 `TestJSListMatchesTheKeyboardRegistry` compares it with the registry's.
 
+**The flat engine and Omp** (P2b, 2026-09-21): one file, one object of action id
+→ chord list. `internal/clikeys` declares where a CLI's file lives, what its
+catalog is and which platform vocabulary it speaks, and reads and writes rows
+through four primitives exported from `clisettings` (`internal/clisettings/keymap.go`
+— `OpenDoc`, `Strings`, `SetStrings`/`RemoveKey`, `Save`): the same parser,
+byte-span splice, atomic rename and revision check the settings editor has used
+since ADR-0163, rather than a second implementation of guarantees two adversarial
+reviews taught (a file with no final newline, a `[table]`-shaped line inside a
+string, a `// comment` before a closing brace). A key map's value is a *list*,
+which the settings engine never writes, so `listLiteral` is the one new piece of
+syntax — and the only format it refuses is TOML, which no key map PiCode writes
+is written in.
+
+What the pane sees comes through the same envelope as pi's: `file`, `exists`,
+`revision`, `actions` (the CLI's own catalog), `user` (the rows the file sets),
+`unreadable` (rows the file holds in a shape PiCode will not rewrite — dropped
+from the list, never written) and the CLI's own `platform` vocabulary. A write
+sends back the revision the pane read: a file that moved answers 409, and
+`ErrShape` is what a write to an unrewritable row returns.
+
+Omp's declaration is the first one. Its catalog is 70 action ids (32 `tui.*` +
+38 `app.*`, labels from the CLI's own descriptions, `omp_catalog.go`), read out
+of the installed bundle; its file is one machine-level file in the CLI's agent
+dir — `keybindings.yml`, else `.yaml`, else the legacy `.json`, which the CLI
+itself migrates to YAML — resolved through the CLI's own config root
+(`$PI_CONFIG_DIR` or `~/.omp`) and profile (`$OMP_PROFILE`, else `$PI_PROFILE`);
+and `[]` unbinds. Its pickup is **restart**, measured rather than assumed: the
+manager reads the files when it is created and nothing in the bundle calls its
+own `reload()`, so the pane says "restart it" instead of promising a live
+reload. A row whose value is not a string or a list of strings is reported as
+unreadable and left alone, and `Reset all` removes only the rows the catalog
+knows.
+
 Two things the pane deliberately does not claim:
 
 - **A shared key is not a conflict.** 52 of pi's 90 actions share a chord with
