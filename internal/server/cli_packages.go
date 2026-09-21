@@ -19,8 +19,8 @@ import (
 
 // Native CLI packages (ADR-0167). The eight guest CLIs manage their own
 // plugins; PiCode declares what each one exposes (internal/clipkgs), runs the
-// vendor's own command, and keeps no package database. Reads are synchronous
-// and answer from the unified driver (ADR-0176: pkgs.DriverFor(cli), mapped
+// vendor's own command, and keeps no package database. Reads and mutations
+// alike answer from the unified driver (ADR-0176: pkgs.DriverFor(cli), mapped
 // back to the bytes this pane has always parsed); every mutation that installs
 // or fetches is a durable job in the lane ADR-0087 built, so a PiCode restart
 // never replays one and the pane can show progress from the events that lane
@@ -28,7 +28,9 @@ import (
 //
 // A job carries its own arguments in the job payload: `Resolve` runs after a
 // restart too, and the argv of `pkg-install` depends on the plugin, the scope
-// and the workspace folder.
+// and the workspace folder. The driver builds that argv twice — once before the
+// job is reserved, and again inside the lane — from the same payload shape, so
+// the two cannot disagree.
 
 func registerCLIPackageRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/cli-packages", handleCLIPackages(deps))
@@ -70,17 +72,27 @@ type packageJobPayload struct {
 
 func isPackageAction(action string) bool { return strings.HasPrefix(action, "pkg-") }
 
-// packageVerb maps a job action onto the clipkgs verb it runs.
-func packageVerb(action string) (clipkgs.Verb, bool) {
+// packageCommand asks the driver for the command one package action runs. The
+// lane asks twice — once before a job is reserved, so a request that cannot run
+// reserves nothing, and again inside the lane after a restart, with the payload
+// alone — so both ask here, with the same fields.
+func packageCommand(ctx context.Context, cli, action string, p packageJobPayload) (pkgs.Command, error) {
+	q := pkgs.Query{Vendor: p.Scope, WorkspacePath: p.Cwd}
+	drv := pkgs.DriverFor(cli)
+	target := pkgs.Target{Name: p.Name, Source: p.Source}
 	switch action {
 	case "pkg-install":
-		return clipkgs.VerbInstall, true
+		return drv.Install(ctx, q, target)
 	case "pkg-remove":
-		return clipkgs.VerbRemove, true
+		return drv.Remove(ctx, q, target)
 	case "pkg-update":
-		return clipkgs.VerbUpdate, true
+		return drv.Update(ctx, q, target)
+	case "pkg-marketplace-add", "pkg-marketplace-update":
+		return drv.Marketplace(ctx, q, pkgs.MarketRequest{
+			Action: p.Action, Source: p.Source, Name: p.Name, Ref: p.Ref,
+		})
 	}
-	return "", false
+	return pkgs.Command{}, fmt.Errorf("unknown package action")
 }
 
 // resolvePackageJob builds the vendor command for one plugin job. It runs in
@@ -91,31 +103,11 @@ func resolvePackageJob(cli, action, payload string) (clijob.Exec, error) {
 	if err := json.Unmarshal([]byte(payload), &p); err != nil {
 		return clijob.Exec{}, fmt.Errorf("this job's arguments could not be read")
 	}
-	bin := clipkgs.Bin(cli)
-	if bin == "" {
-		return clijob.Exec{}, fmt.Errorf("PiCode manages no plugins for this CLI")
-	}
-	paths := clipkgs.Paths{Cwd: p.Cwd}
-	target := clipkgs.Target{Name: p.Name, Source: p.Source, Scope: p.Scope, On: true}
-	switch action {
-	case "pkg-marketplace-add", "pkg-marketplace-update":
-		dir, args, err := clipkgs.MarketArgv(cli, p.Action, paths, clipkgs.MarketRequest{
-			Action: p.Action, Source: p.Source, Name: p.Name, Ref: p.Ref,
-		})
-		if err != nil {
-			return clijob.Exec{}, err
-		}
-		return clijob.Exec{Exe: bin, Args: args, Dir: dir}, nil
-	}
-	verb, ok := packageVerb(action)
-	if !ok {
-		return clijob.Exec{}, fmt.Errorf("unknown package action")
-	}
-	dir, args, err := clipkgs.Argv(cli, verb, paths, target)
+	cmd, err := packageCommand(context.Background(), cli, action, p)
 	if err != nil {
 		return clijob.Exec{}, err
 	}
-	return clijob.Exec{Exe: bin, Args: args, Dir: dir}, nil
+	return clijob.Exec{Exe: cmd.Exe, Args: cmd.Args, Dir: cmd.Dir}, nil
 }
 
 // cliPackagePaths resolves the directories a request may touch, refusing a
@@ -158,6 +150,7 @@ func statusForPackageErr(err error) int {
 		errors.Is(err, clipkgs.ErrVerbAbsent),
 		errors.Is(err, clipkgs.ErrBadTarget),
 		errors.Is(err, clipkgs.ErrNoWorkspace),
+		errors.Is(err, pkgs.ErrNoMutation),
 		errors.Is(err, pkgs.ErrNoCatalog),
 		errors.Is(err, pkgs.ErrNoMarketplaces),
 		errors.Is(err, store.ErrNotFound):
@@ -194,7 +187,8 @@ func cliJobViewOf(j store.CLIJob) cliJobView {
 }
 
 // packageJobCommand renders the command one package job ran, from the payload
-// the job carries.
+// the job carries — the same driver the request asked, so the pane copies the
+// line PiCode itself ran.
 func packageJobCommand(j store.CLIJob) string {
 	if !isPackageAction(j.Action) || strings.TrimSpace(j.Payload) == "" {
 		return ""
@@ -203,28 +197,11 @@ func packageJobCommand(j store.CLIJob) string {
 	if err := json.Unmarshal([]byte(j.Payload), &p); err != nil {
 		return ""
 	}
-	paths := clipkgs.Paths{Cwd: p.Cwd}
-	switch j.Action {
-	case "pkg-marketplace-add", "pkg-marketplace-update":
-		cmd, err := clipkgs.MarketCommand(j.CLI, p.Action, paths, clipkgs.MarketRequest{
-			Action: p.Action, Source: p.Source, Name: p.Name, Ref: p.Ref,
-		})
-		if err != nil {
-			return ""
-		}
-		return cmd
-	}
-	verb, ok := packageVerb(j.Action)
-	if !ok {
-		return ""
-	}
-	cmd, err := clipkgs.Command(j.CLI, verb, paths, clipkgs.Target{
-		Name: p.Name, Source: p.Source, Scope: p.Scope, On: true,
-	})
+	cmd, err := packageCommand(context.Background(), j.CLI, j.Action, p)
 	if err != nil {
 		return ""
 	}
-	return cmd
+	return cmd.Line
 }
 
 // guestQuery is one guest read as the driver takes it: the scope word the
@@ -343,20 +320,21 @@ func handleCLIPackageJob(deps Deps, action string) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		if _, _, err := clipkgs.Argv(v.CLI, mustVerb(action), paths, clipkgs.Target{
-			Name: v.Name, Source: v.Source, Scope: v.Scope, On: true,
-		}); err != nil {
+		payload := packageJobPayload{
+			Source: v.Source, Name: v.Name, Scope: v.Scope, Workspace: v.Workspace, Cwd: paths.Cwd,
+		}
+		// A request that cannot run reserves no job: the driver builds the
+		// command here, and the lane builds it again from the payload.
+		if _, err := packageCommand(r.Context(), v.CLI, action, payload); err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		payload, err := json.Marshal(packageJobPayload{
-			Source: v.Source, Name: v.Name, Scope: v.Scope, Workspace: v.Workspace, Cwd: paths.Cwd,
-		})
+		raw, err := json.Marshal(payload)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, "Invalid request.")
 			return
 		}
-		j, err := deps.CLIJobs.Start(v.CLI, action, jobKey(v.RequestKey, v.CLI, action, string(payload)), string(payload), v.ConfirmTerminals)
+		j, err := deps.CLIJobs.Start(v.CLI, action, jobKey(v.RequestKey, v.CLI, action, string(raw)), string(raw), v.ConfirmTerminals)
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
@@ -379,29 +357,30 @@ func handleCLIPackageToggle(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		on := v.On == nil || *v.On
-		verb := clipkgs.VerbDisable
-		if on {
-			verb = clipkgs.VerbEnable
-		}
-		target := clipkgs.Target{Name: v.Name, Source: v.Source, Scope: v.Scope, On: on}
-		command, _ := clipkgs.Command(v.CLI, verb, paths, target)
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		if _, err := clipkgs.Run(ctx, v.CLI, verb, paths, target); err != nil {
-			writePackageErr(w, err, command)
+		drv := pkgs.DriverFor(v.CLI)
+		read := guestQuery(v.Scope, paths.Cwd)
+		cmd, err := drv.Toggle(ctx, read, pkgs.Target{
+			Name: v.Name, Source: v.Source, On: v.On == nil || *v.On,
+		})
+		if err != nil {
+			writePackageErr(w, err, cmd.Line)
 			return
 		}
 		// A synchronous mutation still has to reach every other open pane: the
 		// feed carries the fact, the CLI's own list stays authoritative
 		// (ADR-0048).
 		publishPackageChange(deps, v.CLI, "pkg-toggle")
-		rep, err := clipkgs.List(ctx, v.CLI, paths, v.Scope, true)
+		// The pane answers the list the mutation just invalidated, so it is read
+		// again rather than from the cache.
+		read.Fresh = true
+		rep, err := drv.List(ctx, read)
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, pkgs.GuestViewOf(v.CLI, rep))
+		writeJSON(w, http.StatusOK, pkgs.Guest(v.CLI, rep))
 	}
 }
 
@@ -423,26 +402,30 @@ func handleCLIPackageMarketplace(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		req := clipkgs.MarketRequest{Action: action, Source: v.Source, Name: v.Name, Ref: v.Ref}
-		if _, _, err := clipkgs.MarketArgv(v.CLI, action, paths, req); err != nil {
-			writeErr(w, statusForPackageErr(err), err.Error())
-			return
-		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
+		drv := pkgs.DriverFor(v.CLI)
+		read := guestQuery(v.Scope, paths.Cwd)
+		req := pkgs.MarketRequest{Action: action, Source: v.Source, Name: v.Name, Ref: v.Ref}
 		if action == "remove" {
-			command, _ := clipkgs.MarketCommand(v.CLI, action, paths, req)
-			if _, err := clipkgs.Market(ctx, v.CLI, action, paths, req); err != nil {
-				writePackageErr(w, err, command)
+			cmd, err := drv.Marketplace(ctx, read, req)
+			if err != nil {
+				writePackageErr(w, err, cmd.Line)
 				return
 			}
 			publishPackageChange(deps, v.CLI, "pkg-marketplace-remove")
-			rows, err := clipkgs.Marketplaces(ctx, v.CLI, paths)
+			rows, err := drv.Marketplaces(ctx, read)
 			if err != nil {
 				writeErr(w, statusForPackageErr(err), err.Error())
 				return
 			}
-			writeJSON(w, http.StatusOK, map[string]any{"marketplaces": rows})
+			writeJSON(w, http.StatusOK, pkgs.GuestMarketplaceSources(rows))
+			return
+		}
+		if _, err := drv.Marketplace(ctx, read, req); err != nil {
+			// A fetch reserves a job: the driver builds the command first, so a
+			// request that cannot run reserves nothing.
+			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
 		if deps.CLIJobs == nil {
@@ -485,14 +468,12 @@ func handleCLIPackageInspect(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		target := clipkgs.Target{Name: name, Scope: v.Scope}
-		command, _ := clipkgs.Command(v.CLI, clipkgs.VerbInspect, paths, target)
-		out, err := clipkgs.Inspect(ctx, v.CLI, paths, target)
+		cmd, out, err := pkgs.DriverFor(v.CLI).Inspect(ctx, guestQuery(v.Scope, paths.Cwd), pkgs.Target{Name: name})
 		if err != nil {
-			writePackageErr(w, err, command)
+			writePackageErr(w, err, cmd.Line)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"cli": v.CLI, "output": out})
+		writeJSON(w, http.StatusOK, pkgs.GuestInspect(v.CLI, out))
 	}
 }
 
@@ -518,9 +499,4 @@ func jobKey(provided, cli, action, payload string) string {
 	}
 	sum := sha256.Sum256([]byte(cli + "\x00" + action + "\x00" + payload))
 	return cli + "-" + action + "-" + hex.EncodeToString(sum[:6])
-}
-
-func mustVerb(action string) clipkgs.Verb {
-	verb, _ := packageVerb(action)
-	return verb
 }

@@ -5,7 +5,7 @@ Open a project's **Git** view and choose **Delivery**. Choose the target branch
 
 | Label | Meaning |
 |---|---|
-| Integrated | The target branch already contains this revision. Whether the running version does is the Deployment lens's fact, shown as Published or Not published. |
+| Integrated | The target branch already contains this revision. It does not mean published. |
 | Not integrated | The target branch does not contain this revision yet. |
 | Update needed | The change and target moved independently; inspect the history before integrating. |
 | Checks passed | A clean full-project check covers the selected revision. |
@@ -16,79 +16,14 @@ Open a project's **Git** view and choose **Delivery**. Choose the target branch
 `Needs attention` filters the list; it does not create or order a work queue.
 `View details` shows the revision and recorded evidence. `Open history` opens
 the commit history for inspection. **Integrated** and **Checks passed** describe
-the source and validation state; neither status confirms publication. What is
-running is a third fact, read in the [Deployment](#deployment) lens and only for
-the instance connected there: PiCode observes the local instance, and a remote
-environment stays unknown.
+the source and validation state; neither status confirms publication. This screen
+does not say what is running in production. Publication observation is a separate
+step.
 
 An **Observed branch** was found in Git automatically. A **Registered delivery**
 was declared by an agent through the command below. **Association not recorded**
 means PiCode could not connect the current checkout to an active agent; it does
 not identify the author.
-
-## Deployment
-
-The **Deployment** lens answers three questions about one environment: which
-revision your PiCode instance is running, which integrated changes that revision
-does not contain, and what the last recorded deploy attempt did. Open it from
-**Git → Delivery** and choose **Deployment** beside **Integration**.
-
-| Fact | Meaning |
-|---|---|
-| Running 0.3.1+abc1234 | The version and short revision of the artifact that answered. |
-| Responding | The instance answered the health read. `Not responding` and `Health unknown` are different states. |
-| checked 12 seconds ago | When PiCode read the instance and its receipts, not when anything was deployed. After 30 seconds the lane says the check is out of date. |
-| Integrated, not published: 2 changes | The target contains them; the running revision does not. |
-| Last attempt: Passed | The newest receipt recorded a finished deploy of this revision. |
-| Last attempt: Failed · previous version is still responding | The attempt failed and an older revision answered; the two facts stay separate. |
-| Last attempt: Unknown outcome | The attempt started and never recorded a result. It is not running and not a failure. |
-
-An integrated change also carries a publication label in the **Integration**
-lens.
-
-| Label | Meaning |
-|---|---|
-| Published | The running revision contains this change's revision. |
-| Not published | The target contains it; the running revision does not. |
-| Publication unconfirmed | PiCode could not establish whether the running revision contains it. |
-
-### Connect the instance
-
-Set **Environment** to **This PiCode instance**. That is the whole
-configuration: it binds this project's repository to the instance answering the
-read. **Not connected** removes the binding, and the lane then says **Deployment
-is not connected for this project.** with a link back to this page. The project
-must be a Git repository; PiCode refuses to connect a folder that is not one.
-
-One instance is one environment. PiCode observes the local instance only; remote
-environments remain unknown. The lane reads the viewed project's own connection,
-never another project's. One project may observe the local instance; when two
-claim it the lane reports **Two projects claim this environment; disconnect
-one.** instead of picking a side. Disconnect the other project's **Environment**
-selector (Git → Delivery → Deployment → Environment → Not connected), or
-disconnect this one.
-
-**View evidence** names the running revision, the instance boot, whether the
-artifact was built from a clean checkout, the attempt's own revision, and any
-record the read could not accept.
-
-### What it never claims
-
-- No **safe**, **ready** or **approved** verdict. The lane reports what an artifact contains and what a producer recorded.
-- No queue and no deploy button: it never starts, retries, cancels or rolls back a deployment.
-- An unfinished attempt is **Unknown outcome**, never running and never failed.
-- Receipts and health answers are local evidence. They are not tamper-proof and they authorize nothing.
-
-### States you will see
-
-| State | The lane says | Action |
-|---|---|---|
-| Not connected | Deployment is not connected for this project. | View setup |
-| Identity unconfirmed | Running version found; included changes are unconfirmed. | View evidence |
-| Connection points elsewhere | The connected environment points at another repository. | View setup |
-| Two projects claim it | Two projects claim this environment; disconnect one. | View setup |
-| No target chosen | Choose the branch changes will join. | Choose a target in the Integration lens |
-| Agents still working | Agents are still working. | View activity |
 
 ## Register a delivery from an agent
 
@@ -99,8 +34,7 @@ A review request does not mean someone approved the change or that checks passed
 Open the agent through PiCode's **Agent CLIs**, in the project's Git repository.
 The command requires an updated PiCode binary and daemon, and the identity
 inherited from that launch. Open the project’s **Git → Delivery** view on desktop or mobile to follow
-integration and deployment. Integration and deployment execution queues are not
-available.
+integration. Integration and deployment execution queues are not available.
 
 ## Register and request review
 
@@ -142,10 +76,8 @@ picode delivery withdraw-review --id DELIVERY_ID \
 ```
 
 Every update clears the previous review request. A changed source branch appears
-as `source.status: changed` in `show`; `show` also reports observed integration and recorded check evidence. `show` reads no
-environment, so its `publication` field stays `unknown`; only the
-[Deployment](#deployment) lens compares the running revision with the changes.
-`list` returns declarations without evaluating
+as `source.status: changed` in `show`; `show` also reports observed integration and recorded check evidence. Publication
+remains `unknown`. `list` returns declarations without evaluating
 Git evidence; pass its nonzero `nextBefore` value as `--before` for another page.
 
 ## Compatibility and limits

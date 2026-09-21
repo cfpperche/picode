@@ -25,23 +25,3 @@
 @media (prefers-reduced-motion: reduce) { .m-delivery * { animation: none !important; } }
 
 .m-delivery-actions { display: flex; gap: 8px; align-items: center; }
-
-/* The Deployment lens (ADR-0170 D2): one fact per line, its action at the end
-   of that line. Every child of a [data-align-row] carries --ctl-h so a bare
-   span beside a button cannot fail the overlay audit. */
-.m-delivery-headline { margin: 10px 0 0; color: var(--text-primary); }
-.m-delivery-env-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; }
-.m-delivery-env-row > * { display: inline-flex; align-items: center; min-height: var(--ctl-h); }
-.m-delivery-env-row .btn { margin-left: auto; }
-.m-delivery-env-fact { overflow-wrap: anywhere; }
-.m-delivery-issues { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
-/* The one deliberate reveal: the raw revision, boot and attempt facts a reader
-   only needs when they doubt the line above it. */
-.m-delivery-evidence { margin-top: 16px; border-top: 1px solid var(--border); }
-/* The app's own summary rhythm (.m-git-preview): a block, so the platform's
-   disclosure marker stays and the row is what says it opens. */
-.m-delivery-evidence > summary { min-height: var(--ctl-h); padding: 8px 0; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
-.m-delivery-evidence[open] > summary { color: var(--text-primary); }
-.m-delivery-evidence dt { color: var(--text-secondary); font-size: 12px; }
-.m-delivery-evidence dd { margin: 4px 0 12px; overflow-wrap: anywhere; }
-.m-delivery-evidence code { font-family: var(--mono); font-size: 12px; }

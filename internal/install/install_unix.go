@@ -79,31 +79,19 @@ func DeployForce(exe, home, pathEnv string, force bool) error {
 	if err := EnsureUserSession(); err != nil {
 		return err
 	}
-	// From here the deploy changes the machine, so the attempt is recorded
-	// before it does: one that dies mid-copy leaves a `started` receipt, and
-	// the lane reads that as an unknown outcome — never as nothing having
-	// happened, and never as running (ADR-0170).
-	facts := gatherDeployFacts(p.Data)
-	id := beginDeployReceipt(p.Data, facts)
-	failed := func(err error) error {
-		finishDeployReceipt(p.Data, id, receiptOutcomeFailed, "", "", err.Error())
-		return err
-	}
 	pathEnv = withLocalBin(pathEnv, filepath.Dir(p.Bin))
 	if err := CopyExe(exe, p.Bin); err != nil {
-		return failed(fmt.Errorf("copy binary: %w", err))
+		return fmt.Errorf("copy binary: %w", err)
 	}
 	if err := writeUnit(p, pathEnv); err != nil {
-		return failed(fmt.Errorf("write unit: %w", err))
+		return fmt.Errorf("write unit: %w", err)
 	}
 	if err := Run("systemctl", "--user", "daemon-reload"); err != nil {
-		return failed(fmt.Errorf("systemctl daemon-reload: %w", err))
+		return fmt.Errorf("systemctl daemon-reload: %w", err)
 	}
 	if err := Run("systemctl", "--user", "restart", UnitName); err != nil {
-		return failed(fmt.Errorf("systemctl restart: %w", err))
+		return fmt.Errorf("systemctl restart: %w", err)
 	}
-	observed, boot := awaitDaemonIdentity(p.Data, facts.RevisionBefore, facts.BootBefore)
-	finishDeployReceipt(p.Data, id, receiptOutcomePassed, observed, boot, "")
 	AppendDeployRecord(p.Data)
 	return nil
 }

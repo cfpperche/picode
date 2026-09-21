@@ -31,39 +31,16 @@ func Build() string {
 	if Stamped != "" {
 		return Version
 	}
-	if rev := Revision(); rev != "" {
-		return build(Version, rev)
-	}
-	return Version
-}
-
-// Revision is the full VCS revision embedded at build time (40 or 64 hex), or
-// "" when the binary carries no VCS stamp. D2's publication observation maps a
-// running artifact to Git by this exact value; Build() shortens it for display
-// and must never be compared against a Git object.
-func Revision() string {
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
-		return ""
+		return Version
 	}
 	for _, s := range bi.Settings {
-		if s.Key == "vcs.revision" && isRevision(s.Value) {
-			return s.Value
+		if s.Key == "vcs.revision" {
+			return build(Version, s.Value)
 		}
 	}
-	return ""
-}
-
-func isRevision(v string) bool {
-	if len(v) != 40 && len(v) != 64 {
-		return false
-	}
-	for _, c := range v {
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
-			return false
-		}
-	}
-	return true
+	return Version
 }
 
 func build(v, rev string) string {

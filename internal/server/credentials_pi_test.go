@@ -427,3 +427,46 @@ func TestCredentialSigninReusesItsTerminal(t *testing.T) {
 		}
 	}
 }
+
+// The pane asks for a name BEFORE the write when this login would replace an
+// unnamed one: after the write the replaced tokens are already gone. The
+// preview answers without touching the vault.
+func TestCredentialImportPreviewDoesNotWrite(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	writeClaudeLogin(t, home, "access-already", "refresh-already")
+	first := cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code"}, 201)
+
+	writeClaudeLogin(t, home, "access-other", "refresh-other")
+	pre := cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code", "preview": true}, 200)
+	if pre["preview"] != true || pre["created"] != false {
+		t.Fatalf("preview = %v, want the replace reported", pre)
+	}
+	existing, _ := pre["existing"].(map[string]any)
+	if existing == nil || existing["id"] != first["id"] {
+		t.Fatalf("existing = %v, want the row the write would replace", existing)
+	}
+	if id, _ := pre["identity"].(string); id != "" {
+		t.Fatalf("unnamed login reported as %q", id)
+	}
+	if who, _ := pre["who"].(string); who != "" {
+		t.Fatalf("unnamed login answered who %q", who)
+	}
+	rows, _ := credentials.Default().Accounts("anthropic")
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want the vault untouched by a preview", len(rows))
+	}
+	if row, ok, _ := credentials.Default().Row("anthropic", first["id"].(string)); !ok || !strings.Contains(string(row.Cred), "access-already") {
+		t.Fatal("preview changed the saved credential")
+	}
+
+	// The real write, named: naming re-keys the row that holds the live
+	// login. Two rows only appear once BOTH logins have been seen — the
+	// first was already replaced in the file at this point.
+	named := cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code", "as": "other"}, 201)
+	if named["id"] == first["id"] {
+		t.Fatal("the named login should take the new key")
+	}
+	if rows, _ := credentials.Default().Accounts("anthropic"); len(rows) != 1 {
+		t.Fatalf("rows = %d, want the live login named, not copied", len(rows))
+	}
+}
