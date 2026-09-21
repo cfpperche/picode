@@ -346,12 +346,9 @@ func parseMuse(out string, available bool) ([]Row, string, error) {
 	}
 	rows := make([]Row, 0, len(envelope.Available))
 	for _, entry := range envelope.Available {
-		row, ok := mapVendorRow(entry)
-		if !ok {
-			continue
+		if row, ok := museCatalogRow(entry); ok {
+			rows = append(rows, row)
 		}
-		row.Installed = truthy(entry["installed"])
-		rows = append(rows, row)
 	}
 	// `skipped` entries are marketplace plugins the CLI could not read; they
 	// are named so the pane can say the catalog was partial, and are not rows
@@ -361,6 +358,50 @@ func parseMuse(out string, available bool) ([]Row, string, error) {
 		note = fmt.Sprintf("%d marketplace plugin(s) could not be read.", len(envelope.Skipped))
 	}
 	return rows, note, nil
+}
+
+// museCatalogRow maps one marketplace row (measured 2026-09-21):
+//
+//	{"available":[{"digest":"sha256:…","install":{"source":"/abs/plugins/x",
+//	               "transport":"local-path"},"marketplace":"<name>",
+//	               "name":"x","status":"available","version":"0.2.0"}]}
+//
+// Two facts the pane needs are not where the vendor puts them. The installable
+// spec is `<name>@<marketplace>` — what `muse plugins install` takes — while the
+// row carries the two halves separately; and the origin is the marketplace,
+// while `install.source` is where that marketplace resolved the plugin locally
+// (kept as the row's path). `status` is the vendor's word and is shown as-is.
+//
+// The catalog does NOT mark an installed plugin: after installing from it, the
+// same row still reads `status: "available"` (measured). Muse therefore declares
+// `catalogNeedsRoster` so Available() joins the catalog with the CLI's own
+// roster instead of offering Install for something already installed.
+func museCatalogRow(entry map[string]any) (Row, bool) {
+	name := firstText(entry["name"], entry["id"])
+	if name == "" {
+		return Row{}, false
+	}
+	marketplace := text(entry["marketplace"])
+	source := name
+	if marketplace != "" {
+		source = name + "@" + marketplace
+	}
+	path := ""
+	if install, ok := entry["install"].(map[string]any); ok {
+		path = firstText(install["source"], install["path"])
+	}
+	return Row{
+		ID:          name,
+		Name:        name,
+		Version:     text(entry["version"]),
+		Description: text(entry["description"]),
+		Scope:       "user",
+		Marketplace: marketplace,
+		Source:      source,
+		SourceKind:  "marketplace",
+		InstallPath: path,
+		Status:      text(entry["status"]),
+	}, true
 }
 
 // museRecordRow maps one installed plugin: `record` is the store record (id,

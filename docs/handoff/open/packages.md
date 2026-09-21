@@ -1,19 +1,22 @@
 # Packages and manifests
 
-- [ ] **Muse Code: the installed roster is measured, the catalog is not.** The
-  installed shape is pinned (`testdata/muse.list.json`, Muse Code 1.3.0,
-  2026-09-21) after the tolerant reader was found to skip every row — the id
-  lives in each row's `record`, so a machine with plugins got a refusal instead
-  of a list. What is still unmeasured is the `--available` row shape: Muse's
-  marketplace spec requires an `install.transport` declaration the harness
-  could not satisfy ('marketplace transport … is not supported'), so catalog
-  rows are read tolerantly. Also recorded: Muse gates its plugin surface per
-  machine through its own cached feature config
-  (`~/.local/share/muse/feature-config/`); with the gate off every verb answers
-  "plugins are not available in this build", which is a property of the machine
-  and *not* of the build — an earlier run of the live harness read it as
-  "unmeasurable" (fixed: the harness now seeds the gate from the machine's own
-  cache).
+- [ ] **Muse Code: the management surface is measured; the app's built-in
+  plugins are not in it.** Measured 2026-09-21 (Muse Code 1.3.0) with the CLI
+  and, for the first time, its TUI: the roster (`testdata/muse.list.json`), the
+  catalog (`testdata/muse.available.json` — installable spec `name@marketplace`,
+  resolved path, `status`), the marketplace sources
+  (`testdata/muse.marketplaces.json`) and `inspect` are all pinned, and the
+  live harness installs from a marketplace end to end. Two facts a future
+  promotion may want:
+  (a) the catalog does not say what is installed, so `catalogNeedsRoster` joins
+  it with the CLI's roster (implemented);
+  (b) **the TUI's `/plugins` panel lists a built-in first-party plugin
+  (`TBH Reminders`, `built-in`/`product`) that no CLI command reports** — not
+  `plugins list --json`, not `--available`, and not the store's own
+  `installed.json`; the bundles live in `~/.local/share/muse/plugins/cache/builtin/`
+  (`muse-core`, `threejs`). PiCode therefore manages what the vendor's own store
+  manages, and shows nothing it cannot change. Showing the built-ins would mean
+  reading the app's internal bundle and offering rows that cannot be removed.
 - [ ] **A consent refusal shows the vendor's words but no copy button.**
   Plan §6 said "refusal verbatim + copyable command"; v1 ships the verbatim
   half. Grok is where it bites: `grok plugin install <local dir>` refuses

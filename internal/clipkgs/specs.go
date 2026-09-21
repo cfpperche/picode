@@ -307,6 +307,10 @@ var muse = &spec{
 	},
 	roster:    museRoster,
 	available: true,
+	// Measured 2026-09-21: an installed plugin keeps reading
+	// `status: "available"` in Muse's catalog, so the join is what keeps the
+	// pane from offering Install for it.
+	catalogNeedsRoster: true,
 	argv: map[Verb]func(Paths, Target) (string, []string, error){
 		VerbInstall: func(p Paths, t Target) (string, []string, error) {
 			dir, err := dirForScope(p, t.Scope)
