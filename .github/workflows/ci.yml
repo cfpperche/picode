@@ -21,6 +21,7 @@ jobs:
     outputs:
       full: ${{ steps.scope.outputs.full }}
       docs: ${{ steps.scope.outputs.docs }}
+      desktop: ${{ steps.scope.outputs.desktop }}
       os: ${{ steps.os.outputs.os }}
     steps:
       - uses: actions/checkout@v7
@@ -231,10 +232,25 @@ jobs:
           mkdir -p bin
           go build -tags embedui -o bin/picode ./cmd/picode
 
+  # The shell's pure half host-tests with plain rustc (no Windows toolchain).
+  # The COM half never compiles here — cargo xwin runs in the scoped local
+  # gates and at release; that residual is recorded in
+  # docs/handoff/open/desktop-shell-gates.md.
+  desktop:
+    name: Shell (host tests)
+    needs: changes
+    if: needs.changes.outputs.full == 'true' || needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Pure shell modules' host tests
+        run: make desktop-test
+
   gate:
     name: CI gate
     if: always()
-    needs: [changes, frontend, docs, go, embedded]
+    needs: [changes, frontend, docs, go, embedded, desktop]
     runs-on: ubuntu-latest
     steps:
       - name: Require every applicable gate
@@ -245,9 +261,10 @@ jobs:
           DOCS: ${{ needs.docs.result }}
           GO: ${{ needs.go.result }}
           EMBEDDED: ${{ needs.embedded.result }}
+          DESKTOP: ${{ needs.desktop.result }}
         run: |
           failed=0
-          for gate in CHANGES FRONTEND DOCS GO EMBEDDED; do
+          for gate in CHANGES FRONTEND DOCS GO EMBEDDED DESKTOP; do
             result="${!gate}"
             printf '%-10s %s\n' "$gate" "$result"
             case "$result" in

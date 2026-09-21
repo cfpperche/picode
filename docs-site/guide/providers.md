@@ -50,14 +50,32 @@ same pane for the providers they can use, with four actions:
 | **Import** | reads the login that CLI already has on this machine and stores a copy in the vault. The CLI's own file is never changed, and nothing is activated by importing |
 | **Add API key** | stores a key for a provider this CLI can use |
 | **Verify** | spends exactly one listing call to the provider with the stored key — the button says so — and remembers the answer with its age |
+| **Use** | writes that account into the CLI's own login file, so the CLI runs on it — the same thing **Use** does for Pi |
 | **Sign out** | removes that account from the vault |
+
+**Use** never changes where the CLI keeps its state: no new folder, no
+`HOME`-style variable, nothing about settings, sessions or memory moves. It
+replaces one file — the CLI's own login file — and PiCode keeps a copy of what
+was there the first time it writes (the path is shown when it happens).
+
+Two rules come with that:
+
+- **One account per CLI is live at a time.** Switching affects terminals you
+  open afterwards, and only one login can sit in the file. Running two accounts
+  of the same CLI side by side would need a separate home per account, which
+  this deliberately does not do.
+- **Use is refused while a terminal of that CLI is running** (the refusal says
+  how many). Replacing a credential under a running agent is how sessions get
+  corrupted.
 
 Some limits are the vendors', not PiCode's, and the pane says so on the row:
 
 - **Omp** keeps its accounts in its own database, which PiCode does not read.
   Its pane manages API keys; a subscription login stays with Omp.
-- **Muse Code** and **Antigravity** publish no credential file, so their
-  panes list what exists here and name what they cannot do.
+- **Muse Code** and **Antigravity** keep their login somewhere PiCode does not
+  write, so their panes list what exists here and name what they cannot do.
+- When a login carries no account name (Claude, Muse, Antigravity), PiCode
+  keeps **one** subscription login per provider — the pane says so on the row.
 - A subscription login that a CLI renews by itself may only have one live
   copy on a machine. Importing it while the CLI keeps using it will end with
   one of the two asking for a fresh sign-in; the pane warns before that

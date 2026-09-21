@@ -383,9 +383,31 @@ Deliberate deviations from this plan, each with its reason:
    decrypted. The pane names the missing file and the action when it sees that
    state.
 
-Step 2 — binding a saved account to a launch, per-account directories, the
-guided vendor sign-in and harvest — is not started and needs its own ADR
-(process boundary), as this plan said.
+Step 2 was revised by the owner (2026-09-20) and shipped as **ADR-0166**:
+activation is the pi model generalized — **Use** writes the chosen account into
+the CLI's own credential file. The plan's per-account directories
+(`CODEX_HOME`, `GROK_HOME`, `CLAUDE_CONFIG_DIR`) are **refused**: that variable
+moves the CLI's whole home, so settings, sessions and memory would stop being
+where the tool expects them. Consequences to keep in mind: one live account per
+CLI at a time (switching is machine-wide, like `gh auth switch`), a write is
+refused while a terminal of that CLI runs, and the replaced file is kept once
+at `<DataDir>/credfiles/<cli>-<unix>.bak`.
+
+Still open after ADR-0166:
+
+- **Guided vendor sign-in** (a terminal with the vendor's own login, then import
+  the result) — not started; today a subscription login is imported from what
+  the CLI already has.
+- **Harvest** (read a refreshed token back into the vault) — not started; the
+  vault copy goes stale after the CLI renews it, and re-importing is the manual
+  workaround.
+- **Identity for nameless logins**: a Claude/Muse/Antigravity subscription
+  carries no account name, so the vault keeps one row per provider there
+  (`singleOAuth`). Reading the vendor's profile endpoint at import time (the
+  adapters in `internal/usage` already do this for pi's roster) is the fix.
+- **Env-var injection at launch** (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`,
+  `{PROVIDER}_API_KEY`) — the declarations carry the names; not wired to the
+  launcher yet, and it does not touch HOME.
 
 ## Open questions (owner) — answered 2026-09-20
 

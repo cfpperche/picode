@@ -36,7 +36,10 @@ fn key(origin: &str, kind: &str) -> String {
 /// page's full URI, and a standing is about the site: a permission given on
 /// one path must cover the next one on the same host. A string without
 /// `://` is taken as the site itself (a bare host stays a bare host).
-pub(crate) fn site_of(origin: &str) -> String {
+/// `pub` because the shell's `btab.rs` keys profile operations
+/// (SetPermissionState / Reset) on the same value — a `pub(crate)` here
+/// broke the cross-build the day allow-once landed (8117fd50).
+pub fn site_of(origin: &str) -> String {
     let trimmed = origin.trim();
     let start = trimmed.find("://").map(|i| i + 3).unwrap_or(0);
     let tail = &trimmed[start..];

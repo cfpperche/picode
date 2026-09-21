@@ -62,6 +62,16 @@ const cases = [
     paths: ["internal\\desktop\\desktop.go"],
     want: { scope: "full", full: true, docs: true },
   },
+  {
+    name: "a shell-only change runs the shell job alone",
+    paths: ["desktop-shell/src/btab.rs"],
+    want: { scope: "desktop", full: false, docs: false },
+  },
+  {
+    name: "a shell change mixed with anything else fails safe to full",
+    paths: ["desktop-shell/src/btab.rs", "docs/handoff.md"],
+    want: { scope: "full", full: true, docs: true },
+  },
 ];
 
 test("CI path decision table", async (t) => {
@@ -81,6 +91,8 @@ test("path scopes are explicit and fail safe", () => {
   assert.equal(pathScope("scripts/lib/uitree.mjs"), "docs");
   assert.equal(pathScope("scripts/lib/docs-surfaces.mjs"), "docs");
   assert.equal(pathScope("scripts/ci-scope.mjs"), "full");
+  assert.equal(pathScope("desktop-shell/src/btab.rs"), "desktop");
+  assert.equal(pathScope("desktop-shell/Cargo.toml"), "desktop");
   assert.equal(pathScope("LICENSE"), "full");
 });
 
@@ -108,7 +120,16 @@ test("hosted workflow preserves the optimized platform decision table", () => {
   assert.match(workflow, /actions\/upload-artifact@v7/);
   assert.match(workflow, /actions\/download-artifact@v8/);
   assert.match(workflow, /cancel-in-progress: true/);
-  assert.match(workflow, /needs: \[changes, frontend, docs, go, embedded\]/);
+  assert.match(workflow, /needs: \[changes, frontend, docs, go, embedded, desktop\]/);
+
+  // The shell job host-tests the pure crate with plain rustc; cargo xwin
+  // stays local (scoped gates) and at release — never on these runners.
+  const desktopStart = workflow.indexOf("\n  desktop:\n");
+  assert.ok(desktopStart > embeddedStart, "the desktop job follows embedded");
+  const desktopJob = workflow.slice(desktopStart, workflow.indexOf("\n  gate:\n"));
+  assert.match(desktopJob, /full == 'true' \|\| needs\.changes\.outputs\.desktop == 'true'/);
+  assert.match(desktopJob, /make desktop-test/);
+  assert.doesNotMatch(desktopJob, /xwin|setup-node|setup-go/);
 
   assert.match(
     makefile,
@@ -126,6 +147,7 @@ const localCases = [
   { name: "public docs are the docs scope", paths: ["docs-site/guide/api.md"], want: { full: false, docs: true, packages: false } },
   { name: "docs scripts are docs and test-js", paths: ["scripts/docs-shots.mjs"], want: { docs: true, packages: true, full: false } },
   { name: "handoff is metadata", paths: ["docs/handoff/2026-09-06-x.md"], want: { metadata: true, full: false } },
+  { name: "a shell change is a desktop scope", paths: ["desktop-shell/src/btab.rs"], want: { full: false, go: false, web: false, desktop: true } },
   { name: "the Makefile fails safe to full", paths: ["Makefile", "web/a.jsx"], want: { full: true } },
   { name: "an unknown root file fails safe to full", paths: ["Dockerfile"], want: { full: true } },
 ];

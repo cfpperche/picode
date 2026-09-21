@@ -49,7 +49,10 @@ export default function AgentInspectorGlance({ agentId, onOpen }) {
     return () => { clearTimeout(timer); unsub(); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, []);
 
-  const prRead = useGitRead(root && status?.git ? gitURL({ kind: "agent", id: agentId }, "pr", { root }) : "", 0, null, !root || !status?.git);
+  // A 409 (the owner moved) clears the line: a frozen count is a lie, and
+  // the next git.updated for the new folder re-arms it after a visit.
+  const onMoved = useCallback(() => { rootRef.current = ""; setRoot(""); setStatus(null); }, []);
+  const prRead = useGitRead(root && status?.git ? gitURL({ kind: "agent", id: agentId }, "pr", { root }) : "", 0, onMoved, !root || !status?.git);
   if (!status?.git) return null;
   const files = (status.changes || []).length + (status.worktrees || []).reduce((n, wt) => n + ((wt.changes || []).length), 0);
   const pr = prRead.data?.status === "ok" ? prRead.data.pr : null;

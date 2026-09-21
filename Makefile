@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh docs-changelog build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff land worktree worktree-status worktree-gc clean desktop desktop-shell desktop-restart
+.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh docs-changelog build restart deploy _deploy cert-timer changelog adr install test test-js desktop-test fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff land worktree worktree-status worktree-gc clean desktop desktop-shell desktop-restart
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -166,6 +166,11 @@ desktop: ## Cross-compile the Windows boundary tool + console native host (ADR-0
 desktop-shell: ## Build the v2 Windows shell (Rust/Tauri — needs rustup, x86_64-pc-windows-msvc target, cargo-xwin; ADR-0120)
 	cd desktop-shell && cargo xwin build --release --target x86_64-pc-windows-msvc
 
+desktop-test: ## Host-test the shell's pure half (rustc only, no Windows toolchain — permissions/origins/preview/annotate/…)
+	cd desktop-shell && mkdir -p target/host-tests && \
+	rustc --edition 2021 --test src/lib.rs -o target/host-tests/lib.test && target/host-tests/lib.test && \
+	rustc --edition 2021 --test src/annotate.rs -o target/host-tests/annotate.test && target/host-tests/annotate.test
+
 desktop-restart: desktop desktop-shell ## Build every exe, swap them, relaunch the resident — NEVER `&` from WSL (scripts/desktop-swap.sh)
 	./scripts/desktop-swap.sh
 
@@ -220,7 +225,7 @@ ci: handoff ## Everything CI runs — the gate for the merge on main (full outpu
 # keeps it inside its cap (ADR-0123), and `make close` alone let it drift green.
 	./scripts/ci.sh
 
-ci-gates: hooks-check fmt-check vet test test-js build ci-docs vale
+ci-gates: hooks-check fmt-check vet test test-js desktop-test build ci-docs vale
 
 # A worktree iteration runs what its diff can break (ADR-0086); `make ci`
 # stays the whole matrix for the merge on main.
