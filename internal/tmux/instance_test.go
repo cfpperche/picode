@@ -15,7 +15,7 @@ import (
 func TestNewSessionCarriesTheInstanceStamp(t *testing.T) {
 	requireDrainTmux(t)
 	ctx := context.Background()
-	data := filepath.Join(t.TempDir(), "data")
+	data := filepath.Join(socketDir(t), "data")
 	if err := os.MkdirAll(data, 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -56,7 +56,7 @@ func TestKillIsolatedServerEndsAServerInItsOwnDirectory(t *testing.T) {
 	if !New().Available() {
 		t.Skip("tmux not installed")
 	}
-	dir := t.TempDir()
+	dir := socketDir(t)
 	m := NewWithSocket(filepath.Join(dir, "tmux-"+itoa(os.Getuid()), "default"))
 	if err := m.NewSession(context.Background(), SessionName("guard-test"), dir, "sleep", "30"); err != nil {
 		t.Fatalf("NewSession: %v", err)
@@ -104,7 +104,7 @@ func TestNewWithSocketMakesItsDirectory(t *testing.T) {
 		t.Skip("tmux not installed")
 	}
 	dir := t.TempDir()
-	m := NewWithSocket(filepath.Join(dir, "fresh", "deeper", "tmux-"+itoa(os.Getuid()), "default"))
+	m := NewWithSocket(filepath.Join(socketDir(t), "fresh", "deeper", "tmux-"+itoa(os.Getuid()), "default"))
 	name := SessionName("socket-dir-" + time.Now().Format("150405-000000000"))
 	if err := m.NewSession(context.Background(), name, dir, "sleep", "30"); err != nil {
 		t.Fatalf("NewSession: %v", err)

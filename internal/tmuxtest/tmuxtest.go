@@ -27,6 +27,7 @@ package tmuxtest
 import (
 	"context"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -38,7 +39,7 @@ import (
 // tmux binary must not fail the suite, and a cleanup failure must not
 // replace the suite's own verdict.
 func Main(m *testing.M) int {
-	dir, err := os.MkdirTemp("", "picode-tmuxtest-")
+	dir, err := os.MkdirTemp(socketBase(), "pctm")
 	if err != nil {
 		return m.Run() // no isolation available; run as before
 	}
@@ -64,4 +65,29 @@ func Main(m *testing.M) int {
 	_ = tmux.KillIsolatedServer(ctx, dir)
 	_ = os.RemoveAll(dir)
 	return code
+}
+
+// socketBase is where the private namespace goes: somewhere short.
+//
+// The default (TMPDIR, via os.MkdirTemp's empty dir) is what broke every
+// tmux test on the macOS runner. There TMPDIR is
+// /var/folders/<2>/<28>/T/ — about 50 characters before anything of ours
+// is appended — and tmux then binds <dir>/tmux-<uid>/default, which lands
+// past the kernel's sun_path limit (108 bytes on Linux, 104 on
+// macOS/BSD). The failure reads `error connecting to … (File name too
+// long)`, which looks like a tmux fault and is a path-length one; it
+// reproduces on Linux with a long TMPDIR.
+//
+// /tmp keeps the whole namespace around 30 characters. Where it is not
+// usable, TMPDIR is still better than failing to isolate at all — a
+// suite that cannot bind its own socket is a suite that would otherwise
+// land on the user's server.
+func socketBase() string {
+	if runtime.GOOS == "windows" {
+		return os.TempDir()
+	}
+	if st, err := os.Stat("/tmp"); err == nil && st.IsDir() {
+		return "/tmp"
+	}
+	return os.TempDir()
 }

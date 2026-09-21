@@ -35,7 +35,8 @@ func TestVersionParses(t *testing.T) {
 }
 
 func TestServerVersionAsksTheServerItsOwnVersion(t *testing.T) {
-	m := NewWithSocket("/tmp/picode-version-test.sock")
+	sock := socketPath(t, "version.sock")
+	m := NewWithSocket(sock)
 	var got [][]string
 	m.exec = func(_ context.Context, _ string, args ...string) ([]byte, error) {
 		got = append(got, append([]string(nil), args...))
@@ -48,7 +49,7 @@ func TestServerVersionAsksTheServerItsOwnVersion(t *testing.T) {
 	if v != "3.6" {
 		t.Errorf("ServerVersion() = %q, want 3.6", v)
 	}
-	want := "-S /tmp/picode-version-test.sock display-message -p #{version}"
+	want := "-S " + sock + " display-message -p #{version}"
 	if len(got) != 1 || strings.Join(got[0], " ") != want {
 		t.Errorf("argv = %v, want [%s]", got, want)
 	}
@@ -59,7 +60,7 @@ func TestServerVersionAsksTheServerItsOwnVersion(t *testing.T) {
 func TestVersionInUseFollowsTheAnsweringServer(t *testing.T) {
 	requireTmux(t)
 	dir := t.TempDir()
-	iso := NewWithSocket(filepath.Join(dir, "tmux.sock"))
+	iso := NewWithSocket(socketPath(t, "tmux.sock"))
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -295,7 +296,7 @@ func TestPaneCwdFollowsProcess(t *testing.T) {
 		var err error
 		for time.Now().Before(deadline) {
 			got, err = m.PaneCwd(ctx, name)
-			if err == nil && filepath.Clean(got) == filepath.Clean(want) {
+			if err == nil && samePath(t, got, want) {
 				return
 			}
 			time.Sleep(50 * time.Millisecond)
@@ -572,7 +573,7 @@ func TestPaneCwdIsRightFromTheFirstInstant(t *testing.T) {
 		if err != nil {
 			t.Fatalf("iteration %d: PaneCwd: %v", i, err)
 		}
-		if filepath.Clean(got) != filepath.Clean(dir) {
+		if !samePath(t, got, dir) {
 			t.Fatalf("iteration %d: PaneCwd = %q, want %q (the folder it was created in)", i, got, dir)
 		}
 		if err := m.KillSession(ctx, name); err != nil {
@@ -598,7 +599,7 @@ func TestPaneCwdFollowsAShellThatMovedRightAfterCreation(t *testing.T) {
 		t.Fatalf("NewSession: %v", err)
 	}
 	t.Cleanup(func() { _ = m.KillSession(context.Background(), name) })
-	if got, err := m.PaneCwd(ctx, name); err != nil || filepath.Clean(got) != filepath.Clean(start) {
+	if got, err := m.PaneCwd(ctx, name); err != nil || !samePath(t, got, start) {
 		t.Fatalf("first read = %q (err %v), want %q", got, err, start)
 	}
 	if err := m.TypeText(ctx, name, "cd "+moved); err != nil {
@@ -610,7 +611,7 @@ func TestPaneCwdFollowsAShellThatMovedRightAfterCreation(t *testing.T) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		got, err := m.PaneCwd(ctx, name)
-		if err == nil && filepath.Clean(got) == filepath.Clean(moved) {
+		if err == nil && samePath(t, got, moved) {
 			return
 		}
 		if time.Now().After(deadline) {
