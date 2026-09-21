@@ -9,7 +9,8 @@ import { absTime, relTime } from "@picode/shared/domain/relTime.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { terms } from "../lib/terms.js";
 import { toast } from "../lib/toast.js";
-import { clipboardFiles, termHasPromptDoor } from "@picode/shared/domain/termPrompt.js";
+import { clipboardFiles, clipboardText } from "@picode/shared/domain/termPrompt.js";
+import { suppressKeyPasteFor } from "@picode/shared/domain/termPasteClaim.js";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -68,7 +69,7 @@ function TermWindow({ title, titleFull, children }) {
 
 // autoFocus (default true): the visible pane takes the keyboard. The Canvas
 // passes false for every panel but the focused one (ShellTerm).
-export default function TermSurface({ term, error, hidden, autoFocus = true, onOpenFile, onOpenLink, cwdKind, tabId, attach, onAttachClose, onPasteFiles, find, onFindClose }) {
+export default function TermSurface({ term, error, hidden, autoFocus = true, onOpenFile, onOpenLink, cwdKind, tabId, attach, onAttachClose, onPasteFiles, promptDoor, find, onFindClose }) {
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState("");
   // The message bar takes height from the pane; tmux hears about it in the
@@ -104,16 +105,19 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
     // seeded with them — text and empty pastes fall through to xterm
     // untouched. Capture phase: xterm's own textarea listener (target
     // phase) must never see a files-paste, or it would write the stray
-    // text around it as well.
+    // text around it as well. Accompanying text seeds the message (its
+    // keydown twin is claimed away below), and the door verdict belongs to
+    // the owner — this pane only answers the prop.
     const files = clipboardFiles(e.clipboardData);
     if (!files.length || !term) return;
     e.preventDefault();
     e.stopPropagation();
-    if (!termHasPromptDoor(term)) {
+    if (!promptDoor) {
       toast.error("Attach is for Agent CLI terminals.");
       return;
     }
-    if (onPasteFiles) onPasteFiles(term.id, files);
+    suppressKeyPasteFor(e.target);
+    if (onPasteFiles) onPasteFiles(term.id, files, clipboardText(e.clipboardData));
   }
 
   const last = (term && term.lastSession) || null;
