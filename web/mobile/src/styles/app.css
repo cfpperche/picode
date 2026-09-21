@@ -2657,3 +2657,15 @@ img.ws-face.term-cli-face {
   .reach-ctl .btn { flex: none; }
   .devs-actions[data-align-row] .auto-code { min-height: 44px; }
 }
+
+/* The Inspector drawer (ADR-0078's rail, as a right drawer over the
+   conversation): full height, anchored to the right edge, safe area paid
+   once at the bottom edge. Vaul's direction="right" owns the slide. */
+.dlg.dlg-sheet.dlg-drawer-right {
+  top: 0; bottom: 0; left: auto; right: 0;
+  width: min(92vw, 430px); height: 100dvh; max-height: none;
+  border-radius: 0; border-width: 0 0 0 1px;
+  padding: 0;
+  display: flex; flex-direction: column;
+}
+.dlg-drawer-right .m-screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }

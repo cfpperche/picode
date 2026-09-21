@@ -3,15 +3,17 @@ import { Drawer } from "vaul";
 
 // ADR-0072: mobile owns its modal presentation. A sheet stays a sheet at
 // every preview width. Closing a confirmation resolves as Cancel.
-function Root({ children, ...props }) {
-  return <Drawer.Root repositionInputs={false} {...props}>{children}</Drawer.Root>;
+// side="bottom" (default) is the sheet; side="right" is a full-height
+// drawer sliding from the right edge (the Inspector over a conversation).
+function Root({ children, side = "bottom", ...props }) {
+  return <Drawer.Root repositionInputs={false} direction={side} {...props}>{children}</Drawer.Root>;
 }
 function Overlay({ className, ...props }) {
   return <Drawer.Overlay className={[className, "dlg-overlay-sheet"].filter(Boolean).join(" ")} {...props} />;
 }
 
 // A field receives focus only after the user touches or types in the sheet.
-function Content({ className, children, onOpenAutoFocus, ...props }) {
+function Content({ className, side = "bottom", children, onOpenAutoFocus, ...props }) {
   const ref = useRef(null);
   useLayoutEffect(() => {
     // Focus a field takes on its own — a React `autoFocus` during this
@@ -19,7 +21,7 @@ function Content({ className, children, onOpenAutoFocus, ...props }) {
     // sheet, for the sheet's first 800ms or until the user touches
     // anything. Focus, not blur, so the dialog keeps a focus owner. Vaul
     // does not always forward the ref: fall back to the newest sheet.
-    const sheets = document.querySelectorAll(".dlg-sheet");
+    const sheets = document.querySelectorAll(side === "right" ? ".dlg-drawer-right" : ".dlg-sheet");
     const node = ref.current || sheets[sheets.length - 1] || null;
     if (!node) return undefined;
     const isField = (el) => el && el !== node && node.contains(el) && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
@@ -40,15 +42,16 @@ function Content({ className, children, onOpenAutoFocus, ...props }) {
       document.removeEventListener("touchstart", disarm, true);
       document.removeEventListener("keydown", disarm, true);
     };
-  }, []);
+  }, [side]);
   return (
     <Drawer.Content
       ref={ref}
-      className={[className, "dlg-sheet"].filter(Boolean).join(" ")}
+      data-side={side}
+      className={[className, "dlg-sheet", side === "right" ? "dlg-drawer-right" : ""].filter(Boolean).join(" ")}
       {...props}
       onOpenAutoFocus={(e) => e.preventDefault()}
     >
-      <div className="create-handle" aria-hidden="true" />
+      {side === "bottom" ? <div className="create-handle" aria-hidden="true" /> : null}
       {children}
     </Drawer.Content>
   );

@@ -46,6 +46,7 @@ const TerminalScreen = lazy(() => import("./screens/Terminal.jsx"));
 const Files = lazy(() => import("./screens/Files.jsx"));
 const Git = lazy(() => import("./screens/Git.jsx"));
 const Inspector = lazy(() => import("./screens/Inspector.jsx"));
+const InspectorDrawer = lazy(() => import("./components/InspectorDrawer.jsx"));
 const More = lazy(() => import("./screens/More.jsx"));
 const AppSurface = lazy(() => import("./components/AppSurface.jsx"));
 import { useHashRoute, goTab, push, goBack } from "./hooks/useHashRoute.js";
@@ -90,6 +91,10 @@ export default function MobileApp() {
   const [tuiWorking, setTuiWorking] = useState([]);
   const [checklists, setChecklists] = useState({});
   const [reconnect, setReconnect] = useState(false);
+  // The agent screen's Inspector drawer: opens over the conversation, and
+  // any navigation away (a file handed to the Files tool, a tab switch)
+  // closes it — the drawer belongs to one agent section.
+  const [inspDrawer, setInspDrawer] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
   useEffect(() => {
     const on = () => setShareOpen(true);
@@ -277,6 +282,9 @@ export default function MobileApp() {
     try { localStorage.setItem(LAST_AGENT_KEY, route.id); } catch { /* per-viewer nicety */ }
   }, [route.screen, route.id]);
 
+  useEffect(() => {
+    if (route.screen !== "agent") setInspDrawer(null);
+  }, [route.screen]);
   function openAgent(id, view = "") {
     if (!id) { goTab("work"); return; }
     const target = findAgent(workspaces, freeAgents, id);
@@ -595,7 +603,7 @@ export default function MobileApp() {
         onStop={stopAgent}
         onOpenFiles={openFiles}
         onOpenGit={openGit}
-        onOpenInspector={openInspector}
+        onOpenInspector={() => setInspDrawer({ owner: { kind: "agent", id: route.id }, root: "", title: current && current.agent ? (current.agent.name && current.agent.name !== "default" ? current.agent.name : (current.workspace ? current.workspace.name : current.agent.name)) : "Inspector" })}
         onAgentConfig={patchAgent}
         onRemoveTerminal={removeTerminal}
       />
@@ -642,6 +650,12 @@ export default function MobileApp() {
       {pushed ? null : <TabBar active={tab} badges={badges} />}
       <CreateSheet open={!!create} kind={create ? create.kind : "workspace"} workspace={create ? create.workspace : null} catalog={catalog}
         onClose={() => setCreate(null)} onCreated={onCreated} />
+      <Suspense fallback={null}>
+        <InspectorDrawer drawer={inspDrawer} onClose={() => setInspDrawer(null)}
+          onOpenFile={({ owner: target, path, root }) => openFiles(target || (inspDrawer && inspDrawer.owner) || { kind: "workspace", id: "" }, { path, root })}
+          onOpenTerminal={prepareGit} onAskAgent={askGit}
+          workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} />
+      </Suspense>
       <NewCliPrincipal
         open={!!cliPrincipalWs}
         workspace={cliPrincipalWs}

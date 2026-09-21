@@ -64,11 +64,3 @@
 @media (prefers-reduced-motion: reduce) {
   .m-agent :is(.composer-pic, .m-composer-error) { animation: none; transition: none; }
 }
-
-/* Inspector glance: the one review line under the agent header — visible
-   only while the folder has changes or the branch has a pull request. */
-.m-insp-glance { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex: none; margin: 0 14px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--bg-panel); color: var(--text-secondary); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
-.m-insp-glance:hover, .m-insp-glance:active { background: var(--bg-hover); }
-.m-insp-glance strong { color: var(--text-primary); font-weight: 500; }
-.m-insp-glance-main { min-width: 0; overflow-wrap: anywhere; }
-.m-insp-glance-go { flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--accent); }

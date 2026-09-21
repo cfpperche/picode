@@ -2,7 +2,6 @@ import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as Sheet from "../components/MobileSheet.jsx";
 import ProjectToolsSheet from "../components/ProjectToolsSheet.jsx";
-import AgentInspectorGlance from "../components/AgentInspectorGlance.jsx";
 import PiSettings from "../components/PiSettings.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 import StateChip, { agentState } from "../components/StateChip.jsx";
@@ -16,7 +15,7 @@ import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { extraSlash } from "@picode/shared/domain/slash.js";
 import { stuckToBottom } from "@picode/shared/domain/stickScroll.js";
-import { IconChat, IconTerminal, IconFolder } from "../components/Icons.jsx";
+import { IconChat, IconTerminal, IconFolder, IconPanelRight } from "../components/Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyUsage } from "@picode/shared/domain/feedReducers.js";
 import { agentDrafts } from "../lib/agentDrafts.js";
@@ -122,6 +121,7 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
   const right = (
     <>
       {viewSwitch}
+      <button type="button" className="btn btn-sm" aria-label="Inspector" title="Inspector" aria-haspopup="dialog" onClick={() => onOpenInspector?.()}><IconPanelRight size={16} /></button>
       <button type="button" className="btn btn-sm m-changes-btn" title="Project tools" aria-label="Project tools" aria-haspopup="dialog" aria-expanded={toolsOpen} onClick={() => setToolsOpen(true)}><IconFolder size={16} /></button>
       {stopped
         ? <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => onStart(agent, workspace)}>Start</button>
@@ -148,7 +148,6 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
   return (
     <div className="m-screen m-agent">
       <ScreenHeader title={name} sub={<><StateChip state={state} /><span className="m-agent-meta" title={meta}>{meta}</span></>} onBack={onBack} right={right} />
-      <AgentInspectorGlance agentId={id} onOpen={root => onOpenInspector?.({ kind: "agent", id }, root)} />
         <div className="m-chat chat-body">
           <div className="chat-main">
             {interactive ? (
@@ -198,7 +197,6 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
           </div>
         </div>
       <ProjectToolsSheet open={toolsOpen} onOpenChange={setToolsOpen} title={name}
-        onInspect={() => onOpenInspector?.({ kind: "agent", id }, "")}
         onFiles={() => onOpenFiles({ kind: "agent", id })} onGit={() => onOpenGit({ kind: "agent", id })} />
       <Sheet.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
         <Sheet.Portal>

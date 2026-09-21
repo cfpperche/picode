@@ -27,8 +27,10 @@ The Inspector as a pushed screen (`#/inspector/{a\|t\|w}/<id>`), anchored
 to the owner the way the rail is: Changes (folder-grouped sums, session
 scope, multi-worktree view from `resolveSessionView`), Files (lazy browse
 that hands off to the Files tool), PR (`PR #n` tab label, checks, review).
-The agent screen wears a glance line — changed files, `+N −M`, PR state —
-rendered only while there is something to review. The change-shape logic
+On the agent screen the desktop's inspector toggle reappears as a header
+button that opens the same content as a right drawer over the
+conversation — Back or the overlay returns to the agent, nothing under it
+remounts. The change-shape logic
 is shared (`@picode/shared/domain/inspector.js`), so the rail and the
 phone cannot disagree about scope or worktrees.
 

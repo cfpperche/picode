@@ -15,18 +15,20 @@ function emit() {
   for (const listener of listeners) listener();
 }
 
+// The Map holds the parsed array, not a JSON string: useSyncExternalStore
+// compares snapshots by identity, so a re-parse per read would hand React
+// a new array every render and loop the commit (react.dev/errors/185).
 export function setAgentTouched(id, list) {
   if (!id) return;
-  const next = JSON.stringify(list || []);
-  if (paths.get(id) === next) return;
+  const next = [...(list || [])];
+  const current = paths.get(id);
+  if (current && current.length === next.length && next.every((p, i) => current[i] === p)) return;
   paths.set(id, next);
   emit();
 }
 
 export function readAgentTouched(id) {
-  const raw = paths.get(id);
-  if (raw == null) return null;
-  try { return JSON.parse(raw); } catch { return null; }
+  return paths.get(id) || null;
 }
 
 function subscribe(listener) {
