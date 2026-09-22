@@ -141,8 +141,23 @@ func (g guestDriver) Install(_ context.Context, q Query, t Target) (Command, err
 // Remove answers the vendor command a plugin removal runs. It is the lane's
 // verb: a CLI whose only removal is a write of its own config file (OpenCode's
 // plugin array) has no command to hand the lane, and refuses exactly as its
-// route always has.
-func (g guestDriver) Remove(_ context.Context, q Query, t Target) (Command, error) {
+// route always has. Omp's own `extensions` are the same kind of fact read from
+// a different file — a row that came from the workspace settings is written
+// back by PiCode, and the user layer goes through the CLI's config command — so
+// an extension row is asked of the engine first, by the identity the pane sent.
+func (g guestDriver) Remove(ctx context.Context, q Query, t Target) (Command, error) {
+	if g.cli == "omp" {
+		rm, ok, err := clipkgs.OmpExtensionRemove(ctx, g.paths(q), g.target(q, t))
+		if ok || err != nil {
+			if rm.InProcess {
+				// The workspace layer has no vendor command — the engine wrote
+				// the CLI's own settings file — so there is nothing for a lane
+				// to run: the mutation has already happened.
+				return Command{}, err
+			}
+			return Command{Exe: clipkgs.Bin(g.cli), Args: rm.Args, Dir: rm.Dir, Line: rm.Line}, err
+		}
+	}
 	return g.command(q, clipkgs.VerbRemove, t)
 }
 

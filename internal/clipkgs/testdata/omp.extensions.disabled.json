@@ -1,0 +1,8 @@
+{
+  "key": "disabledExtensions",
+  "value": [
+    "extension-module:browser"
+  ],
+  "type": "array",
+  "description": ""
+}
