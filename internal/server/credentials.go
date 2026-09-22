@@ -21,6 +21,7 @@ import (
 	"github.com/cfpperche/picode/internal/clicreds"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/credentials"
+	"github.com/cfpperche/picode/internal/oauth"
 	"github.com/cfpperche/picode/internal/tmux"
 	"github.com/cfpperche/picode/internal/usage"
 )
@@ -647,7 +648,8 @@ func accessTokenOf(cred json.RawMessage) string {
 func handleCredentialSignin(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			CLI string `json:"cli"`
+			CLI      string `json:"cli"`
+			Provider string `json:"provider"`
 		}
 		if !readCLIJSON(w, r, &req) {
 			return
@@ -655,6 +657,25 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 		spec, ok := clicreds.For(strings.TrimSpace(req.CLI))
 		if !ok {
 			writeErr(w, http.StatusNotFound, "Unknown CLI.")
+			return
+		}
+		// An omp provider the OAuth engine can sign in (ADR-0176) runs the
+		// browser flow from here — the authorize page opens in a tab, the
+		// loopback/device callback returns to PiCode, and the minted
+		// credential lands in the vault, from which omp reads it through its
+		// declared env names. The terminal strip stays for everything else.
+		if req.CLI == "omp" && strings.TrimSpace(req.Provider) != "" && oauth.Supports(strings.TrimSpace(req.Provider)) {
+			provider := strings.TrimSpace(req.Provider)
+			url, userCode, err := oauth.StartSink(provider, "", ompVaultSink)
+			if err != nil {
+				writeErr(w, http.StatusConflict, err.Error())
+				return
+			}
+			out := map[string]any{"cli": req.CLI, "oauth": true, "url": url}
+			if userCode != "" {
+				out["userCode"] = userCode
+			}
+			writeJSON(w, http.StatusOK, out)
 			return
 		}
 		if spec.Login == nil {
@@ -705,6 +726,18 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 			"terminalId": t.ID, "hint": spec.Login.Hint, "terminal": view, "stamp": prior,
 		})
 	}
+}
+
+// ompVaultSink lands a minted OAuth credential in the vault as the
+// provider's own row — the same shape the pi flow writes to auth.json
+// (ADR-0176). Origin "vault"; the roster shows it like any other account.
+func ompVaultSink(provider string, cred map[string]any) error {
+	raw, err := json.Marshal(cred)
+	if err != nil {
+		return err
+	}
+	_, err = credentials.Default().Import(provider, raw, "", "vault", "")
+	return err
 }
 
 func handleCredentialRename(deps Deps) http.HandlerFunc {
