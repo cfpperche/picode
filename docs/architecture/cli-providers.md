@@ -29,7 +29,7 @@ rules have their own file ([credentials.md](credentials.md)); this is the pane.
 All nine CLIs render `CliCredentials.jsx` from
 `GET /api/credentials?cli=<id>`, which serves pi's providers from the catalog
 (native and custom) and a guest's from the `clicreds` declarations, with the
-same account rows either way. Omp's declaration is extended at read time from
+same account rows either way. Omp's declaration is extended at read time (ADR-0183) from
 its installed package: `internal/clicreds/omp_catalog.go` finds
 `@oh-my-pi/pi-catalog/src/compat/rules.json` next to the `omp` on PATH
 (`PICODE_OMP_RULES` overrides) and appends every `/login` provider the
