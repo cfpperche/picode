@@ -793,3 +793,15 @@ e
   new one did nothing), so the row says restart. The user's keybindings file was
   backed up and restored byte-identical (md5 verified). Nothing left open for
   antigravity: it ships.
+
+- [ ] **A guest Settings link by `?agentId=` opens without the agent's workspace.**
+  The pane takes its workspace only from the sidebar selection, so a link that
+  names an agent shows no workspace layer and the omp Checks card reads the
+  machine instead of the folder (found in the omp-doctor QA, 2026-09-22).
+  Fix: resolve the agent's workspace in `cliPaneSetupContext` when the route
+  carries `agentId`.
+- [ ] **An omp agent created through the API was gone after a daemon restart.**
+  `POST /api/workspaces/{id}/agents` with `cli: "omp"` on a qa-scratch, then a
+  restart: `/api/workspaces` listed the workspace with no agents (2026-09-22).
+  Not investigated — reproduce before assuming a bug in the store or in the
+  scratch's restart.
