@@ -15,9 +15,9 @@ import (
 // Omp loads extensions from its own settings, so a row for one is not a plugin
 // row: the read merges the two sources, and a mutation of a workspace entry is
 // a write PiCode performs itself — the CLI has no verb for that file, for a
-// removal or for a disable. These tests pin the route's half of that: the row
-// reaches the pane, and the mutation answers the CLI's fresh list instead of
-// reserving a job that runs no command at all.
+// removal or for a disable. These tests pin the routes' half of that: the row
+// reaches the pane on the unified read, and the mutation answers the CLI's
+// fresh report instead of reserving a job that runs no command at all.
 
 // ompSettings is the workspace settings file as these tests read it back.
 type ompSettings struct {
@@ -79,20 +79,20 @@ esac`)
 	return ts, workspace, settings
 }
 
-// TestCLIPackagesOmpExtensions is the whole arc over the real routes: the
-// workspace entry appears in the omp read, and removing it writes the settings
-// file — answered with the CLI's own fresh list, not a job.
-func TestCLIPackagesOmpExtensions(t *testing.T) {
+// TestPackageOmpExtensions is the whole arc over the real routes: the workspace
+// entry appears in the omp read, and removing it writes the settings file —
+// answered with the CLI's own fresh report, not a job.
+func TestPackageOmpExtensions(t *testing.T) {
 	ts, workspace, settings := ompExtensionFixture(t, `{
   "extensions": ["pkgs/ext/tool.ts"],
   "theme": {"keep": true}
 }`)
 
-	base := "/api/cli-packages?cli=omp&scope=project&workspace=" + workspace.ID + "&refresh=1"
+	base := "/api/packages/report?cli=omp&vendor=project&workspace=" + workspace.ID + "&refresh=1"
 	v := cliRequest(t, ts, "GET", base, nil, 200)
 	row := rowBySource(t, v, "pkgs/ext/tool.ts")
-	if row["name"] != "tool" || row["scope"] != "project" || row["sourceKind"] != "extension" {
-		t.Errorf("row = %v, want the workspace's own extension", row)
+	if row["name"] != "tool" || row["scope"] != "workspace" || row["vendor"] != "project" || row["kind"] != "extension" {
+		t.Errorf("row = %v, want the workspace's own extension in the class and the vendor's word", row)
 	}
 	if row["enabled"] != true {
 		t.Errorf("row = %v, want it enabled (nothing disables it)", row)
@@ -101,7 +101,7 @@ func TestCLIPackagesOmpExtensions(t *testing.T) {
 	// The pane sends the row's name and source back. The mutation is a local
 	// write with no argv, so the answer is the CLI's fresh list — a 202 job
 	// here would run nothing and fail.
-	v = cliRequest(t, ts, "POST", "/api/cli-packages/remove", map[string]any{
+	v = cliRequest(t, ts, "DELETE", "/api/packages", map[string]any{
 		"cli": "omp", "scope": "project", "workspace": workspace.ID,
 		"name": "tool", "source": "pkgs/ext/tool.ts", "requestKey": "req-ext-1",
 	}, 200)
@@ -121,12 +121,12 @@ func TestCLIPackagesOmpExtensions(t *testing.T) {
 	}
 }
 
-// TestCLIPackagesOmpExtensionToggle is the same arc for the control the row
-// draws: Enable/Disable on an extension runs the CLI's plugin verb, which does
-// not know an extension, so the route answers by writing what the CLI itself
-// reads — `disabledExtensions` — and hands back the CLI's fresh list. Both
+// TestPackageOmpExtensionToggle is the same arc for the control the row draws:
+// Enable/Disable on an extension runs the CLI's plugin verb, which does not
+// know an extension, so the route answers by writing what the CLI itself reads
+// — `disabledExtensions` — and hands back the CLI's fresh report. Both
 // directions, over the real file.
-func TestCLIPackagesOmpExtensionToggle(t *testing.T) {
+func TestPackageOmpExtensionToggle(t *testing.T) {
 	ts, workspace, settings := ompExtensionFixture(t, `{
   "extensions": ["pkgs/ext/tool.ts"],
   "theme": {"keep": true}
@@ -137,7 +137,7 @@ func TestCLIPackagesOmpExtensionToggle(t *testing.T) {
 	}
 
 	// Off: the row comes back disabled, which is the CLI's own list answering.
-	v := cliRequest(t, ts, "POST", "/api/cli-packages/toggle", body, 200)
+	v := cliRequest(t, ts, "POST", "/api/packages/toggle", body, 200)
 	if row := rowBySource(t, v, "pkgs/ext/tool.ts"); row["enabled"] != false {
 		t.Errorf("row = %v, want the row the CLI's own list reports as off", row)
 	}
@@ -151,7 +151,7 @@ func TestCLIPackagesOmpExtensionToggle(t *testing.T) {
 
 	// On: the id leaves the array, and the row is enabled again.
 	body["on"] = true
-	v = cliRequest(t, ts, "POST", "/api/cli-packages/toggle", body, 200)
+	v = cliRequest(t, ts, "POST", "/api/packages/toggle", body, 200)
 	if row := rowBySource(t, v, "pkgs/ext/tool.ts"); row["enabled"] != true {
 		t.Errorf("row = %v, want the row enabled again", row)
 	}
@@ -164,7 +164,7 @@ func TestCLIPackagesOmpExtensionToggle(t *testing.T) {
 	}
 }
 
-// rowBySource finds one row of a /api/cli-packages answer by its source.
+// rowBySource finds one row of a packages answer by its source.
 func rowBySource(t *testing.T, view map[string]any, source string) map[string]any {
 	t.Helper()
 	rows, _ := view["rows"].([]any)

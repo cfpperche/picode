@@ -19,23 +19,50 @@ func registerPackageRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/packages/gallery", handlePackageGallery)
 	mux.HandleFunc("GET /api/packages/report", handlePackageReport(deps))
 	mux.HandleFunc("GET /api/packages/updates", handlePackageUpdates(deps))
+	// The CLI's own surface (ADR-0176): every CLI answers the same paths, and
+	// the request's `cli` is what resolves its driver — one path per verb
+	// instead of a family per vendor identity. Pi's own mutations and every
+	// agent-layer write are PiCode's own calls and name no CLI, which is what
+	// keeps the two apart on one path (`ownCLI` below).
+	mux.HandleFunc("GET /api/packages/available", handlePackageAvailable(deps))
+	mux.HandleFunc("GET /api/packages/marketplaces", handlePackageMarketplaces(deps))
+	mux.HandleFunc("POST /api/packages/toggle", handlePackageToggle(deps))
+	mux.HandleFunc("POST /api/packages/marketplace", handlePackageMarketplace(deps))
+	mux.HandleFunc("POST /api/packages/inspect", handlePackageInspect(deps))
 	mux.HandleFunc("POST /api/packages", handleInstallPackage(deps))
 	mux.HandleFunc("POST /api/packages/update", handleUpdatePackage(deps))
 	mux.HandleFunc("DELETE /api/packages", handleRemovePackage(deps))
 	registerPackageConfigRoutes(mux, deps)
 }
 
-// packageReadDriver resolves the driver a read answers from — the ?cli=
-// parameter, Pi when absent — writing the refusal itself when no driver
-// exists. A read that needs more than a roster gates on the driver's Caps.
-func packageReadDriver(w http.ResponseWriter, r *http.Request) (pkgs.Driver, bool) {
-	cli := strings.TrimSpace(r.URL.Query().Get("cli"))
+// packageDriver resolves the driver one request answers from — the `cli` of a
+// read, the `cli` field of a mutation, Pi when absent — writing the refusal
+// itself when no driver exists, so one sentence names what does.
+func packageDriver(w http.ResponseWriter, cli string) (pkgs.Driver, bool) {
+	cli = strings.TrimSpace(cli)
 	if !pkgs.Known(cli) {
 		writeErr(w, http.StatusBadRequest,
 			"no packages driver for "+cli+" — use "+strings.Join(pkgs.CLIs(), ", "))
 		return nil, false
 	}
 	return pkgs.DriverFor(cli), true
+}
+
+// packageReadDriver is the same for a read, whose `cli` rides the query.
+func packageReadDriver(w http.ResponseWriter, r *http.Request) (pkgs.Driver, bool) {
+	return packageDriver(w, r.URL.Query().Get("cli"))
+}
+
+// ownCLI answers the CLI whose own surface a mutation request is for. PiCode's
+// own calls never name one — Pi's mutations run through `pipkg` on these same
+// paths, and an agent-layer write is PiCode's own list for every CLI — so an
+// absent (or Pi's own) `cli` is what tells the two apart on one path
+// (ADR-0176's transport rule, which the pane's `directMutation` states once).
+func ownCLI(cli string) string {
+	if id := strings.TrimSpace(cli); id != "" && id != "pi" {
+		return id
+	}
+	return ""
 }
 
 // handlePackageUpdates is the badge read: the driver answers what its catalog
@@ -121,11 +148,39 @@ func loadPackageReport(ctx context.Context, deps Deps, workspaceID, agentID stri
 	return rep.Legacy(), nil
 }
 
+// packageMutateReq is one install, removal or update as this family takes it.
+// Both vocabularies live here because one path answers both: PiCode's own call
+// names the source, its layer and the ids the fresh list is read back for
+// (`workspaceId`/`agentId`, no `cli`), while a CLI's own surface names the CLI,
+// the plugin and the lane's request key.
 type packageMutateReq struct {
 	Source      string `json:"source"`
 	Scope       string `json:"scope"`
 	WorkspaceID string `json:"workspaceId"`
 	AgentID     string `json:"agentId"`
+	// The CLI's own surface: `cli` picks the driver, `workspace` is the folder a
+	// project-scope mutation runs in, and `name`/`requestKey` are the plugin and
+	// the idempotency key the lane reserves by.
+	CLI              string `json:"cli"`
+	Workspace        string `json:"workspace"`
+	Name             string `json:"name"`
+	RequestKey       string `json:"requestKey"`
+	ConfirmTerminals bool   `json:"confirmTerminals"`
+}
+
+// own is the same request as the CLI's own surface takes it: the driver the
+// request named, the folder under the name the pane sends it, and the plugin
+// by name.
+func (req packageMutateReq) own() cliPackageRequest {
+	return cliPackageRequest{
+		CLI:              ownCLI(req.CLI),
+		Workspace:        firstNonEmpty(req.Workspace, req.WorkspaceID),
+		Scope:            req.Scope,
+		Name:             req.Name,
+		Source:           req.Source,
+		RequestKey:       req.RequestKey,
+		ConfirmTerminals: req.ConfirmTerminals,
+	}
 }
 
 func handleInstallPackage(deps Deps) http.HandlerFunc {
@@ -133,6 +188,10 @@ func handleInstallPackage(deps Deps) http.HandlerFunc {
 		var req packageMutateReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if ownCLI(req.CLI) != "" {
+			vendorPackageJob(deps, "pkg-install", req.own())(w, r)
 			return
 		}
 		if req.Scope == "agent" {
@@ -172,6 +231,10 @@ func handleUpdatePackage(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
+		if ownCLI(req.CLI) != "" {
+			vendorPackageJob(deps, "pkg-update", req.own())(w, r)
+			return
+		}
 		if req.Scope == "agent" {
 			writeErr(w, http.StatusBadRequest, "this-agent packages update on the next start")
 			return
@@ -199,24 +262,25 @@ func handleUpdatePackage(deps Deps) http.HandlerFunc {
 
 func handleRemovePackage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// A removal names what it takes back in the query (Pi's own call) or in
+		// the body (the CLI's own surface, with the plugin by name); one path
+		// reads both.
 		source := r.URL.Query().Get("source")
 		scope := r.URL.Query().Get("scope")
 		wsID := r.URL.Query().Get("workspace")
 		agentID := r.URL.Query().Get("agent")
-		if source == "" {
-			var req packageMutateReq
+		var req packageMutateReq
+		if r.Body != nil && r.ContentLength != 0 {
 			_ = json.NewDecoder(r.Body).Decode(&req)
-			source = req.Source
-			if scope == "" {
-				scope = req.Scope
-			}
-			if wsID == "" {
-				wsID = req.WorkspaceID
-			}
-			if agentID == "" {
-				agentID = req.AgentID
-			}
 		}
+		if ownCLI(req.CLI) != "" {
+			vendorPackageJob(deps, "pkg-remove", req.own())(w, r)
+			return
+		}
+		source = firstNonEmpty(source, req.Source)
+		scope = firstNonEmpty(scope, req.Scope)
+		wsID = firstNonEmpty(wsID, req.WorkspaceID)
+		agentID = firstNonEmpty(agentID, req.AgentID)
 		if scope == "agent" {
 			rep, err := mutateAgentPackage(r.Context(), deps, agentID, source, false)
 			if err != nil {
