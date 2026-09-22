@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cfpperche/picode/internal/gitinfo"
+	"github.com/cfpperche/picode/internal/osopen"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -23,6 +24,11 @@ type workspaceView struct {
 	Agents     []agentView   `json:"agents"`
 	Git        *gitinfo.Info `json:"git,omitempty"`
 	HasFavicon bool          `json:"hasFavicon"`
+	// The menu's ways out of PiCode: the repository's web page (nil for a
+	// plain folder or a remote with no web host) and, under WSL, the path
+	// Windows uses for the folder (Copy path offers both).
+	Remote  *gitinfo.Remote `json:"remote,omitempty"`
+	WinPath string          `json:"winPath,omitempty"`
 }
 
 type agentView struct {
@@ -107,7 +113,12 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 	if len(views) > 0 {
 		first = &views[0]
 	}
-	return workspaceView{Workspace: w, Agent: first, Agents: views, Git: gitinfo.Inspect(w.Path), HasFavicon: workspaceHasFavicon(w.Path)}, nil
+	v := workspaceView{Workspace: w, Agent: first, Agents: views, Git: gitinfo.Inspect(w.Path), HasFavicon: workspaceHasFavicon(w.Path)}
+	if v.Git != nil {
+		v.Remote = gitinfo.RemoteOf(w.Path)
+	}
+	v.WinPath, _ = osopen.WindowsPath(w.Path)
+	return v, nil
 }
 
 func handleList(deps Deps) http.HandlerFunc {
