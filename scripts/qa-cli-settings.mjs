@@ -232,54 +232,63 @@ try {
     browser("wait", "--fn", 'location.hash.endsWith("/keyboard") && !!document.querySelector("#keys-filter")');
     results.push(app + ": the keyboard map is its own pane, and the old sub-tab link lands on it");
 
-    // The same screen for a CLI whose map PiCode writes through its own file
-    // (P2b): Omp's rows come from the registry's catalog, a captured chord lands
-    // in Omp's file, and Reset all hands every row back. The fixture's HOME is
-    // its own, so none of this touches the machine's real ~/.omp.
-    navigate("#/clis/omp/keyboard");
-    browser("wait", "--fn", 'document.querySelectorAll("#cli-settings-view .key-pane[data-cli=omp] .key-row").length > 60');
-    const ompReport = await api("/api/cli-keys?cli=omp");
-    assert.equal(ompReport.state, "shipped");
-    assert.equal(ompReport.keymap, "flat");
-    assert.equal(evaluate('document.querySelectorAll("#cli-settings-view .key-pane[data-cli=omp] .key-row").length'), ompReport.actions.length, "the pane lists the catalog the CLI has");
-    assert.equal(evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-bar .key-facet").textContent'), "All" + ompReport.actions.length);
-    assert.match(evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .settings-desc code").textContent'), /keybindings\.(yml|yaml|json)/, "the pane names the file it writes");
-    assert.match(evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .settings-desc").textContent'), /restart it/, "the pane says how the CLI picks a change up");
-    headPane("omp");
-    await settleToasts();
-    await capture(app + "-keyboard-omp");
-    const ompRow = ompReport.actions[0];
-    evaluate('(() => { const row = document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-row"); row.scrollIntoView({ block: "center" }); [...row.querySelectorAll("button")].find(b => b.textContent === "Add key").click(); return true; })()');
-    browser("wait", "--fn", '!!document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-chip.is-listen")');
-    browser("press", "Control+Alt+o");
-    let ompBound = "";
-    for (let i = 0; i < 20 && !ompBound; i++) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-      ompBound = (((await api("/api/cli-keys?cli=omp")).user || {})[ompRow.id] || []).find(key => /ctrl\+alt\+o/i.test(key)) || "";
+    // The same screen for the CLIs whose maps PiCode writes through their own
+    // files (P2b, P3): Omp's flat YAML and Codex's nested TOML render from the
+    // registry's catalog, a captured chord lands in that CLI's file in that
+    // CLI's own spelling, and Reset all hands every row back. The fixture's HOME
+    // is its own, so none of this touches the machine's real ~/.omp or ~/.codex.
+    for (const guest of [
+      { cli: "omp", rows: 70, chord: "Control+Alt+o", spelled: /ctrl[+-]alt[+-]o/i, file: /keybindings\.(yml|yaml|json)/ },
+      { cli: "codex", rows: 146, chord: "Control+Alt+m", spelled: /ctrl-alt-m/i, file: /config\.toml/ },
+    ]) {
+      const { cli } = guest;
+      navigate("#/clis/" + cli + "/keyboard");
+      browser("wait", "--fn", `document.querySelectorAll('#cli-settings-view .key-pane[data-cli=${cli}] .key-row').length > ${guest.rows - 10}`);
+      const report = await api("/api/cli-keys?cli=" + cli);
+      assert.equal(report.state, "shipped", cli + " ships an editor");
+      assert.equal(evaluate(`document.querySelectorAll('#cli-settings-view .key-pane[data-cli=${cli}] .key-row').length`), report.actions.length, cli + "'s pane lists the catalog the CLI has");
+      assert.equal(evaluate(`document.querySelector('#cli-settings-view .key-pane[data-cli=${cli}] .key-bar .key-facet').textContent`), "All" + report.actions.length);
+      assert.match(evaluate(`document.querySelector('#cli-settings-view .key-pane[data-cli=${cli}] .settings-desc code').textContent`), guest.file, cli + "'s pane names the file it writes");
+      headPane(cli);
+      await settleToasts();
+      await capture(app + "-keyboard-" + cli);
+      const row = report.actions[0];
+      // The capture above is a pause in the flow, not a state to lean on: the
+      // pane is re-asserted here, so a re-render between the two cannot turn
+      // this click into a TypeError on a missing row (2026-09-21).
+      browser("wait", "--fn", `!!document.querySelector('#cli-settings-view .key-pane[data-cli=${cli}] .key-row')`);
+      evaluate(`(() => { const r = document.querySelector('#cli-settings-view .key-pane[data-cli=${cli}] .key-row'); r.scrollIntoView({ block: "center" }); [...r.querySelectorAll("button")].find(b => b.textContent === "Add key").click(); return true; })()`);
+      browser("wait", "--fn", `!!document.querySelector('#cli-settings-view .key-pane[data-cli=${cli}] .key-chip.is-listen')`);
+      browser("press", guest.chord);
+      let bound = "";
+      for (let i = 0; i < 20 && !bound; i++) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+        bound = (((await api("/api/cli-keys?cli=" + cli)).user || {})[row.id] || []).find(k => guest.spelled.test(k)) || "";
+      }
+      assert.ok(bound, cli + ": the captured chord must reach the CLI's own file, in its own spelling");
+      assert.equal(evaluate(`document.querySelectorAll('#cli-settings-view .key-pane[data-cli=${cli}] .key-row.is-changed').length`), 1);
+      assert.equal(evaluate(`!!document.querySelector('#cli-settings-view .key-pane[data-cli=${cli}] .key-bar .btn')`), true, cli + ": a changed map offers Reset all");
+      headPane(cli);
+      await settleToasts();
+      await capture(app + "-keyboard-" + cli + "-changed");
+      evaluate(`document.querySelector('#cli-settings-view .key-pane[data-cli=${cli}] .key-bar .btn').click(); true`);
+      browser("wait", "[role=alertdialog], .dlg");
+      browser("wait", "--fn", '(() => { const d = document.querySelector("[role=alertdialog], .dlg"); if (!d) return false; const r = d.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()');
+      await capture(app + "-keyboard-" + cli + "-reset-all", true);
+      evaluate('(() => { const d = document.querySelector("[role=alertdialog]") || document.querySelector(".dlg"); [...d.querySelectorAll("button")].find(b => b.textContent.trim() === "Reset all").click(); return true; })()');
+      let cleared = false;
+      for (let i = 0; i < 20 && !cleared; i++) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+        cleared = Object.keys((await api("/api/cli-keys?cli=" + cli)).user || {}).length === 0;
+      }
+      assert.ok(cleared, cli + ": Reset all must hand every row back");
     }
-    assert.ok(ompBound, "the captured chord must reach the CLI's own file");
-    assert.equal(evaluate('document.querySelectorAll("#cli-settings-view .key-pane[data-cli=omp] .key-row.is-changed").length'), 1);
-    assert.equal(evaluate('!!document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-bar .btn")'), true, "a changed map offers Reset all");
-    headPane("omp");
-    await settleToasts();
-    await capture(app + "-keyboard-omp-changed");
-    evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=omp] .key-bar .btn").click(); true');
-    browser("wait", "[role=alertdialog], .dlg");
-    browser("wait", "--fn", '(() => { const d = document.querySelector("[role=alertdialog], .dlg"); if (!d) return false; const r = d.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()');
-    await capture(app + "-keyboard-omp-reset-all", true);
-    evaluate('(() => { const d = document.querySelector("[role=alertdialog]") || document.querySelector(".dlg"); [...d.querySelectorAll("button")].find(b => b.textContent.trim() === "Reset all").click(); return true; })()');
-    let ompCleared = false;
-    for (let i = 0; i < 20 && !ompCleared; i++) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-      ompCleared = Object.keys((await api("/api/cli-keys?cli=omp")).user || {}).length === 0;
-    }
-    assert.ok(ompCleared, "Reset all must hand every row back");
     results.push(app + ": another CLI's map is edited through the same screen and its own file");
 
     // Every CLI the registry knows answers its own Keyboard pane (ADR-0174): a
     // guest gets its state and one action, and never Pi's rows — which is what
     // a pane that only knew one CLI used to render behind "coming soon".
-    for (const [cli, want] of [["hermes", /a few keys/], ["grok", /built in/], ["codex", /has not shipped yet/]]) {
+    for (const [cli, want] of [["hermes", /a few keys/], ["grok", /built in/], ["claude-code", /has not shipped yet/]]) {
       navigate(`#/clis/${cli}/keyboard`);
       browser("wait", "--fn", `!!document.querySelector('#cli-settings-view .key-pane[data-cli="${cli}"] .cli-notice a')`);
       assert.match(evaluate(`document.querySelector('#cli-settings-view .key-pane[data-cli="${cli}"] .cli-notice span').textContent`), want, cli + " must state its own case");

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // The document primitives a *key-map* writer needs (ADR-0174). Apply writes
@@ -60,65 +61,78 @@ func (d Doc) Revision() string { return d.revision }
 // Exists reports whether the file was there when it was opened.
 func (d Doc) Exists() bool { return d.exists }
 
-// value is the decoded value of one key. key is the file's own key, dots and
-// all: a key map's action ids are literal keys, never a nested path.
-func (d Doc) value(key string) (any, bool) { return lookup(d.doc, []string{key}) }
+// value is the decoded value at a path. A flat key map's action ids are literal
+// keys — dots and all, one element — while a nested map (`[tui.keymap.<context>.
+// <action>]`) names one element per level.
+func (d Doc) value(path []string) (any, bool) { return lookup(d.doc, path) }
 
-// Strings reads one key as the list of strings the format can carry: a bare
-// string is one entry, a list of strings is the list, and a key that is not
+// Strings reads one path as the list of strings the format can carry: a bare
+// string is one entry, a list of strings is the list, and a path that is not
 // there reports found=false. Any other shape is ErrShape — the caller names the
-// key and the file, because a key map that holds a table is a file PiCode must
-// not touch.
-func (d Doc) Strings(key string) (values []string, found bool, err error) {
-	v, ok := d.value(key)
+// row and the file, because a key map that holds a table where a chord list
+// belongs is a file PiCode must not touch.
+func (d Doc) Strings(path ...string) (values []string, found bool, err error) {
+	v, ok := d.value(path)
 	if !ok {
 		return nil, false, nil
 	}
 	out, err := asStrings(v)
 	if err != nil {
-		return nil, true, fmt.Errorf("%s: %w", key, err)
+		return nil, true, fmt.Errorf("%s: %w", strings.Join(path, "."), err)
 	}
 	return out, true, nil
 }
 
-// SetStrings replaces the value of one key with a list of strings, inserting
-// the key when the file does not have it. An existing value is spliced in place
-// when it is one line — so a comment beside it stays beside it — and removed
-// and re-inserted when it is a block, which a single span cannot address.
-func (d *Doc) SetStrings(key string, values []string) error {
-	if key == "" {
+// SetStrings replaces the value at a path with a list of strings, inserting it
+// when the file does not have it. An existing value is spliced in place when the
+// span is one line — so a comment beside it stays beside it — and removed and
+// re-inserted when it is a block, which a single span cannot address. The result
+// is re-parsed here, so a splice this package cannot do safely fails instead of
+// reaching the CLI as a broken file.
+func (d *Doc) SetStrings(path []string, values []string) error {
+	if len(path) == 0 {
 		return errors.New("no key to write")
 	}
+	name := strings.Join(path, ".")
 	lit, err := listLiteral(d.format, values)
 	if err != nil {
 		return err
 	}
-	if v, ok := d.value(key); ok {
+	if v, ok := d.value(path); ok {
 		if _, err := asStrings(v); err != nil {
-			return fmt.Errorf("%s: %w", key, err)
+			return fmt.Errorf("%s: %w", name, err)
 		}
-		start, end, ok := valueSpan(d.text, d.format, []string{key})
+		start, end, ok := valueSpan(d.text, d.format, path)
 		if ok && !bytes.Contains(d.text[start:end], []byte("\n")) {
+			// The splice happens in memory, so a value whose one-line span is
+			// only the *start* of it — a TOML array or a YAML block the user
+			// broke across lines — is caught here, undone, and refused by name
+			// instead of reaching the CLI as a broken file (2026-09-21).
+			before := d.text
 			d.text = append(append(append([]byte{}, d.text[:start]...), lit...), d.text[end:]...)
-			return d.reparse()
+			if err := d.reparse(); err != nil {
+				d.text = before
+				return fmt.Errorf("%s in %s is not a value PiCode can replace in place — it looks written over several lines; edit it there", name, d.path)
+			}
+			return nil
 		}
-		if d.text, err = removeValue(d.text, d.format, []string{key}); err != nil {
-			return fmt.Errorf("%s: %w", key, err)
+		if d.text, err = removeValue(d.text, d.format, path); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
 		}
 	}
-	if d.text, err = insertValue(d.text, d.format, []string{key}, lit); err != nil {
-		return fmt.Errorf("%s: %w", key, err)
+	if d.text, err = insertValue(d.text, d.format, path, lit); err != nil {
+		return fmt.Errorf("%s: %w", name, err)
 	}
 	return d.reparse()
 }
 
-// RemoveKey drops one key, so the CLI falls back to its own default, and takes
-// the container with it when that key was the last one in it. A key the file
-// does not set is not an error.
-func (d *Doc) RemoveKey(key string) error {
-	text, err := removeValue(d.text, d.format, []string{key})
+// Remove drops one path, so the CLI falls back to its own default, and takes the
+// container with it when that key was the last one in it. A path the file does
+// not set is not an error.
+func (d *Doc) Remove(path ...string) error {
+	text, err := removeValue(d.text, d.format, path)
 	if err != nil {
-		return fmt.Errorf("%s: %w", key, err)
+		return fmt.Errorf("%s: %w", strings.Join(path, "."), err)
 	}
 	d.text = text
 	return d.reparse()
@@ -194,10 +208,18 @@ func listLiteral(f Format, values []string) (string, error) {
 		b.WriteByte(']')
 		return b.String(), nil
 	case FormatTOML:
-		// A TOML array would splice as one line, but no key map PiCode writes
-		// is TOML (codex's is nested and gets its own engine): refuse rather
-		// than ship a path nothing has exercised.
-		return "", fmt.Errorf("this format cannot carry a key map")
+		// A TOML array of strings is written the way JSON writes one, which is
+		// also valid TOML (`submit = ["ctrl+m", "alt+m"]`).
+		var b bytes.Buffer
+		b.WriteByte('[')
+		for i, v := range values {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(quoteJSON(v))
+		}
+		b.WriteByte(']')
+		return b.String(), nil
 	}
 	return "", fmt.Errorf("unknown format %q", f)
 }

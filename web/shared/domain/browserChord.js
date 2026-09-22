@@ -62,6 +62,21 @@ export function isReservedChord(chord) {
   return RESERVED.has(chord);
 }
 
+// The same question for a CLI that spells its chords differently: codex writes
+// `ctrl-t` where this set writes `ctrl+t`, and a key name of its own carries a
+// hyphen (`page-down`), so only the leading modifiers are rewritten. Returns the
+// reserved chord in this set's spelling, or null.
+const CHORD_MODS = ["ctrl", "alt", "shift"];
+export function reservedChordOf(chord, vocab) {
+  if (RESERVED.has(chord)) return chord;
+  if (vocab !== "codex" || !chord) return null;
+  const parts = chord.split("-");
+  let i = 0;
+  while (i < parts.length && CHORD_MODS.includes(parts[i])) i++;
+  const pane = [...parts.slice(0, i), parts.slice(i).join("-")].join("+");
+  return RESERVED.has(pane) ? pane : null;
+}
+
 // The first reserved chord in a list, or null — the guard used by the
 // app-keys tests: a default that the browser would eat can never work
 // (appKeys.js deliberately stays off this set).

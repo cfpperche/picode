@@ -55,10 +55,11 @@ test("a pane with no editor carries one line and one action", () => {
   assert.match(muse.line, /does not allow remapping/);
   assert.match(muse.line, /\/keymap/);
 
-  const codex = blockNote("codex");
-  assert.match(codex.line, /has not shipped yet/);
-  assert.equal(codex.action, "Open the documentation");
-  assert.match(codex.href, /^https:\/\//);
+  // Codex has an editor now; Claude Code is the adapter still to come.
+  const planned = blockNote("claude-code");
+  assert.match(planned.line, /has not shipped yet/);
+  assert.equal(planned.action, "Open the documentation");
+  assert.match(planned.href, /^https:\/\//);
 
   // A CLI with no key map file at all is not waiting for an adapter: its three
   // keys are rows PiCode already edits, so the action is navigation, not a
@@ -69,7 +70,7 @@ test("a pane with no editor carries one line and one action", () => {
   assert.equal(hermes.action, "Open Settings");
   assert.equal(hermes.href, "#/clis/hermes/settings");
   assert.equal(noteIsExternal(hermes), false, "an in-app route is not a new tab");
-  assert.equal(noteIsExternal(codex), true);
+  assert.equal(noteIsExternal(planned), true);
 
   assert.equal(blockNote("pi"), null, "a shipped CLI has no blocked note");
   assert.equal(blockNote("nonesuch"), null);

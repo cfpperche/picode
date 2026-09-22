@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
-import { isReservedChord } from "@picode/shared/domain/browserChord.js";
+import { reservedChordOf } from "@picode/shared/domain/browserChord.js";
 import { effectiveKeys, isOverride, matchKeys, platformAlternates, fromEvent } from "@picode/shared/domain/piKey.js";
 import { formatChord } from "../lib/appKeys.js";
 import { KEYBOARD_CLIS, keyboardRow, pickupLine } from "@picode/shared/domain/cliKeys.js";
@@ -33,6 +33,11 @@ export default function PiKeys({ disabled = false, cli = "pi" }) {
   useEffect(() => { load(); }, []);
 
   const platform = rep?.platform || "";
+  // The chords the file holds are written in the CLI's own spelling (codex's
+  // `ctrl-t`, pi's and omp's `ctrl+k`): the display keeps it, the filter's own
+  // chip speaks the pane's capture syntax.
+  const vocab = rep?.vocab || "";
+  const fmt = (chord) => formatChord(chord, vocab);
   const user = rep?.user || {};
   // Rows the file holds in a shape PiCode does not rewrite are dropped from the
   // list rather than drawn with the CLI's default: showing a default over a
@@ -273,7 +278,7 @@ export default function PiKeys({ disabled = false, cli = "pi" }) {
             const keys = effectiveKeys(a, user, platform);
             const changed = isOverride(a, user);
             const waiting = listen === a.id;
-            const reserved = keys.filter(isReservedChord);
+            const reserved = keys.map((k) => reservedChordOf(k, vocab)).filter(Boolean);
             const others = [];
             for (const chord of keys) {
               for (const other of index.get(chord) || []) {
@@ -296,11 +301,11 @@ export default function PiKeys({ disabled = false, cli = "pi" }) {
                 <div className="key-keys" data-align-row data-align-wrap>
                   {keys.map((k) => (
                     <span key={k} className="key-chip">
-                      <kbd>{formatChord(k)}</kbd>
+                      <kbd>{fmt(k)}</kbd>
                       <button
                         type="button"
                         className="key-x"
-                        aria-label={"Remove " + formatChord(k)}
+                        aria-label={"Remove " + fmt(k)}
                         disabled={disabled || waiting}
                         onClick={() => save(a.id, keys.filter((x) => x !== k))}
                       >×</button>
@@ -322,7 +327,7 @@ export default function PiKeys({ disabled = false, cli = "pi" }) {
                 ) : null}
                 {!waiting && reserved.length ? (
                   <p className="key-note is-warn">
-                    The browser keeps {reserved.map(formatChord).join(" and ")} — {CLI.label} never receives {reserved.length > 1 ? "them" : "it"} in a tab.
+                    The browser keeps {reserved.map((c) => formatChord(c)).join(" and ")} — {CLI.label} never receives {reserved.length > 1 ? "them" : "it"} in a tab.
                   </p>
                 ) : null}
                 {!waiting && others.length ? (

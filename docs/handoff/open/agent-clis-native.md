@@ -98,3 +98,55 @@
   `span.notice-text`" pass in the same run. Row (1) is still red and still
   reproduced: the run stopped at the same blocked-project-layer `ready()`. Row
   (2) lives in `qa-cli-settings-recovery.mjs`, not re-measured here.
+
+- **Codex's catalog is missing three rows the CLI accepts** (found 2026-09-21 by the
+  live check below). Setting an action the config does not know makes codex refuse
+  the file and print its own list for that context:
+  `[tui.keymap.global]` takes **12** names — `open_agents, open_transcript,
+  open_external_editor, copy, clear_terminal, submit, queue, toggle_shortcuts,
+  toggle_vim_mode, toggle_fast_mode, toggle_raw_output, toggle_side_conversation`
+  — while `CodexCatalog` has 9 there: `submit`, `queue` and `toggle_shortcuts` are
+  absent. They are real: the resolver reads `keymap.global.submit` /
+  `.queue` as the *global fallback* for the composer's own slots
+  (`configured_binding_for_action`, bindings.rs) when the composer's are unset, so
+  a user can set them today and PiCode's pane cannot show or change them. The
+  cause: the catalog was built from the runtime inventory (146 actions, the set
+  `/keymap` exposes), while the *file's* vocabulary is the generated schema (149
+  keys) — the three extra are exactly these fallback slots. The fix is to take the
+  schema's per-context key list as the catalog's source (149 rows) and to render
+  these three rows' defaults honestly (the fallback resolves to the built-in
+  default of the action they stand in for), with a test that every key the CLI's
+  own struct accepts is in the catalog.
+
+ (2026-09-21,
+  the question that made it visible). The shipped rows rest on *the vendor's own
+  code and docs*, read at the installed build's tag and cited per row — omp's
+  bundle (the file it resolves, its parser, and that its manager reads at startup
+  with nothing calling `reload()`), codex's generated schema plus
+  `built_in_defaults()` and `startup.rs` — and on round-trip tests through
+  PiCode's own format layer. What nobody has watched is the other end: start the
+  CLI with a binding PiCode wrote and press the key. That is the experiment, and
+  both are runnable without touching the machine's real config: omp honours
+  `PI_CONFIG_DIR`, and codex takes an isolated `HOME` with a copy of `~/.codex`
+  in it. Either it applies the binding (the claim is observed) or it does not (the
+  row, its pickup and the pane's sentence are wrong and must change).
+
+- **Antigravity's key map is researched and not declared** (P3, 2026-09-21).
+  Measured: `~/.gemini/antigravity-cli/keybindings.json`, 36 ids in 10
+  namespaces, `id -> [chord]`, one *override* layer — the vendor documents
+  per-action fallback and "delete the file to restore defaults", so removing a
+  row returns to the built-in default rather than leaving a hole, and `[]`
+  disables a default. No checksum or signature: a byte-preserving splice is safe,
+  and the CLI never rewrites the file itself (mtime old while sessions ran).
+  Two open points, both cheap: (a) **the pickup is unmeasured** — there is no
+  `/reload` and the docs only say settings load at startup, but the binary has a
+  `file_watcher.go`, so the honest sentence ("restart it") needs the experiment:
+  remap `cli.cycle_mode` from `shift+tab` to `ctrl+n` in a live `agy` session
+  (tmux + a trust prompt) and press both keys — the footer's mode chip says which
+  one the session is still honouring. **Restore the file from a backup
+  afterwards** (the first attempt at this left the user's file rewritten and had
+  to be restored byte-for-byte); (b) **the labels**: the vendor publishes two
+  documentation generations — `/docs/cli/using` and `/docs/cli/vim-editor-mode`
+  match the installed build row-for-row, `/docs/cli/reference` has drifted to
+  renamed ids (`prompt.*`) — so the catalog comes from the first two, or the rows
+  are labelled from their ids.
