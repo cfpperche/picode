@@ -123,7 +123,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
           onChange={(e) => setName(e.target.value)}
           disabled={!!busy}
         />
-        {free ? <FolderField name="path" placeholder="Folder (optional — a private work folder when empty)" value={path} onChange={setPath} resetKey={open} /> : null}
+        {free ? <FolderField name="path" placeholder="Folder (optional)" value={path} onChange={setPath} resetKey={open} /> : null}
         <p className="form-error" hidden={!error}>{error}</p>
         <div className="dlg-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={!!busy}>Cancel</button>
@@ -139,7 +139,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">{title}</Dialog.Title>
-          <Dialog.Description className="dlg-body">{free ? "Pick which agent runs, and the folder it works in." : "Pick which agent runs in this folder."}</Dialog.Description>
+          <Dialog.Description className="dlg-body">{free ? "Pick which agent runs, and the folder it works in. Leave the folder empty for a private one." : "Pick which agent runs in this folder."}</Dialog.Description>
           {body}
         </Dialog.Content>
       </Dialog.Portal>
