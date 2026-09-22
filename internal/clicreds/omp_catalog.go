@@ -198,7 +198,12 @@ func parseOMPRules(raw []byte, declared []Provider) []Provider {
 			env = a.Env.Vars[0]
 		}
 		signIn := a.Login != nil && a.Login.Kind != "" && a.Login.Kind != "api-key"
-		p := Provider{Provider: id, Name: strings.TrimSpace(a.Name)}
+		// Omp tells two doors to one vendor apart in its /login list with a
+		// "· Sign in" tag ("Z.AI (GLM Coding Plan · Sign in)"); the pane
+		// already says how each provider signs in, so the tag would only
+		// repeat itself in the dialog's sentence.
+		name := strings.TrimSpace(strings.ReplaceAll(a.Name, " · Sign in", ""))
+		p := Provider{Provider: id, Name: name}
 		if env != "" {
 			p.Kinds = append(p.Kinds, KindAPIKey)
 			p.Env = map[string]string{KindAPIKey: env}

@@ -41,7 +41,7 @@ func TestParseOMPRules(t *testing.T) {
 	wants := map[string]want{
 		"cerebras":        {name: "Cerebras", kinds: []string{KindAPIKey}, env: "CEREBRAS_API_KEY"},
 		"devin":           {name: "Devin", kinds: []string{KindAPIKey, KindOAuth}, env: "DEVIN_API_KEY", note: noteOmpStore},
-		"zai-coding-plan": {name: "Z.AI (GLM Coding Plan · Sign in)", kinds: []string{KindOAuth}, note: noteOmpLogin},
+		"zai-coding-plan": {name: "Z.AI (GLM Coding Plan)", kinds: []string{KindOAuth}, note: noteOmpLogin},
 		"tavily":          {name: "Tavily", kinds: []string{KindAPIKey}, env: "TAVILY_API_KEY"},
 		"groq":            {name: "Groq", kinds: []string{KindAPIKey}, env: "GROQ_API_KEY"},
 	}

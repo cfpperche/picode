@@ -210,7 +210,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     if (!add || !data || unreadable) return;
     // The route asked for the door the bar's primary opens; the roster is what
     // says which that is, and pi's catalog is what fills the provider list.
-    if (addKind === "provider") { if (catalog) setAddProviderOpen(true); return; }
+    if (addKind === "provider") { if (cli !== "pi" || catalog) setAddProviderOpen(true); return; }
     if (addKind === "key") openAdd("");
     // The route asked for the dialog; the roster is what fills its provider list.
   }, [add, !!data, unreadable, addKind, !!catalog]);
@@ -736,13 +736,19 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
         )}
       </> : null}
 
-      {/* pi's own door: OAuth and API keys through pi's login (ADR-0169). The
-          catalog it reads is the one this pane fetched for the model picker. */}
+      {/* pi's Add flow, for pi (its catalog, ADR-0169) and for the guests whose
+          roster asks for it (omp): search, method, key or account, custom. */}
       <AddProviderDialog
         open={addProviderOpen}
         catalog={catalog}
+        cli={cli}
+        roster={cli === "pi" ? null : data}
         onClose={closeAddProvider}
         onSaved={async () => { await load(); await loadCatalog(); }}
+        onTerminalSignin={(res) => {
+          const launchError = res && res.terminal && res.terminal.launchError;
+          setSignin({ hint: (res && res.hint) || "", error: launchError ? String(launchError) : "", terminalId: (res && res.terminalId) || "", stamp: (res && res.stamp) || "" });
+        }}
       />
 
       <Dialog.Root open={addOpen} onOpenChange={(open) => { if (!open) closeAdd(); }}>

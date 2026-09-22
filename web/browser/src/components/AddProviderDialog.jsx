@@ -5,7 +5,8 @@ import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { apiKeySchema, llamaLoginSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { go } from "../lib/routes.js";
-import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
+import { cliProvidersHash, cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
+import { providerName } from "@picode/shared/domain/credentials.js";
 
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { pushRecent } from "@picode/shared/domain/providerRecents.js";
@@ -16,7 +17,16 @@ import { pushRecent } from "@picode/shared/domain/providerRecents.js";
 // already fetched, and reports back twice: onSaved once a credential landed
 // (the parent reloads its roster) and onClose when the dialog is dismissed.
 // The sign-in recents it writes are the app-wide store, not parent state.
-export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
+//
+// pi's flow is the model every CLI gets (the owner's call, 2026-09-22): a
+// guest CLI passes its roster instead of pi's catalog, and the dialog offers
+// exactly the doors that CLI has natively — a key where the roster names the
+// variable it is passed in, an account where the roster says how the sign-in
+// runs (PiCode's browser flow, or the CLI's own login in a terminal, handed
+// back through onTerminalSignin), and Custom provider where the CLI keeps
+// definitions of its own.
+export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli = "pi", roster = null, onTerminalSignin }) {
+  const guest = cli !== "pi";
   // A login in flight is abandoned by closing or going back, never by a
   // late status poll landing on the step the user has already left.
   const oauthAttempt = useRef(0);
@@ -30,11 +40,15 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
   const [userCode, setUserCode] = useState("");
   const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
 
-  const list = catalog && catalog.providers ? catalog.providers : [];
+  const list = guest ? guestPicks(roster) : catalog && catalog.providers ? catalog.providers : [];
   const available = useMemo(
-    () => list.filter((p) => !p.signedIn).sort((a, b) => a.id.localeCompare(b.id)),
+    () => guest
+      ? [...list].sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }))
+      : list.filter((p) => !p.signedIn).sort((a, b) => a.id.localeCompare(b.id)),
     [list],
   );
+  const customDoor = guest ? !!(roster && roster.custom && roster.custom.available) : true;
+  const label = (p) => (p ? (guest ? p.label : p.id) : "");
 
   function reset() {
     setStep("pick");
@@ -85,7 +99,7 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
   function chooseProvider(p) {
     setPick(p);
     setErr("");
-    if (p.id === "llama.cpp") { setStep("llama"); return; }
+    if (!guest && p.id === "llama.cpp") { setStep("llama"); return; }
     // An unsigned custom definition has a row nowhere: picking it from the
     // picker opens the Edit form so a wrong URL/model can be fixed, instead
     // of a key-only sign-in into a broken endpoint.
@@ -102,13 +116,23 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
     setBusy(true);
     setErr("");
     try {
-      await api("/api/providers/" + encodeURIComponent(pick.id), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: parsed.value.key }),
-      });
-      pushRecent(pick.id);
-      toast.ok("Signed in to " + pick.id + ".");
+      if (guest) {
+        // A guest's key lands in the vault; the CLI reads it through the
+        // variable its roster names (omp: at launch, ADR-0178).
+        await api("/api/credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: pick.id, label: "", key: parsed.value.key }),
+        });
+      } else {
+        await api("/api/providers/" + encodeURIComponent(pick.id), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: parsed.value.key }),
+        });
+        pushRecent(pick.id);
+      }
+      toast.ok(guest ? "Key saved for " + label(pick) + "." : "Signed in to " + pick.id + ".");
       await saved();
     } catch (ex) {
       toastError(ex);
@@ -146,12 +170,25 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
     setBusy(true);
     setErr("");
     try {
-      const res = await api("/api/oauth/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: pick.id, returnTo: cliProvidersReturnTo(location.href) }),
-      });
+      const res = guest
+        ? await api("/api/credentials/signin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cli, provider: pick.id }),
+        })
+        : await api("/api/oauth/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: pick.id, returnTo: cliProvidersReturnTo(location.href) }),
+        });
       if (!current()) return;
+      // The CLI's own login runs in a terminal: the pane's sign-in strip owns
+      // it from here (the door to that terminal and Check now), not a modal.
+      if (guest && !res.oauth) {
+        close();
+        if (onTerminalSignin) onTerminalSignin(res);
+        return;
+      }
       if (res && res.userCode) setUserCode(res.userCode);
       if (res && res.url) window.open(res.url, "_blank", "noopener");
       setWaiting(true);
@@ -164,8 +201,8 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
         if (st && st.done) {
           setWaiting(false);
           if (st.error) { setErr(st.error); return; }
-          toast.ok("Signed in to " + pick.id + ".");
-          pushRecent(pick.id);
+          toast.ok("Signed in to " + label(pick) + ".");
+          if (!guest) pushRecent(pick.id);
           await saved();
           return;
         }
@@ -181,8 +218,10 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
     }
   }
 
-  const canAccount = pick && ["anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai"].includes(String(pick.id).toLowerCase());
-  const title = !pick ? "Add provider" : step === "method" || step === "oauth" || step === "llama" ? pick.id : "API key · " + pick.id;
+  const canAccount = pick && (guest ? !!pick.signin : ["anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai"].includes(String(pick.id).toLowerCase()));
+  const inTerminal = guest && pick && pick.signin === "terminal";
+  const cliName = guest ? (roster && roster.cliName) || cli : "pi";
+  const title = !pick ? "Add provider" : step === "method" || step === "oauth" || step === "llama" ? label(pick) : "API key · " + label(pick);
 
   // Custom endpoint (ADR-0129) lives on its own page (CustomEndpointPage):
   // the form outgrew the dialog. These entries close the dialog and navigate;
@@ -190,11 +229,13 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
   // modal.
   function startCustom() {
     close();
+    if (guest) { location.hash = cliProvidersHash(cli, { custom: true }); return; }
     go("providers-custom");
   }
 
   function editCustom(p) {
     close();
+    if (guest) { location.hash = cliProvidersHash(cli, { custom: true, customId: p.id }); return; }
     go("providers-custom", "", { customId: p.id });
   }
 
@@ -205,7 +246,7 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
         <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">{title}</Dialog.Title>
           <Dialog.Description className="dlg-body">
-            {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
+            {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : inTerminal ? cliName + " signs in to " + label(pick) + " in a terminal of its own; PiCode opens it for you." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
           </Dialog.Description>
 
           {step === "pick" ? (
@@ -216,15 +257,17 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
                 {/* forceMount: the custom door survives any search — typing
                     a name the catalog does not know is exactly when it is
                     needed. */}
-                <Command.Item forceMount value="custom provider endpoint gateway openai compatible base url" className="cockpit-opt" onSelect={startCustom}>
-                  <span className="ws-face" aria-hidden="true">+</span>
-                  <span>Custom provider</span>
-                  <span className="combo-hint">any OpenAI-compatible gateway</span>
-                </Command.Item>
+                {customDoor ? (
+                  <Command.Item forceMount value="custom provider endpoint gateway openai compatible base url" className="cockpit-opt" onSelect={startCustom}>
+                    <span className="ws-face" aria-hidden="true">+</span>
+                    <span>Custom provider</span>
+                    <span className="combo-hint">any OpenAI-compatible gateway</span>
+                  </Command.Item>
+                ) : null}
                 {available.map((p) => (
-                  <Command.Item key={p.id} value={p.id + " " + p.login} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
+                  <Command.Item key={p.id} value={p.id + " " + label(p) + " " + p.login} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
                     <ProviderFace id={p.id} />
-                    <span>{p.id}</span>
+                    <span>{label(p)}</span>
                     <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.custom ? "custom provider" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
                   </Command.Item>
                 ))}
@@ -249,7 +292,7 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
               <div className="dlg-actions" data-align-row data-align-wrap>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                 {canAccount ? (
-                  <button type="button" className="btn btn-primary btn-sm" disabled={busy || waiting} onClick={startAccount}>{waiting ? "Waiting…" : "Continue in browser"}</button>
+                  <button type="button" className="btn btn-primary btn-sm" disabled={busy || waiting} onClick={startAccount}>{waiting ? "Waiting…" : inTerminal ? (busy ? "Opening…" : "Open sign-in") : "Continue in browser"}</button>
                 ) : (
                   <button type="button" className="btn btn-primary btn-sm" onClick={close}>Close</button>
                 )}
@@ -283,4 +326,27 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
       </Dialog.Portal>
     </Dialog.Root>
   );
+}
+
+// guestPicks turns a guest CLI's roster into the picker's rows, keeping only
+// the doors that CLI has natively: a key where the roster names the variable
+// it is passed in, an account where it says how the sign-in runs, and its own
+// custom definitions (which open their Edit page). A provider with neither is
+// not offered.
+function guestPicks(roster) {
+  const rows = roster && Array.isArray(roster.providers) ? roster.providers : [];
+  const out = [];
+  for (const p of rows) {
+    const name = providerName(p.id, p.name);
+    if (p.custom && p.definition) {
+      out.push({ id: p.id, label: name, login: "key", custom: true, signedIn: false });
+      continue;
+    }
+    const kinds = p.kinds || [];
+    const key = kinds.includes("api_key") && !!(p.env && p.env.api_key);
+    const account = kinds.includes("oauth") && !!p.signin;
+    if (!key && !account) continue;
+    out.push({ id: p.id, label: name, login: key && account ? "both" : key ? "key" : "oauth", signin: p.signin || "" });
+  }
+  return out;
 }

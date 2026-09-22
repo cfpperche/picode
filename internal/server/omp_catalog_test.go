@@ -32,8 +32,8 @@ func TestOMPRosterCarriesItsCatalog(t *testing.T) {
 	if env, _ := row["env"].(map[string]any); env["api_key"] != "CEREBRAS_API_KEY" {
 		t.Fatalf("cerebras env = %+v", row["env"])
 	}
-	if plan := ompRosterRow(t, ts, "zai-coding-plan"); plan == nil || plan["note"] == "" {
-		t.Fatalf("a sign-in-only provider must say where its login happens: %+v", plan)
+	if plan := ompRosterRow(t, ts, "zai-coding-plan"); plan == nil || plan["note"] == "" || plan["signin"] != "terminal" {
+		t.Fatalf("a sign-in-only provider the OAuth engine does not know signs in through omp's own /login: %+v", plan)
 	}
 	// Another CLI's roster is untouched.
 	roster := cliRequest(t, ts, "GET", "/api/credentials?cli=opencode", nil, 200)
@@ -54,5 +54,37 @@ func TestOMPRosterCarriesItsCatalog(t *testing.T) {
 	}
 	if got["CEREBRAS_API_KEY"] != "csk-test-1234567890" {
 		t.Fatalf("launch env = %+v, want CEREBRAS_API_KEY", got)
+	}
+}
+
+// Omp opens pi's Add flow (add.kind "provider"), and each provider says how
+// its account sign-in runs: PiCode's browser flow where the OAuth engine
+// knows it, the CLI's own /login in a terminal otherwise, nothing where the
+// provider takes only a key. Other guests keep the key form.
+func TestOMPRosterSaysHowEachSigninRuns(t *testing.T) {
+	ts, _, _, _ := credentialsServer(t)
+	roster := cliRequest(t, ts, "GET", "/api/credentials?cli=omp", nil, 200)
+	if add, _ := roster["add"].(map[string]any); add["kind"] != "provider" {
+		t.Fatalf("omp add = %+v, want the provider dialog", roster["add"])
+	}
+	cases := map[string]string{
+		"anthropic":   "browser", // the OAuth engine signs it in
+		"kimi-coding": "browser",
+		"google":      "", // key only
+		"openrouter":  "", // declared key-only for omp
+	}
+	for id, want := range cases {
+		row := ompRosterRow(t, ts, id)
+		if row == nil {
+			t.Fatalf("%s missing from the omp roster", id)
+		}
+		got, _ := row["signin"].(string)
+		if got != want {
+			t.Fatalf("%s signin = %q, want %q", id, got, want)
+		}
+	}
+	other := cliRequest(t, ts, "GET", "/api/credentials?cli=opencode", nil, 200)
+	if add, _ := other["add"].(map[string]any); add["kind"] != "key" {
+		t.Fatalf("opencode add = %+v, want the key form", other["add"])
 	}
 }

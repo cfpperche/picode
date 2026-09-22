@@ -75,6 +75,11 @@ type providerView struct {
 	// keeps one subscription row per provider here (ADR-0013's rule). The pane
 	// says so instead of letting a second import look like it vanished.
 	SingleOAuth bool `json:"singleOAuth,omitempty"`
+	// Signin is how an account sign-in for this provider runs from the Add
+	// dialog, where the CLI has one at all: "browser" when PiCode's own OAuth
+	// engine signs it in (omp, ADR-0178), "terminal" when the CLI's own login
+	// opens in a terminal. Empty means the dialog offers no account door.
+	Signin string `json:"signin,omitempty"`
 }
 
 // The two ways a CLI can check a credential (providerView.Verify).
@@ -152,6 +157,11 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 		} else {
 			sources = declarationSources(spec)
 			out["add"] = map[string]any{"kind": "key", "label": "Add provider"}
+			// omp opens pi's Add dialog — search, method, key or account,
+			// custom — fed by this roster instead of pi's catalog.
+			if spec.CLI == "omp" {
+				out["add"] = map[string]any{"kind": "provider", "label": "Add provider"}
+			}
 			// omp keeps provider definitions of its own in models.yml (the
 			// owner's amendment to ADR-0169): the same custom door pi has,
 			// with the definitions riding this roster as rows below.
@@ -162,6 +172,9 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 		providers := providerViews(spec, sources)
 		if spec.CLI == "omp" {
 			providers = appendOMPDefinitions(providers)
+		}
+		if spec.CLI != "pi" {
+			attachSignin(spec, providers)
 		}
 		attachRowUsage(providers, time.Now())
 		out["providers"] = providers
@@ -237,6 +250,33 @@ func appendOMPDefinitions(providers []providerView) []providerView {
 		})
 	}
 	return providers
+}
+
+// attachSignin says, per provider, which account sign-in the Add dialog can
+// run for a guest CLI: the browser flow the signin handler starts for omp
+// providers the OAuth engine knows, else the CLI's own login in a terminal.
+func attachSignin(spec clicreds.Spec, providers []providerView) {
+	for i := range providers {
+		p := &providers[i]
+		if !containsString(p.Kinds, clicreds.KindOAuth) {
+			continue
+		}
+		switch {
+		case spec.CLI == "omp" && oauth.Supports(p.ID):
+			p.Signin = "browser"
+		case spec.Login != nil:
+			p.Signin = "terminal"
+		}
+	}
+}
+
+func containsString(list []string, want string) bool {
+	for _, v := range list {
+		if v == want {
+			return true
+		}
+	}
+	return false
 }
 
 // providerViews turns a provider list into the roster's rows, reading the

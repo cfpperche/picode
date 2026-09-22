@@ -60,8 +60,18 @@ it renders as the provider's own highlighted line ("me@example.com is signed
 in here") with the single action **Import into the vault**, and the row
 disappears as the account appears above it. The bar's primary action is
 per CLI (`add` in the roster) and is called **Add provider** for all of
-them: pi's dialog runs pi's own OAuth or stores a key and carries the door
-to the custom-endpoint page; a guest's dialog holds a provider `<select>`
+them: pi's dialog (`AddProviderDialog.jsx`) runs pi's own OAuth or stores a
+key and carries the door to the custom-endpoint page. pi's flow is the model
+for every CLI (the owner's call, 2026-09-22); omp is the first guest on it
+(`add.kind: "provider"`). Fed the guest's roster instead of pi's catalog, it
+offers only the doors that CLI has natively: a key where the row names the
+variable it is passed in (`env.api_key`), saved with `POST /api/credentials`;
+an account where the row's `signin` says how — `browser` (PiCode's OAuth
+engine, polled like pi's) or `terminal` (the CLI's own login, handed to the
+pane's sign-in strip) — through `POST /api/credentials/signin`; and Custom
+provider where the roster's `custom.available` says the CLI keeps
+definitions. A provider with none of these is not offered. The other guests'
+dialog still holds a provider `<select>`
 limited to that CLI's providers, the key field with the line that says the
 key stays on this machine, Save — and, for a provider the CLI signs into
 (an `oauth` kind plus a declared sign-in), **Guided sign-in**, which closes
