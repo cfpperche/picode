@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { deltaPercent, fleetStats, rangeLabel, compareLabel, formatTokens, percent, tokenSegments, bucketLabel, folderLabel,
   measured, signalState, coversAll, coverageNote, billingBadge, formatDuration, resetsIn, costPerTurn, costPerLine, spendState,
-  limitReading, observedAge,
+  limitReading, observedAge, limitRows,
   FLEET_WORKING, FLEET_NEEDS_YOU, FLEET_IDLE, FLEET_UNREPORTED, FLEET_ORDER, FLEET_LABELS } from "./dashboardStats.js";
 
 describe("deltaPercent", () => {
@@ -277,6 +277,8 @@ describe("resetsIn", () => {
   });
   it("counts down in the unit that reads", () => {
     assert.equal(resetsIn("2026-09-07T12:30:00Z", now), "resets in 30m");
+    // 59m59s left rounds to an hour, not to "60m".
+    assert.equal(resetsIn("2026-09-07T12:59:59Z", now), "resets in 1h");
     assert.equal(resetsIn("2026-09-08T12:00:00Z", now), "resets in 24h");
     assert.equal(resetsIn("2026-09-13T12:00:00Z", now), "resets in 6d");
     assert.equal(resetsIn("2026-09-07T11:00:00Z", now), "resets now");
@@ -314,5 +316,35 @@ describe("spendState", () => {
   });
   it("ignores CLIs that did nothing", () => {
     assert.equal(spendState([{ cli: "grok", messages: 0, costState: "not-reported" }]), "not-reported");
+  });
+});
+
+describe("limitRows", () => {
+  const codex = { cli: "codex", label: "weekly", usedPercent: 80, windowMinutes: 10080, resetsAt: "2026-09-26T00:00:00Z", observedAt: "2026-09-21T00:00:00Z", plan: "pro" };
+  const plan = (provider, status, windows, fetchedAt = "2026-09-22T00:00:00Z") => ({ provider, accountId: provider + "-1", status, windows, fetchedAt, plan: "Plus" });
+
+  it("keeps the CLI's own windows when no plan was fetched", () => {
+    const { rows, blocked } = limitRows([codex], []);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].sub, "codex");
+    assert.equal(blocked.length, 0);
+  });
+
+  it("adds every fetched plan window that has a percentage", () => {
+    const { rows } = limitRows([], [plan("xai", "ok", [{ id: "w", label: "This week", usedPercent: 75 }, { id: "c", label: "Credits", remaining: 3 }])], (id) => "xAI:" + id);
+    assert.deepEqual(rows.map((r) => [r.label, r.usedPercent, r.sub]), [["This week", 75, "xAI:xai"]]);
+  });
+
+  it("lets a fresher openai-codex plan replace the rollout reading", () => {
+    const fresher = limitRows([codex], [plan("openai-codex", "ok", [{ id: "5h", label: "5 hours", usedPercent: 85 }])]);
+    assert.deepEqual(fresher.rows.map((r) => r.key), ["plan:openai-codex:openai-codex-1:5h"]);
+    const older = limitRows([codex], [plan("openai-codex", "ok", [{ id: "5h", label: "5 hours", usedPercent: 85 }], "2026-09-20T00:00:00Z")]);
+    assert.equal(older.rows.length, 2);
+  });
+
+  it("reports a plan that needs a sign-in, with the CLI that owns it", () => {
+    const { rows, blocked } = limitRows([], [plan("anthropic", "auth_required", []), plan("kimi", "unknown", []), plan("zai", "unsupported", [])]);
+    assert.equal(rows.length, 0);
+    assert.deepEqual(blocked.map((b) => [b.provider, b.cli]), [["anthropic", "claude-code"]]);
   });
 });

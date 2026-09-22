@@ -319,8 +319,13 @@ func TestHandoffNativeClaudeToCodexCreatesRolloutAndTerminal(t *testing.T) {
 		t.Fatalf("rollout body:\n%s", raw)
 	}
 	argv := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, out+".args")), "\x00"), "\x00")
-	if !reflect.DeepEqual(argv, []string{"resume", target["id"].(string)}) {
+	// The handoff lands as an agent (ADR-0184), so PiCode's tool families
+	// follow the resume arguments like on any agent's launch.
+	if len(argv) < 2 || !reflect.DeepEqual(argv[:2], []string{"resume", target["id"].(string)}) {
 		t.Fatalf("codex launched with %q", argv)
+	}
+	if a, _ := res["agent"].(map[string]any); a == nil || a["cli"] != "codex" || a["terminalId"] != term["id"] {
+		t.Fatalf("handoff agent = %v", res["agent"])
 	}
 	h := res["handoff"].(map[string]any)
 	if h["mode"] != "native" || h["sourceId"] != "cc-1" || h["targetCli"] != "codex" || h["targetId"] != target["id"] || h["terminalId"] != term["id"] {
@@ -384,7 +389,7 @@ func TestHandoffBriefWritesFileAndPromptArgs(t *testing.T) {
 	res = cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "codex", "mode": "brief"}, 201)
 	cleanupTerm(t, res)
 	argv = strings.Split(strings.TrimSuffix(string(waitCLIFile(t, codexOut+".args")), "\x00"), "\x00")
-	if len(argv) != 1 || !strings.HasPrefix(argv[0], "Continue a session handed off") {
+	if len(argv) < 1 || !strings.HasPrefix(argv[0], "Continue a session handed off") || (len(argv) > 1 && argv[1] != "-c") {
 		t.Fatalf("codex launched with %q", argv)
 	}
 	if res["handoff"].(map[string]any)["targetId"] != nil {
@@ -410,8 +415,10 @@ func TestHandoffPiTerminalLandingNative(t *testing.T) {
 	fakeCLI(t, ts, home, "pi")
 
 	res := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "pi", "landing": "terminal"}, 201)
-	if res["agent"] != nil {
-		t.Fatal("a terminal landing must not adopt an agent")
+	// A terminal landing is still an agent (ADR-0184): a Pi agent whose
+	// bound terminal runs `pi --session`, not a managed one.
+	if a, _ := res["agent"].(map[string]any); a == nil || a["terminalId"] == nil {
+		t.Fatalf("a terminal landing is an agent bound to its terminal: %v", res["agent"])
 	}
 	if res["landing"] != "terminal" {
 		t.Fatalf("landing = %v", res["landing"])
@@ -421,7 +428,8 @@ func TestHandoffPiTerminalLandingNative(t *testing.T) {
 		t.Fatalf("session path %v is not in pi's cwd bucket", sum["path"])
 	}
 	argv := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, home+"/pi-run.args")), "\x00"), "\x00")
-	if len(argv) != 2 || argv[0] != "--session" || argv[1] != sum["path"] {
+	// The agent's own spawn flags (session dir, extensions) follow.
+	if len(argv) < 2 || argv[0] != "--session" || argv[1] != sum["path"] {
 		t.Fatalf("pi launched with %q (target %v)", argv, sum)
 	}
 	if res["handoff"].(map[string]any)["agentId"] != nil {

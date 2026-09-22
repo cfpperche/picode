@@ -31,7 +31,7 @@ function Mailbox({ hidden, ownerKey }) {
     <div className="peer-heading"><div><h3>Messages</h3><p>Direct messages between opted-in conversations.</p></div><button className="btn btn-ghost" disabled={m.loading || m.busy} onClick={() => { m.refresh(true); m.readHistory(); }}>{m.loading ? "Refreshing…" : "Refresh"}</button></div>
     {problem ? <div className="cli-notice is-error" role="alert"><span>{problem}</span>{m.errorCode === "adapter_missing" ? <a className="btn btn-ghost" href="#/clis/pi/packages">Open Packages</a> : <button className="btn btn-ghost" disabled={m.loading} onClick={() => { m.refresh(true); m.readHistory(); }}>Try again</button>}</div> : null}
     {!m.data && !problem ? <div className="cli-loading" aria-label="Loading messages"><div /><div /><div /></div> : null}
-    {m.data?.owners.length === 0 ? <div className="cli-notice"><span>No agents or terminals yet.</span><a className="btn btn-primary" href="#/clis/new/pi">New terminal</a></div> : null}
+    {m.data?.owners.length === 0 ? <div className="cli-notice"><span>No agents yet.</span><a className="btn btn-primary" href="#/clis/new/pi">New agent</a></div> : null}
     {!!m.data?.owners.length && <>
       <label className="peer-picker">Conversation<select aria-label="Conversation" value={m.owner ? peerOwnerKey(m.owner) : ""} disabled={m.busy} onChange={e => { location.hash = `#/clis/messages/${encodeURIComponent(e.target.value)}`; }}>
         {!m.owner ? <option value="">Choose a conversation</option> : null}

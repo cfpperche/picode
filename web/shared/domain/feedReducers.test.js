@@ -16,6 +16,9 @@ test("fleet: workspaces and agents are added, updated and removed in place", () 
   let s = { workspaces: [ws("b")], freeAgents: [], terminals: [] };
   s = applyFleet(s, { type: "workspace.added", data: { id: "a", name: "a", path: "/a" } });
   assert.deepEqual(s.workspaces.map((w) => w.id), ["b", "a"], "a new workspace appends");
+  s = applyFleet(s, { type: "workspace.updated", data: { id: "a", name: "Renamed", path: "/a" } });
+  assert.equal(s.workspaces.find((w) => w.id === "a").name, "Renamed", "a rename patches the card");
+  assert.equal(applyFleet(s, { type: "workspace.updated", data: { id: "zz", name: "x" } }), null, "an unknown workspace refetches");
   s = applyFleet(s, { type: "agent.added", data: { id: "x", workspaceId: "a", name: "x" } });
   assert.equal(s.workspaces.find((w) => w.id === "a").agents[0].mode, "stopped");
   s = applyFleet(s, { type: "agent.added", data: { id: "f", workspaceId: "ws_free", name: "f" } });

@@ -3683,7 +3683,10 @@ export default function App({ shellChrome = false } = {}) {
         <span>PiCode</span>
       </header>
       <div id="desktop-navigation" inert={narrow && !navigationOpen} onKeyDown={event => {
-        if (event.key === "Escape") {
+        // Only Escape pressed inside the drawer itself: a dialog or menu the
+        // sidebar opens lives in a portal, and React still bubbles its keys
+        // here — one Escape closed both the dialog and the drawer under it.
+        if (event.key === "Escape" && event.currentTarget.contains(event.target)) {
           setNavigationOpen(false);
           document.querySelector('[aria-controls="desktop-navigation"]')?.focus();
         }
@@ -4360,7 +4363,7 @@ export default function App({ shellChrome = false } = {}) {
               const ws = workspacesRef.current.find((w) => w.id === a.wsId);
               if (ws && ws.id !== "ws_free") { setCliPrincipalWs(ws); return; }
             }
-            location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : "");
+            setCliPrincipalWs({ free: true }); // ADR-0184: a launch is an agent
             return;
           }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }

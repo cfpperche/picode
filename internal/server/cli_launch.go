@@ -630,6 +630,93 @@ func createCLITerminal(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTermi
 	return t, termViewForCreation(deps, r, t, name, created), 201, nil
 }
 
+// createCLIAgent is createCLITerminal's agent-bound form (ADR-0184): the
+// same pre-flight, then an agent — in the workspace, or free — whose
+// terminal carries the launch, started at once. A server-side launch (the
+// cross-CLI handoff) uses it so the CLI it opens is in the fleet like any
+// other; only the credential sign-in keeps a bare terminal.
+func createCLIAgent(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTerminalRequest) (store.Agent, map[string]any, int, error) {
+	if _, status, err := checkCLILaunch(deps, cli, v.Overrides); err != nil {
+		return store.Agent{}, nil, status, err
+	}
+	if strings.TrimSpace(v.Name) == "" {
+		v.Name = cli.Name
+	}
+	wsID, cwd, work := store.FreeWorkspaceID, "", ""
+	if v.WorkspaceID != "" && v.WorkspaceID != store.FreeWorkspaceID {
+		wk, err := deps.Store.GetWorkspace(v.WorkspaceID)
+		if err != nil {
+			return store.Agent{}, nil, storeStatus(err), err
+		}
+		wsID, cwd = wk.ID, wk.Path
+	}
+	if strings.TrimSpace(v.Cwd) != "" || wsID == store.FreeWorkspaceID {
+		dir, err := resolveAgentWorkDir(deps, v.Cwd, v.Name)
+		if err != nil {
+			return store.Agent{}, nil, http.StatusBadRequest, err
+		}
+		cwd, work = dir, dir
+	}
+	// A Pi agent owns its session: `--session` is reserved on its launch
+	// (validatePiAgentArgs) and comes from SessionPath instead.
+	ov, session := v.Overrides, ""
+	if cli.ID == store.CLIPi && ov.Args != nil {
+		args, path := takeFlagValue(*ov.Args, "--session")
+		ov.Args, session = &args, path
+	}
+	if cli.ID == store.CLIPi && ov.Args != nil {
+		if err := validatePiAgentArgs(*ov.Args); err != nil {
+			return store.Agent{}, nil, http.StatusBadRequest, err
+		}
+	}
+	unlockWorkspace := terminalLock(deps, "workspace:"+wsID)
+	defer unlockWorkspace()
+	agent, status, err := newLaunchAgent(deps, wsID, cwd, cli.ID, v.Name, work, &ov)
+	if err != nil {
+		return agent, nil, status, err
+	}
+	if session != "" {
+		if agent, err = deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &session}); err != nil {
+			_ = deps.Store.DeleteAgent(agent.ID)
+			return agent, nil, http.StatusInternalServerError, err
+		}
+	}
+	t, err := deps.Store.GetTerminal(*agent.TerminalID)
+	if err != nil {
+		return agent, nil, http.StatusInternalServerError, err
+	}
+	unlock := terminalLock(deps, t.ID)
+	defer unlock()
+	name := tmux.ShellSessionName(t.ID)
+	created, err := ensureShell(deps, r, name, t.ID, t.Cwd)
+	if err != nil {
+		publishTerminalState(deps, r, t, false)
+		return agent, map[string]any{"id": t.ID, "agentId": agent.ID, "launchError": err.Error()}, http.StatusCreated, nil
+	}
+	publishTerminalState(deps, r, t, true)
+	view := termViewForCreation(deps, r, t, name, created)
+	view["agentId"] = agent.ID
+	return agent, view, http.StatusCreated, nil
+}
+
+// takeFlagValue removes `flag value` (or `flag=value`) from args and
+// returns the rest with the value.
+func takeFlagValue(args []string, flag string) ([]string, string) {
+	out, value := make([]string, 0, len(args)), ""
+	for i := 0; i < len(args); i++ {
+		switch {
+		case args[i] == flag && i+1 < len(args):
+			value = args[i+1]
+			i++
+		case strings.HasPrefix(args[i], flag+"="):
+			value = strings.TrimPrefix(args[i], flag+"=")
+		default:
+			out = append(out, args[i])
+		}
+	}
+	return out, value
+}
+
 func resolvedTerminalLaunch(deps Deps, v *store.TerminalLaunch) (clilaunch.CLI, clilaunch.Config, string, error) {
 	cli, ok := clilaunch.Find(v.CLI)
 	if !ok {
@@ -1086,6 +1173,18 @@ func (p *preparedCLILaunch) discard() {
 	}
 }
 
+// ompArgsPickSession reports whether launch arguments already name the
+// conversation or its folder.
+func ompArgsPickSession(args []string) bool {
+	for _, a := range args {
+		key, _, _ := strings.Cut(a, "=")
+		if key == "--resume" || key == "--session-dir" {
+			return true
+		}
+	}
+	return false
+}
+
 func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*preparedCLILaunch, error) {
 	cwd = agentTerminalCwd(deps, v.TerminalID, cwd)
 	if st, err := os.Stat(cwd); err != nil || !st.IsDir() {
@@ -1117,8 +1216,11 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	// agent's `/resume` picker inside its own durable directory, while leaving
 	// Omp's shared auth/configuration untouched. Free-standing Omp terminals
 	// retain the vendor default because they have no agent owner to scope.
+	// An agent launched on a conversation that lives elsewhere — a resumed
+	// session or a handoff (ADR-0184), whose file is in Omp's default
+	// folder — keeps that folder: its explicit arguments win.
 	if cli.ID == "omp" {
-		if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil && a.CLI == "omp" {
+		if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil && a.CLI == "omp" && !ompArgsPickSession(c.Args) {
 			if err := os.MkdirAll(ompAgentSessionDir(deps.DataDir, a.ID), 0o700); err != nil {
 				return nil, err
 			}

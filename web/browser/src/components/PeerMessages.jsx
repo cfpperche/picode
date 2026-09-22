@@ -78,7 +78,7 @@ function WorkspaceMessages({ hidden, route }) {
     {ws && <>
       <form noValidate onSubmit={e => { e.preventDefault(); apply(); }} className="peer-participants">
         <div className="peer-history-heading"><h4>Participants</h4><button className="btn btn-primary" type="submit" disabled={!changed.length || !!m.busy}>{m.busy === "participants" ? "Applying…" : "Apply and connect"}</button></div>
-        {!owners.length ? <div className="cli-notice"><span>Add an agent or Agent CLI to start a conversation.</span><a className="btn btn-primary" href={`#/clis/new/pi?workspace=${encodeURIComponent(workspace)}`}>New participant</a></div> : <ul className="peer-participant-list">{owners.map(o => {
+        {!owners.length ? <div className="cli-notice"><span>Add an agent to start a conversation.</span><a className="btn btn-primary" href={`#/clis/new/pi?workspace=${encodeURIComponent(workspace)}`}>New participant</a></div> : <ul className="peer-participant-list">{owners.map(o => {
           const p = preference(o), c = current(o), state = status(o);
           const picked = checked(o), on = enabled(o), editing = picked !== selected(o);
           return <li key={participantKey(o)} className={`peer-participant is-${state.kind}`}>

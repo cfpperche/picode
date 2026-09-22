@@ -20,6 +20,7 @@ const StatusUnknown = "unknown"
 type Entry struct {
 	Provider  string   `json:"provider"`
 	AccountID string   `json:"accountId"`
+	Label     string   `json:"accountLabel,omitempty"`
 	Status    string   `json:"status"`
 	Plan      string   `json:"plan,omitempty"`
 	Error     string   `json:"error,omitempty"`
@@ -87,6 +88,7 @@ func entryOf(provider, accountID string, now time.Time) Entry {
 		return e
 	}
 	e.Status = rep.Status
+	e.Label = rep.AccountLabel
 	e.Plan = rep.Plan
 	e.Error = rep.Error
 	if rep.Windows != nil {
@@ -123,6 +125,31 @@ func Summary(providers []catalog.Provider, now time.Time) []Entry {
 			}
 			out = append(out, entryOf(p.ID, a.ID, now))
 		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Provider != out[j].Provider {
+			return out[i].Provider < out[j].Provider
+		}
+		return out[i].AccountID < out[j].AccountID
+	})
+	return out
+}
+
+// Cached is every row the cache holds, in Summary's order. It needs no
+// provider list — nothing spawns and nothing reaches a vendor — which is
+// what lets a surface that polls (the dashboard) show plan windows at the
+// cost of a map read. A signed-out account is already gone: sign-out
+// calls Forget.
+func Cached(now time.Time) []Entry {
+	cacheMu.RLock()
+	keys := make([]cacheKey, 0, len(cache))
+	for k := range cache {
+		keys = append(keys, k)
+	}
+	cacheMu.RUnlock()
+	out := make([]Entry, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, entryOf(k.provider, k.account, now))
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Provider != out[j].Provider {

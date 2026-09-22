@@ -2,12 +2,13 @@
 // agentRowMenu.js: pure, so what the menu offers follows what the folder is
 // and the node tests hold the sidebar to it.
 //
-// Four groups, most-used first and the dangerous one last:
+// Five groups, most-used first and the dangerous one last:
 //   1. inside PiCode — Communication, Files, Git graph, Sessions
 //   2. out of PiCode — the folder in the owner's file manager (Explorer under
 //      WSL), the repository's web page, its pull request, and the path
-//   3. order — Move up / Move down, only the moves that exist
-//   4. Remove workspace
+//   3. Settings… — the name and how delivered work lands (WorkspaceSettings)
+//   4. order — Move up / Move down, only the moves that exist
+//   5. Remove workspace
 // Every folder can be shown in the file manager, a repository included; the
 // web page needs a remote with a web host, so a plain folder or a local-only
 // repository simply has no such row. Items that cannot work are hidden,
@@ -83,6 +84,7 @@ export function workspaceRowMenu(ws = {}, { hasAgents = false, canMoveUp = false
     ...(request ? [request] : []),
     ...(ws.path ? [copy] : []),
   ];
+  const own = [{ id: "settings", label: "Settings…" }];
   const order = [
     ...(canMoveUp ? [{ id: "move-up", label: "Move up" }] : []),
     ...(canMoveDown ? [{ id: "move-down", label: "Move down" }] : []),
@@ -91,6 +93,8 @@ export function workspaceRowMenu(ws = {}, { hasAgents = false, canMoveUp = false
     ...inside,
     { sep: true },
     ...outside,
+    { sep: true },
+    ...own,
     ...(order.length ? [{ sep: true }, ...order] : []),
     { sep: true },
     { id: "remove", label: "Remove workspace", danger: true },

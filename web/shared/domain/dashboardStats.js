@@ -375,7 +375,8 @@ export function resetsIn(resetsAt, now) {
   const diff = t - (now || Date.now());
   if (diff <= 0) return "resets now";
   const hours = Math.floor(diff / 3600000);
-  if (hours < 1) return "resets in " + Math.max(1, Math.round(diff / 60000)) + "m";
+  const mins = Math.max(1, Math.round(diff / 60000));
+  if (hours < 1) return mins < 60 ? "resets in " + mins + "m" : "resets in 1h";
   if (hours < 48) return "resets in " + hours + "h";
   return "resets in " + Math.round(hours / 24) + "d";
 }
@@ -415,4 +416,65 @@ export function costPerLine(cost, linesAdded, linesRemoved) {
   const lines = (Number(linesAdded) || 0) + (Number(linesRemoved) || 0);
   if (!lines || !Number.isFinite(cost)) return null;
   return cost / lines;
+}
+
+// PLAN_CLI is the agent CLI whose Providers pane holds a plan's sign-in, so
+// a plan that needs one links to the right pane (ADR-0179: Pi is one CLI
+// among nine, never the default for another vendor's login).
+const PLAN_CLI = Object.freeze({ anthropic: "claude-code", "openai-codex": "codex", xai: "grok" });
+
+// limitRows joins the two sources of quota windows into one list for the
+// Limits card:
+//   - limits: what a CLI wrote in its own session files (Codex's rollouts);
+//   - plans: what the Providers roster fetched from each vendor for a
+//     signed-in account, served from its cache (ADR-0031).
+// A plan window that carries no percentage (prepaid credits) is not a bar
+// and is left out. A Codex rollout reading older than a fetched
+// openai-codex plan is the same window seen earlier, so the fresher one
+// wins. Plans that failed come back as `blocked`, with the CLI whose pane
+// can fix them, so the card says "sign in again" instead of dropping them.
+export function limitRows(limits, plans, nameOf) {
+  const name = typeof nameOf === "function" ? nameOf : (id) => id;
+  const rows = [];
+  const blocked = [];
+  let codexPlanAt = null;
+  for (const p of plans || []) {
+    if (!p) continue;
+    if (p.status !== "ok") {
+      if (p.status && p.status !== "unknown" && p.status !== "unsupported") {
+        blocked.push({ key: p.provider + ":" + p.accountId, provider: p.provider, name: name(p.provider), label: p.accountLabel || "", status: p.status, cli: PLAN_CLI[p.provider] || "" });
+      }
+      continue;
+    }
+    const at = Date.parse(p.fetchedAt || "");
+    for (const w of p.windows || []) {
+      if (!w || w.usedPercent == null || !Number.isFinite(Number(w.usedPercent))) continue;
+      rows.push({
+        key: "plan:" + p.provider + ":" + p.accountId + ":" + w.id,
+        label: w.label || w.id,
+        sub: name(p.provider) + (p.accountLabel ? " · " + p.accountLabel : ""),
+        usedPercent: Number(w.usedPercent),
+        resetsAt: w.resetsAt || "",
+        observedAt: p.fetchedAt || "",
+        plan: p.plan || "",
+      });
+      if (p.provider === "openai-codex" && Number.isFinite(at)) codexPlanAt = Math.max(codexPlanAt || 0, at);
+    }
+  }
+  const cliRows = [];
+  for (const l of limits || []) {
+    if (!l || !(l.windowMinutes > 0)) continue;
+    const seen = Date.parse(l.observedAt || "");
+    if (l.cli === "codex" && codexPlanAt != null && (!Number.isFinite(seen) || seen <= codexPlanAt)) continue;
+    cliRows.push({
+      key: "cli:" + l.cli + ":" + l.windowMinutes,
+      label: l.label || l.windowMinutes + "m",
+      sub: l.cli,
+      usedPercent: Number(l.usedPercent) || 0,
+      resetsAt: l.resetsAt || "",
+      observedAt: l.observedAt || "",
+      plan: l.plan || "",
+    });
+  }
+  return { rows: cliRows.concat(rows), blocked };
 }

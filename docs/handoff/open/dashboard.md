@@ -10,3 +10,6 @@
 ## Debts
 
 - Grok (2026-09-11): tokens/cost `partial` by design (`usage.json` is new); Agent CLIs rows show model/title but not its cost; dashboard values not screenshot-verified.
+- Limits card (2026-09-22): the failed-plan Providers link lands at the top of Agent CLIs; the Providers pane is below the fold.
+- Limits card (2026-09-22): "ChatGPT (Codex)" ellipsizes in the card sub at 1280px (full name only on hover).
+- Limits card (2026-09-22): prepaid Credits windows (no percentage) are not shown on the card at all.

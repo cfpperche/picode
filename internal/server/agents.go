@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -498,15 +499,20 @@ func handleListFreeAgents(deps Deps) http.HandlerFunc {
 func handleAddFreeAgent(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			CLI      string `json:"cli"`
-			Name     string `json:"name"`
-			Path     string `json:"path"`
-			Provider string `json:"provider"`
-			Model    string `json:"model"`
-			Thinking string `json:"thinking"`
+			CLI       string               `json:"cli"`
+			Name      string               `json:"name"`
+			Path      string               `json:"path"`
+			Provider  string               `json:"provider"`
+			Model     string               `json:"model"`
+			Thinking  string               `json:"thinking"`
+			Overrides *clilaunch.Overrides `json:"overrides"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if status, err := checkAgentLaunch(deps, req.CLI, req.Overrides); err != nil {
+			writeErr(w, status, err.Error())
 			return
 		}
 		dir, err := resolveAgentWorkDir(deps, req.Path, req.Name)
@@ -514,19 +520,12 @@ func handleAddFreeAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		agent, err := deps.Store.AddAgentWithCLI(store.FreeWorkspaceID, req.CLI, req.Name, dir)
+		agent, status, err := newLaunchAgent(deps, store.FreeWorkspaceID, dir, req.CLI, req.Name, dir, req.Overrides)
 		if err != nil {
-			writeErr(w, storeStatus(err), err.Error())
+			writeErr(w, status, err.Error())
 			return
 		}
-		if !agent.IsPi() {
-			agent, err = attachAgentTerminal(deps, store.FreeWorkspaceID, dir, agent)
-			if err != nil {
-				_ = deps.Store.DeleteAgent(agent.ID)
-				writeErr(w, storeStatus(err), err.Error())
-				return
-			}
-		} else {
+		if agent.IsPi() {
 			agent, err = patchNewAgent(deps, agent, req.Provider, req.Model, req.Thinking)
 			if err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
@@ -553,15 +552,20 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		var req struct {
-			CLI      string `json:"cli"`
-			Name     string `json:"name"`
-			WorkPath string `json:"workPath"`
-			Provider string `json:"provider"`
-			Model    string `json:"model"`
-			Thinking string `json:"thinking"`
+			CLI       string               `json:"cli"`
+			Name      string               `json:"name"`
+			WorkPath  string               `json:"workPath"`
+			Provider  string               `json:"provider"`
+			Model     string               `json:"model"`
+			Thinking  string               `json:"thinking"`
+			Overrides *clilaunch.Overrides `json:"overrides"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if status, err := checkAgentLaunch(deps, req.CLI, req.Overrides); err != nil {
+			writeErr(w, status, err.Error())
 			return
 		}
 		// An empty workPath keeps the agent on the workspace folder, which is
@@ -578,19 +582,19 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			}
 			work = resolved
 		}
-		agent, err := deps.Store.AddAgentWithCLI(wsID, req.CLI, req.Name, work)
+		// The CLI starts where the agent works: its own folder when one was
+		// given (a sibling worktree, a resumed session's folder), else the
+		// workspace's.
+		cwd := wk.Path
+		if work != "" {
+			cwd = work
+		}
+		agent, status, err := newLaunchAgent(deps, wsID, cwd, req.CLI, req.Name, work, req.Overrides)
 		if err != nil {
-			writeErr(w, storeStatus(err), err.Error())
+			writeErr(w, status, err.Error())
 			return
 		}
-		if !agent.IsPi() {
-			agent, err = attachAgentTerminal(deps, wk.ID, wk.Path, agent)
-			if err != nil {
-				_ = deps.Store.DeleteAgent(agent.ID)
-				writeErr(w, storeStatus(err), err.Error())
-				return
-			}
-		} else {
+		if agent.IsPi() {
 			agent, err = patchNewAgent(deps, agent, req.Provider, req.Model, req.Thinking)
 			if err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
@@ -601,15 +605,66 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 	}
 }
 
-// attachAgentTerminal gives a non-Pi agent its interactive process (ADR-0160):
+// checkAgentLaunch is the pre-flight of an agent created with launch
+// overrides (ADR-0184: a profile, a resumed session, a handoff): the CLI's
+// settings with the overrides must validate and point at an installed
+// executable before any row exists. Without overrides a create stays as
+// it was.
+func checkAgentLaunch(deps Deps, cliID string, ov *clilaunch.Overrides) (int, error) {
+	if ov == nil {
+		return 0, nil
+	}
+	id := strings.TrimSpace(cliID)
+	if id == "" {
+		id = store.CLIPi
+	}
+	cli, ok := clilaunch.Find(id)
+	if !ok {
+		return http.StatusBadRequest, errors.New("Unknown CLI.")
+	}
+	if cli.ID == store.CLIPi && ov.Args != nil {
+		if err := validatePiAgentArgs(*ov.Args); err != nil {
+			return http.StatusBadRequest, err
+		}
+	}
+	_, status, err := checkCLILaunch(deps, cli, *ov)
+	return status, err
+}
+
+// newLaunchAgent adds an agent and, unless it is a Pi agent with no launch
+// overrides, binds the terminal that runs its CLI (ADR-0160, ADR-0184). A
+// Pi agent with overrides is the interactive shape a Pi launch profile
+// needs. On a failure nothing is left behind.
+func newLaunchAgent(deps Deps, workspaceID, cwd, cliID, name, work string, ov *clilaunch.Overrides) (store.Agent, int, error) {
+	agent, err := deps.Store.AddAgentWithCLI(workspaceID, cliID, name, work)
+	if err != nil {
+		return agent, storeStatus(err), err
+	}
+	if agent.IsPi() && ov == nil {
+		return agent, 0, nil
+	}
+	launch := clilaunch.Overrides{}
+	if ov != nil {
+		launch = *ov
+	}
+	bound, err := attachAgentTerminal(deps, workspaceID, cwd, agent, launch)
+	if err != nil {
+		_ = deps.Store.DeleteAgent(agent.ID)
+		return agent, storeStatus(err), err
+	}
+	return bound, 0, nil
+}
+
+// attachAgentTerminal gives an agent its interactive process (ADR-0160):
 // a terminal in its workspace (or the free list, ADR-0179) with launch set,
-// not Runtime.Start. cwd is the folder the CLI starts in.
-func attachAgentTerminal(deps Deps, workspaceID, cwd string, agent store.Agent) (store.Agent, error) {
+// not Runtime.Start. cwd is the folder the CLI starts in; ov carries the
+// launch overrides, PiCode's tool families filled in when unset.
+func attachAgentTerminal(deps Deps, workspaceID, cwd string, agent store.Agent, ov clilaunch.Overrides) (store.Agent, error) {
 	tm, err := deps.Store.CreateTerminalIn(workspaceID, agent.Name, cwd)
 	if err != nil {
 		return agent, err
 	}
-	if err := deps.Store.SetTerminalLaunch(tm.ID, agent.CLI, managedCLILaunchOverrides(agent.CLI)); err != nil {
+	if err := deps.Store.SetTerminalLaunch(tm.ID, agent.CLI, fillManagedCLITools(ov, agent.CLI)); err != nil {
 		_ = deps.Store.DeleteTerminal(tm.ID)
 		return agent, err
 	}

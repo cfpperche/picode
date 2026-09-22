@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
+import { createLaunchAgent } from "@picode/shared/client/launchAgent.js";
 import { terminalLaunchAgent } from "@picode/shared/domain/cliLaunch.js";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
@@ -183,7 +184,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => { run("check:" + selected.id, async () => { const d = await api(`/api/clis/${selected.id}/check`, json("POST", {})); if (d.error) toastError(new Error(d.error)); }).catch(() => {}); }}>{busy === "check:" + selected.id ? "Checking…" : "Check setup"}</button>
           {!selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
           {selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
-          {cap.launch ? <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New terminal</button> : null}
+          {cap.launch ? <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New agent</button> : null}
           {selected.installed && (selected.lifecycle?.canUpdate || selected.lifecycle?.canCheckUpdate || selected.lifecycle?.canReinstall || selected.lifecycle?.uninstall) ? <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Lifecycle actions for " + selected.name} disabled={!!lifecycleBusy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
             <DropdownMenu.Item className="um-item" onSelect={checkUpdates}>Check for updates</DropdownMenu.Item>
             {selected.lifecycle?.canReinstall ? <DropdownMenu.Item className="um-item" onSelect={() => startLifecycle("reinstall")}>Reinstall</DropdownMenu.Item> : null}
@@ -223,7 +224,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           <CLIProfiles cli={selected} profiles={data.profiles} run={run} busy={!!busy} />
           </> : <section className="cli-defaults"><div className="cli-section-heading"><h3>Launch settings</h3></div>
             <LaunchSummary plan={selected.plan} />
-            <p className="cli-muted">{selected.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting. New terminal opens it exactly as it is.</p>
+            <p className="cli-muted">{selected.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting. New agent opens it exactly as it is.</p>
           </section>}
           <a className="cli-docs" href={selected.docs} target="_blank" rel="noreferrer">{selected.name} documentation ↗</a>
         </> : null}
@@ -307,7 +308,7 @@ function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, o
       const workspace = workspaces.find((w) => w.id === t.workspaceId);
       return <article className={"cli-terminal-row" + (busy.startsWith(t.id + ":") ? " is-busy" : "")} key={t.id}>
         <TerminalCliBadge term={t} />
-        <div className="cli-terminal-info"><a href={termHash(t.id)}>{t.name}</a><p>{workspace?.name || "Free terminal"} · <span title={t.cwd}>{t.cwd}</span></p><div className="cli-terminal-meta"><span className={"cli-state is-" + terminalStatus(t)}>{busy.startsWith(t.id + ":") ? "Updating…" : terminalStatusLabel(t)}</span>{t.running && terminalCli(t) && !t.state ? <span>Activity not reported</span> : null}{t.launchPending ? <span>Launch changes pending</span> : null}{t.launchAttempt?.error ? <a className="cli-field-error" href={"#/clis/terminal/" + t.id}>Last launch failed · review settings</a> : null}</div></div>
+        <div className="cli-terminal-info"><a href={termHash(t.id)}>{t.name}</a><p>{workspace?.name || "Free agent"} · <span title={t.cwd}>{t.cwd}</span></p><div className="cli-terminal-meta"><span className={"cli-state is-" + terminalStatus(t)}>{busy.startsWith(t.id + ":") ? "Updating…" : terminalStatusLabel(t)}</span>{t.running && terminalCli(t) && !t.state ? <span>Activity not reported</span> : null}{t.launchPending ? <span>Launch changes pending</span> : null}{t.launchAttempt?.error ? <a className="cli-field-error" href={"#/clis/terminal/" + t.id}>Last launch failed · review settings</a> : null}</div></div>
         <div className="cli-actions" data-align-row data-align-wrap><button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => t.running ? (location.hash = termHash(t.id)) : onAction(t, "start")}>{t.running ? "Open" : "Start"}</button>
           <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Actions for " + t.name} disabled={!!busy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
             {/* Same menu as the sidebar's terminal rows (termRowMenu.js) — one contract, two surfaces. */}
@@ -414,26 +415,26 @@ function TerminalEditor({ route, data, run, busy }) {
   const settingsPreview = parseForm(cliLaunchSchema, draft);
   const overrides = custom && settingsPreview.ok ? (profileId ? profileOverrides(cli.config, launchConfig(settingsPreview.value)) : editLaunchOverrides(cli.config, originalOverrides, launchConfig(settingsPreview.value))) : {};
   const back = async () => { if (!dirty || await confirmDiscard()) { allowNavigation(); location.hash = cliPaneHash(cli.id, existing ? "terminals" : "launch"); } };
-  return <section className="cli-editor"><div className="cli-heading"><h3>{existing ? existing.name + " · Launch settings" : "New " + cli.name + " terminal"}</h3><button className="btn btn-ghost btn-sm" onClick={back}>Back</button></div>
+  return <section className="cli-editor"><div className="cli-heading"><h3>{existing ? existing.name + " · Launch settings" : "New " + cli.name + " agent"}</h3><button className="btn btn-ghost btn-sm" onClick={back}>Back</button></div>
     {loading ? <div className="cli-loading" aria-label="Loading launch settings"><div /><div /></div> : <form noValidate onChange={() => setDirty(true)} onSubmit={async (e) => {
       e.preventDefault(); const parsed = parseForm(cliTerminalSchema, form); if (!parsed.ok) { setError(parsed.error); return; }
       const settings = parseForm(cliLaunchSchema, draft); if (custom && !settings.ok) { setError(settings.error); return; }
       try { await run("terminal-save", async () => {
         if (existing) { await api(`/api/terminals/${encodeURIComponent(existing.id)}/launch`, json("PUT", { cli: cli.id, overrides })); allowNavigation(); toast.ok("Settings saved for the next launch."); location.hash = cliPaneHash(cli.id, "terminals"); }
-        else { const t = await api(`/api/clis/${cli.id}/terminals`, json("POST", { ...parsed.value, overrides })); allowNavigation(); if (t.launchError) { toastError(new Error(t.launchError)); location.hash = cliPaneHash(cli.id, "terminals"); } else location.hash = termHash(t.id); }
+        else { const { agent: created, terminalId, launchError } = await createLaunchAgent({ cli: cli.id, name: parsed.value.name, workspaceId: parsed.value.workspaceId, folder: parsed.value.cwd, overrides }); allowNavigation(); if (launchError) toastError(new Error(launchError)); location.hash = terminalId ? termHash(terminalId) : "#/agent/" + encodeURIComponent(created.id); }
       }); } catch (e) { setError(e.message); }
     }}>
       <div className="cli-fields">
         <label>CLI{agent ? <input aria-label="CLI" value={cli.name} readOnly /> : <CliCombo ariaLabel="CLI" value={cli.id} options={data.clis.filter((c) => cliCapabilities(c).launch)} onChange={async (id) => { const c = data.clis.find((x) => x.id === id); if (!c || (custom && dirty && !(await confirmDiscard()))) return; setCliId(c.id); setDraft(launchDraft(c.config)); setCustom(false); setProfileId(""); setOriginalOverrides({}); }} />}</label>
         {cap.integration && !existing && data.profiles.some((p) => p.cli === cli.id) ? <label>Launch profile<select value={profileId} onChange={async (e) => { const id = e.target.value; if (custom && dirty && !(await confirmDiscard())) return; const p = data.profiles.find((p) => p.id === id); setProfileId(id); setDraft(launchDraft(p?.config || cli.config)); setCustom(!!p); setOriginalOverrides({}); }}>{<option value="">CLI defaults</option>}{data.profiles.filter((p) => p.cli === cli.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label> : null}
-        {!existing ? <><label>Name<input autoComplete="off" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label>Workspace<select value={form.workspaceId} onChange={(e) => setForm({ ...form, workspaceId: e.target.value, cwd: "" })}><option value="">Free terminal</option>{data.workspaces.filter((w) => w.id !== "ws_free").map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label><label>Folder<input placeholder={form.workspaceId ? "Use workspace folder" : "Use home folder"} value={form.cwd} onChange={(e) => setForm({ ...form, cwd: e.target.value })} /></label></> : null}
-        {cap.integration ? <label className="cli-checkbox"><input type="checkbox" checked={custom} onChange={async (e) => { const checked = e.target.checked; if (!checked && dirty && !(await confirmDiscard())) return; setCustom(checked); if (!checked) { setDraft(launchDraft(cli.config)); setProfileId(""); setOriginalOverrides({}); } }} />Customize this terminal</label> : null}
+        {!existing ? <><label>Name<input autoComplete="off" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label>Workspace<select value={form.workspaceId} onChange={(e) => setForm({ ...form, workspaceId: e.target.value, cwd: "" })}><option value="">Free agent</option>{data.workspaces.filter((w) => w.id !== "ws_free").map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label><label>Folder<input placeholder={form.workspaceId ? "Use workspace folder" : "Use a private folder"} value={form.cwd} onChange={(e) => setForm({ ...form, cwd: e.target.value })} /></label></> : null}
+        {cap.integration ? <label className="cli-checkbox"><input type="checkbox" checked={custom} onChange={async (e) => { const checked = e.target.checked; if (!checked && dirty && !(await confirmDiscard())) return; setCustom(checked); if (!checked) { setDraft(launchDraft(cli.config)); setProfileId(""); setOriginalOverrides({}); } }} />{existing ? "Customize this terminal" : "Customize this launch"}</label> : null}
       </div>
       {piAgent ? <p className="cli-muted">Model, reasoning, tools and checklist: <a href={cliSettingsHash("pi", { agentId: agent.id })}>Settings</a>. Launch changes apply to the next interactive session.</p> : null}
       {cap.integration ? (custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration cli={cli} agentBound={!!agent} /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>) : <p className="cli-muted">{cli.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting.</p>}
       {existing?.launchAttempt?.error ? <Notice danger action="Back to terminals" onAction={back}>{existing.launchAttempt.error}</Notice> : null}
       {error ? <p className="cli-field-error" role="alert">{error}</p> : null}
-      <div className="cli-actions" data-align-row data-align-wrap><button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!existing && !data.terminalAvailable)}>{busy ? (existing ? "Saving…" : "Opening terminal…") : existing ? "Save launch settings" : "Open terminal"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={back}>Cancel</button></div>
+      <div className="cli-actions" data-align-row data-align-wrap><button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!existing && !data.terminalAvailable)}>{busy ? (existing ? "Saving…" : "Creating agent…") : existing ? "Save launch settings" : "Create agent"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={back}>Cancel</button></div>
       {(!custom || settingsPreview.ok) ? <LaunchPreview cli={cli.id} overrides={overrides} terminalId={existing?.id} applied={existing?.launchApplied} /> : null}
     </form>}
   </section>;

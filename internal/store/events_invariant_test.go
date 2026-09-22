@@ -198,6 +198,11 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_, _ = s.AddSessionHandoff(SessionHandoff{SourceCLI: "claude-code", SourceID: "cc-1", TargetCLI: "codex", Mode: "native", Window: "recent"})
 		}, []string{"session.handoff"}},
 		{"AddWorkspace", func(s *Store) { _, _ = s.AddWorkspace("W", proj) }, []string{"workspace.added"}},
+		{"RenameWorkspace", func(s *Store) {
+			w, _ := s.AddWorkspace("W", proj)
+			s.OnEvent = recorder(s)
+			_, _ = s.RenameWorkspace(w.ID, "Renamed")
+		}, []string{"workspace.updated"}},
 		{"ReorderWorkspaces", func(s *Store) {
 			a, _ := s.AddWorkspace("A", proj)
 			other := filepath.Join(dir, "other-ws")
@@ -628,6 +633,15 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		{"PutIntegrationSettings", func(s *Store) {
 			s.OnEvent = recorder(s)
 			if _, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{FFOnly: true, Checks: []string{"make ci"}}); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.changed"}},
+		{"DeleteIntegrationSettings", func(s *Store) {
+			if _, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{FFOnly: true}); err != nil {
+				t.Fatal(err)
+			}
+			s.OnEvent = recorder(s)
+			if err := s.DeleteIntegrationSettings("ws1"); err != nil {
 				t.Fatal(err)
 			}
 		}, []string{"delivery.changed"}},

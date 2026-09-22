@@ -505,7 +505,7 @@ func (p *handoffPlan) commit(ctx context.Context, deps Deps, r *http.Request) (m
 	out["manifest"] = manifest
 
 	if args != nil {
-		term, view, status, err := createCLITerminal(deps, r, p.dst, cliTerminalRequest{Name: name, WorkspaceID: workspaceID, Cwd: cwd, Overrides: clilaunch.Overrides{Args: &args}})
+		agent, view, status, err := createCLIAgent(deps, r, p.dst, cliTerminalRequest{Name: name, WorkspaceID: workspaceID, Cwd: cwd, Overrides: clilaunch.Overrides{Args: &args}})
 		if err != nil {
 			// The artifact exists; record where it is so the Sessions tab
 			// can still open it, then report the launch problem.
@@ -514,7 +514,8 @@ func (p *handoffPlan) commit(ctx context.Context, deps Deps, r *http.Request) (m
 			}
 			return nil, status, err
 		}
-		row.TerminalID = term.ID
+		row.TerminalID = *agent.TerminalID
+		out["agent"] = agentView{Agent: agent, Mode: string(modeStopped)}
 		out["terminal"] = view
 	}
 	saved, err := deps.Store.AddSessionHandoff(row)
