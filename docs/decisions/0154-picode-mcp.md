@@ -1,8 +1,9 @@
 # ADR-0154: picode-mcp — PiCode's own tools for every agent CLI, over MCP
 
-- **Status**: proposed (design approved by the owner in session,
-  2026-09-18: one server per pi package, scope and toggle belong to the CLI,
-  the per-agent scope of guests is launch injection)
+- **Status**: accepted (owner, 2026-09-22; the design was approved in
+  session 2026-09-18 — one server per pi package, scope and toggle belong to
+  the CLI, the per-agent scope of guests is launch injection — and N0/N1 have
+  been running in production since)
 - **Date**: 2026-09-18
 - **Boundary**: protocol — the `picode` binary speaks the Model Context
   Protocol over stdio (`picode mcp <family…>`), a second wire beside the

@@ -27,8 +27,9 @@
   Guarding it would apply `HostAllowed` to the one route someone uses when
   they cannot reach PiCode yet, so it is the owner's call, not a tidy-up.
 
-- [ ] **ADR-0154 (picode-mcp) and ADR-0156 (computer foreground guard) are
-  still `proposed` in both the file and the index, and both shipped.** The
+- [x] **ADR-0154 (picode-mcp) and ADR-0156 (computer foreground guard) are
+  still `proposed` in both the file and the index, and both shipped.**
+  Accepted by the owner 2026-09-22; file and index both say so. The
   2026-09-21 audit synced the eight ADRs whose own file already said
   accepted; these two need the owner to say the word, because flipping a
   status is recording a decision, not fixing an index. `make docs-check` now
