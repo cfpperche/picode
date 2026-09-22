@@ -123,6 +123,7 @@ func ToolPresets() []Preset {
 		{ID: "picode-browser", Name: "PiCode · Browser", Summary: "Read the page open in PiCode's work browser (desktop app); acting needs a grant in Settings ▸ Browser.", Entry: Entry{Command: bin, Args: []string{"mcp", "browser"}}},
 		{ID: "picode-inbox", Name: "PiCode · Inbox", Summary: "Let the agent file notes and questions into your Inbox; a question waits for your answer there.", Entry: Entry{Command: bin, Args: []string{"mcp", "inbox"}}},
 		{ID: "picode-checklist", Name: "PiCode · Checklist", Summary: "The agent's plan for the task, shown as the current step on its card.", Entry: Entry{Command: bin, Args: []string{"mcp", "checklist"}}},
+		{ID: "picode-delivery", Name: "PiCode · Delivery", Summary: "Declare a change and ask for review in the project's Git ▸ Delivery view. Never a merge, a queue or a deploy.", Entry: Entry{Command: bin, Args: []string{"mcp", "delivery"}}},
 	}
 }
 

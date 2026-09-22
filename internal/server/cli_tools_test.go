@@ -27,6 +27,7 @@ func TestToolLaunchOptionsDecisionTable(t *testing.T) {
 		families []string
 		in       communication.LaunchOptions
 		existing string
+		env      []string
 		wantErr  string
 		check    func(t *testing.T, out communication.LaunchOptions)
 	}{
@@ -65,10 +66,40 @@ func TestToolLaunchOptionsDecisionTable(t *testing.T) {
 				}
 			}
 		}},
-		{name: "codex gets -c overrides per family", cli: "codex", families: []string{"computer"}, in: communication.LaunchOptions{Args: []string{"--model", "x"}}, check: func(t *testing.T, out communication.LaunchOptions) {
+		{name: "codex gets -c overrides per family", cli: "codex", families: []string{"computer"}, in: communication.LaunchOptions{Args: []string{"--model", "x"}}, env: []string{"PICODE_TERM_ID=t1"}, check: func(t *testing.T, out communication.LaunchOptions) {
 			joined := strings.Join(out.Args, " ")
-			if !strings.HasPrefix(joined, "--model x -c mcp_servers.picode-computer.command=") || !strings.HasSuffix(joined, `-c mcp_servers.picode-computer.args=["mcp","computer"]`) {
+			if !strings.HasPrefix(joined, "--model x -c mcp_servers.picode-computer.command=") || !strings.Contains(joined, `-c mcp_servers.picode-computer.args=["mcp","computer"]`) {
 				t.Fatalf("args = %v", out.Args)
+			}
+		}},
+		// Codex hands a stdio MCP server no environment (measured 2026-09-21),
+		// so the identity the server resolves the principal from has to be
+		// written into the config or every tool call answers `no identity`.
+		{name: "codex carries the server identity", cli: "codex", families: []string{"delivery"}, env: []string{"PICODE_TERM_ID=t1", "PICODE_AGENT_ID=a1", "PICODE_DATA=/d"}, check: func(t *testing.T, out communication.LaunchOptions) {
+			joined := strings.Join(out.Args, " ")
+			for _, want := range []string{
+				`-c mcp_servers.picode-delivery.command=`,
+				`-c mcp_servers.picode-delivery.args=["mcp","delivery"]`,
+				`-c mcp_servers.picode-delivery.env.PICODE_TERM_ID="t1"`,
+				`-c mcp_servers.picode-delivery.env.PICODE_AGENT_ID="a1"`,
+				`-c mcp_servers.picode-delivery.env.PICODE_DATA="/d"`,
+			} {
+				if !strings.Contains(joined, want) {
+					t.Fatalf("missing %s in %v", want, out.Args)
+				}
+			}
+		}},
+		{name: "codex without an identity writes no env", cli: "codex", families: []string{"delivery"}, check: func(t *testing.T, out communication.LaunchOptions) {
+			if strings.Contains(strings.Join(out.Args, " "), ".env.") {
+				t.Fatalf("no identity, no env overrides: %v", out.Args)
+			}
+		}},
+		// opencode passes the launch environment to its servers (measured the
+		// same day), so its config stays free of identity values that would be
+		// wrong the moment the same config is read outside this launch.
+		{name: "opencode needs no identity in the config", cli: "opencode", families: []string{"delivery"}, env: []string{"PICODE_TERM_ID=t1", "PICODE_AGENT_ID=a1"}, check: func(t *testing.T, out communication.LaunchOptions) {
+			if strings.Contains(out.Env["OPENCODE_CONFIG_CONTENT"], "PICODE_TERM_ID") {
+				t.Fatalf("config carries an identity it should inherit: %s", out.Env["OPENCODE_CONFIG_CONTENT"])
 			}
 		}},
 		{name: "opencode merges inline configuration and keeps other keys", cli: "opencode", families: []string{"browser"}, existing: `{"theme":"dark","mcp":{"other":{"type":"remote","url":"https://o/"}}}`, check: func(t *testing.T, out communication.LaunchOptions) {
@@ -97,7 +128,7 @@ func TestToolLaunchOptionsDecisionTable(t *testing.T) {
 		{name: "a CLI without a mechanism is refused", cli: "grok", families: []string{"computer"}, wantErr: "not available"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			out, err := toolLaunchOptions(tc.cli, tc.families, dir, tc.in, tc.existing)
+			out, err := toolLaunchOptions(tc.cli, tc.families, dir, tc.in, tc.existing, tc.env)
 			if tc.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 					t.Fatalf("err = %v, want %q", err, tc.wantErr)
@@ -179,15 +210,33 @@ func TestToolFamiliesAndRefusals(t *testing.T) {
 	if err := toolLaunchRefusal(grok, clilaunch.Config{Tools: []string{"computer"}}); err == nil || !strings.Contains(err.Error(), "Connectors pane") {
 		t.Fatalf("grok = %v", err)
 	}
-	p := toolLaunchPlan(claude, []string{"computer"}, "/run")
+	p := toolLaunchPlan(claude, []string{"computer"}, "/run", nil)
 	if p == nil || !strings.Contains(p.Summary, "--mcp-config") || len(p.Branches) != 1 || p.Files[0] != "/run/tools.mcp.json" {
 		t.Fatalf("claude plan = %+v", p)
 	}
-	if p := toolLaunchPlan(grok, []string{"computer"}, "/run"); p == nil || !strings.Contains(p.Summary, "Not available at launch") {
+	if p := toolLaunchPlan(grok, []string{"computer"}, "/run", nil); p == nil || !strings.Contains(p.Summary, "Not available at launch") {
 		t.Fatalf("grok plan = %+v", p)
 	}
-	if toolLaunchPlan(claude, nil, "/run") != nil {
+	if toolLaunchPlan(claude, nil, "/run", nil) != nil {
 		t.Fatal("no families, no plan")
+	}
+	// The preview names the identity a launch will fill in: a person reading
+	// "what will be injected" sees where the server learns who is asking.
+	codex, _ := clilaunch.Find("codex")
+	preview := toolLaunchPlan(codex, []string{"delivery"}, "/run", toolIdentityEnvPreview())
+	if preview == nil || len(preview.Branches) != 1 {
+		t.Fatalf("codex plan = %+v", preview)
+	}
+	joined := strings.Join(preview.Branches[0].Args, " ")
+	for _, want := range []string{
+		`mcp_servers.picode-delivery.env.PICODE_TERM_ID="{terminal}"`,
+		`mcp_servers.picode-delivery.env.PICODE_AGENT_ID="{agent}"`,
+		`mcp_servers.picode-delivery.env.PICODE_TERM_URL="{url}"`,
+		`mcp_servers.picode-delivery.env.PICODE_DATA="{data}"`,
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("preview missing %s in %v", want, preview.Branches[0].Args)
+		}
 	}
 }
 

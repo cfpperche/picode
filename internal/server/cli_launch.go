@@ -1170,7 +1170,7 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		if !specified {
 			existing = os.Getenv("OPENCODE_CONFIG_CONTENT")
 		}
-		peerOptions, err = toolLaunchOptions(cli.ID, families, dir, peerOptions, existing)
+		peerOptions, err = toolLaunchOptions(cli.ID, families, dir, peerOptions, existing, toolIdentityEnv(deps, v.TerminalID))
 		if err != nil {
 			return nil, err
 		}
