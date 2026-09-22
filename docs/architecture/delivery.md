@@ -67,6 +67,26 @@ D1a introduced declarations only. D1b adds the observation and desktop/mobile
 presentation described below; publication remains the next separate slice in
 [the delivery plan](../plans/delivery-flow.md).
 
+## The integration queue (ADR-0182)
+
+`internal/store/delivery_queue.go` owns one table from migration 066, built with
+the mechanics the declarations proved: the row's truth lives in its JSON body,
+`delivery_queue_requests` receipts compare byte-for-byte so a retry replays
+instead of writing twice, the row and the `delivery.changed` event commit in the
+same transaction, and the delivery mutex serializes both stores because they feed
+one view. States are `waiting → authorized → running → done | failed`, plus
+`withdrawn`; `order` and `authorize` are refused for every actor but
+`store.OwnerActor`, so the owner's authority holds even where a door forgets to
+check it, and an agent withdraws only its own entry. One active entry per
+delivery is an invariant, and the entry names a declaration of its repository.
+
+Eligibility is deliberately **not** stored: the branch still pointing at the
+reviewed revision, the target not having moved and the evidence still covering
+that revision are derived from Git and receipts when an entry is read or run, so
+a stale approval can never ride along inside the row. The command doors, the
+serialized executor and the Delivery-view lane are the slice's next steps
+(`docs/plans/delivery-flow.md`, D3).
+
 ## Integration observation (ADR-0170, D1b)
 
 `internal/delivery` reads local refs, explicit target ancestry, checkout state and

@@ -132,7 +132,7 @@ import { hasUnseenRelease, readSeenVersion, shouldAutoOpen, writeSeenVersion } f
 import ShareGist from "./components/ShareGist.jsx";
 import LlamaPanel from "./components/LlamaPanel.jsx";
 import TermSettingsPage from "./components/TermSettingsPage.jsx";
-import { createWorkspaceSchema, createWorkspaceCloneSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
+import { createWorkspaceSchema, createWorkspaceCloneSchema, createWsAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { parentDir } from "@picode/shared/domain/cloneUrl.js";
 import Toasts from "./components/Toasts.jsx";
 import { useMedia } from "./lib/media.js";
@@ -3084,7 +3084,7 @@ export default function App({ shellChrome = false } = {}) {
       }
       return;
     }
-    const schema = formKind === "workspace" ? createWorkspaceSchema : formKind === "free" ? createFreeAgentSchema : createWsAgentSchema;
+    const schema = formKind === "workspace" ? createWorkspaceSchema : createWsAgentSchema;
     const parsed = parseForm(schema, formKind === "workspace" ? { name, path } : { name, path, ...newCfg });
     if (!parsed.ok) { setFormError(parsed.error); return; }
     const body = parsed.value;
@@ -3097,14 +3097,6 @@ export default function App({ shellChrome = false } = {}) {
           body: JSON.stringify(body),
         });
         await loadWorkspaces();
-      } else if (formKind === "free") {
-        const ag = await api("/api/agents", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        await loadWorkspaces();
-        openTab(ag.id);
       } else {
         if (!formWs) { setFormError("Name is required."); return; }
         const ag = await api("/api/workspaces/" + formWs + "/agents", {
@@ -3687,7 +3679,7 @@ export default function App({ shellChrome = false } = {}) {
         workspaces={workspaces}
         selectedId={selectedId}
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}
-        onNewFree={() => { setFormKind("free"); setShowForm(true); }}
+        onNewFree={() => { setCliPrincipalWs({ free: true }); }}
         onNewAgent={(id) => {
           const ws = workspaces.find((w) => w.id === id);
           if (ws && ws.id !== "ws_free") setCliPrincipalWs(ws);
@@ -4280,8 +4272,8 @@ export default function App({ shellChrome = false } = {}) {
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
-        <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
-        <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
+        <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
+        <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} />
         <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
