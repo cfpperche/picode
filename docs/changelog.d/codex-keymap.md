@@ -1,5 +1,11 @@
 ### Added
 
+- **Antigravity's keyboard map is editable in PiCode.** Agent CLIs →
+  Antigravity → Keyboard lists its 36 actions with the chords the installed build
+  ships, and PiCode writes the CLI's own `keybindings.json` — the vendor's
+  override file, where removing a row hands that action back to the built-in
+  binding. The tab says a change needs a restart, which is what a live session
+  showed.
 - **Codex's keyboard map is editable in PiCode.** Agent CLIs → Codex → Keyboard
   lists its 149 keymap keys in the twelve contexts Codex puts them in — global, chat,
   composer, editor, the four vim modes, pager, list, agents and approval — with

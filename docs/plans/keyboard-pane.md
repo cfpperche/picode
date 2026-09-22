@@ -394,17 +394,14 @@ refusal for `super+m`), and `qa-cli-settings.mjs`, whose guest block now loops
 over Omp and Codex and proves each one's captured chord reaches its own file in
 its own spelling.
 
-**Antigravity is the other half of this row and is not shipped.** Its research is
-done and its shape fits the engine as it stands (36 ids, `id -> [chord]`, one
-override file, `[]` disables a default, removing a row returns to the vendor's
-default — read 2026-09-21); what it still needs is its pickup measured and its
-catalog's labels settled, because the vendor publishes two documentation
-generations and only `/docs/cli/using` + `/docs/cli/vim-editor-mode` match the
-installed build (`/docs/cli/reference` has drifted to renamed ids). That is the
-next slice: `docs/handoff/open/agent-clis-native.md` carries the measurement plan.
-Everything it needs was measured before the first line of the adapter, so the
-next session starts with no unknowns — and the first measurement corrected this
-plan (see below).
+**Antigravity shipped too (2026-09-21, `feat/agy-keymap`)**, and with it P3 is
+complete: 36 actions in ten id namespaces, the vendor's override file written
+through the same engine, labels twenty parts vendor / sixteen parts id-derived
+(the two doc pages that match the installed build name twenty actions; the rest
+they leave unnamed, and the catalog says which is which). Its pickup was
+**measured in a live session**: the TUI keeps the map it loaded at start, so the
+row says restart. The remaining rows are P4: Claude Code's inverted contexts and
+OpenCode's leader sequences and project layer.
 
 ## P2's inputs (measured 2026-09-21)
 

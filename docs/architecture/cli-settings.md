@@ -310,6 +310,17 @@ reload. A row whose value is not a string or a list of strings is reported as
 unreadable and left alone, and `Reset all` removes only the rows the catalog
 knows.
 
+**Antigravity joins it** (2026-09-21): the same flat engine, one declaration —
+`~/.gemini/antigravity-cli/keybindings.json`, 36 actions in ten id namespaces,
+the vendor's *override* file (removing a row hands that action back to the
+binding built into the binary, which is exactly what the engine's reset does).
+Its pickup is **measured, not assumed**: with the file remapped under a running
+session, the TUI kept the map it loaded at start — the old key still cycled the
+mode, the new one did nothing — so the registry row and the pane say "restart".
+Twenty rows carry the vendor's own descriptions from the two doc pages that match
+the installed build; the other sixteen are labelled from their id, which those
+pages leave unnamed.
+
 **A nested map, and a vocabulary that is not the pane's** (P3, 2026-09-21):
 Codex's map is the same engine with a different declaration — one table per
 context, every row at `[tui.keymap.<context>]` as `action = "chord"` (not a table

@@ -143,10 +143,17 @@ var Registry = []CLI{
 	},
 	{
 		ID: "agy", Label: "Antigravity",
-		Keymap: Flat, Pickup: PickupUnknown, State: Planned, Vocab: "agy",
-		Source: "~/.gemini/antigravity-cli/keybindings.json on this machine (read 2026-09-21): " +
-			"action -> array of chords, own namespaces (cli./edit./navigation./vim./view./subagent.), " +
-			"pgdown-style key names; pickup unmeasured",
+		Keymap: Flat, Pickup: PickupRestart, State: Shipped, Vocab: "pi",
+		Source: "the file on this machine (~/.gemini/antigravity-cli/keybindings.json, " +
+			"36 ids in 10 namespaces) plus the vendor's two doc pages that match the " +
+			"installed build (antigravity.google/docs/cli/using and /docs/cli/vim-editor-mode), " +
+			"read 2026-09-21: one override file, `id -> [chord]`, `[]` disables a default, " +
+			"an id the file omits falls back to the built-in binding, chords hyphen-less " +
+			"(`ctrl+l`, `pgdown`, `esc`, `ctrl+_`). The /docs/cli/reference table has " +
+			"drifted to renamed ids and is not a source. Pickup: measured in a live " +
+			"session — with the file remapped under it, the running TUI kept the " +
+			"startup map (the old key still cycled the mode, the new one did " +
+			"nothing), so a change needs a restart. ",
 	},
 	{
 		ID: "omp", Label: "Omp",

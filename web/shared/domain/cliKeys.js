@@ -17,7 +17,7 @@ export const KEYBOARD_CLIS = [
   { id: "hermes", label: "Hermes Agent", state: "planned", pickup: "unknown", keymap: "partial", vocab: "pi" },
   { id: "opencode", label: "OpenCode", state: "planned", pickup: "unknown", keymap: "flat", vocab: "opencode", docs: "https://opencode.ai/docs/keybinds" },
   { id: "muse", label: "Muse Code", state: "refused", pickup: "unknown", keymap: "none", vocab: "", docs: "https://ai.developer.meta.com/docs/muse-code/interactive", listHint: "/keymap inside Muse Code lists its keys" },
-  { id: "agy", label: "Antigravity", state: "planned", pickup: "unknown", keymap: "flat", vocab: "agy", docs: "https://antigravity.google/docs/cli/settings" },
+  { id: "agy", label: "Antigravity", state: "shipped", pickup: "restart", keymap: "flat", vocab: "pi", editor: "keymap" },
   { id: "omp", label: "Omp", state: "shipped", pickup: "restart", keymap: "flat", vocab: "pi", editor: "keymap" },
 ];
 
