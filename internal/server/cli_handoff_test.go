@@ -583,7 +583,7 @@ func TestHandoffLiveSourceNeedsForce(t *testing.T) {
 	_, claudeOut := fakeCLI(t, ts, home, "claude-code")
 
 	// A running Claude Code terminal pinned to cc-1 (ADR-0084).
-	created := cliRequest(t, ts, "POST", "/api/clis/claude-code/terminals", map[string]any{"name": "live claude", "cwd": proj}, 201)
+	created := launchFixture(t, ts, "claude-code", map[string]any{"name": "live claude", "cwd": proj}, 201)
 	termID := created["id"].(string)
 	t.Cleanup(func() { killTermPane(tmux.ShellSessionName(termID)) })
 	waitCLIFile(t, claudeOut+".args")

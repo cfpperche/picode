@@ -144,7 +144,7 @@ func TestCLIProfileRoutesAndAffectedLaunches(t *testing.T) {
 			args["name"] = "Pinned"
 			args["overrides"] = map[string]any{"args": []string{}}
 		}
-		v := cliRequest(t, ts, "POST", "/api/clis/pi/terminals", args, 201)
+		v := launchFixture(t, ts, "pi", args, 201)
 		id := v["id"].(string)
 		t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id)) })
 	}
@@ -173,7 +173,7 @@ func TestCLICreateFailureRetainsLaunchForRetry(t *testing.T) {
 	if err := os.WriteFile(root, []byte("blocks preparation"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	v := cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"cwd": home}, 201)
+	v := launchFixture(t, ts, "pi", map[string]any{"cwd": home}, 201)
 	if v["launchError"] == nil {
 		t.Fatal("expected saved launch failure")
 	}
@@ -212,7 +212,7 @@ exec cat
 		out := filepath.Join(home, id+".args")
 		c := clilaunch.Config{Executable: tool, Integration: true, Env: map[string]string{"QA_FILE": out}, Args: []string{"two words", "$literal", ""}}
 		cliRequest(t, ts, "PUT", "/api/clis/"+id, c, 200)
-		v := cliRequest(t, ts, "POST", "/api/clis/"+id+"/terminals", map[string]any{"cwd": home}, 201)
+		v := launchFixture(t, ts, id, map[string]any{"cwd": home}, 201)
 		terminal := v["id"].(string)
 		t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(terminal)) })
 		var applied clilaunch.Snapshot
@@ -229,6 +229,10 @@ exec cat
 		}
 		want = append(want, c.Args...)
 		got := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, out)), "\x00"), "\x00")
+		// A Pi launch is a Pi agent (ADR-0184): its own flags follow.
+		if id == "pi" && len(got) > len(want) {
+			got = got[:len(want)]
+		}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("%s argv=%q want=%q", id, got, want)
 		}
@@ -246,7 +250,7 @@ func TestCLIRestartPreparationFailureAndWorkspaceCleanup(t *testing.T) {
 	ws := cliRequest(t, ts, "POST", "/api/workspaces", map[string]any{"name": "QA", "path": project}, 201)["id"].(string)
 	c := clilaunch.Config{Executable: "/bin/cat"}
 	cliRequest(t, ts, "PUT", "/api/clis/pi", c, 200)
-	v := cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"workspaceId": ws}, 201)
+	v := launchFixture(t, ts, "pi", map[string]any{"workspaceId": ws}, 201)
 	id := v["id"].(string)
 	session := tmux.ShellSessionName(id)
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), session) })

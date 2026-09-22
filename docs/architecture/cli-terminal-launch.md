@@ -41,8 +41,15 @@ agent created with overrides is the interactive shape: its terminal runs `pi`,
 and `--session` moves onto the agent's `SessionPath` (reserved on a Pi agent's
 launch). The cross-CLI handoff uses `createCLIAgent`, which also starts the
 terminal. `web/shared/client/launchAgent.js` is the client door for both apps.
-`POST /api/clis/{cli}/terminals` remains only until its test fixtures move
-(`docs/plans/one-cli-door.md`, slice 3).
+`POST /api/clis/{cli}/terminals` is gone (slice 3). The one terminal that
+still carries a launch without an agent is a credential sign-in:
+`terminals.kind = 'signin'` (migration 068), created only by
+`createSigninTerminal`, kept out of `/api/terminals`, peer owners and the app's
+lists (`kind` travels in the terminal view and the feed reducer drops it),
+and closed by the server (`signin.go`): when the credential is imported, when
+its session is gone, after `signinOpenLimit` (15 min, counted from creation),
+and at boot — `StartSigninReaper` ticks every minute. The card's Cancel
+deletes it; its strip reads `terminal.deleted` to say it closed.
 
 Each launch writes a private generation under `cli-launch/<terminal>/run-*`.
 Integration uses the existing CLI adapter with the resolved executable pinned

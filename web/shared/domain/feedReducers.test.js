@@ -291,3 +291,10 @@ test("snips: create, patch, delete; unknown update refetches", () => {
   assert.equal(applySnips(list, { type: "pin.created", data: { id: "p" } }), list);
   assert.equal(touches({ type: "snip.created" }, ["snip"]), true);
 });
+
+test("a sign-in terminal never joins the terminal list (ADR-0184)", () => {
+  const state = { workspaces: [], freeAgents: [], terminals: [] };
+  assert.equal(applyFleet(state, { type: "terminal.created", data: { id: "s1", kind: "signin" } }), state);
+  assert.equal(applyFleet(state, { type: "terminal.changed", data: { id: "s1", kind: "signin", running: true } }), state);
+  assert.equal(applyFleet(state, { type: "terminal.created", data: { id: "t1" } }).terminals.length, 1);
+});

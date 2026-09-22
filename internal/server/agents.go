@@ -614,6 +614,9 @@ func checkAgentLaunch(deps Deps, cliID string, ov *clilaunch.Overrides) (int, er
 	if ov == nil {
 		return 0, nil
 	}
+	if deps.Tmux == nil || !deps.Tmux.Available() {
+		return http.StatusServiceUnavailable, errors.New("Install tmux to open a terminal.")
+	}
 	id := strings.TrimSpace(cliID)
 	if id == "" {
 		id = store.CLIPi

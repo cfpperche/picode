@@ -192,11 +192,13 @@ function applyFleetRaw(state, ev) {
       return found ? next : state;
     }
     case "terminal.created":
-      if (!d.id || terminals.some((t) => t.id === d.id)) return state;
+      // A sign-in terminal belongs to its credential card (ADR-0184).
+      if (!d.id || d.kind === "signin" || terminals.some((t) => t.id === d.id)) return state;
       return { ...state, terminals: [...terminals, d] };
     case "terminal.updated":
       return terminals.some((t) => t.id === d.id) ? { ...state, terminals: terminals.map((t) => (t.id === d.id ? { ...t, ...d } : t)) } : null;
     case "terminal.changed":
+      if (d.kind === "signin") return state;
       // A lifecycle response is a complete live view, not a partial patch.
       // Stop must clear the prior CLI lease and activity as well as running.
       // It can also arrive BEFORE the store's bare terminal.created — the two

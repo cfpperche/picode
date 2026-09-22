@@ -35,7 +35,7 @@ func TestCLITerminalCreationAnnouncesItsIdentityOnTheFeed(t *testing.T) {
 	if err := os.WriteFile(binary, []byte("#!/bin/sh\nif [ \"$1\" = --version ]; then printf 'fixture-muse 1.0\\n'; exit 0; fi\nexec cat\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	created := cliRequest(t, ts, "POST", "/api/clis/muse/terminals", map[string]any{
+	created := launchFixture(t, ts, "muse", map[string]any{
 		"name":      "Feed fixture",
 		"cwd":       home,
 		"overrides": map[string]any{"executable": binary},
@@ -66,12 +66,12 @@ func TestCLITerminalRefusedLaunchCreatesNoRow(t *testing.T) {
 	}
 	ts, home, stream := cliFeedServer(t)
 	defer stream.Close()
-	cliRequest(t, ts, "POST", "/api/clis/muse/terminals", map[string]any{
+	launchFixture(t, ts, "muse", map[string]any{
 		"name":      "Never created",
 		"cwd":       home,
 		"overrides": map[string]any{"executable": filepath.Join(home, "missing-cli")},
 	}, 400)
-	cliRequest(t, ts, "POST", "/api/clis/muse/terminals", map[string]any{
+	launchFixture(t, ts, "muse", map[string]any{
 		"name":      "Never created",
 		"cwd":       filepath.Join(home, "gone"),
 		"overrides": map[string]any{"executable": filepath.Join(home, "missing-cli")},

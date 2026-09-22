@@ -7,6 +7,7 @@ import CustomEndpointPage from "./CustomEndpointPage.jsx";
 import QuotaStrip from "./QuotaStrip.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { api } from "@picode/shared/client/api.js";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
 import { askPrompt } from "../lib/prompt.js";
@@ -125,6 +126,26 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // The pane survives a CLI switch without remounting; a sign-in in flight
   // belongs to the CLI it was started for, so it goes with it.
   useEffect(() => { setSignin(null); }, [cli]);
+  // The server owns the sign-in terminal (ADR-0184): it closes it once the
+  // credential lands, when its process ends, or after fifteen minutes. The
+  // strip says so instead of pointing at a terminal that is gone.
+  const signinTerm = signin ? signin.terminalId : "";
+  useEffect(() => {
+    if (!signinTerm) return undefined;
+    return subscribeFeed((e) => {
+      if (e.type === "terminal.deleted" && e.data && e.data.id === signinTerm) {
+        setSignin((prev) => (prev && prev.terminalId === signinTerm ? { ...prev, terminalId: "", closed: true } : prev));
+      }
+    });
+  }, [signinTerm]);
+
+  // Cancel ends the sign-in terminal with the strip: nothing keeps running
+  // where nobody sees it.
+  async function cancelSignin() {
+    const id = signin && signin.terminalId;
+    setSignin(null);
+    if (id) await api("/api/terminals/" + encodeURIComponent(id), { method: "DELETE" }).catch(() => {});
+  }
 
   const providers = data && Array.isArray(data.providers) ? data.providers : [];
   const cliName = (data && data.cliName) || terminalCliLabel(cli);
@@ -595,11 +616,13 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
             result. */}
         {signin ? (
           <div className="cli-notice cred-signin" role="status">
-            <span className="cred-signin-hint">{signin.hint || "Finish the sign-in, then check again."}</span>
+            <span className="cred-signin-hint">{signin.closed ? "The sign-in terminal closed. Check now if you finished, or sign in again." : signin.hint || "Finish the sign-in, then check again."}</span>
             {signin.error ? <span className="cred-signin-error" role="alert">{signin.error}</span> : null}
             <span className="cred-signin-actions">
               {signin.terminalId ? (
                 <a className="btn btn-ghost btn-sm" href={"#/term/" + encodeURIComponent(signin.terminalId)}>Open terminal</a>
+              ) : signin.closed ? (
+                <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "signin"} onClick={startSignin}>Sign in again</button>
               ) : null}
               {signin.replacing ? (
                 <>
@@ -615,7 +638,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                   {busy === "check" ? "Checking…" : "Check now"}
                 </button>
               )}
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSignin(null)}>Dismiss</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={cancelSignin}>Cancel</button>
             </span>
           </div>
         ) : null}

@@ -118,3 +118,23 @@ func TestMigrateCLITerminalsOntoAgents(t *testing.T) {
 		t.Fatalf("agents after rerun = %d %v", len(all), err)
 	}
 }
+
+// ADR-0184 slice 3: a sign-in terminal keeps its kind; others have none.
+func TestSigninTerminalKind(t *testing.T) {
+	s := openTest(t)
+	in, err := s.CreateSigninTerminal("Codex sign-in", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, err := s.CreateTerminal("zsh", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetTerminal(in.ID)
+	if err != nil || got.Kind != TerminalKindSignin || got.WorkspaceID != FreeWorkspaceID {
+		t.Fatalf("sign-in = %+v %v", got, err)
+	}
+	if got, _ := s.GetTerminal(plain.ID); got.Kind != "" {
+		t.Fatalf("shell kind = %q", got.Kind)
+	}
+}

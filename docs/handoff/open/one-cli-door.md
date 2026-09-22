@@ -4,7 +4,6 @@ Decision: ADR-0184. Plan: `docs/plans/one-cli-door.md` (four branches, in order)
 
 ## Next
 
-- `feat/cli-door-close`: remove `POST /api/clis/{cli}/terminals` (move its 17 test fixtures to agents), sign-in terminals internal (`kind`), visible on their card, reaped on credential/exit/idle/boot.
 - `feat/cli-door-adopt`: Make agent from a PiCode shell running a catalog CLI (the bind endpoint exists: `POST /api/workspaces/{id}/principals` with `terminalId`).
 
 ## Debts

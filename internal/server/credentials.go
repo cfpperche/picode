@@ -607,6 +607,9 @@ func handleCredentialImport(deps Deps) http.HandlerFunc {
 		// finished sign-in from the account that was already in the file.
 		// Nameless stores (Claude Code) keep one row id either way.
 		out["stamp"] = tokenStamp(login.Cred)
+		// The credential landed: the sign-in is done, and its terminal goes
+		// with it (ADR-0184) — nothing keeps running where nobody sees it.
+		closeSigninFor(r.Context(), deps, cli)
 		writeJSON(w, http.StatusCreated, out)
 	}
 }
@@ -734,30 +737,19 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 		// One sign-in terminal per CLI. A second click must lead back to the
 		// terminal that is already waiting — thirteen "Claude Code sign-in"
 		// sessions piled up in one machine's tmux before this check existed
-		// (2026-09-21). A record whose session is gone is a husk: remove it so
-		// the terminals list does not fill with sign-in ghosts.
-		want := spec.Name + " sign-in"
-		if rows, err := deps.Store.ListTerminals(); err == nil {
-			for _, t := range rows {
-				if t.Name != want {
-					continue
-				}
-				alive, e := deps.Tmux.HasSession(r.Context(), tmux.ShellSessionName(t.ID))
-				if e == nil && alive {
-					writeJSON(w, http.StatusOK, map[string]any{
-						"terminalId": t.ID, "hint": spec.Login.Hint, "reused": true,
-					})
-					return
-				}
-				_ = deps.Store.DeleteTerminal(t.ID)
+		// (2026-09-21). One whose session is gone is closed, not reused.
+		for _, t := range signinTerminals(deps, cli.ID) {
+			alive, e := deps.Tmux.HasSession(r.Context(), tmux.ShellSessionName(t.ID))
+			if e == nil && alive {
+				writeJSON(w, http.StatusOK, map[string]any{
+					"terminalId": t.ID, "hint": spec.Login.Hint, "reused": true,
+				})
+				return
 			}
+			_ = closeSigninTerminal(r.Context(), deps, t)
 		}
 		args := append([]string{}, spec.Login.Args...)
-		v := cliTerminalRequest{
-			Name:      spec.Name + " sign-in",
-			Overrides: clilaunch.Overrides{Args: &args},
-		}
-		t, view, status, err := createCLITerminal(deps, r, cli, v)
+		t, view, status, err := createSigninTerminal(deps, r, cli, spec.Name+" sign-in", args)
 		if err != nil {
 			writeErr(w, status, err.Error())
 			return

@@ -329,7 +329,7 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 	if !tmux.New().Available() {
 		t.Log("tmux unavailable: terminal creation not exercised")
 	} else {
-		created := cliRequest(t, ts, "POST", "/api/clis/muse/terminals", map[string]any{"cwd": home, "name": "muse qa"}, 201)
+		created := launchFixture(t, ts, "muse", map[string]any{"cwd": home, "name": "muse qa"}, 201)
 		id, _ := created["id"].(string)
 		if id == "" {
 			t.Fatalf("terminal = %+v", created)

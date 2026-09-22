@@ -305,7 +305,6 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 		}
 		writeJSON(w, 200, v)
 	})
-	mux.HandleFunc("POST /api/clis/{cli}/terminals", handleCreateCLITerminal(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/launch", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if _, err := deps.Store.GetTerminal(id); err != nil {
@@ -532,41 +531,13 @@ func clipCLIVersion(raw string) string {
 	return s
 }
 
-// cliTerminalRequest is the body of POST /api/clis/{cli}/terminals, also
-// composed by the handoff endpoint (ADR-0088).
+// cliTerminalRequest is what a server-side launch asks for: the handoff
+// endpoint (ADR-0088) composes it for createCLIAgent.
 type cliTerminalRequest struct {
 	Name        string              `json:"name"`
 	WorkspaceID string              `json:"workspaceId"`
 	Cwd         string              `json:"cwd"`
 	Overrides   clilaunch.Overrides `json:"overrides"`
-}
-
-func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cli, ok := clilaunch.Find(r.PathValue("cli"))
-		if !ok {
-			writeErr(w, 404, "Unknown CLI.")
-			return
-		}
-		if !cli.Launchable() {
-			writeErr(w, 400, fmt.Sprintf("Launch is not available for %s yet.", cli.Name))
-			return
-		}
-		var v cliTerminalRequest
-		if !readCLIJSON(w, r, &v) {
-			return
-		}
-		if deps.Tmux == nil || !deps.Tmux.Available() {
-			writeErr(w, 503, "Install tmux to open a terminal.")
-			return
-		}
-		_, view, status, err := createCLITerminal(deps, r, cli, v)
-		if err != nil {
-			writeErr(w, status, err.Error())
-			return
-		}
-		writeJSON(w, status, view)
-	}
 }
 
 // checkCLILaunch resolves the CLI's stored settings with overrides and
@@ -591,47 +562,8 @@ func checkCLILaunch(deps Deps, cli clilaunch.CLI, overrides clilaunch.Overrides)
 	return c, 0, nil
 }
 
-// createCLITerminal creates a terminal with a CLI launch and starts it. On
-// a launch failure the terminal is kept for repair and the 201 view
-// carries launchError, exactly as before the handoff endpoint shared it.
-func createCLITerminal(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTerminalRequest) (store.Terminal, map[string]any, int, error) {
-	if _, status, err := checkCLILaunch(deps, cli, v.Overrides); err != nil {
-		return store.Terminal{}, nil, status, err
-	}
-	if strings.TrimSpace(v.Name) == "" {
-		v.Name = cli.Name
-	}
-	unlockWorkspace := terminalLock(deps, "workspace:"+v.WorkspaceID)
-	defer unlockWorkspace()
-	t, err := deps.Store.CreateTerminalIn(v.WorkspaceID, v.Name, v.Cwd)
-	if err != nil {
-		return store.Terminal{}, nil, 400, err
-	}
-	unlock := terminalLock(deps, t.ID)
-	defer unlock()
-	if err := deps.Store.SetTerminalLaunch(t.ID, cli.ID, v.Overrides); err != nil {
-		_ = deps.Store.DeleteTerminal(t.ID)
-		return store.Terminal{}, nil, 500, err
-	}
-	name := tmux.ShellSessionName(t.ID)
-	created, err := ensureShell(deps, r, name, t.ID, t.Cwd)
-	if err != nil {
-		// Keep the configured terminal available for repair and retry.
-		publishTerminalState(deps, r, t, false)
-		return t, map[string]any{"id": t.ID, "launchError": err.Error()}, 201, nil
-	}
-	// The store announced terminal.created with the bare row (id, name, cwd,
-	// workspace, createdAt); the identity a sidebar row, a tab and a face draw
-	// — the CLI this terminal launches, its runtime and its launch state —
-	// lives outside it. Announce the same live view every other terminal
-	// response uses, or a terminal created while a page is open reads as a
-	// plain shell until a reload.
-	publishTerminalState(deps, r, t, true)
-	return t, termViewForCreation(deps, r, t, name, created), 201, nil
-}
-
-// createCLIAgent is createCLITerminal's agent-bound form (ADR-0184): the
-// same pre-flight, then an agent — in the workspace, or free — whose
+// createCLIAgent is the server-side launch door (ADR-0184): the launch
+// pre-flight, then an agent — in the workspace, or free — whose
 // terminal carries the launch, started at once. A server-side launch (the
 // cross-CLI handoff) uses it so the CLI it opens is in the fleet like any
 // other; only the credential sign-in keeps a bare terminal.

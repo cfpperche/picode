@@ -16,12 +16,19 @@ type Terminal struct {
 	Cwd         string `json:"cwd"`
 	WorkspaceID string `json:"workspaceId"`
 	CreatedAt   string `json:"createdAt"`
+	// Kind is "" for a terminal a person opened (a shell, or an agent's) and
+	// TerminalKindSignin for a CLI's sign-in, which the server owns
+	// (ADR-0184): off the sidebar, no agent, no grant, closed by the server.
+	Kind string `json:"kind,omitempty"`
 }
 
-const terminalCols = `id, name, cwd, workspace_id, created_at`
+// TerminalKindSignin marks a credential sign-in terminal (ADR-0184).
+const TerminalKindSignin = "signin"
+
+const terminalCols = `id, name, cwd, workspace_id, created_at, kind`
 
 func scanTerminal(row interface{ Scan(...any) error }, t *Terminal) error {
-	return row.Scan(&t.ID, &t.Name, &t.Cwd, &t.WorkspaceID, &t.CreatedAt)
+	return row.Scan(&t.ID, &t.Name, &t.Cwd, &t.WorkspaceID, &t.CreatedAt, &t.Kind)
 }
 
 // ListTerminals returns every terminal regardless of workspace. Settings
@@ -82,6 +89,16 @@ func (s *Store) CreateTerminal(name, cwd string) (Terminal, error) {
 // A blank workspace means free. A workspace terminal with no cwd starts in
 // the workspace folder; the $HOME default belongs to free terminals only.
 func (s *Store) CreateTerminalIn(workspaceID, name, cwd string) (Terminal, error) {
+	return s.createTerminal(workspaceID, name, cwd, "")
+}
+
+// CreateSigninTerminal creates a free terminal the credential sign-in owns
+// (ADR-0184). Only the server calls it; it never binds an agent.
+func (s *Store) CreateSigninTerminal(name, cwd string) (Terminal, error) {
+	return s.createTerminal(FreeWorkspaceID, name, cwd, TerminalKindSignin)
+}
+
+func (s *Store) createTerminal(workspaceID, name, cwd, kind string) (Terminal, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
 	if workspaceID == "" {
 		workspaceID = FreeWorkspaceID
@@ -123,11 +140,11 @@ func (s *Store) CreateTerminalIn(workspaceID, name, cwd string) (Terminal, error
 	}
 	id := newID(name, "term")
 	now := nowUTC()
-	if _, err := s.db.Exec(`INSERT INTO terminals (id, name, cwd, workspace_id, created_at, position) VALUES (?, ?, ?, ?, ?, `+nextPositionExpr("terminals", "workspace_id = ?")+`)`,
-		id, name, cwd, workspaceID, now, workspaceID); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO terminals (id, name, cwd, workspace_id, created_at, kind, position) VALUES (?, ?, ?, ?, ?, ?, `+nextPositionExpr("terminals", "workspace_id = ?")+`)`,
+		id, name, cwd, workspaceID, now, kind, workspaceID); err != nil {
 		return Terminal{}, fmt.Errorf("store: insert terminal: %w", err)
 	}
-	t := Terminal{ID: id, Name: name, Cwd: cwd, WorkspaceID: workspaceID, CreatedAt: now}
+	t := Terminal{ID: id, Name: name, Cwd: cwd, WorkspaceID: workspaceID, CreatedAt: now, Kind: kind}
 	s.note("terminal.created", nil, nil, t) // terminals have no workspace FK (ADR-0026)
 	return t, nil
 }

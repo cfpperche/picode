@@ -165,13 +165,14 @@ exec cat
 	if _, err := os.Stat(filepath.Join(home, "first.args")); !os.IsNotExist(err) {
 		t.Fatal("check started a conversation")
 	}
-	created := cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"name": "Launch fixture", "cwd": home}, 201)
+	created := launchFixture(t, ts, "pi", map[string]any{"name": "Launch fixture", "cwd": home}, 201)
 	id := created["id"].(string)
 	name := tmux.ShellSessionName(id)
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), name) })
 	endpoint := "/api/terminals/" + id + "/launch"
 	raw := waitCLIFile(t, filepath.Join(home, "first.args"))
-	if got := strings.Split(strings.TrimSuffix(string(raw), "\x00"), "\x00"); !reflect.DeepEqual(got, args) {
+	// A Pi launch is a Pi agent (ADR-0184): its own flags follow the CLI's.
+	if got := strings.Split(strings.TrimSuffix(string(raw), "\x00"), "\x00"); len(got) < len(args) || !reflect.DeepEqual(got[:len(args)], args) {
 		t.Fatalf("argv=%q", got)
 	}
 	env := strings.Split(string(waitCLIFile(t, filepath.Join(home, "first.env"))), "\x00")
@@ -237,7 +238,7 @@ exec cat
 	if restarted["launchPending"] != false {
 		t.Fatal("restart did not apply settings")
 	}
-	if got := string(waitCLIFile(t, filepath.Join(home, "second.args"))); got != "override\x00" {
+	if got := string(waitCLIFile(t, filepath.Join(home, "second.args"))); !strings.HasPrefix(got, "override\x00") {
 		t.Fatalf("override=%q", got)
 	}
 	entries, _ := os.ReadDir(filepath.Join(dataDir, "cli-launch", id))
@@ -290,8 +291,8 @@ func TestCLITerminalRejectsInvalidRequests(t *testing.T) {
 		return
 	}
 	cliRequest(t, ts, "PUT", "/api/clis/pi", clilaunch.Config{Executable: "/bin/cat"}, 200)
-	cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"cwd": filepath.Join(home, "missing")}, 400)
-	cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"cwd": home, "overrides": map[string]any{"executable": "/not-installed"}}, 400)
+	// A missing folder is no refusal any more: an agent creates its folder.
+	launchFixture(t, ts, "pi", map[string]any{"cwd": home, "overrides": map[string]any{"executable": "/not-installed"}}, 400)
 	listed := cliRequest(t, ts, "GET", "/api/terminals", nil, 200)
 	if len(listed["terminals"].([]any)) != 0 {
 		t.Fatal("invalid request created a terminal")
@@ -350,7 +351,7 @@ func TestCLITerminalWithoutTmuxKeepsConfigurationAvailable(t *testing.T) {
 		t.Fatal("missing tmux reported as available")
 	}
 	cliRequest(t, ts, "PUT", "/api/clis/pi", clilaunch.Config{Executable: "/bin/cat"}, 200)
-	cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"cwd": home}, 503)
+	launchFixture(t, ts, "pi", map[string]any{"cwd": home}, 503)
 	terms := cliRequest(t, ts, "GET", "/api/terminals", nil, 200)
 	if len(terms["terminals"].([]any)) != 0 {
 		t.Fatal("blocked launch created a terminal")
@@ -383,7 +384,7 @@ exec cat
 	base := clilaunch.Config{Executable: binary, Args: []string{"--default"}, Env: map[string]string{"QA_OUTPUT": output}, Path: []string{toolDir}}
 	cliRequest(t, ts, "PUT", "/api/clis/claude-code", base, 200)
 
-	created := cliRequest(t, ts, "POST", "/api/clis/claude-code/terminals", map[string]any{"name": "Resume fixture", "cwd": home}, 201)
+	created := launchFixture(t, ts, "claude-code", map[string]any{"name": "Resume fixture", "cwd": home}, 201)
 	id := created["id"].(string)
 	name := tmux.ShellSessionName(id)
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), name) })
@@ -492,7 +493,7 @@ exec cat
 	base := clilaunch.Config{Executable: binary, Args: []string{"--default"}, Env: map[string]string{"QA_OUTPUT": output}, Path: []string{toolDir}}
 	cliRequest(t, ts, "PUT", "/api/clis/claude-code", base, 200)
 
-	created := cliRequest(t, ts, "POST", "/api/clis/claude-code/terminals", map[string]any{"name": "Restart fixture", "cwd": home}, 201)
+	created := launchFixture(t, ts, "claude-code", map[string]any{"name": "Restart fixture", "cwd": home}, 201)
 	id := created["id"].(string)
 	name := tmux.ShellSessionName(id)
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), name) })
@@ -591,7 +592,7 @@ func TestLaunchScriptIgnoresHUP(t *testing.T) {
 		t.Fatal(err)
 	}
 	cliRequest(t, ts, "PUT", "/api/clis/pi", clilaunch.Config{Executable: binary}, 200)
-	created := cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"name": "HUP fixture", "cwd": home}, 201)
+	created := launchFixture(t, ts, "pi", map[string]any{"name": "HUP fixture", "cwd": home}, 201)
 	id := created["id"].(string)
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id)) })
 
@@ -648,7 +649,7 @@ func TestCLILaunchPutsTheInterceptBinFirstOnPATH(t *testing.T) {
 		ensureOpenURLWrappers(dataDir)
 	}
 	cliRequest(t, ts, "PUT", "/api/clis/pi", clilaunch.Config{Executable: binary}, 200)
-	created := cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"name": "PATH fixture", "cwd": home}, 201)
+	created := launchFixture(t, ts, "pi", map[string]any{"name": "PATH fixture", "cwd": home}, 201)
 	id := created["id"].(string)
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id)) })
 
@@ -686,4 +687,46 @@ func TestCLILaunchPutsTheInterceptBinFirstOnPATH(t *testing.T) {
 	if !strings.HasPrefix(envPath, interceptBinDir(dataDir)+string(os.PathListSeparator)) {
 		t.Fatalf("session PATH = %q, want the intercept bin dir first", envPath)
 	}
+}
+
+// launchFixture is what POST /api/clis/{cli}/terminals used to be for these
+// tests (ADR-0184 removed it): a free agent of that CLI (or one in
+// body["workspaceId"]) whose terminal carries the launch, then started. It
+// answers the started terminal's view, or {id, launchError} when the start
+// failed, or the create refusal when want is not 201.
+func launchFixture(t *testing.T, ts *httptest.Server, cli string, body map[string]any, want int) map[string]any {
+	t.Helper()
+	// No PiCode tool families unless a test asks: the launch these tests
+	// read is the CLI's own.
+	req := map[string]any{"cli": cli, "overrides": map[string]any{"tools": []string{}}}
+	for k, v := range body {
+		req[k] = v
+	}
+	url := "/api/agents"
+	if ws, _ := req["workspaceId"].(string); ws != "" {
+		url = "/api/workspaces/" + ws + "/agents"
+		delete(req, "workspaceId")
+		if cwd, ok := req["cwd"]; ok {
+			req["workPath"] = cwd
+		}
+	} else if cwd, ok := req["cwd"]; ok {
+		req["path"] = cwd
+	}
+	delete(req, "cwd")
+	agent := cliRequest(t, ts, "POST", url, req, want)
+	if want != http.StatusCreated {
+		return agent
+	}
+	tid, _ := agent["terminalId"].(string)
+	if tid == "" {
+		t.Fatalf("launch agent without a terminal: %v", agent)
+	}
+	res := cliRequestFull(t, ts, "POST", "/api/terminals/"+tid+"/launch/start", map[string]any{"confirm": false})
+	body2, _ := res["body"].(map[string]any)
+	if res["status"] != "200" {
+		msg, _ := body2["error"].(string)
+		return map[string]any{"id": tid, "agentId": agent["id"], "launchError": msg}
+	}
+	body2["agentId"] = agent["id"]
+	return body2
 }

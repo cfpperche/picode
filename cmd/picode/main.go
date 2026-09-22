@@ -620,6 +620,7 @@ func serve() {
 	// the whole fleet, published as mcp.updated, instead of one poll per
 	// open panel per 2.5 s.
 	go server.StartMcpWatch(backupCtx, deps, 3*time.Second)
+	go server.StartSigninReaper(backupCtx, deps, time.Minute) // ADR-0184: no sign-in terminal outlives its purpose
 
 	// Git watcher (ADR-0048 follow-up): one Inspect per directory per tick
 	// for the whole fleet, published as git.updated, so the sidebar's

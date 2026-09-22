@@ -72,7 +72,7 @@ func shellTakesRcfile(shell string) bool {
 }
 
 func termView(t store.Terminal, session string, live bool) map[string]any {
-	return map[string]any{
+	view := map[string]any{
 		"id":          t.ID,
 		"name":        t.Name,
 		"cwd":         t.Cwd,
@@ -81,6 +81,10 @@ func termView(t store.Terminal, session string, live bool) map[string]any {
 		"session":     session,
 		"running":     live,
 	}
+	if t.Kind != "" {
+		view["kind"] = t.Kind // ADR-0184: the app keeps a sign-in off its lists
+	}
+	return view
 }
 
 // liveTermView is termView with the truth layered on: the pane's live cwd
@@ -166,9 +170,17 @@ func handleListTerminals(deps Deps) http.HandlerFunc {
 // per-terminal facts are independent, so the fleet is walked with a small
 // worker pool instead of in sequence; the response order matches the store.
 func computeTerminals(ctx context.Context, deps Deps) ([]map[string]any, error) {
-	list, err := deps.Store.ListTerminals()
+	all, err := deps.Store.ListTerminals()
 	if err != nil {
 		return nil, err
+	}
+	// A sign-in terminal belongs to the credential card that opened it
+	// (ADR-0184), not to the sidebar or a CLI's Terminals list.
+	list := make([]store.Terminal, 0, len(all))
+	for _, t := range all {
+		if t.Kind != store.TerminalKindSignin {
+			list = append(list, t)
+		}
 	}
 	out := make([]map[string]any, len(list))
 	const workers = 6

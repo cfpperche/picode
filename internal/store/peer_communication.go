@@ -54,7 +54,7 @@ type PeerMessage struct {
 const peerOwnersSQL = `SELECT 'agent' kind,id,workspace_id,name label,'pi' cli,COALESCE(session_path,'') session_key FROM agents
  UNION ALL SELECT 'terminal',t.id,COALESCE(t.workspace_id,''),t.name,COALESCE(l.cli,''),
  CASE WHEN json_valid(l.last_session) THEN CASE WHEN json_extract(l.last_session,'$.cli')=l.cli THEN COALESCE(json_extract(l.last_session,'$.sessionId'),'') ELSE '' END ELSE '' END
- FROM terminals t LEFT JOIN terminal_launches l ON l.terminal_id=t.id`
+ FROM terminals t LEFT JOIN terminal_launches l ON l.terminal_id=t.id WHERE t.kind=''`
 
 func scanPeerOwner(row peerRow) (p PeerOwner, err error) {
 	err = row.Scan(&p.Kind, &p.OwnerID, &p.WorkspaceID, &p.Label, &p.CLI, &p.SessionKey)
