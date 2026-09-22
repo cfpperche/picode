@@ -178,6 +178,18 @@ change up when *it* restarts.
 
 ## The Models pane (ADR-0181, slice 2)
 
+**Where the matrix is drawn** (owner, 2026-09-22): in the Models pane, not
+Settings. omp's own model hub keeps roles and the model list on one screen,
+and a role picks from the very catalog that pane shows, so a role pointing at a
+model the folder cannot reach, or one the allowed list excludes, is said on the
+role's own row. Every field the roles declaration builds, and the retry knobs
+and `modelRoleStorage` beside it, carry `pane: "models"`; the Settings pane
+keeps `defaultThinkingLevel`, memory and interface. The file, the revision and
+the writer are the same either way — `pane` only decides where a row is drawn,
+which is why the move needed no change to ADR-0181.
+
+
+
 `#/clis/<cli>/models` exists only for a CLI PiCode can ask for its catalog
 (`internal/climodels`; omp today, and `TestJSListMatchesTheReaders` holds the
 JS list `MODELS_CLIS` equal to the server's). It shows what the CLI reports it

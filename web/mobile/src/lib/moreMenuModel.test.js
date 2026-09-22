@@ -43,3 +43,9 @@ test("Packages and Providers stay searchable inside Agent CLIs", () => {
   assert.ok(moreGroups("providers").some(group => group.title === "Agent CLIs" && group.rows.some(row => row[0] === "pi-providers")));
   assert.ok(moreGroups("mcp").some(group => group.rows.some(row => row[0] === "connectors")));
 });
+
+test("CLI shortcuts share one Agent CLIs group", () => {
+  const groups = moreGroups("s").filter((g) => g.title === "Agent CLIs");
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].rows.map((r) => r[1]), ["CLI settings", "Packages", "Providers", "Connectors"]);
+});

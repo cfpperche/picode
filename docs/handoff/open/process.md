@@ -5,19 +5,35 @@
 - [x] The handoff board sat at its cap and failed `make close` until a paid debt was pruned — superseded by ADR-0145 (bounded view: 2 bullets per topic, 7-day notes, open debts only, over target warns).
 
 ## Debts
-- [ ] **`TestStopIdleFencesConversationAndCommands` fails on the GitHub
-  ubuntu runner and nobody can say why.** It reports "agent has an action in
-  progress" at the one assertion where `StopIdle` must *succeed*
-  (`internal/rpc/runtime_test.go`), after 3.57s — four times the 0.85s it
-  takes locally. `StopIdle` gates on `commandMu.TryLock()`, so "idle" is an
-  instantaneous condition, and the obvious theory is a background holder on
-  a loaded runner. **That theory is not supported**: 36 rounds under three
-  parallel loops are green here, no production code calls `send`, `ReplyUI`,
-  `GetState` or `Interrupt` from a goroutine, and the test starts none of its
-  own (all checked 2026-09-21, feat/ci-env-tests). It was deliberately left
-  alone — a bounded retry would turn the gate green without anyone
-  understanding it, which is the failure the other four fixes in that branch
-  were about. Whoever reproduces it owns the fix.
+- [x] **`TestStopIdleFencesConversationAndCommands` fails on the GitHub
+  runners and nobody can say why.** Paid 2026-09-22 (`feat/ci-vendor-tests`) —
+  reproduced and explained. The capture bridge resolves its session file in a
+  goroutine at spawn (`refreshCaptureSessionFile`, ADR-0082) and **holds
+  `commandMu` for the whole `get_state`** while it waits for the writer's reply,
+  so the test's wait ("probe the lock until it is free") proved only that the
+  lock was momentarily free — the query could start right after it, and the
+  `StopIdle` that must succeed then landed inside it. The 2026-09-21 audit's
+  premise was wrong on one file: `resolveCaptureSessionFile` calls `GetState`
+  **from that goroutine**, so "no production code calls `GetState` from a
+  goroutine" was never true. Evidence: `go test ./internal/rpc -run
+  TestStopIdleFencesConversationAndCommands -race -count=10` fails on the old
+  tree (30.5s) and passes on the fixed one (30.1s); papering only one of the two
+  gates moved the message from "queued work in progress" to "an action in
+  progress", which is what pointed at the lock rather than at queued work. Fix:
+  the bridge marks `resolved` when its first `get_state` returns (success or
+  not) and the test waits for that — no retry, the single assertion stays.
+
+- [ ] **Nothing stops the next server test from depending on a CLI installed on
+  the machine.** Two did — `TestPackageOpenCodeRemoveIsPiCodeOwnWrite` needed
+  `opencode`, `TestOmpSigninUnknownProviderStaysTerminal` needed `omp` — and
+  both passed locally (this machine has all nine CLIs) while failing on every
+  runner, *after* the 0.5.0 tag was pushed. Both are hermetic now (`stubVendor`,
+  2026-09-22, `feat/ci-vendor-tests`), but the guard is discipline alone: the
+  drivers locate a CLI with `exec.LookPath`, so any test that reaches a read or
+  a launch path without a stub passes here and fails there. Candidate: run
+  `internal/server` (and any package that touches `clipkgs`) under a PATH with
+  no agent CLI — in `ci-scoped` or as a CI job — so the failure lands in scope
+  rather than in the next push to `main`.
 
 - [x] **Should `/pair` be guarded-and-exempt instead of unguarded?** Today
   `guarded()` covers `/api/`, `/ws/` and `/mcp/communication` only, so the

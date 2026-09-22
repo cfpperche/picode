@@ -800,6 +800,7 @@ func keepsLoopback(host string) bool {
 // host is a specific outside address.
 func bindAndServe(cfg config.Config, deps server.Deps) (*http.Server, int, error) {
 	handler := server.New("127.0.0.1:0", deps).Handler // addr unused; we serve explicitly
+	server.ResumeDeliveryQueue(deps)                   // ADR-0182: an interrupted run stays unknown, authorized entries run
 
 	var lns []net.Listener
 	var port int

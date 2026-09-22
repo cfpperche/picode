@@ -35,11 +35,18 @@ type captureWatch struct {
 	stopped    bool
 }
 
-// captureState guards the watch table and the cached session file path.
+// captureState guards the watch table, the cached session file path, and the
+// first resolve's completion.
 type captureState struct {
 	mu          sync.Mutex
 	watches     map[string]*captureWatch
 	sessionFile string
+	// resolved marks that the first get_state has returned — success or not.
+	// It is what a caller waits on to know the bridge has gone quiet, because
+	// the resolve holds commandMu while it waits for the writer (the idle
+	// fence does not interrupt commands, so probing that lock proves only that
+	// it was free for an instant).
+	resolved bool
 }
 
 func newCaptureState() *captureState {
@@ -94,12 +101,12 @@ func (ma *ManagedAgent) refreshCaptureSessionFile() {
 	}
 	go func() {
 		file := ma.resolveCaptureSessionFile()
-		if file == "" {
-			return
-		}
 		cs := ma.capture
 		cs.mu.Lock()
-		cs.sessionFile = file
+		cs.resolved = true
+		if file != "" {
+			cs.sessionFile = file
+		}
 		cs.mu.Unlock()
 	}()
 }

@@ -3,13 +3,17 @@ import * as Switch from "@radix-ui/react-switch";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliModelsHash, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
-import { defaultLayer, layerToScope, scopeToLayer } from "@picode/shared/domain/cliNative.js";
+import {
+  defaultLayer, layerToScope, scopeToLayer, rowState, isRoleField, isListField,
+  listValue, roleAliases, selectorsInUse, splitSelector,
+} from "@picode/shared/domain/cliNative.js";
 import {
   ALLOWED_KEY, HIDDEN_KEY, effectiveList, filterModels, formatContext, formatPrice,
   groupByProvider, isUnreadable, kindCounts, patternsNotListed, toggledList,
   allowedLeavesNothing, splitAllowedExtras, kindLabel,
 } from "@picode/shared/domain/cliModels.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
+import { AddRow, Row } from "./CliNativeSettings.jsx";
 
 // What a CLI says it can reach, and the two lists in its own config that
 // decide which of those it may use (ADR-0181; omp only today). The catalog is
@@ -124,6 +128,43 @@ export default function CliModels({ cli, route = {}, workspaceId = "" }) {
     : "";
   const allHidden = catalog.state === "ready" && catalog.rows.length === 0 && hidden.list.length > 0;
 
+  // The role matrix lives here since 2026-09-22 (owner): omp's own model hub
+  // keeps roles and the model list on one screen, and a role picks from the
+  // very catalog below. Its rows are the settings report's `pane: "models"`
+  // fields that carry a group; the two scope lists carry none.
+  const roles = report?.roles || null;
+  const matrix = [];
+  for (const f of report?.fields || []) {
+    if (f.pane !== "models" || !f.group) continue;
+    let g = matrix.find((x) => x.name === f.group);
+    if (!g) { g = { name: f.group, fields: [] }; matrix.push(g); }
+    g.fields.push(f);
+  }
+  // Inside a group: roles first, then lists (the cycle, the chains), then the
+  // scalar knobs — except Fallbacks, where the knobs that decide whether a
+  // chain is used come before the chains.
+  for (const g of matrix) {
+    const rank = (f) => isRoleField(f) ? 0 : isListField(f) ? (g.name === roles?.chainGroup ? 2 : 1) : (g.name === roles?.chainGroup ? 1 : 2);
+    g.fields = g.fields.map((f, i) => [f, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([f]) => f);
+  }
+  const levels = roles?.levels || [];
+  const cycleField = roles?.cycleKey ? (report?.fields || []).find((f) => f.key === roles.cycleKey) : null;
+  const cycle = cycleField && current ? listValue(rowState(cycleField, layers, current.scope).value) : [];
+  const picks = roles ? { selectors: selectorsInUse(report.fields || [], layers), aliases: roleAliases(report.fields || []) } : null;
+  const pickerModels = { state: catalog.state === "ready" || catalog.state === "refreshing" ? "ready" : catalog.state, rows: catalog.rows, error: catalog.error };
+  const reachable = new Set(catalog.rows.map((m) => m.selector));
+  const globAllowed = allowed.list.some((a) => /[*?[\]{}]/.test(a) || !a.includes("/"));
+  // A role pointing at a model this folder cannot use is the failure a
+  // separate screen hid: say it on the role's own row.
+  const roleNote = (field, value) => {
+    if (!isRoleField(field) || catalog.state !== "ready" || typeof value !== "string") return "";
+    const { base } = splitSelector(value, levels);
+    if (!base.includes("/") || base.startsWith("@")) return "";
+    if (!reachable.has(base)) return "Not reachable here.";
+    if (allowed.list.length && !globAllowed && !allowed.list.includes(base)) return "Not in the allowed list below.";
+    return "";
+  };
+
   if (reportError) {
     return (
       <div className="cli-notice is-error" role="alert">
@@ -155,6 +196,49 @@ export default function CliModels({ cli, route = {}, workspaceId = "" }) {
       {current?.note ? <div className="cli-notice" role="status"><span>{current.note}</span></div> : null}
       {saveError ? <div className="cli-notice is-error" role="alert"><span>{saveError}</span></div> : null}
 
+      {current?.path ? matrix.map((group) => (
+        <section className="settings-section" key={group.name}>
+          <h3>{group.name}</h3>
+          {group.name === roles?.chainGroup && roles?.chainHelp ? <p className="settings-desc">{roles.chainHelp}</p> : null}
+          {group.fields.map((field) => {
+            const state = rowState(field, layers, current.scope);
+            return (
+              <Row
+                key={field.key}
+                field={field}
+                state={state}
+                cliLabel={label}
+                busy={saving === field.key}
+                disabled={!writable}
+                unreadable={(current.unreadable || []).includes(field.key)}
+                filePath={current.path}
+                cycle={cycle}
+                levels={levels}
+                models={pickerModels}
+                onLoadModels={() => {}}
+                picks={picks}
+                note={roleNote(field, state.value)}
+                onSet={(value) => save(field.key, value)}
+                onReset={() => save(field.key, null, { reset: true })}
+              />
+            );
+          })}
+          {roles && group.name === roles.group ? (
+            <AddRow label="New role" hint="Name, e.g. review" disabled={!writable}
+              onAdd={(name) => save((roles.tagPrefix || "modelTags.") + name + ".name", name.toUpperCase())} />
+          ) : null}
+          {roles && roles.chainPrefix && group.name === roles.chainGroup ? (
+            <>
+              {group.fields.every((f) => !isListField(f)) ? <p className="set-src">No fallback chains yet.</p> : null}
+              <AddRow label="New fallback" hint="Role, provider/model, or provider/*" disabled={!writable}
+                onAdd={(name) => save(roles.chainPrefix + name, [])} />
+            </>
+          ) : null}
+        </section>
+      )) : null}
+
+      <section className="settings-section models-all">
+      <h3>All models</h3>
       <div className="models-scope">
         <ScopeLine
           text={allowedLocked
@@ -304,6 +388,7 @@ export default function CliModels({ cli, route = {}, workspaceId = "" }) {
           ))}
         </div>
       )}
+      </section>
     </section>
   );
 }

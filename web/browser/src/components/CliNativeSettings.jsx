@@ -219,7 +219,7 @@ export default function CliNativeSettings({ route, workspaceId = "" }) {
 // that creates one is a name, not a value: the row appears as soon as the file
 // has it, and is edited like every other row. Hidden behind one deliberate
 // reveal, because the common case is assigning a role the CLI already has.
-function AddRow({ label, hint, disabled, onAdd }) {
+export function AddRow({ label, hint, disabled, onAdd }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   if (disabled) return null;
@@ -256,7 +256,7 @@ function AddRow({ label, hint, disabled, onAdd }) {
   );
 }
 
-function Row({ field, state, cliLabel, busy, disabled, unreadable, filePath, cycle, levels, models, onLoadModels, picks, onSet, onReset }) {
+export function Row({ field, state, cliLabel, busy, disabled, unreadable, filePath, cycle, levels, models, onLoadModels, picks, onSet, onReset, note = "" }) {
   const { value, setHere, from } = state;
   // A value this layer holds in a shape PiCode will not rewrite is named and
   // left alone: one line, one action, never a control that cannot save.
@@ -296,6 +296,7 @@ function Row({ field, state, cliLabel, busy, disabled, unreadable, filePath, cyc
           {spot > 0 ? <span className="role-loop" title="Position in the quick-switch cycle">⟳ {spot}</span> : null}
         </span>
         <span className="set-src">{source}</span>
+        {note ? <span className="set-src set-warn">{note}</span> : null}
         {warn ? <span className="set-src set-warn">{warn}</span> : field.help ? <span className="set-src">{field.help}</span> : field.kind === "bool" && !setHere && field.fallback && field.fallback !== "On" && field.fallback !== "Off" ? <span className="set-src">{field.fallback}</span> : null}
       </span>
       <span className="set-ctl">

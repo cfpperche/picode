@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
-import { Command } from "cmdk";
+import { Command, defaultFilter } from "cmdk";
 import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { apiKeySchema, llamaLoginSchema, parseForm } from "@picode/shared/contracts/schemas.js";
@@ -39,14 +39,46 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
   const [waiting, setWaiting] = useState(false);
   const [userCode, setUserCode] = useState("");
   const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
+  // The picker is filtered and ordered here, not by cmdk: cmdk re-sorts the
+  // DOM on every keystroke and keeps its own scroll, which left the list
+  // scrolled past the highlighted match after "o…" and in the last search's
+  // order after clearing it (the owner hit both, 2026-09-22). Here the
+  // untouched list is alphabetical, a search ranks by cmdk's own score, the
+  // first row is the selection and the list starts at the top.
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState("");
+  const listRef = useRef(null);
 
-  const list = guest ? guestPicks(roster) : catalog && catalog.providers ? catalog.providers : [];
+  const list = useMemo(
+    () => (guest ? guestPicks(roster) : catalog && catalog.providers ? catalog.providers : []),
+    [guest, roster, catalog],
+  );
   const available = useMemo(
     () => guest
       ? [...list].sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }))
       : list.filter((p) => !p.signedIn).sort((a, b) => a.id.localeCompare(b.id)),
     [list],
   );
+  const q = query.trim();
+  const shown = useMemo(() => rankPicks(available, q), [available, q]);
+  // The selection moves in the same update as the search: cmdk scrolls its
+  // selected row into view after each change, and a selection set a render
+  // later let it scroll to the previous row first (measured on the live
+  // bundle, 2026-09-22). The frame after, the list starts at the top.
+  function search(v) {
+    const next = rankPicks(available, v.trim());
+    setQuery(v);
+    setSelected(next.length ? pickValue(next[0]) : "");
+    requestAnimationFrame(() => { if (listRef.current) listRef.current.scrollTop = 0; });
+  }
+  // Keyed by the rows' ids, never the array: a new array on a re-render
+  // (a hover, an arrow key) must not snap the selection back to row 0.
+  const rowsKey = available.map((p) => p.id).join("\n");
+  useEffect(() => {
+    if (step !== "pick") return;
+    setSelected(shown.length ? pickValue(shown[0]) : "");
+    requestAnimationFrame(() => { if (listRef.current) listRef.current.scrollTop = 0; });
+  }, [step, rowsKey]);
   const customDoor = guest ? !!(roster && roster.custom && roster.custom.available) : true;
   const label = (p) => (p ? (guest ? p.label : p.id) : "");
 
@@ -57,6 +89,7 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
     setErr("");
     setUserCode("");
     setLlamaUrl("http://127.0.0.1:8080");
+    setQuery("");
     setBusy(false);
     setWaiting(false);
   }
@@ -250,29 +283,33 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
           </Dialog.Description>
 
           {step === "pick" ? (
-            <Command loop className="prov-pick">
-              <Command.Input className="combo-input" placeholder="Search providers" />
-              <Command.List className="prov-pick-list">
+            <>
+            <Command loop className="prov-pick" shouldFilter={false} value={selected} onValueChange={setSelected}>
+              <Command.Input className="combo-input" placeholder="Search providers" value={query} onValueChange={search} />
+              <Command.List className="prov-pick-list" ref={listRef}>
                 <Command.Empty className="combo-empty">No matches</Command.Empty>
-                {/* forceMount: the custom door survives any search — typing
-                    a name the catalog does not know is exactly when it is
-                    needed. */}
-                {customDoor ? (
-                  <Command.Item forceMount value="custom provider endpoint gateway openai compatible base url" className="cockpit-opt" onSelect={startCustom}>
-                    <span className="ws-face" aria-hidden="true">+</span>
-                    <span>Custom provider</span>
-                    <span className="combo-hint">any OpenAI-compatible gateway</span>
-                  </Command.Item>
-                ) : null}
-                {available.map((p) => (
-                  <Command.Item key={p.id} value={p.id + " " + label(p) + " " + p.login} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
-                    <ProviderFace id={p.id} />
+                {shown.map((p) => (
+                  <Command.Item key={p.id} value={pickValue(p)} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
+                    <ProviderFace id={p.id} name={label(p)} />
                     <span>{label(p)}</span>
                     <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.custom ? "custom provider" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
                   </Command.Item>
                 ))}
               </Command.List>
             </Command>
+            {/* The custom door sits under the list, not in it: a row in the
+                list is ranked and highlighted by cmdk, and a door whose
+                words ("gateway", "base url") outscored a real match stole
+                Enter from Baseten and the AI gateways, then left the list
+                scrolled past the match (the owner hit it, 2026-09-22). Here
+                it survives any search — typing a name the list does not know
+                is exactly when it is needed. */}
+            {customDoor ? (
+              <div className="dlg-actions" data-align-row data-align-wrap>
+                <button type="button" className="btn btn-ghost btn-sm" title="Any OpenAI-compatible gateway" onClick={startCustom}>+ Custom provider</button>
+              </div>
+            ) : null}
+            </>
           ) : null}
 
           {step === "method" ? (
@@ -349,4 +386,20 @@ function guestPicks(roster) {
     out.push({ id: p.id, label: name, login: key && account ? "both" : key ? "key" : "oauth", signin: p.signin || "" });
   }
   return out;
+}
+
+// rankPicks is the picker's order: alphabetical untouched, cmdk's own score
+// under a search.
+function rankPicks(rows, q) {
+  if (!q) return rows;
+  return rows
+    .map((p) => ({ p, score: defaultFilter(pickValue(p), q) }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((r) => r.p);
+}
+
+// A picker row's search text: its id, what it reads as, and its login kind.
+function pickValue(p) {
+  return (p.id + " " + (p.label || "") + " " + (p.login || "")).toLowerCase();
 }

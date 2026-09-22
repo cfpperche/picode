@@ -435,13 +435,26 @@ func TestStopIdleFencesConversationAndCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	ma := rt.Get(a.ID)
-	// Wait until the initial read-only capture query has settled.
-	for i := 0; i < 100; i++ {
-		if ma.commandMu.TryLock() {
-			ma.commandMu.Unlock()
-			break
+	// Wait until the capture bridge's one get_state has returned. It runs in a
+	// goroutine at spawn and holds commandMu while it waits for the writer, so
+	// probing that lock only proves it was free for an instant — the query can
+	// start right after, and the stop below then lands inside it. This is the
+	// race a macOS runner and `-race -count=5` both lost; the mechanism is in
+	// docs/handoff/open/process.md.
+	if ma.capture != nil {
+		settleDeadline := time.Now().Add(10 * time.Second)
+		for {
+			ma.capture.mu.Lock()
+			answered := ma.capture.resolved
+			ma.capture.mu.Unlock()
+			if answered {
+				break
+			}
+			if time.Now().After(settleDeadline) {
+				t.Fatal("the capture bridge never resolved its session file")
+			}
+			time.Sleep(time.Millisecond * 5)
 		}
-		time.Sleep(time.Millisecond * 5)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

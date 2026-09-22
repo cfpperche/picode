@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BROWSER_PERMISSION_KINDS, browserSiteSchema, createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema, commitMessageSchema, rolesConfigSchema, canvasNameSchema } from "./schemas.js";
+import { BROWSER_PERMISSION_KINDS, browserSiteSchema, createWorkspaceSchema, createWsAgentSchema, freeAgentPickSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema, commitMessageSchema, rolesConfigSchema, canvasNameSchema } from "./schemas.js";
 
 const pick = { provider: "xai", model: "grok-4.6", thinking: "low" };
 
@@ -22,13 +22,13 @@ test("workspace needs name and path, nothing else (ADR-0027)", () => {
 });
 
 test("free agent path is optional", () => {
-  const ok = parseForm(createFreeAgentSchema, { name: "Grok", path: "  ", ...pick });
+  const ok = parseForm(freeAgentPickSchema, { cli: "grok", name: "Grok", path: "  " });
   assert.equal(ok.ok, true);
   assert.equal(ok.value.path, "");
 });
 
 test("provider required", () => {
-  const miss = parseForm(createFreeAgentSchema, { name: "X", path: "", provider: "", model: "m", thinking: "low" });
+  const miss = parseForm(createWsAgentSchema, { name: "X", provider: "", model: "m", thinking: "low" });
   assert.equal(miss.ok, false);
   assert.match(miss.error, /Provider/);
 });

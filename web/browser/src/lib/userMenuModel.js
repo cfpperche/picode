@@ -47,10 +47,17 @@ export function menuGroups(query) {
     if (tools) tools.rows.unshift(row);
     else groups.unshift({ title: "Tools", rows: [row] });
   }
-  if (query.trim() && matchesListSearch(query, "CLI settings", "pi model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["settings", "CLI settings", "The selected agent's CLI configuration"]] });
-  if (query.trim() && matchesListSearch(query, "Packages", "skills extensions updates")) groups.unshift({ title: "Agent CLIs", rows: [["packages", "Packages", "Skills, extensions and updates"]] });
-  if (query.trim() && matchesListSearch(query, "Providers", "accounts keys usage login")) groups.unshift({ title: "Agent CLIs", rows: [["providers", "Providers", "Accounts, keys and usage"]] });
-  if (query.trim() && matchesListSearch(query, "Connectors", "MCP servers tools")) groups.unshift({ title: "Agent CLIs", rows: [["connectors", "Connectors", "MCP servers and tools"]] });
+  // The CLI-pane shortcuts share one "Agent CLIs" group; one group per
+  // match repeated the heading over adjacent rows.
+  if (query.trim()) {
+    const cliRows = [
+      ["settings", "CLI settings", "The selected agent's CLI configuration", "pi model thinking prompt"],
+      ["packages", "Packages", "Skills, extensions and updates", "skills extensions updates"],
+      ["providers", "Providers", "Accounts, keys and usage", "accounts keys usage login"],
+      ["connectors", "Connectors", "MCP servers and tools", "MCP servers tools"],
+    ].filter(([, title, , keys]) => matchesListSearch(query, title, keys)).map(([id, title, sub]) => [id, title, sub]);
+    if (cliRows.length) groups.unshift({ title: "Agent CLIs", rows: cliRows });
+  }
   return groups;
 }
 
