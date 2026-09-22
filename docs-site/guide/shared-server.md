@@ -62,8 +62,8 @@ tailnet already knows who you are. Your devices show up under
 
 ## What is shared and what is not
 
-- Shared: the machine — CPU, memory, disk, its network. `pi` and tmux
-  are installed once for everyone.
+- Shared: the machine — CPU, memory, disk, its network. tmux and the
+  agent CLIs are installed once for everyone.
 - Not shared: anything PiCode knows about. Each person's daemon has its
   own database, agents, terminals, provider credentials, install token,
   paired devices and inbox. They cannot reach each other's daemon: it

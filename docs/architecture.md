@@ -6,8 +6,10 @@
 ## The one-paragraph version
 
 PiCode is a **single Go binary that serves a browser UI** and manages **real
-`pi` processes** on the machine where it runs. Each agent can use one of two
-exclusive channels: a tmux-backed PTY that renders the genuine Pi TUI inside a
+coding-agent CLI processes** — Pi, Claude Code, Codex, Grok, Hermes Agent,
+OpenCode, Muse Code, Antigravity, Omp — on the machine where it runs. None of
+them is a dependency; tmux is the only runtime requirement (ADR-0179). A Pi
+agent can use one of two exclusive channels: a tmux-backed PTY that renders the genuine Pi TUI inside a
 browser terminal, or an RPC bridge (`pi --mode rpc`, JSONL over stdio) that
 feeds the rich UI with structured events. An Inbox reply may borrow the RPC
 channel for one correlated turn while a holder preserves the same tmux pane;
