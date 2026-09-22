@@ -99,24 +99,14 @@
   reproduced: the run stopped at the same blocked-project-layer `ready()`. Row
   (2) lives in `qa-cli-settings-recovery.mjs`, not re-measured here.
 
-- **Codex's catalog is missing three rows the CLI accepts** (found 2026-09-21 by the
-  live check below). Setting an action the config does not know makes codex refuse
-  the file and print its own list for that context:
-  `[tui.keymap.global]` takes **12** names — `open_agents, open_transcript,
-  open_external_editor, copy, clear_terminal, submit, queue, toggle_shortcuts,
-  toggle_vim_mode, toggle_fast_mode, toggle_raw_output, toggle_side_conversation`
-  — while `CodexCatalog` has 9 there: `submit`, `queue` and `toggle_shortcuts` are
-  absent. They are real: the resolver reads `keymap.global.submit` /
-  `.queue` as the *global fallback* for the composer's own slots
-  (`configured_binding_for_action`, bindings.rs) when the composer's are unset, so
-  a user can set them today and PiCode's pane cannot show or change them. The
-  cause: the catalog was built from the runtime inventory (146 actions, the set
-  `/keymap` exposes), while the *file's* vocabulary is the generated schema (149
-  keys) — the three extra are exactly these fallback slots. The fix is to take the
-  schema's per-context key list as the catalog's source (149 rows) and to render
-  these three rows' defaults honestly (the fallback resolves to the built-in
-  default of the action they stand in for), with a test that every key the CLI's
-  own struct accepts is in the catalog.
+- **[x] Codex's catalog was three rows short** — fixed in
+  `feat/codex-fallback-rows` (2026-09-21): the catalog now takes the schema's
+  per-context key list as its source (149 keys), `global.submit` / `global.queue`
+  / `global.toggle_shortcuts` ship unset (which is what the file says; the
+  resolver reads them as the composer's global fallbacks when those are unset),
+  and a pinned test holds the global context to the twelve names codex itself
+  printed when refusing an unknown action. Still open: a codex-shaped
+  `make keys-drift`-style probe (schema vs catalog), like pi's.
 
  (2026-09-21,
   the question that made it visible). The shipped rows rest on *the vendor's own
@@ -124,12 +114,15 @@
   bundle (the file it resolves, its parser, and that its manager reads at startup
   with nothing calling `reload()`), codex's generated schema plus
   `built_in_defaults()` and `startup.rs` — and on round-trip tests through
-  PiCode's own format layer. What nobody has watched is the other end: start the
-  CLI with a binding PiCode wrote and press the key. That is the experiment, and
-  both are runnable without touching the machine's real config: omp honours
-  `PI_CONFIG_DIR`, and codex takes an isolated `HOME` with a copy of `~/.codex`
-  in it. Either it applies the binding (the claim is observed) or it does not (the
-  row, its pickup and the pane's sentence are wrong and must change).
+  PiCode's own format layer. It ran the same day. **Omp applies it**: `app.model.select` rendered as
+  `ctrl+n` through the real engine into `~/.omp/agent/keybindings.yml`, a fresh
+  `omp` session opened the model picker on that key, and the file was deleted
+  afterwards (the config had none before — the machine is exactly as it was).
+  **Codex reads and validates it**: an unknown action in `[tui.keymap.global]`
+  makes codex refuse the file and print the context's twelve accepted names
+  (isolated `HOME`, the machine untouched). Not yet watched: pressing a rebound
+  key inside a live codex TUI — its startup in an isolated HOME exits, so that
+  half needs a run against the real HOME, which is the owner's call.
 
 - **Antigravity's key map is researched and not declared** (P3, 2026-09-21).
   Measured: `~/.gemini/antigravity-cli/keybindings.json`, 36 ids in 10

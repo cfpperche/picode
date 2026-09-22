@@ -12,8 +12,8 @@ import (
 // artifacts: what can be checked mechanically is checked here, because a row is
 // a claim about software PiCode does not own (ADR-0174).
 func TestCodexCatalogIsWellFormed(t *testing.T) {
-	if len(CodexCatalog) != 146 {
-		t.Fatalf("the runtime inventory declares 146 actions, the catalog has %d", len(CodexCatalog))
+	if len(CodexCatalog) != 149 {
+		t.Fatalf("the config struct accepts 149 keymap keys, the catalog has %d", len(CodexCatalog))
 	}
 	seen, groups := map[string]bool{}, []string{}
 	unbound, multi := 0, 0
@@ -47,11 +47,35 @@ func TestCodexCatalogIsWellFormed(t *testing.T) {
 	if strings.Join(groups, ",") != strings.Join(want, ",") {
 		t.Fatalf("contexts are out of order:\n got %v\nwant %v", groups, want)
 	}
-	if unbound != 8 || multi != 53 {
-		t.Fatalf("unbound=%d multi-chord=%d: the vendor's own table says 8 and 53", unbound, multi)
+	if unbound != 11 || multi != 53 {
+		t.Fatalf("unbound=%d multi-chord=%d: the vendor's own table says 11 and 53", unbound, multi)
 	}
 	if _, ok := action(CodexCatalog, "composer.submit"); !ok {
 		t.Fatal("composer.submit is an action codex has")
+	}
+	// The three fallback slots are the rows the live check found missing: codex
+	// accepted and resolved them (an unknown action there makes it refuse the
+	// file and print this very list). They ship with no binding of their own.
+	for _, key := range []string{"global.submit", "global.queue", "global.toggle_shortcuts"} {
+		a, ok := action(CodexCatalog, key)
+		if !ok {
+			t.Fatalf("%s is a key codex accepts and the catalog omits it", key)
+		}
+		if a.Defaults != nil {
+			t.Fatalf("%s ships unset: %+v", key, a.Defaults)
+		}
+	}
+	global := []string{}
+	for _, a := range CodexCatalog {
+		if a.Group == "global" {
+			global = append(global, a.ID)
+		}
+	}
+	// Pinned from codex 0.155.1 itself: an unknown action in this context makes
+	// the CLI refuse the file and print exactly these names (live, 2026-09-21).
+	wantGlobal := []string{"global.open_agents", "global.open_transcript", "global.open_external_editor", "global.copy", "global.clear_terminal", "global.toggle_vim_mode", "global.toggle_fast_mode", "global.toggle_raw_output", "global.toggle_side_conversation", "global.queue", "global.submit", "global.toggle_shortcuts"}
+	if strings.Join(global, ",") != strings.Join(wantGlobal, ",") {
+		t.Fatalf("the global context drifted from what codex accepts:\n got %v\nwant %v", global, wantGlobal)
 	}
 }
 

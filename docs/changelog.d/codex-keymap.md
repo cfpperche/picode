@@ -1,9 +1,9 @@
 ### Added
 
 - **Codex's keyboard map is editable in PiCode.** Agent CLIs → Codex → Keyboard
-  lists its 146 actions in the twelve contexts Codex puts them in — global, chat,
+  lists its 149 keymap keys in the twelve contexts Codex puts them in — global, chat,
   composer, editor, the four vim modes, pager, list, agents and approval — with
-  the description each action carries in Codex's own schema and the chords it
+  the description each key carries in Codex's own schema and the chords it
   binds out of the box. PiCode writes `[tui.keymap.<context>]` tables in
   `~/.codex/config.toml` and leaves every key it does not manage exactly as it
   was, including everything the Settings tab edits. Chords are shown and written
