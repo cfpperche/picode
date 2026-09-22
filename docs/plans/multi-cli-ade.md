@@ -204,7 +204,7 @@ CLI → X" and name Pi only where it is the only one.
    `/api/system` without a `pi` key or npm warning; System shows tmux as the
    only requirement and the Agent CLIs section with "not installed" for Pi;
    no Automations banner when only guest-agent automations exist; a message
-   automation to a Claude Code or Omp agent delivers through the door;
+   automation to a Claude Code or Omp agent with its terminal open delivers through the door;
    `picode provision --dry-run` converges with an informational `clis` step;
    a free Omp agent from the sidebar opens its free terminal.
 3. Instance with `pi` on the PATH: nothing regresses (System shows Pi's
