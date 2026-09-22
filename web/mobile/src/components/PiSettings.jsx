@@ -144,7 +144,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
           {active.id === "agent" ? (
           <section className="settings-section" data-layer="agent">
             <>
-                <p className="settings-desc">{displayAgentName(agent, workspace)} · all sessions of this pi</p>
+                <p className="settings-desc">{displayAgentName(agent, workspace)} · all sessions of this Pi agent</p>
                 <p className="settings-desc" role="status">{pending ? "Saving…" : configStatus}</p>
                 {configError ? <div role="alert"><p>{configError}</p><button type="button" className="btn btn-sm" onClick={() => setConfigError("")}>Dismiss</button></div> : null}
                 <div className="set-rows">
@@ -193,7 +193,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
                 parentLabel={active.id === "project" ? "From Global" : "Pi default"}
                 catalog={catalog}
                 saving={saving}
-                onSave={(patch) => save(active.id, patch, active.id === "global" ? "Saved for every pi on this machine." : "Saved for this folder.")}
+                onSave={(patch) => save(active.id, patch, active.id === "global" ? "Saved for every Pi agent on this machine." : "Saved for this folder.")}
                 onReset={(keys) => save(active.id, { reset: keys }, "Back to inherited.")}
               />
             )}

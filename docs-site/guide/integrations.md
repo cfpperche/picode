@@ -12,8 +12,8 @@ PiCode (**Webhooks** in the user menu).
 
 ## Connect a service
 
-1. Open **Agent CLIs**, pick **Pi**, then **Connectors**.
-2. If prompted, open **Packages** and install `npm:pi-mcp-adapter`.
+1. Open **Agent CLIs**, pick the CLI, then **Connectors**.
+2. On Pi, if prompted, open **Packages** and install `npm:pi-mcp-adapter`.
 3. Pick a service from the catalog tabs. The fixed **Catalog** tab lists
    cataloged services plus **Custom**, which opens the server form (URL or
    local command). The other tabs list MCP servers found in other agent CLIs'
@@ -39,9 +39,9 @@ credential. Use **Sign out** where available and revoke tokens at the service.
 | Capability | Compatibility |
 |---|---|
 | Package install/remove and scope | Same as [Pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md) |
-| MCP configuration and execution | Provided by [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter), not native Pi |
+| MCP configuration and execution | Native in every CLI but Pi; on Pi, provided by [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter) |
 | Integrations UI | PiCode-specific; native configuration remains authoritative |
-| Supported managed agents | Pi; terminal integrations do not imply connector support for other CLIs |
+| Supported CLIs | All nine; each Connectors pane writes that CLI's own configuration file |
 
 ## Add an outbound webhook
 

@@ -269,7 +269,7 @@ function ConnectorsPane({ route, onReload }) {
     return <section id="cli-connectors-view"><div className="cli-notice" role="status"><span>{route.invalid ? "This connector link is invalid." : "Connectors for " + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div></section>;
   }
   if (error) {
-    return <section id="cli-connectors-view"><div className="cli-notice is-error" role="alert"><span>{error.message}</span><a className="btn btn-ghost btn-sm" href={cliConnectorsHash("pi")}>Open Pi</a></div></section>;
+    return <section id="cli-connectors-view"><div className="cli-notice is-error" role="alert"><span>{error.message}</span><a className="btn btn-ghost btn-sm" href="#/clis">Open Agent CLIs</a></div></section>;
   }
   if (!ctx) return <section id="cli-connectors-view"><div className="cli-loading" aria-label="Loading connectors"><div /><div /><div /></div></section>;
   const workspace = ctx.workspace, agent = ctx.agent;

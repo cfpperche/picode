@@ -7,7 +7,7 @@ description: Which screen edits which file, and the one workflow that does not b
 PiCode has two settings worlds. Do not mix them.
 
 ::: tip If you only remember one thing
-**Agent CLIs → Settings** edits pi JSON, one layer at a time. **Preferences** is PiCode chrome (theme, server). A workspace write needs the folder trusted. Restart the agent after Packages or Connectors.
+**Agent CLIs → the CLI → Settings** edits that CLI's own settings (Pi's JSON one layer at a time). **Preferences** is PiCode chrome (theme, server). A workspace write needs the folder trusted. Restart the agent after Packages or Connectors.
 :::
 
 - **Where:** **Agent CLIs** (last icon in the desktop sidebar header, or **More** on a phone), then the pane named below. Preferences is the user menu.
@@ -15,15 +15,17 @@ PiCode has two settings worlds. Do not mix them.
 
 ## What to open
 
-**Providers / API keys** — Agent CLIs → Pi → [Providers](/guide/providers). Writes `~/.pi/agent/auth.json` (extra logins in `~/.picode/accounts.json`).
+Every CLI — Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity, Omp — has the same panes under **Agent CLIs → the CLI**.
 
-**Agent behavior** — Agent CLIs → Pi → [Settings](/guide/settings). One layer at a time: global, the workspace, or the agent.
+**Providers / API keys** — [Providers](/guide/providers). One encrypted vault for every CLI; Pi's pane also writes `~/.pi/agent/auth.json`.
 
-**Keyboard map** — Agent CLIs → [Keyboard](/guide/keyboard). Writes `~/.pi/agent/keybindings.json` (one map per machine).
+**Agent behavior** — [Settings](/guide/settings). Each CLI's own settings file; for Pi, one layer at a time (global, the workspace, or the agent).
 
-**Packages / MCP** — Agent CLIs → [Packages](/guide/packages) / [Connectors](/guide/mcp).
+**Keyboard map** — [Keyboard](/guide/keyboard). Editable for Pi, Codex, OpenCode, Antigravity and Omp; each writes that CLI's own key file.
 
-**Theme, server port** — Preferences. PiCode chrome, not pi.
+**Packages / MCP** — [Packages](/guide/packages) / [Connectors](/guide/mcp).
+
+**Theme, server port** — Preferences. PiCode chrome, not a CLI setting.
 
 **Bind address, Docker socket** — `picode install --env KEY=VALUE`. systemd drop-in; later updates leave it alone.
 
@@ -32,9 +34,9 @@ PiCode has two settings worlds. Do not mix them.
 1. Pick the item above. That is the only screen you edit.
 2. Save. Keys are never shown again after save.
 3. Packages or Connectors: restart the agent.
-4. Workspace Settings: the folder must be in pi's trust list (`/trust` in the TUI). Untrusted writes return 409.
+4. Pi's workspace Settings: the folder must be in pi's trust list (`/trust` in the TUI). Untrusted writes return 409.
 
-## Worked example: add a custom provider
+## Worked example: add a custom provider to Pi
 
 1. Agent CLIs → Pi → **Providers** → **Add provider** → **Custom provider**.
 2. Name, base URL, API key, and model ids exactly as the gateway spells them.

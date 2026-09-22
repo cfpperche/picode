@@ -510,7 +510,7 @@ function backupSteps(cfg) {
   return [
     { id: "db", label: "VACUUM INTO picode.db" },
     { id: "pins", label: "Copy pins" + (cfg.secrets ? " and secrets" : "") },
-    { id: "sess", label: cfg.sessions ? "Copy pi sessions" : "Skip sessions" },
+    { id: "sess", label: cfg.sessions ? "Copy Pi sessions" : "Skip sessions" },
     { id: "manifest", label: "Write manifest" },
   ];
 }

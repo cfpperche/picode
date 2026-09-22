@@ -473,7 +473,7 @@ function Detail({ a, catalog, workspaces, freeAgents, agents, templates, reveal,
         ) : (
           <><dt>Runs in</dt><dd>{wsName}{a.agentId ? <> · <a href={workspaceHash(a.agentId)}>{a.agentName || "its agent"}</a></> : null}</dd></>
         )}
-        {a.action !== "message" ? <><dt>Model</dt><dd>{a.provider || a.model ? [a.provider, a.model].filter(Boolean).join(" / ") + (a.thinking ? " · " + a.thinking : "") : "pi's default"}</dd></> : null}
+        {a.action !== "message" ? <><dt>Model</dt><dd>{a.provider || a.model ? [a.provider, a.model].filter(Boolean).join(" / ") + (a.thinking ? " · " + a.thinking : "") : "Pi's default"}</dd></> : null}
         {a.notifyUrl ? <><dt>Notifies</dt><dd><span className="auto-notify" title={a.notifyUrl}>{hostOf(a.notifyUrl)}</span> <CopyButton text={a.notifyUrl} label="Copy notify URL" small /></dd></> : null}
         {a.maxCostUsd ? <><dt>Max cost per run</dt><dd>{money(a.maxCostUsd)}</dd></> : null}
         {a.maxRuns ? <><dt>Max runs</dt><dd>{a.maxRuns} per {windowLabel(a.maxRunsWindowMin)}</dd></> : null}
@@ -755,7 +755,7 @@ function Editor({ initial, catalog, workspaces, freeAgents, agents, templates, o
         <span className="auto-hint">
           {f.action === "message"
             ? "The prompt lands as a new message in that agent's current session."
-            : "A fresh agent each run, in that workspace. Empty provider, model or thinking means pi's own defaults."}
+            : "A fresh Pi agent each run, in that workspace. Empty provider, model or thinking means Pi's own defaults."}
         </span>
       </fieldset>
 

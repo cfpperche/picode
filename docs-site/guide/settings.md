@@ -1,13 +1,18 @@
 ---
-description: Pi JSON for the selected agent, one layer at a time. Not Preferences.
+description: Each CLI's own settings, edited from Agent CLIs — Pi's JSON one layer at a time. Not Preferences.
 ---
 
 # CLI settings
 
 Two different screens. Do not mix them.
 
-- **Where:** **Agent CLIs**, pick **Pi**, then the **Settings** pane. Composer `/settings` keeps the selected agent in the URL.
-- **Not this:** not Preferences (theme, server port). That is PiCode chrome. This pane is pi JSON. Overview: [Configure](/guide/configure).
+- **Where:** **Agent CLIs**, pick the CLI, then the **Settings** pane (`#/clis/<cli>/settings`). Composer `/settings` opens Pi's pane with the selected agent in the URL.
+- **Not this:** not Preferences (theme, server port). That is PiCode chrome. This pane is the CLI's own configuration. Overview: [Configure](/guide/configure).
+
+Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and
+Omp each get a pane over that CLI's own settings file: the rows its vendor
+documents, the file it writes, and the CLI's own defaults. The rest of this
+page is Pi's editor, which has layers.
 
 | Hash | What | Writes |
 |---|---|---|
