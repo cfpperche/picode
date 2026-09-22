@@ -119,6 +119,14 @@ func handleExtensionSend(deps Deps) http.HandlerFunc {
 			return
 		}
 
+		if !agent.IsPi() {
+			// A guest agent (ADR-0160) has no managed mode: its terminal is its
+			// process, so the tab reaches it through the unattended prompt door
+			// (ADR-0179). Screenshots and the act loop ride Pi's RPC turn.
+			sendToGuestAgent(w, r, deps, agent, req.Tab, req.Message, req.Image != nil && req.Image.Data != "", req.Act)
+			return
+		}
+
 		mode := deps.runMode(r, agent.ID)
 		dec = decideExtensionSend(extensionSendInput{
 			Mode:       mode,
@@ -188,6 +196,41 @@ func handleExtensionSend(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "started": started, "watching": watching})
 	}
+}
+
+// sendToGuestAgent delivers a tab to a non-Pi agent through its launch
+// terminal. The page link and the message are text the CLI reads at its
+// prompt; nothing is started — a closed terminal is refused with a reason.
+func sendToGuestAgent(w http.ResponseWriter, r *http.Request, deps Deps, agent store.Agent, tab *extensionTab, message string, hasImage, act bool) {
+	switch {
+	case hasImage:
+		writeErr(w, http.StatusBadRequest, "Screenshots go to Pi agents. Send the page without one.")
+		return
+	case act:
+		writeErr(w, http.StatusBadRequest, "Acting on a page needs a Pi agent.")
+		return
+	case agent.TerminalID == nil || strings.TrimSpace(*agent.TerminalID) == "":
+		writeErr(w, http.StatusConflict, "This agent has no terminal yet. Open it once in PiCode.")
+		return
+	}
+	t, err := deps.Store.GetTerminal(*agent.TerminalID)
+	if err != nil {
+		writeErr(w, http.StatusConflict, "This agent's terminal is gone. Open the agent in PiCode.")
+		return
+	}
+	status, res := doorDeliverUnattended(deps, r.Context(), t, composeTabPrompt(tab, message))
+	if status != http.StatusOK {
+		msg, _ := res["error"].(string)
+		if msg == "" {
+			msg = "The tab could not be sent."
+		}
+		if reason, _ := res["reason"].(string); reason == "closed" {
+			msg = "This agent's terminal is closed. Open the agent in PiCode, then send again."
+		}
+		writeErr(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "started": false, "watching": false, "delivery": res["delivery"]})
 }
 
 // originOf reduces an absolute URL to scheme://host[:port].

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -30,6 +31,11 @@ func StartPackageUpdatesWatch(ctx context.Context, deps Deps, every time.Duratio
 	}
 	prev := map[string]string{}
 	run := func() {
+		// Pi packages are Pi's: a machine that never ran pi has no
+		// ~/.pi/agent and nothing to check against npm (ADR-0179).
+		if !piAgentDirPresent() {
+			return
+		}
 		scopes := []pkgScope{{scope: "user"}}
 		workspaces, err := deps.Store.ListWorkspaces()
 		if err == nil {
@@ -89,4 +95,10 @@ func updatesFingerprint(rep pipkg.UpdateReport) string {
 	sort.Strings(lines)
 	sum := sha256.Sum256([]byte(fmt.Sprint(len(lines), "\x00", strings.Join(lines, "\x00"))))
 	return hex.EncodeToString(sum[:])
+}
+
+// piAgentDirPresent is the watcher's "is Pi here at all" seam; tests replace it.
+var piAgentDirPresent = func() bool {
+	st, err := os.Stat(pipkg.UserDir())
+	return err == nil && st.IsDir()
 }

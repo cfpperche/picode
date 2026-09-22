@@ -123,6 +123,11 @@ func (e *Engine) snapshotLocked(sessions, secrets bool, dest string) (Snapshot, 
 		}
 	}
 
+	if err := e.snapshotCLIs(dir, prev, sessions, secrets, &files); err != nil {
+		e.setLast(false, 0, err)
+		return Snapshot{}, err
+	}
+
 	var bytes int64
 	for i := range files {
 		rel, err := filepath.Rel(dir, files[i].Path)

@@ -66,6 +66,9 @@ func TestStartPackageUpdatesWatchPublishesOnChange(t *testing.T) {
 		{Updates: []pipkg.Available{{Source: "pi-roles", Current: "1.0.0", Latest: "1.1.0"}}}, // same rows
 		{Updates: []pipkg.Available{{Source: "pi-roles", Current: "1.0.0", Latest: "1.2.0"}}}, // changed
 	}
+	oldPresent := piAgentDirPresent
+	piAgentDirPresent = func() bool { return true }
+	defer func() { piAgentDirPresent = oldPresent }()
 	var calls atomic.Int32
 	old := pipkgCheck
 	pipkgCheck = func(ctx context.Context, userDir, projectDir string) (pipkg.UpdateReport, error) {
@@ -105,5 +108,30 @@ func TestStartPackageUpdatesWatchPublishesOnChange(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("event %d:\n got %s\nwant %s", i, got[i], want[i])
 		}
+	}
+}
+
+// No ~/.pi/agent, no Pi: the watcher never scans npm (ADR-0179).
+func TestStartPackageUpdatesWatchSkipsWithoutPi(t *testing.T) {
+	st := newTestStore(t)
+	f := &feed.Feed{Store: st}
+	oldPresent := piAgentDirPresent
+	piAgentDirPresent = func() bool { return false }
+	defer func() { piAgentDirPresent = oldPresent }()
+	var calls atomic.Int32
+	old := pipkgCheck
+	pipkgCheck = func(ctx context.Context, userDir, projectDir string) (pipkg.UpdateReport, error) {
+		calls.Add(1)
+		return pipkg.UpdateReport{}, nil
+	}
+	defer func() { pipkgCheck = old }()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { StartPackageUpdatesWatch(ctx, Deps{Feed: f, Store: st}, 10*time.Millisecond); close(done) }()
+	time.Sleep(80 * time.Millisecond)
+	cancel()
+	<-done
+	if n := calls.Load(); n != 0 {
+		t.Fatalf("scanned %d times with no Pi", n)
 	}
 }

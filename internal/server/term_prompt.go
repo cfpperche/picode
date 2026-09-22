@@ -194,6 +194,21 @@ func handleTerminalPrompt(deps Deps) http.HandlerFunc {
 // without a reader keep the bracketed paste and say so: delivery
 // "unverified". The response carries `delivery` either way.
 func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload string) (int, map[string]any) {
+	return doorDeliverMode(deps, ctx, t, payload, false)
+}
+
+// doorDeliverUnattended is the door for senders nobody is watching — an
+// automation, the browser extension. A CLI with a measured reader whose
+// composer PiCode cannot recognize (a login screen, a menu, a new render) is
+// refused as "unrecognized" instead of receiving the blind paste a person
+// at the terminal gets: an unattended paste into a menu can pick an option.
+// CLIs without a reader still get the paste and an "unverified" receipt —
+// there is nothing to recognize for them.
+func doorDeliverUnattended(deps Deps, ctx context.Context, t store.Terminal, payload string) (int, map[string]any) {
+	return doorDeliverMode(deps, ctx, t, payload, true)
+}
+
+func doorDeliverMode(deps Deps, ctx context.Context, t store.Terminal, payload string, unattended bool) (int, map[string]any) {
 	if deps.Tmux == nil || !deps.Tmux.Available() {
 		return http.StatusServiceUnavailable, map[string]any{"error": "Need tmux to send to a terminal."}
 	}
@@ -241,6 +256,9 @@ func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload strin
 		}
 		time.Sleep(doorSettleInterval)
 	}
+	if !observable && unattended {
+		return http.StatusConflict, map[string]any{"error": "PiCode could not read this terminal, so nothing was sent.", "reason": "unobservable"}
+	}
 	if !observable {
 		if perr := deps.Tmux.PasteText(cctx, session, payload); perr != nil {
 			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
@@ -257,6 +275,9 @@ func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload strin
 		return http.StatusConflict, map[string]any{
 			"error": "Finish or clear the draft in the terminal first.", "reason": "occupied",
 		}
+	}
+	if !known && unattended {
+		return http.StatusConflict, map[string]any{"error": "The CLI is not at a prompt PiCode recognizes (a login or a menu?), so nothing was sent. Open its terminal and try again.", "reason": "unrecognized"}
 	}
 	if !known {
 		// Unknown composer: the pre-Fatia-F blind paste is the whole truth.

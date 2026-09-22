@@ -61,20 +61,36 @@ var ThinkingLevels = []string{"off", "minimal", "low", "medium", "high", "xhigh"
 
 // Load runs pi --list-models --offline and merges auth.json key names.
 func Load(piCmd string) (Report, error) {
-	rep := Report{Providers: []Provider{}, Thinking: ThinkingLevels}
 	if piCmd == "" {
 		piCmd = "pi"
 	}
 	out, err := exec.Command(piCmd, "--list-models", "--offline").Output()
 	if err != nil {
-		return rep, fmt.Errorf("catalog: list-models: %w", err)
+		return Report{Providers: []Provider{}, Thinking: ThinkingLevels}, fmt.Errorf("catalog: list-models: %w", err)
 	}
+	return build(string(out)), nil
+}
+
+// LoadAccounts is the provider list for what is signed in on this machine,
+// with or without pi (ADR-0179): Pi's model table when pi answers, and
+// otherwise the login set, the custom definitions and the vault alone — the
+// accounts the usage meter needs do not depend on Pi's model list.
+func LoadAccounts(piCmd string) Report {
+	if rep, err := Load(piCmd); err == nil {
+		return rep
+	}
+	return build("")
+}
+
+func build(listModels string) Report {
+	rep := Report{Providers: []Provider{}, Thinking: ThinkingLevels}
+	out := listModels
 	info := authInfo()
 	syncFromAuth()
 	store := loadThinkingMaps()
 	byID := map[string]*Provider{}
 	var order []string
-	for _, m := range ParseListModels(string(out)) {
+	for _, m := range ParseListModels(out) {
 		p := byID[m.provider]
 		if p == nil {
 			order = append(order, m.provider)
@@ -133,7 +149,7 @@ func Load(piCmd string) (Report, error) {
 		}
 		rep.Providers = append(rep.Providers, *p)
 	}
-	return rep, nil
+	return rep
 }
 
 type parsedRow struct {

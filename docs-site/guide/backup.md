@@ -20,8 +20,8 @@ destination and nothing is copied off this machine.
 | **Schedule** | Take a snapshot automatically. Off means **Backup now** only. |
 | **Interval** | How often the schedule runs. |
 | **Keep** | How many days of snapshots to keep. Older ones are pruned, and the newest is always kept whatever the setting says. |
-| **Include sessions** | Add Pi's conversation files (`~/.pi`). Other CLIs' sessions are not copied. |
-| **Include secrets** | Add the credential vault and provider logins. |
+| **Include sessions** | Add the agents' conversation files: Pi's, and those of Claude Code, Codex, Grok, Omp and Muse Code. This can be several gigabytes the first time; later snapshots link the unchanged files. OpenCode, Hermes Agent and Antigravity keep conversations in a live database, which is not copied. |
+| **Include secrets** | Add the credential vault, provider logins, and each CLI's own login file (for example `~/.claude/.credentials.json`, `~/.codex/auth.json`). |
 
 If the folder you chose is on the same disk as PiCode, the panel says so:
 *"This folder is on the same disk as PiCode. It will not survive a dead
@@ -36,9 +36,11 @@ snapshot appears in the list below with its time and size; the row menu has
 - The PiCode database — workspaces, agents, terminals, pins, automations,
   and the rest of what PiCode itself records.
 - Pin attachments and sketches.
-- Pi's settings and trust file. Other CLIs' configuration folders (`~/.claude`, `~/.codex`, …) are not included.
-- With **Include sessions**: Pi's conversation files.
-- With **Include secrets**: the credential vault and provider logins.
+- Pi's settings and trust file, and each other CLI's machine settings file — the ones its **Settings** pane edits (for example `~/.claude/settings.json`, `~/.codex/config.toml`).
+- With **Include sessions**: the conversation files named above.
+- With **Include secrets**: the credential vault, provider logins and each CLI's login file. Copies are readable only by you.
+
+**Restore** puts every part the snapshot carries back in place — PiCode's data, Pi's files and each CLI's files under your home folder. A part the snapshot does not carry is left as it is.
 
 Snapshots after the first one **hard-link** unchanged files to the previous
 snapshot where the filesystem allows it, so ten kept days do not cost ten
