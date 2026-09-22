@@ -91,8 +91,10 @@ provider:
      current account in the browser first**, or use a private window —
      otherwise the vendor approves the same account you are already using.
 3. **Check now**. PiCode reads the CLI's file: a different token becomes a
-   new row. Where the file carries no account name, PiCode asks you to name
-   the login — that name is what keeps the two apart from now on.
+   new row. Where the file carries no account name, the pane offers two
+   doors: **Name and add** (type a name — that name is what keeps the two
+   apart from now on) or **Keep both** (the login already saved keeps its
+   own row, named from what PiCode knows about it).
 4. **Use** switches the CLI between the accounts, one at a time.
 
 pi's pane adds its own doors, with Usage and 7d spend on every row:

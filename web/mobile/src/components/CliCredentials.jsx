@@ -269,29 +269,25 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
       // an unnamed one, and after the write the replaced tokens are already
       // gone — the name has to come first.
       const pre = await api("/api/credentials/import", json("POST", { cli, preview: true }));
-      let as = "";
-      if (!pre.created && !pre.identity) {
-        const name = await askPrompt({
-          title: "Name this login",
-          message: "This CLI's store carries no account name, so its logins cannot be told apart. Name this one and the next sign-in is kept beside it instead of on top of it.",
-          defaultValue: pre.who || "",
-          confirmLabel: "Name it",
-        });
-        if (name) as = name;
-      }
-      const row = await api("/api/credentials/import", json("POST", { cli, ...(as ? { as } : {}) }));
       // The file still holds the account that was there when Sign in was
       // clicked. Closing the strip here is a lie: no second account arrived.
-      if (signin && signin.stamp && row.stamp === signin.stamp) {
+      if (signin && signin.stamp && pre.stamp === signin.stamp) {
         setSignin((prev) => ({
           ...(prev || {}),
           error: "That's still the account already saved. Sign into the other one in the terminal, then check again.",
         }));
         return;
       }
+      // A store that carries no account name would have this sign-in replace
+      // the row already there. That write is the person's choice, made here:
+      // name the new login, or keep the old one beside it.
+      if (!pre.created && !pre.identity) {
+        setSignin((prev) => ({ ...(prev || {}), replacing: true }));
+        return;
+      }
+      const row = await api("/api/credentials/import", json("POST", { cli }));
       setSignin(null);
-      if (as) toast.ok("Saved as " + as + ".");
-      else toast.ok(row.who ? "Signed in as " + row.who + "." : "Saved to the vault.");
+      toast.ok(row.who ? "Signed in as " + row.who + "." : "Saved to the vault.");
       await load();
     } catch (ex) {
       setSignin((prev) => ({
@@ -300,6 +296,41 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
       }));
     } finally {
       setBusy("");
+    }
+  }
+
+  async function finishSignin(extra) {
+    setBusy("check");
+    try {
+      const row = await api("/api/credentials/import", json("POST", { cli, ...extra }));
+      setSignin(null);
+      if (extra.as) toast.ok("Saved as " + extra.as + ".");
+      else if (extra.keep) toast.ok("Both logins saved.");
+      else toast.ok(row.who ? "Signed in as " + row.who + "." : "Saved to the vault.");
+      await load();
+    } catch (ex) {
+      toastError(ex);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function nameAndAdd() {
+    setBusy("name");
+    try {
+      const pre = await api("/api/credentials/import", json("POST", { cli, preview: true }));
+      const name = await askPrompt({
+        title: "Name this login",
+        message: "This CLI's store carries no account name, so its logins cannot be told apart. Name this one and the next sign-in is kept beside it instead of on top of it.",
+        defaultValue: pre.who || "",
+        confirmLabel: "Name it",
+      });
+      setBusy("");
+      if (!name) return;
+      await finishSignin({ as: name });
+    } catch (ex) {
+      setBusy("");
+      setSignin((prev) => ({ ...(prev || {}), error: ex.message }));
     }
   }
 
@@ -508,9 +539,20 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
               {signin.terminalId ? (
                 <a className="btn btn-ghost btn-sm" href={"#/term/" + encodeURIComponent(signin.terminalId)}>Open terminal</a>
               ) : null}
-              <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "check"} onClick={checkSignin}>
-                {busy === "check" ? "Checking…" : "Check now"}
-              </button>
+              {signin.replacing ? (
+                <>
+                  <button type="button" className="btn btn-primary btn-sm" disabled={busy === "name"} onClick={nameAndAdd}>
+                    {busy === "name" ? "Naming…" : "Name and add"}
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "keep"} onClick={() => finishSignin({ keep: true })}>
+                    Keep both
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "check"} onClick={checkSignin}>
+                  {busy === "check" ? "Checking…" : "Check now"}
+                </button>
+              )}
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSignin(null)}>Dismiss</button>
             </span>
           </div>
