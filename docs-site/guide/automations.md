@@ -140,7 +140,7 @@ type into it safely.
 | Skipped · rate cap | The runs-per-window limit was reached. |
 | Skipped · agent in terminal | The agent is open in a terminal, where messages are not delivered automatically. |
 | Failed · cost cap | Spending passed the limit; the run was stopped. |
-| Failed · pi missing | `pi` is not installed or not on PATH. |
+| Failed · pi missing | The run needed Pi — a start, or a message to a Pi agent — and `pi` is not installed or not on PATH. Messages to other CLIs' agents do not need Pi. |
 | Failed · daemon restarted | PiCode restarted mid-run. The next scheduled run starts fresh. |
 
 ## Timing

@@ -78,10 +78,10 @@ try {
         if (state.runsError) return route.fulfill({ status: 503, json: { error: "QA runs unavailable" } });
         return route.fulfill({ json: { items: state.runs } });
       }
-      if (path === "/api/system" && state.piMissing) {
+      if (path === "/api/clis" && state.piMissing) {
         const response = await route.fetch();
-        const system = await response.json();
-        return route.fulfill({ json: { ...system, warnings: ["pi is not installed."] } });
+        const body = await response.json();
+        return route.fulfill({ json: { ...body, clis: (body.clis || []).map((c) => (c.id === "pi" ? { ...c, installed: false } : c)) } });
       }
       await route.continue();
     });
@@ -279,9 +279,9 @@ try {
     await page.locator(".dlg-overlay").waitFor({ state: "detached" });
     await page.locator(".auto-detail").waitFor();
     state.piMissing = true;
-    state.autoMode = "empty";
+    state.autoMode = "populated"; // a start automation needs Pi; an empty list shows no banner (ADR-0179)
     await goto("#/automations");
-    await page.getByText("pi is not installed, so automations cannot start agents.", { exact: true }).waitFor();
+    await page.getByText("Pi is not installed, so automations that start or message a Pi agent cannot run.", { exact: true }).waitFor();
     await shot("automations-blocked");
     report.states.push({ width, passed: "automations empty/initial+detail+runs error retry/delete cancel/create+edit save failure/discard cancel+confirm/keyboard prompt+run table/blocked dependency" });
     await context.close();
