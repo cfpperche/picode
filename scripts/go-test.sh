@@ -34,12 +34,18 @@ SHARDS=${GO_TEST_SHARDS:-4}
 # `panic: test timed out after 10m0s` every run. Sharded, each shard finishes
 # well inside it (measured: 275-385 s per shard, 446 s wall clock).
 FLAGS=${GO_TEST_FLAGS:-}
-HEAVY=${GO_TEST_HEAVY:-github.com/cfpperche/picode/internal/server}
+# More than one package is heavy now. internal/store joined the list when CI
+# started passing -race: TestEveryMutationAppendsAnEvent alone runs 2m30s
+# under the detector and the package went past `go test`'s 10-minute default
+# in one process, exactly as internal/server had. Sharding one and not the
+# other just moved which package killed the job.
+HEAVY=${GO_TEST_HEAVY:-github.com/cfpperche/picode/internal/server github.com/cfpperche/picode/internal/store}
 [ $# -gt 0 ] || set -- ./...
 
 pkgs=$(go list "$@") || exit 1
-rest=$(printf '%s\n' $pkgs | grep -vx "$HEAVY" || true)
-heavy=$(printf '%s\n' $pkgs | grep -x "$HEAVY" || true)
+heavy_re=$(printf '%s\n' $HEAVY | paste -sd'|')
+rest=$(printf '%s\n' $pkgs | grep -vxE "$heavy_re" || true)
+heavy=$(printf '%s\n' $pkgs | grep -xE "$heavy_re" || true)
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -49,18 +55,22 @@ if [ -n "$rest" ]; then
   ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath $rest > "$tmp/rest.log" 2>&1; echo $? > "$tmp/rest.rc" ) &
 fi
 
-if [ -n "$heavy" ]; then
-  names=$(env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath -list '.*' "$heavy" 2>/dev/null | grep -vE '^(ok|\?|FAIL)' || true)
+h=0
+for pkg in $heavy; do
+  names=$(env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath -list '.*' "$pkg" 2>/dev/null | grep -vE '^(ok|\?|FAIL)' || true)
+  echo "$pkg" > "$tmp/heavy$h.pkg"
   if [ -z "$names" ] || [ "$SHARDS" -le 1 ]; then
-    SHARDS=1
-    ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath "$heavy" > "$tmp/shard0.log" 2>&1; echo $? > "$tmp/shard0.rc" ) &
+    echo 1 > "$tmp/heavy$h.n"
+    ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath "$pkg" > "$tmp/heavy$h.shard0.log" 2>&1; echo $? > "$tmp/heavy$h.shard0.rc" ) &
   else
+    echo "$SHARDS" > "$tmp/heavy$h.n"
     for i in $(seq 0 $((SHARDS - 1))); do
       rx="^($(printf '%s\n' $names | awk -v i="$i" -v n="$SHARDS" 'NR % n == i' | paste -sd'|'))$"
-      ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath -run "$rx" "$heavy" > "$tmp/shard$i.log" 2>&1; echo $? > "$tmp/shard$i.rc" ) &
+      ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath -run "$rx" "$pkg" > "$tmp/heavy$h.shard$i.log" 2>&1; echo $? > "$tmp/heavy$h.shard$i.rc" ) &
     done
   fi
-fi
+  h=$((h + 1))
+done
 wait
 
 report() { # <label> <log> <rc-file>
@@ -78,13 +88,17 @@ if [ -n "$rest" ]; then
     echo "go-test: $total package(s) ok ($cached cached)"
   fi
 fi
-if [ -n "$heavy" ]; then
+j=0
+while [ "$j" -lt "$h" ]; do
+  pkg=$(cat "$tmp/heavy$j.pkg")
+  n=$(cat "$tmp/heavy$j.n")
   longest=0
-  for i in $(seq 0 $((SHARDS - 1))); do
-    report "$HEAVY shard $i" "$tmp/shard$i.log" "$tmp/shard$i.rc"
-    s=$(grep -oE '[0-9.]+s$' "$tmp/shard$i.log" | tail -1 | tr -d s)
+  for i in $(seq 0 $((n - 1))); do
+    report "$pkg shard $i" "$tmp/heavy$j.shard$i.log" "$tmp/heavy$j.shard$i.rc"
+    s=$(grep -oE '[0-9.]+s$' "$tmp/heavy$j.shard$i.log" | tail -1 | tr -d s)
     longest=$(awk -v a="$longest" -v b="${s:-0}" 'BEGIN { print (a > b) ? a : b }')
   done
-  [ "$status" -eq 0 ] && echo "go-test: ${HEAVY#github.com/cfpperche/picode/} ok in $SHARDS shard(s), longest ${longest}s"
-fi
+  [ "$status" -eq 0 ] && echo "go-test: ${pkg#github.com/cfpperche/picode/} ok in $n shard(s), longest ${longest}s"
+  j=$((j + 1))
+done
 exit $status
