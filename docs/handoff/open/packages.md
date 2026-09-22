@@ -165,7 +165,9 @@
 
 - [x] **The `/api/cli-packages*` family is an alias for one release
   (ADR-0176).** Paid 2026-09-22 (`feat/packages-alias`) — the window was closed
-  by the owner's call, not by a calendar check. The whole family is gone: the
+  by the owner's call, not by a calendar check — and shipped in **0.5.0**
+  (`eaf923dd release: cut 0.5.0`; production answers 404 for the family and 200
+  for `/api/packages/report`). The whole family is gone: the
   route registrations, `handleCLIPackages`/`handleCLIPackagesAvailable`/
   `handleCLIPackageUpdates`/`handleCLIPackageMarkets` and
   `internal/pkgs/guest_view.go` with every mapper in it (the guest answers are
