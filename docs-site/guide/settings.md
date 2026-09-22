@@ -55,8 +55,8 @@ returns 409. Run `/trust` in the TUI.
 
 ## Model roles (Omp)
 
-Omp routes different jobs to different models, and its Settings pane edits that
-map directly. **Model roles** lists every role the CLI has — DEFAULT, SMOL,
+Omp routes different jobs to different models, and its **Models** pane edits
+that map directly, above the list of models it can reach. **Model roles** lists every role the CLI has — DEFAULT, SMOL,
 SLOW, VISION, PLAN, COMMIT, TINY, MEMORY, TASK, ADVISOR, and the five that pick
 a model by kind (IMAGE, WEB, SPEECH, DICTATION, JUDGE) — plus any role you
 invented. A role nobody assigns reads **auto**: Omp picks for it.
@@ -83,7 +83,7 @@ the same global file, so they each pick it up on their own next start.
 
 ## Models (Omp)
 
-The **Models** pane lists every model Omp reports it can reach in the
+Below the roles and fallbacks, **All models** lists every model Omp reports it can reach in the
 workspace you opened it from, grouped by provider, with its context size and
 price per million tokens. The chips filter by kind (chat, tiny, image, speech,
 search, …) and the box filters by name.
