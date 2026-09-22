@@ -253,6 +253,123 @@ func spliceArrayElement(src []byte, key, element, list string) ([]byte, error) {
 	return next, nil
 }
 
+// insertArrayElement is the same splice read the other way: it returns src with
+// one string element added to the array under key — appended to the array when
+// the file has one, and as a new key when it has none (a settings file whose
+// first entry is being disabled has no `disabledExtensions` yet). Every byte
+// outside the insertion survives, and the result is re-parsed and compared
+// before the caller writes it.
+func insertArrayElement(src []byte, key, element, list string) ([]byte, error) {
+	scan := blankComments(src)
+	lit := marshalString(element)
+	arrStart, err := topLevelArray(scan, key)
+	if err != nil {
+		return nil, err
+	}
+	at, sep, insert := 0, "", lit
+	if arrStart < 0 {
+		if at, sep, err = objectInsertionPoint(scan); err != nil {
+			return nil, err
+		}
+		insert = marshalString(key) + ": [" + lit + "]"
+	} else {
+		spans, err := arrayElementSpans(scan, key)
+		if err != nil {
+			return nil, err
+		}
+		// Right after the last element, never inside it: the verification
+		// expects the element that arrived to be the array's last one.
+		at = arrStart + 1
+		if len(spans) > 0 {
+			at = spans[len(spans)-1].end
+			sep = ", "
+		}
+	}
+	next := make([]byte, 0, len(src)+len(sep)+len(insert))
+	next = append(next, src[:at]...)
+	next = append(next, sep...)
+	next = append(next, insert...)
+	next = append(next, src[at:]...)
+	if err := verifyInsert(src, next, key, lit, list); err != nil {
+		return nil, err
+	}
+	return next, nil
+}
+
+// objectInsertionPoint is where a new top-level key goes: just after the last
+// value that is there, with the separator that value needs, so the file keeps
+// its own shape and the key lands beside the others. A document that is not one
+// object is refused rather than edited blindly.
+func objectInsertionPoint(scan []byte) (int, string, error) {
+	open := -1
+	for i, c := range scan {
+		if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+			continue
+		}
+		if c != '{' {
+			return 0, "", fmt.Errorf("%w: the config is not an object", ErrRosterShape)
+		}
+		open = i
+		break
+	}
+	if open < 0 {
+		return 0, "", fmt.Errorf("%w: the config is not an object", ErrRosterShape)
+	}
+	depth, i := 0, open
+	for i < len(scan) {
+		switch scan[i] {
+		case '"':
+			i = skipString(scan, i)
+			continue
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth > 0 {
+				break
+			}
+			last := open
+			for j := i - 1; j > open; j-- {
+				if c := scan[j]; c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+					last = j
+					break
+				}
+			}
+			if last == open {
+				return open + 1, "", nil
+			}
+			return last + 1, ",\n  ", nil
+		}
+		i++
+	}
+	return 0, "", fmt.Errorf("%w: the config's object is not closed", ErrRosterShape)
+}
+
+// verifyInsert re-parses both documents and refuses when the difference is not
+// exactly one element arriving at the end of the named array — the rule
+// verifySplice states for a removal, read the other way.
+func verifyInsert(before, after []byte, key, lit, list string) error {
+	was, err := connectors.LenientJSON(before)
+	if err != nil {
+		return fmt.Errorf("the config is not valid JSON: %v", err)
+	}
+	now, err := connectors.LenientJSON(after)
+	if err != nil {
+		return fmt.Errorf("the edit would not parse: %v", err)
+	}
+	want := modulesOf(was[key])
+	got := modulesOf(now[key])
+	if len(got) != len(want)+1 || !equalStrings(got[:len(want)], want) || marshalString(got[len(want)]) != lit {
+		return fmt.Errorf("%w: the %s did not change as expected", ErrStale, list)
+	}
+	delete(was, key)
+	delete(now, key)
+	if !reflect.DeepEqual(was, now) {
+		return fmt.Errorf("%w: the edit touched more than the %s", ErrStale, list)
+	}
+	return nil
+}
+
 // verifySplice re-parses both documents and refuses when the only difference
 // is not exactly one element leaving the named array.
 func verifySplice(before, after []byte, key, lit, list string) error {
