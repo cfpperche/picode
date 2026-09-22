@@ -6,7 +6,7 @@ description: Connectors for every agent CLI. PiCode writes each CLI's own MCP co
 
 Connectors. Every agent CLI has the same Connectors pane, and PiCode writes
 that CLI's own configuration file. Claude Code, Codex and the others read it
-natively; Pi reads it through the **MCP adapter** package.
+on their own; Pi reads it through the **MCP adapter** package.
 
 - **Where:** **Agent CLIs → \<cli\> → Connectors**.
 - **Not this:** Pi does not speak MCP itself. On Pi's pane, without the adapter, Connectors is one line and **Open packages** — it does not write files.
