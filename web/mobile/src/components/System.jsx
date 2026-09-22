@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
-import { toast } from "../lib/toast.js";
-import PiSpinner from "./PiSpinner.jsx";
+import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 import PageFrame from "./PageFrame.jsx";
 
-export default function System({ hidden, version, system: systemProp }) {
+export default function System({ hidden, version, system: systemProp, clis = [] }) {
   const [fetched, setFetched] = useState(null);
   const [ver, setVer] = useState(version || "");
   useEffect(() => {
@@ -42,7 +41,14 @@ export default function System({ hidden, version, system: systemProp }) {
         </dl>
       </section>
 
-      {system && system.pi && system.pi.updateAvailable ? <PiUpdateCard pi={system.pi} /> : null}
+      <section className="settings-section">
+        <h3>Agent CLIs</h3>
+        <dl className="sys-rows" id="system-clis">
+          {cliRows(clis).map(([k, v, href]) => (
+            <div className="sys-row" key={"c" + k}><dt>{href ? <a className="settings-link" href={href}>{k}</a> : k}</dt><dd>{v}</dd></div>
+          ))}
+        </dl>
+      </section>
 
       <section className="settings-section">
         <h3>About</h3>
@@ -83,9 +89,8 @@ function netRows(system) {
 function depRows(system) {
   if (!system) return [["Status", "unavailable"]];
   const rows = [
-    ["tmux", system.tmux && system.tmux.installed ? (system.tmux.version || "installed") : "not installed"],
-    ["pi", system.pi && system.pi.installed ? (system.pi.version || "installed") : "not installed"],
-    ["mkcert", system.mkcert && system.mkcert.installed ? "installed" : "not installed · optional"],
+    ["tmux", (system.tmux && system.tmux.installed ? (system.tmux.version || "installed") : "not installed") + " · required"],
+    ["mkcert", (system.mkcert && system.mkcert.installed ? "installed" : "not installed") + " · optional"],
     ["tailscale", tailscaleValue(system.tailscale)],
   ];
   if (system.warnings) {
@@ -94,45 +99,23 @@ function depRows(system) {
   return rows;
 }
 
-function PiUpdateCard({ pi }) {
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState("");
-  const [err, setErr] = useState("");
-  async function run() {
-    setBusy(true);
-    setErr("");
-    try {
-      const res = await api("/api/system/pi-update", { method: "POST" });
-      setDone((res && res.version) || "updated");
-      toast.ok("pi updated" + ((res && res.version) ? " to " + res.version : "") + " — restart agents to pick it up.");
-    } catch (e) {
-      setErr((e && e.message) || "Update failed.");
-    } finally {
-      setBusy(false);
+// cliRows: one line per agent CLI in the catalog (`GET /api/clis`), the
+// name linking to its page. None is required (ADR-0179); the empty state
+// says where to install one.
+function cliRows(clis) {
+  const rows = (clis || []).filter((c) => c && c.id);
+  if (!rows.length) return [["Agent CLIs", "none installed yet — open Agent CLIs to install one", cliPaneHash("")]];
+  return rows.map((c) => {
+    const d = c.diagnostic || {};
+    let v = "not installed · optional";
+    if (c.installed) {
+      v = d.version || "installed";
+      if (d.updateAvailable) v += " · update available";
     }
-  }
-  return (
-    <section className="settings-section pi-update-card">
-      <h3>Pi update</h3>
-      <p className="pi-update-line" data-align-row>
-        <span>
-          <strong>{pi.version || "installed"}</strong> → <strong>{pi.latest}</strong> available
-        </span>
-        <span className="pi-update-actions" data-align-row>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { navigator.clipboard.writeText("pi update --self"); toast.ok("Command copied."); }} title="Copy the terminal command">Copy command</button>
-          <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={run} title="Runs pi update --self">
-            {busy ? <><PiSpinner title="Updating pi" /> Updating…</> : "Update now"}
-          </button>
-        </span>
-      </p>
-      {busy ? <p className="pi-update-note">This runs <code>pi update --self</code> and can take a minute.</p> : null}
-      {done ? <p className="pi-update-note ok">Now at <strong>{done}</strong>. Running agents keep the old version until you restart them.</p> : null}
-      {err ? <p className="pi-update-note err" title={err}>{err.slice(0, 300)}</p> : null}
-      {!done && !busy && !err ? <p className="pi-update-note">Running agents keep the old version until you restart them.</p> : null}
-    </section>
-  );
+    return [c.name || c.id, v, cliPaneHash(c.id)];
+  });
 }
 function tailscaleValue(ts) {
   if (!ts || !ts.installed) return "not installed · optional";
-  return ts.ip || "installed";
+  return (ts.ip || "installed") + " · optional";
 }

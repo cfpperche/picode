@@ -630,7 +630,7 @@ export default function MobileApp() {
     );
   } else if (route.screen === "more") {
     body = (
-      <More fleetReady={loaded} legacyAgentId={lastAgentId} section={route.section} apps={apps} catalog={catalog} system={system} version={version} themeMode={themeMode} workspaces={workspaces} freeAgents={freeAgents}
+      <More fleetReady={loaded} legacyAgentId={lastAgentId} section={route.section} apps={apps} catalog={catalog} clis={clis} system={system} version={version} themeMode={themeMode} workspaces={workspaces} freeAgents={freeAgents}
         onAgentConfig={patchAgent}
         onTheme={(m) => { persistTheme(m); setThemeMode(m); }} last={last} onRefreshCatalog={loadCatalog} onCatalogChange={setCatalog}
         onShare={() => setShareOpen(true)} onWhatsNew={openWhatsNew} whatsNewUnread={whatsNewUnread} onBack={() => goBack(route)} />

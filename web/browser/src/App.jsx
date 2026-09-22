@@ -4276,13 +4276,13 @@ export default function App({ shellChrome = false } = {}) {
           themeMode={themeMode}
           onTheme={setTheme}
         />
-        <System hidden={route !== "system"} version={version} system={system} />
+        <System hidden={route !== "system"} version={version} system={system} clis={clis} />
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
         <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
         <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
-        <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
+        <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} />
         <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}

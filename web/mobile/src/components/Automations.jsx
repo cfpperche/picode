@@ -21,7 +21,8 @@ import { mentionAgents, agentsOf } from "@picode/shared/domain/tree.js";
 import { IconPlay, IconPlus, IconCopy, IconTrash, IconPencil, IconChevronLeft } from "./Icons.jsx";
 
 const REFRESH_MS = 15_000;
-const GUIDE = "https://cfpperche.github.io/picode/guide/automations";
+import { automationsBlockedByPi } from "@picode/shared/domain/automationsPi.js";
+import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 const SUGGESTED_KEY = "picode-automations-suggested";
 const confirmDiscardAutomation = () => askConfirm({ title: "Discard automation changes?", message: "Your unsaved changes will be lost.", confirmLabel: "Discard changes", danger: true });
 const CATEGORIES = [
@@ -35,7 +36,7 @@ const CATEGORIES = [
 // automations.md): schedule + webhook only, bounds instead of babysitting,
 // results in the Inbox. Polls like the dashboard (ADR-0042): 15 s, paused
 // while hidden, last good results kept.
-export default function Automations({ hidden, catalog, workspaces, freeAgents, system }) {
+export default function Automations({ hidden, catalog, workspaces, freeAgents, system, clis = [] }) {
   const [sub, setSub] = useState(() => automationRoute());
   const [items, setItems] = useState(null);
   const [loadErr, setLoadErr] = useState("");
@@ -105,7 +106,9 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
     return () => { stop(); document.removeEventListener("visibilitychange", vis); };
   }, [hidden, sub]);
 
-  const piMissing = !!(system && Array.isArray(system.warnings) && system.warnings.some((w) => /^pi is not installed/i.test(w)));
+  // Pi is one CLI among nine (ADR-0179): the banner appears only when Pi is
+  // absent AND some automation would need it (a start, or a message to a Pi agent).
+  const piMissing = useMemo(() => automationsBlockedByPi(clis, items, workspaces, freeAgents), [clis, items, workspaces, freeAgents]);
   const agents = useMemo(() => mentionAgents(workspaces, freeAgents, null), [workspaces, freeAgents]);
   const current = sub && sub !== "new" && items ? items.find((a) => a.id === sub) : null;
 
@@ -238,8 +241,8 @@ function List({ items, loadErr, piMissing, templates, agents, onToggle, onRun, p
     <>
       {piMissing ? (
         <div className="auto-blocked" role="status">
-          <p>pi is not installed, so automations cannot start agents.</p>
-          <a className="btn btn-ghost" href={GUIDE} target="_blank" rel="noreferrer">Set up pi</a>
+          <p>Pi is not installed, so automations that start or message a Pi agent cannot run.</p>
+          <a className="btn btn-ghost" href={cliPaneHash("pi")}>Install Pi</a>
         </div>
       ) : null}
       {items.length === 0 ? (
