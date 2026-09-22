@@ -17,7 +17,8 @@ visual-review: n/a (server-side injection; the checklist UI already exists)
 
 ## Next up
 
-- After this lands AND deploys, remove the omp-checklist entry from Omp's user layer — Agent CLIs ▸ Omp ▸ Packages ▸ Remove, or `omp config set extensions '[]'` — the `-e` copy would then double-POST.
+- Resolved in feat/omp-checklist-pkg: the `-e` injection was reverted in favor of the installable
+  package, so there is no double-POST window — the plugin-store install is the whole story.
 
 ## Debts
 
