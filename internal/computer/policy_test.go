@@ -56,7 +56,7 @@ func TestResolveCallerIsTheHouseIdentity(t *testing.T) {
 		{"agent-1", "", true},
 		{"agent-1", "t-9", true},  // the agent id wins
 		{"agent-2", "t-9", false}, // and does not fall back to the terminal
-		{"", "t-9", true},
+		{"", "t-9", false},        // a terminal holds no grant (ADR-0184)
 		{"", "t-8", false},
 		{"", "", false}, // no identity, no grant
 	}

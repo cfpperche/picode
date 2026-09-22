@@ -66,7 +66,7 @@ Both work, and the difference is identity, not connectivity:
 | Where pi runs | Identity | What it gets |
 |---|---|---|
 | An agent PiCode manages | it reports its agent id | its own grant, read by default |
-| A `pi` TUI in a PiCode terminal | none | read, on the tab on screen |
+| A `pi` typed into a PiCode shell | the terminal's id, no grant | read, on the tab on screen |
 | A `pi` TUI you started yourself | none | the same, if the package is visible to it |
 
 A grant belongs to an **agent id**, so only a managed agent can be granted

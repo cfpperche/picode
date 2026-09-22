@@ -193,8 +193,8 @@ export default function ComputerPage({ hidden, onCreateAgent }) {
             ) : rows.length === 0 ? (
               <div className="set-item">
                 <div className="set-item-body">
-                  <span className="set-item-t">No agents or terminals yet</span>
-                  <span className="set-item-d">Grants are given per agent, or per terminal with a CLI running in it.</span>
+                  <span className="set-item-t">No agents yet</span>
+                  <span className="set-item-d">Grants are given per agent. A CLI you start from PiCode is an agent.</span>
                 </div>
                 <div className="set-item-ctl">
                   <button type="button" className="set-btn" onClick={onCreateAgent}>Create an agent</button>
@@ -204,7 +204,7 @@ export default function ComputerPage({ hidden, onCreateAgent }) {
               <div className="set-item">
                 <div className="set-item-body">
                   <span className="set-item-t">No grants match</span>
-                  <span className="set-item-d">No agent or terminal matches the current search and filters.</span>
+                  <span className="set-item-d">No agent matches the current search and filters.</span>
                 </div>
                 <div className="set-item-ctl">
                   <button type="button" className="set-btn" onClick={clearGrantFilters}>Clear search</button>

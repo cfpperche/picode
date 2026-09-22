@@ -31,7 +31,9 @@ const SettingPrefix = "browser.policy."
 // invalid grant falls back too: a broken setting must not become a wider
 // permission, and the default is the narrowest thing that is still useful.
 func Resolve(st *store.Store, agentID string) Policy {
-	if st == nil || strings.TrimSpace(agentID) == "" {
+	// ADR-0184: shells and sign-in terminals hold no grant; a terminal key
+	// reads the default like an unmanaged caller.
+	if st == nil || strings.TrimSpace(agentID) == "" || strings.HasPrefix(agentID, grant.TerminalPrefix) {
 		return Default()
 	}
 	raw, ok, err := st.GetSetting(SettingPrefix + agentID)

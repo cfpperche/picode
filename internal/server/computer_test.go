@@ -151,20 +151,47 @@ func TestComputerToolTerminalPrincipalAndNoShell(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// ADR-0184: a shell holds no grant — even a leftover setting is off,
+	// and the refusal is audited under the terminal's identity.
 	if err := computer.Save(st, "term:"+term.ID, true); err != nil {
 		t.Fatal(err)
 	}
-	// Granted, but no shell on the line: the answer is immediate and audited.
 	code, body := postComputerTool(t, ts, `{"term":"`+term.ID+`","action":"screenshot"}`)
-	if code != http.StatusBadGateway || !strings.Contains(body, "not connected") {
-		t.Fatalf("no shell: %d %s", code, body)
+	if code != http.StatusForbidden {
+		t.Fatalf("shell: %d %s", code, body)
 	}
 	steps := computerSteps(t, st)
-	if len(steps) != 1 || steps[0]["outcome"] != "failed" || steps[0]["termId"] != term.ID || steps[0]["_agent"] != nil {
+	if len(steps) != 1 || steps[0]["outcome"] != "refused" || steps[0]["principal"] != "term:"+term.ID {
 		t.Fatalf("row = %v", steps)
 	}
-	if steps[0]["principal"] != "term:"+term.ID {
-		t.Fatalf("principal = %v", steps[0]["principal"])
+	// The same terminal bound to an agent carries the agent's grant.
+	ws, err := st.AddWorkspace("w", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cterm, err := st.CreateTerminalIn(ws.ID, "claude", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := st.AddAgentWithCLI(ws.ID, "claude-code", "claude", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tid := cterm.ID
+	if _, err := st.UpdateAgent(a.ID, store.AgentPatch{TerminalID: &tid}); err != nil {
+		t.Fatal(err)
+	}
+	if err := computer.Save(st, a.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	// Granted, but no shell on the line: the answer is immediate and audited.
+	code, body = postComputerTool(t, ts, `{"term":"`+cterm.ID+`","action":"screenshot"}`)
+	if code != http.StatusBadGateway || !strings.Contains(body, "not connected") {
+		t.Fatalf("bound terminal: %d %s", code, body)
+	}
+	steps = computerSteps(t, st)
+	if len(steps) != 2 || steps[0]["outcome"] != "failed" || steps[0]["principal"] != a.ID {
+		t.Fatalf("rows = %v", steps)
 	}
 }
 
@@ -193,11 +220,11 @@ func TestComputerPoliciesListAndSave(t *testing.T) {
 	if code, body := post(`{"agent":"` + agent + `","enabled":true}`); code != http.StatusOK || !strings.Contains(body, `"enabled":true`) {
 		t.Fatalf("save agent: %d %s", code, body)
 	}
-	if code, body := post(`{"term":"` + term.ID + `","enabled":true}`); code != http.StatusOK {
-		t.Fatalf("save term: %d %s", code, body)
+	if code, body := post(`{"term":"` + term.ID + `","enabled":true}`); code != http.StatusBadRequest || !strings.Contains(body, "shell") {
+		t.Fatalf("save shell: %d %s", code, body)
 	}
-	if !computer.Resolve(st, agent).Enabled || !computer.Resolve(st, "term:"+term.ID).Enabled {
-		t.Fatal("grants did not land")
+	if !computer.Resolve(st, agent).Enabled || computer.Resolve(st, "term:"+term.ID).Enabled {
+		t.Fatal("agent grant must land, shell grant must not")
 	}
 	res, err := http.Get(ts.URL + "/api/computer/policies")
 	if err != nil {
@@ -225,7 +252,7 @@ func TestComputerPoliciesListAndSave(t *testing.T) {
 			sawTerm = true
 		}
 	}
-	if !sawAgent || !sawTerm {
+	if !sawAgent || sawTerm {
 		t.Fatalf("rows = %+v", listed.Policies)
 	}
 	if code, _ := post(`{"agent":"` + agent + `","enabled":false}`); code != http.StatusOK {

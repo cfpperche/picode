@@ -83,15 +83,17 @@ func handleDeliveryTool(deps Deps) http.HandlerFunc {
 				writeStoreErr(w, err)
 				return
 			}
-			cwd = t.Cwd
-			principal = "term:" + t.ID
-			if a, err := deps.Store.AgentByTerminal(t.ID); err == nil {
-				principal = a.ID
-				cwd, err = agentCwd(deps, a.ID)
-				if err != nil {
-					writeStoreErr(w, err)
-					return
-				}
+			// ADR-0184: a delivery belongs to an agent; a shell holds none.
+			a, err := deps.Store.AgentByTerminal(t.ID)
+			if err != nil {
+				writeErr(w, 403, "this terminal is not an agent: make it an agent in PiCode to register deliveries")
+				return
+			}
+			principal = a.ID
+			cwd, err = agentCwd(deps, a.ID)
+			if err != nil {
+				writeStoreErr(w, err)
+				return
 			}
 		} else {
 			writeErr(w, 403, "no identity: open this CLI through PiCode")
