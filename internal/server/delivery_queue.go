@@ -20,9 +20,13 @@ import (
 // store.OwnerActor, so a route that forgot to check cannot grant them.
 
 func registerDeliveryQueueRoutes(mux Registrar, deps Deps) {
+	// The queue's recovery runs from the daemon's own start path
+	// (ResumeDeliveryQueue), never from mounting these routes: a process that
+	// only builds a handler — a test — has no queue to report on.
+	runs := newQueueRuns(deps)
 	for _, route := range []struct{ ns, kind string }{{"workspaces", "workspace"}, {"agents", "agent"}, {"terminals", "term"}} {
 		mux.HandleFunc("POST /api/"+route.ns+"/{id}/delivery/queue", func(w http.ResponseWriter, r *http.Request) {
-			repo, ok := ownerDeliveryRepo(deps, w, r, route.kind, r.PathValue("id"))
+			cwd, repo, ok := ownerDeliveryRepo(deps, w, r, route.kind, r.PathValue("id"))
 			if !ok {
 				return
 			}
@@ -45,6 +49,11 @@ func registerDeliveryQueueRoutes(mux Registrar, deps Deps) {
 			if err != nil {
 				writeQueueErr(w, err)
 				return
+			}
+			// Authorizing is execution authority (ADR-0182): the entry the owner
+			// just authorized — and anything authorized behind it — runs now.
+			if entry.State == store.QueueAuthorized {
+				runs.launch(cwd, repo, ownerWorkspaceID(deps, route.kind, r.PathValue("id")))
 			}
 			writeJSON(w, 200, map[string]any{"schemaVersion": 1, "entry": entry})
 		})
@@ -77,22 +86,23 @@ func queueLayer(deps Deps, kind, id, repo string, view delivery.Snapshot) (deliv
 }
 
 // ownerDeliveryRepo resolves an owner (workspace, agent or terminal) to the
-// repository its queue belongs to, or answers the request itself.
-func ownerDeliveryRepo(deps Deps, w http.ResponseWriter, r *http.Request, kind, id string) (string, bool) {
+// repository its queue belongs to — and to the folder a run works in — or
+// answers the request itself.
+func ownerDeliveryRepo(deps Deps, w http.ResponseWriter, r *http.Request, kind, id string) (string, string, bool) {
 	cwd, ok := previewOwnerCwd(deps, w, r, kind, id)
 	if !ok {
-		return "", false
+		return "", "", false
 	}
 	cwd = canonDir(cwd)
 	if !checkFileRoot(w, r, cwd) {
-		return "", false
+		return "", "", false
 	}
 	repo := gitgraph.Key(cwd)
 	if repo == "" {
 		writeErr(w, 404, "This folder is not a Git repository.")
-		return "", false
+		return "", "", false
 	}
-	return repo, true
+	return cwd, repo, true
 }
 
 // ownerWorkspaceID names the workspace an owner belongs to, for the

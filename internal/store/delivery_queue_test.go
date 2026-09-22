@@ -279,3 +279,67 @@ func TestQueueEntryMustMatchTheDeclaration(t *testing.T) {
 		t.Fatalf("unknown delivery = %v (%v)", other, err)
 	}
 }
+
+// One operation per repository: a run owns the branch it integrates into, so a
+// second authorized entry waits for it — and runs once it is free.
+func TestQueueSerializesOneRunPerRepository(t *testing.T) {
+	s := openTest(t)
+	first := queueFixture(t, s)
+	second := queueFixture(t, s)
+	for _, e := range []QueueEntry{first, second} {
+		if _, err := s.ApplyQueueMutation("repo", OwnerActor, QueueMutation{Action: "authorize",
+			RequestID: "auth-" + e.ID, ID: e.ID, ExpectedVersion: e.Version}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	running, err := s.ApplyQueueMutation("repo", OwnerActor, QueueMutation{Action: "start",
+		RequestID: "start-one", ID: first.ID, ExpectedVersion: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ApplyQueueMutation("repo", OwnerActor, QueueMutation{Action: "start",
+		RequestID: "start-two", ID: second.ID, ExpectedVersion: 2}); !errors.Is(err, ErrQueueConflict) ||
+		!strings.Contains(err.Error(), "another entry is running") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := s.ApplyQueueMutation("repo", OwnerActor, QueueMutation{Action: "finish", Note: "integrated",
+		RequestID: "finish-one", ID: running.ID, ExpectedVersion: running.Version}); err != nil {
+		t.Fatal(err)
+	}
+	if e, err := s.ApplyQueueMutation("repo", OwnerActor, QueueMutation{Action: "start",
+		RequestID: "start-two", ID: second.ID, ExpectedVersion: 2}); err != nil || e.State != QueueRunning {
+		t.Fatalf("the queue did not free itself: %+v (%v)", e, err)
+	}
+}
+
+// An entry left running by a stopped daemon is unknown, not failed and not
+// retried; the owner is the way out, and marking it twice changes nothing.
+func TestQueueUnknownOutcomeAndTheOwnersWayOut(t *testing.T) {
+	s := openTest(t)
+	e := queueAt(t, s, QueueRunning)
+	n, err := s.MarkRunningUnknown("repo", "PiCode stopped while this entry ran")
+	if err != nil || n != 1 {
+		t.Fatalf("marked %d (%v)", n, err)
+	}
+	marked, err := s.GetQueueEntry("repo", e.ID)
+	if err != nil || marked.State != QueueRunning || !strings.Contains(marked.Note, "stopped while this entry ran") || marked.Version != e.Version+1 {
+		t.Fatalf("marked entry = %+v (%v)", marked, err)
+	}
+	if n, err := s.MarkRunningUnknown("repo", "PiCode stopped while this entry ran"); err != nil || n != 0 {
+		t.Fatalf("a second mark changed %d (%v)", n, err)
+	}
+	if again, err := s.GetQueueEntry("repo", e.ID); err != nil || again.Version != marked.Version {
+		t.Fatalf("version moved: %+v (%v)", again, err)
+	}
+	// The agent that declared it cannot step out of a running entry; the owner
+	// can, which is what clears a repository wedged by an unknown outcome.
+	if _, err := s.ApplyQueueMutation("repo", "agent", QueueMutation{Action: "withdraw",
+		RequestID: "w-agent", ID: e.ID, ExpectedVersion: marked.Version}); err == nil {
+		t.Fatal("the agent withdrew a running entry")
+	}
+	out, err := s.ApplyQueueMutation("repo", OwnerActor, QueueMutation{Action: "withdraw",
+		RequestID: "w-owner", ID: e.ID, ExpectedVersion: marked.Version})
+	if err != nil || out.State != QueueWithdrawn {
+		t.Fatalf("owner withdraw = %+v (%v)", out, err)
+	}
+}
