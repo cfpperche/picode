@@ -59,7 +59,7 @@
 .cli-pane-actions .btn { height: var(--ctl-h); }
 .cli-detail > #sessions-view { padding: 12px 0 0; }
 /* Settings: the pane bar owns the gap (no workspace line to glue to it). */
-.cli-detail > #cli-settings-view { padding: 12px 0 0; }
+.cli-detail > #cli-settings-view, .cli-detail > #cli-models-view { padding: 12px 0 0; }
 /* Connectors: the pane bar owns the gap (no workspace line to glue to it). */
 .cli-detail > #connectors-view, .cli-detail > #cli-connectors-view { padding: 12px 0 0; }
 .cli-pane-bar + .cli-integration { border-top: 0; }
@@ -148,7 +148,7 @@
   .cli-pane-bar { flex-wrap: nowrap; align-items: center; }
   .cli-pane-tabs { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; }
   .cli-detail > #sessions-view { padding-top: 8px; }
-  .cli-detail > #cli-settings-view { padding-top: 8px; }
+  .cli-detail > #cli-settings-view, .cli-detail > #cli-models-view { padding-top: 8px; }
   .cli-detail > #connectors-view, .cli-detail > #cli-connectors-view { padding-top: 8px; }
   .cli-summary-grid, .cli-effective .cli-summary-grid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .cli-summary-grid dd { margin-bottom: 12px; }
@@ -209,10 +209,10 @@
 /* Native settings for a guest CLI (ADR-0163) reuse the Pi pane's layer
    language, so the accent bar that means "set in this file" has to reach the
    rows this pane draws too. */
-#cli-settings-view .set-row { padding-left: 8px; border-left: 2px solid transparent; }
-#cli-settings-view .set-row.is-set { border-left-color: var(--accent); }
-#cli-settings-view .set-warn { color: var(--danger); }
-#cli-settings-view .settings-section + .settings-section { margin-top: 16px; }
+#cli-settings-view .set-row, #cli-models-view .set-row { padding-left: 8px; border-left: 2px solid transparent; }
+#cli-settings-view .set-row.is-set, #cli-models-view .set-row.is-set { border-left-color: var(--accent); }
+#cli-settings-view .set-warn, #cli-models-view .set-warn { color: var(--danger); }
+#cli-settings-view .settings-section + .settings-section, #cli-models-view .settings-section + .settings-section { margin-top: 16px; }
 .set-text {
   background: var(--bg-base); color: var(--text-primary);
   border: 1px solid var(--border); border-radius: var(--radius-ctl);
@@ -367,23 +367,23 @@
    control into the button's space: measured 871 with the button and 999
    without it, on adjacent rows of one group (visual review, 2026-09-20).
    The button column stays empty rather than collapsing. */
-#cli-settings-view .set-ctl {
+#cli-settings-view .set-ctl, #cli-models-view .set-ctl {
   display: grid; grid-template-columns: 14rem 7.5rem;
   align-items: center; justify-content: end; gap: 8px;
 }
 #cli-settings-view .set-ctl > select,
-#cli-settings-view .set-ctl > input { width: 100%; min-width: 0; }
+#cli-settings-view .set-ctl > input, #cli-models-view .set-ctl > input { width: 100%; min-width: 0; }
 /* The boolean control is the same Radix switch Pi's pane uses. It is shorter
    than a select by design (the token set sizes it), so it is centred in the
    row's control column rather than stretched to --ctl-h. */
-#cli-settings-view .set-ctl > .rx-switch { justify-self: start; }
-#cli-settings-view .set-ctl > .btn { justify-self: start; }
+#cli-settings-view .set-ctl > .rx-switch, #cli-models-view .set-ctl > .rx-switch { justify-self: start; }
+#cli-settings-view .set-ctl > .btn, #cli-models-view .set-ctl > .btn { justify-self: start; }
 /* On a phone the label and the control share 390px, so the fixed column that
    straightens the desktop form has to let go. */
 @media (max-width: 720px) {
-  #cli-settings-view .set-ctl { grid-template-columns: minmax(0, 1fr); justify-content: stretch; }
-  #cli-settings-view .set-ctl > .btn { justify-self: end; }
-  #cli-settings-view .set-row { flex-wrap: wrap; }
+  #cli-settings-view .set-ctl, #cli-models-view .set-ctl { grid-template-columns: minmax(0, 1fr); justify-content: stretch; }
+  #cli-settings-view .set-ctl > .btn, #cli-models-view .set-ctl > .btn { justify-self: end; }
+  #cli-settings-view .set-row, #cli-models-view .set-row { flex-wrap: wrap; }
   .cli-memory { padding-top: 8px; }
   .cli-memory-search { min-width: 0; max-width: none; }
 }
@@ -393,7 +393,7 @@
    picker fed by the CLI itself, the thinking suffix beside it. The row is the
    same `set-row` every other setting uses, so provenance, the accent bar and
    "Use inherited" are the same language — only the control is new. */
-#cli-settings-view .set-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#cli-settings-view .set-name, #cli-models-view .set-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .role-tag {
   flex: none; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
   padding: 1px 5px; border-radius: 4px;
@@ -436,7 +436,7 @@
 .role-add { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .role-add-label { font-size: 12.5px; color: var(--text-secondary); white-space: nowrap; }
 /* The browser's own focus outline is a 2px black ring; the app's is the accent. */
-#cli-settings-view .set-text:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+#cli-settings-view .set-text:focus-visible, #cli-models-view .set-text:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
 .role-add .set-text { flex: 1 1 auto; max-width: 22rem; }
 .role-add-btn { margin-top: 4px; align-self: flex-start; }
 
@@ -446,25 +446,27 @@
    an unset one at 38px (visual review, 2026-09-22). A role row declares its
    own three columns, and a list row gives its list the whole width; below the
    width where the three fit, the role row stacks and its cluster wraps. */
-#cli-settings-view .set-row-role { align-items: center; }
-#cli-settings-view .set-row-role .set-label { flex: 1 1 auto; min-width: 6rem; }
-#cli-settings-view .set-row-role .set-ctl { grid-template-columns: minmax(10rem, 14rem) 11rem 7.5rem; }
+#cli-settings-view .set-row-role, #cli-models-view .set-row-role { align-items: center; }
+#cli-settings-view .set-row-role .set-label, #cli-models-view .set-row-role .set-label { flex: 1 1 auto; min-width: 6rem; }
+#cli-settings-view .set-row-role .set-ctl, #cli-models-view .set-row-role .set-ctl { grid-template-columns: minmax(10rem, 14rem) 11rem 7.5rem; }
 /* The list's own "Use inherited" goes under the list: beside the first entry
    it read as an action on that entry (visual review, 2026-09-22). */
-#cli-settings-view .set-row-stack .set-ctl { grid-template-columns: minmax(0, 1fr); align-items: start; }
-#cli-settings-view .set-row-stack .set-ctl > .btn { justify-self: start; }
+#cli-settings-view .set-row-stack .set-ctl, #cli-models-view .set-row-stack .set-ctl { grid-template-columns: minmax(0, 1fr); align-items: start; }
+/* The base rule gives a stacked row's button `margin-left: auto`, which beat
+   justify-self and kept a list's Use inherited alone at the right edge. */
+#cli-settings-view .set-row-stack .set-ctl > .btn, #cli-models-view .set-row-stack .set-ctl > .btn { justify-self: start; margin-left: 0; }
 @media (max-width: 860px) {
-  #cli-settings-view .set-row-role { flex-direction: column; align-items: stretch; gap: 6px; }
-  #cli-settings-view .set-row-role .set-ctl { display: flex; flex-wrap: wrap; justify-content: flex-start; }
-  #cli-settings-view .set-row-role .role-pick { flex: 1 1 auto; min-width: 8rem; }
+  #cli-settings-view .set-row-role, #cli-models-view .set-row-role { flex-direction: column; align-items: stretch; gap: 6px; }
+  #cli-settings-view .set-row-role .set-ctl, #cli-models-view .set-row-role .set-ctl { display: flex; flex-wrap: wrap; justify-content: flex-start; }
+  #cli-settings-view .set-row-role .role-pick, #cli-models-view .set-row-role .role-pick { flex: 1 1 auto; min-width: 8rem; }
   /* A list shared its row with "Use inherited" and measured 213px on a
      390px phone, cutting a selector to its first eight letters (visual
      review, 2026-09-22). The button goes under the list, and each entry
      puts its name on a line of its own so a model id is never truncated. */
-  #cli-settings-view .set-row-stack .set-ctl { grid-template-columns: minmax(0, 1fr); }
-  #cli-settings-view .set-row-stack .set-ctl > .btn { justify-self: start; }
-  #cli-settings-view .role-item { flex-wrap: wrap; }
-  #cli-settings-view .role-item-name { flex-basis: 100%; }
+  #cli-settings-view .set-row-stack .set-ctl, #cli-models-view .set-row-stack .set-ctl { grid-template-columns: minmax(0, 1fr); }
+  #cli-settings-view .set-row-stack .set-ctl > .btn, #cli-models-view .set-row-stack .set-ctl > .btn { justify-self: start; }
+  #cli-settings-view .role-item, #cli-models-view .role-item { flex-wrap: wrap; }
+  #cli-settings-view .role-item-name, #cli-models-view .role-item-name { flex-basis: 100%; }
 }
 
 /* Models (ADR-0181): what the CLI reaches, grouped by provider, and the two
@@ -540,3 +542,21 @@
 .models-chips-label { font-size: 12.5px; color: var(--text-secondary); }
 @media (max-width: 767px) { .models-num, .models-num + .models-num { width: auto; } }
 .models-allow { width: 4.5rem; }
+
+/* Models pane: the role matrix and fallbacks sit above the catalog, like omp's own hub. */
+#cli-models-view .settings-section { margin-bottom: 20px; }
+
+/* Review fixes (2026-09-22, second pass): each row stands apart, so two set
+   rows no longer read as one block under a single accent bar; the sections
+   carry the same divider Settings uses; a list's own "Use inherited" sits
+   under it on the left; on a phone every role row stacks the same way, and
+   the picker speaks at the select's size (16px keeps iOS from zooming). */
+#cli-models-view .settings-section { display: flex; flex-direction: column; gap: 6px; }
+#cli-models-view .settings-section > h3 { margin-bottom: 2px; }
+#cli-models-view .settings-section + .settings-section { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 8px; }
+#cli-models-view .set-row { padding-top: 4px; padding-bottom: 4px; }
+#cli-models-view .set-row-stack .set-ctl > .btn { justify-self: start; }
+@media (max-width: 767px) {
+  #cli-models-view .set-row-role .role-pick { flex: 1 1 100%; font-size: 16px; }
+  #cli-models-view .set-row-role .set-ctl > .btn { margin-left: auto; }
+}

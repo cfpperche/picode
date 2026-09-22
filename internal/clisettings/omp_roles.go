@@ -40,6 +40,7 @@ var ompRoleCatalog = []RoleDef{
 // `retry.fallbackChains`' own description, read 2026-09-22).
 var ompRoles = &rolesSpec{
 	path:       []string{"modelRoles"},
+	pane:       "models",
 	catalog:    ompRoleCatalog,
 	group:      groupRoles,
 	tagsPath:   []string{"modelTags"},
@@ -52,7 +53,7 @@ var ompRoles = &rolesSpec{
 	cycleHelp:    "The roles ctrl+p steps through, in order.",
 	chainsPath:   []string{"retry", "fallbackChains"},
 	chainGroup:   groupFallbacks,
-	chainHelp:    "When a model fails, Omp tries the next one in its chain.",
+	chainHelp:    "When a model fails, Omp tries the next entry in its chain. @smol means the model the SMOL role uses.",
 	chainAddHint: "A role, a provider/model-id, or a provider/*",
 	// The suffixes Omp accepts after a selector, in its own display order
 	// (`pi-tui/src/thinking.ts`, `CLI_THINKING_LEVELS = ["off",

@@ -18,15 +18,18 @@ function CliAgentFace({ cli, name }) {
   return <span className="ws-face" title={title}>{terminalCliMark(cli)}</span>;
 }
 
-export function ProviderFace({ agent, id }) {
+// name is what the row reads as ("Amazon Bedrock Mantle"): the letter plate
+// takes its first letter, so a provider with no mark never wears a letter
+// that belongs to its id ("B" for bedrock-mantle).
+export function ProviderFace({ agent, id, name }) {
   if (!id && agent) {
     return <CliAgentFace cli={agentIsPi(agent) ? "pi" : agent.cli} name={agent.name} />;
   }
   const pid = (id || providerId(agent)).toLowerCase();
   const src = providerFaviconUrl(pid);
-  const letter = providerLetter(pid || (agent && agent.name));
+  const letter = providerLetter(name || pid || (agent && agent.name));
   const [fail, setFail] = useState(false);
-  const title = pid || (agent && agent.name) || "agent";
+  const title = name || pid || (agent && agent.name) || "agent";
   if (!src || fail) {
     return <span className="ws-face" title={title}>{letter}</span>;
   }

@@ -95,7 +95,7 @@ func (g guestDriver) paths(q Query) clipkgs.Paths { return clipkgs.Paths{Cwd: q.
 func (g guestDriver) report(q Query, rows []Row, note, readAt, checkedAt string) Report {
 	rep := Report{
 		CLI:       g.cli,
-		Scopes:    scopesForAgentContext(g.Scopes(), q.AgentName),
+		Scopes:    scopesForGuestContext(g.Scopes(), q),
 		Caps:      g.Caps(),
 		Rows:      rows,
 		Notes:     clipkgs.Notes(g.cli),
@@ -171,7 +171,7 @@ func (g guestDriver) CheckUpdates(ctx context.Context, q Query) (Report, error) 
 	// nothing about them is "behind" — the badge read answers empty rather than
 	// asking the vendor for a layer it does not have (ADR-0176 slice 4).
 	if asksAgentScope(q) {
-		return Report{CLI: g.cli, Rows: []Row{}, Scopes: scopesForAgentContext(g.Scopes(), q.AgentName), AgentName: q.AgentName}, nil
+		return Report{CLI: g.cli, Rows: []Row{}, Scopes: scopesForGuestContext(g.Scopes(), q), AgentName: q.AgentName}, nil
 	}
 	legacy, err := clipkgs.CheckUpdates(ctx, g.cli, g.paths(q), g.scopeWord(q), q.Fresh)
 	if err != nil {
@@ -406,18 +406,26 @@ func agentSourceRows(cli string, sources []string) []Row {
 	return out
 }
 
-// scopesForAgentContext drops the agent row when the read named no agent: that
-// layer is PiCode's list on one agent, so a read that named none cannot answer
-// it and must not offer the radio (the plan's decision table). The vendor's own
-// rows keep their words — only the class PiCode owns is filtered.
-func scopesForAgentContext(scopes []ScopeRow, agent string) []ScopeRow {
-	if strings.TrimSpace(agent) != "" {
-		return scopes
-	}
+// scopesForGuestContext is the declaration as this read can honour it — the
+// same honour pi's driver pays: the workspace-class radio reads the
+// workspace's own name, the agent scope spells the agent out in its note, and
+// a layer the read cannot answer is not offered at all, because a project
+// mutation without a folder refuses anyway and a radio must not promise an
+// error (the plan's decision table).
+func scopesForGuestContext(scopes []ScopeRow, q Query) []ScopeRow {
 	out := make([]ScopeRow, 0, len(scopes))
 	for _, s := range scopes {
-		if s.ID == Agent {
-			continue
+		switch s.ID {
+		case Workspace:
+			if strings.TrimSpace(q.WorkspaceName) == "" {
+				continue
+			}
+			s.Label = q.WorkspaceName
+		case Agent:
+			if strings.TrimSpace(q.AgentName) == "" {
+				continue
+			}
+			s.Note = "Only " + q.AgentName + ", every session"
 		}
 		out = append(out, s)
 	}

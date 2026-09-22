@@ -175,3 +175,33 @@ func TestGuestReadsKeepTheVendorScopeWord(t *testing.T) {
 		t.Fatalf("rows = %+v, want the class's spelling to be the fallback", rep.Rows)
 	}
 }
+
+func TestGuestScopesNameTheContextOrStepAside(t *testing.T) {
+	scopes := []ScopeRow{
+		{ID: Machine, Vendor: "user", Label: "Global"},
+		{ID: Workspace, Vendor: "project", Label: "This workspace"},
+		{ID: Agent, Vendor: "agent", Label: "This agent", Note: "Attached to this agent only, loaded on every start."},
+	}
+	q := Query{WorkspaceName: "PiCode", AgentName: "browser"}
+	got := scopesForGuestContext(scopes, q)
+	if len(got) != 3 || got[1].Label != "PiCode" || got[1].Vendor != "project" {
+		t.Fatalf("workspace scope = %+v, want the workspace's own name on the project layer", got[1])
+	}
+	if got[2].Label != "This agent" || got[2].Note != "Only browser, every session" {
+		t.Fatalf("agent scope = %+v, want the class's label with the agent named in the note", got[2])
+	}
+
+	// No workspace named: a project mutation would refuse anyway, so the radio
+	// must not promise one.
+	noWorkspace := scopesForGuestContext(scopes, Query{AgentName: "browser"})
+	if len(noWorkspace) != 2 || noWorkspace[1].ID != Agent {
+		t.Fatalf("scopes = %+v, want the workspace layer dropped", noWorkspace)
+	}
+
+	// No agent named: the agent layer is PiCode's list on one agent, so a read
+	// that named none cannot answer it.
+	noAgent := scopesForGuestContext(scopes, Query{WorkspaceName: "PiCode"})
+	if len(noAgent) != 2 || noAgent[1].ID != Workspace || noAgent[1].Label != "PiCode" {
+		t.Fatalf("scopes = %+v, want the agent layer dropped and the workspace named", noAgent)
+	}
+}
