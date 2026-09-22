@@ -7,7 +7,7 @@ D0 surface contract: docs/plans/delivery-flow-design.md
 
 ## Next
 
-- ADR-0182 is accepted; the store layer and the owner's doors landed (migration 066, `internal/store/delivery_queue.go`, `internal/store/delivery_integration.go`, `internal/server/delivery_queue.go`). Next, in order: the agent's own door (request/withdraw through the tool contract and its three faces), the serialized executor, then the lane in the Delivery view.
+- ADR-0182: the store layer, the owner's doors and the agent's door all landed (migration 066, `internal/store/delivery_queue.go`, `internal/store/delivery_integration.go`, `internal/server/delivery_queue.go`, the tool path in `internal/server/delivery.go`, and the three faces of the `delivery` tool). Next, in order: the serialized executor, then the lane in the Delivery view.
 
 ## Debts
 

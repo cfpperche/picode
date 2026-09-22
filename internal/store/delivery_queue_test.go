@@ -241,3 +241,41 @@ func TestQueueListOrdersActiveFirst(t *testing.T) {
 		t.Fatalf("list = %+v", list)
 	}
 }
+
+// An entry is bound to what the delivery declares: a caller that names a
+// different revision or target is asking for something nobody reviewed.
+func TestQueueEntryMustMatchTheDeclaration(t *testing.T) {
+	s := openTest(t)
+	d, err := s.ApplyDelivery("repo", "agent", DeliveryMutation{Action: "register", RequestID: "create",
+		Title: "Fix", Branch: "feat/fix", Revision: strings.Repeat("a", 40), Target: "main"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name     string
+		revision string
+		target   string
+	}{
+		{"another revision", strings.Repeat("b", 40), "main"},
+		{"another target", d.Revision, "release"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := s.ApplyQueueMutation("repo", "agent", QueueMutation{Action: "enqueue", RequestID: "e-" + tc.name,
+				DeliveryID: d.ID, Revision: tc.revision, Target: tc.target})
+			if !errors.Is(err, ErrQueueConflict) {
+				t.Fatalf("err = %v", err)
+			}
+			if entries, err := s.QueueEntriesForDelivery("repo", d.ID); err != nil || len(entries) != 0 {
+				t.Fatalf("refused enqueue left %v (%v)", entries, err)
+			}
+		})
+	}
+	e := queueFixture(t, s)
+	entries, err := s.QueueEntriesForDelivery("repo", e.DeliveryID)
+	if err != nil || len(entries) != 1 || entries[0].ID != e.ID {
+		t.Fatalf("entries = %v (%v)", entries, err)
+	}
+	if other, err := s.QueueEntriesForDelivery("repo", "d_missing"); err != nil || len(other) != 0 {
+		t.Fatalf("unknown delivery = %v (%v)", other, err)
+	}
+}

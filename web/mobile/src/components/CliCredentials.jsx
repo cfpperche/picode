@@ -153,8 +153,16 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // dialog also carries the custom-provider door, so it needs no provider to
   // already exist.
   const bar = providers.length > 0 || addKind === "provider";
+  // The table lists what the user has, not what the CLI could reach: a
+  // provider with no account, no custom definition and no login waiting to be
+  // imported stays in the Add dialog's select and out of the rows (pi's
+  // catalog alone is ~25 providers, each an "No accounts yet" line).
+  const shown = providers.filter((p) => (p.accounts || []).length > 0
+    || (p.custom && p.definition)
+    || (p.native && !p.native.imported)
+    || nativeError[p.id]);
   // The legend names columns: with no rows under it there is nothing to name.
-  const anyRows = providers.some((p) => (p.accounts || []).length > 0);
+  const anyRows = shown.some((p) => (p.accounts || []).length > 0);
   // The selected provider can also be signed in the CLI's own way: where the
   // roster carries an oauth kind and the CLI has a sign-in at all, the dialog
   // offers the guided flow — the vendor's OAuth happens in the CLI (ADR-0168),
@@ -601,7 +609,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
           </div>
         ) : null}
 
-        {providers.length ? (
+        {shown.length ? (
           <div className="prov-table">
             {/* The column labels are the roster's legend: two readings are only
                 comparable if the eye can name the columns they sit under. */}
@@ -615,7 +623,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                 <span />
               </div>
             ) : null}
-            {providers.map((p) => {
+            {shown.map((p) => {
               const name = providerName(p.id);
               const note = String(p.note || "").trim();
               const rows = orderAccounts(p.accounts);

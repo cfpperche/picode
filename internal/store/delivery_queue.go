@@ -190,6 +190,11 @@ func (s *Store) ApplyQueueMutation(repo, actor string, m QueueMutation) (QueueEn
 		if err = json.Unmarshal([]byte(body), &declared); err != nil {
 			return e, err
 		}
+		// The entry is bound to what the delivery declares: a revision or a
+		// target that drifted from it is a different request, not a retry.
+		if declared.Revision != m.Revision || declared.Target != m.Target {
+			return e, fmt.Errorf("%w: revision and target must match the delivery declaration", ErrQueueConflict)
+		}
 		var active int
 		if err = tx.QueryRow(`SELECT count(*) FROM delivery_queue WHERE repo=? AND delivery_id=? AND state IN (?,?,?)`,
 			repo, m.DeliveryID, QueueWaiting, QueueAuthorized, QueueRunning).Scan(&active); err != nil {
@@ -330,6 +335,31 @@ func (s *Store) GetQueueEntry(repo, id string) (QueueEntry, error) {
 	var e QueueEntry
 	err = json.Unmarshal([]byte(raw), &e)
 	return e, err
+}
+
+// QueueEntriesForDelivery reads one delivery's entries, newest first, so the
+// launch that requested a place in the queue can see it and its version. The
+// list is bounded: an entry is only created when none of the delivery's is
+// active, so the newest is the one in flight.
+func (s *Store) QueueEntriesForDelivery(repo, deliveryID string) ([]QueueEntry, error) {
+	rows, err := s.db.Query(`SELECT body FROM delivery_queue WHERE repo=? AND delivery_id=? ORDER BY seq DESC LIMIT 20`, repo, deliveryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []QueueEntry{}
+	for rows.Next() {
+		var raw string
+		if err = rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		var e QueueEntry
+		if err = json.Unmarshal([]byte(raw), &e); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 // ListQueueEntries reads the queue in execution order: active entries first

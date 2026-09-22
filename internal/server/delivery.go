@@ -35,6 +35,17 @@ func deliveryGit(ctx context.Context, cwd string, args ...string) (string, error
 	return strings.TrimSpace(string(out)), err
 }
 
+// queueDoor applies one queue mutation for the launch behind a tool call. The
+// replay probe comes first so a retry answers with the original entry instead
+// of moving the queue twice.
+func queueDoor(st *store.Store, repo, actor string, m store.QueueMutation) (store.QueueEntry, bool, error) {
+	if e, ok, err := st.ReplayQueueMutation(repo, actor, m); ok || err != nil {
+		return e, ok, err
+	}
+	e, err := st.ApplyQueueMutation(repo, actor, m)
+	return e, false, err
+}
+
 func handleDeliveryTool(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req deliveryToolRequest
@@ -92,7 +103,12 @@ func handleDeliveryTool(deps Deps) http.HandlerFunc {
 			return
 		}
 		if req.Action == "capabilities" {
-			writeJSON(w, 200, map[string]any{"schemaVersion": 1, "principal": principal, "identityScope": "launch", "actions": []string{"register", "update", "request-review", "withdraw-review", "show", "list"}, "integrationQueue": false, "deployment": false})
+			writeJSON(w, 200, map[string]any{"schemaVersion": 1, "principal": principal, "identityScope": "launch",
+				"actions": []string{"register", "update", "request-review", "withdraw-review", "request-integration", "withdraw-integration", "show", "list"},
+				"integrationQueue": true, "deployment": false,
+				"queueActions":  []string{"request-integration", "withdraw-integration"},
+				"ownerActions":  []string{"order", "authorize", "start", "finish", "fail"},
+				"queueEligibility": "an entry is bound to the delivery's reviewed revision and target; the owner authorizes it and PiCode runs it once the project declares how integration runs"})
 			return
 		}
 		if req.Action == "show" {
@@ -101,7 +117,7 @@ func handleDeliveryTool(deps Deps) http.HandlerFunc {
 				writeStoreErr(w, err)
 				return
 			}
-			writeJSON(w, 200, deliveryView(r.Context(), cwd, d))
+			writeJSON(w, 200, deliveryView(r.Context(), deps.Store, cwd, d))
 			return
 		}
 		if req.Action == "list" {
@@ -121,8 +137,56 @@ func handleDeliveryTool(deps Deps) http.HandlerFunc {
 			writeJSON(w, 200, map[string]any{"schemaVersion": 1, "deliveries": ds, "nextBefore": next, "evidence": "not-evaluated"})
 			return
 		}
-		if req.Action == "request-integration" || req.Action == "request-deployment" {
-			writeErr(w, 409, "capability unavailable: delivery queues and execution are not implemented")
+		if req.Action == "request-integration" {
+			d, err := deps.Store.GetDelivery(repo, req.ID)
+			if err != nil {
+				writeStoreErr(w, err)
+				return
+			}
+			// A launch asks for its own change, never for someone else's: the
+			// owner's door is the one that may write down another's request.
+			if d.Principal != principal {
+				writeErr(w, 403, "that delivery belongs to another launch; ask the owner to queue it")
+				return
+			}
+			m := store.QueueMutation{Action: "enqueue", RequestID: req.RequestID, DeliveryID: d.ID, Revision: req.Revision, Target: req.Target}
+			if err := store.ValidateQueueMutation(m); err != nil {
+				writeErr(w, 400, err.Error())
+				return
+			}
+			e, replayed, err := queueDoor(deps.Store, repo, principal, m)
+			if err != nil {
+				writeQueueErr(w, err)
+				return
+			}
+			writeJSON(w, 200, map[string]any{"schemaVersion": 1, "queue": e, "replayed": replayed})
+			return
+		}
+		if req.Action == "withdraw-integration" {
+			e, err := deps.Store.GetQueueEntry(repo, req.ID)
+			if err != nil {
+				writeQueueErr(w, err)
+				return
+			}
+			if e.Principal != principal {
+				writeErr(w, 403, "that queue entry belongs to another launch")
+				return
+			}
+			m := store.QueueMutation{Action: "withdraw", RequestID: req.RequestID, ID: e.ID, ExpectedVersion: req.ExpectedVersion}
+			if err := store.ValidateQueueMutation(m); err != nil {
+				writeErr(w, 400, err.Error())
+				return
+			}
+			withdrawn, replayed, err := queueDoor(deps.Store, repo, principal, m)
+			if err != nil {
+				writeQueueErr(w, err)
+				return
+			}
+			writeJSON(w, 200, map[string]any{"schemaVersion": 1, "queue": withdrawn, "replayed": replayed})
+			return
+		}
+		if req.Action == "request-deployment" {
+			writeErr(w, 409, "capability unavailable: deployment execution is not implemented")
 			return
 		}
 		if err := store.ValidateDeliveryMutation(req.DeliveryMutation); err != nil {
@@ -180,7 +244,7 @@ func handleDeliveryTool(deps Deps) http.HandlerFunc {
 	}
 }
 
-func deliveryView(parent context.Context, cwd string, d store.Delivery) map[string]any {
+func deliveryView(parent context.Context, st *store.Store, cwd string, d store.Delivery) map[string]any {
 	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 	defer cancel()
 	current, err := deliveryGit(ctx, cwd, "rev-parse", "--verify", "refs/heads/"+d.Branch+"^{commit}")
@@ -200,6 +264,15 @@ func deliveryView(parent context.Context, cwd string, d store.Delivery) map[stri
 			result["evidence"] = change.Evidence
 			break
 		}
+	}
+	// What this launch asked for, and what the owner did with it: the entry
+	// carries the version a withdraw has to name. A store fault is reported as
+	// a fault, never as an empty queue.
+	switch entries, err := st.QueueEntriesForDelivery(gitgraph.Key(cwd), d.ID); {
+	case err != nil:
+		result["queueError"] = err.Error()
+	case len(entries) > 0:
+		result["queue"] = entries
 	}
 	return result
 }
