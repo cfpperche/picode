@@ -234,7 +234,7 @@ export default function ComputerPage({ hidden, onCreateAgent }) {
             ) : null}
           </div>
           <p className="set-groupdesc">
-            A <code>pi</code> started outside PiCode has no identity here and can never use the computer.
+            A CLI started outside PiCode has no identity here and can never use the computer.
           </p>
         </section>
         <section className="set-group">
