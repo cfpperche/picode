@@ -1,0 +1,178 @@
+package server
+
+import (
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+
+	"github.com/cfpperche/picode/internal/delivery"
+	"github.com/cfpperche/picode/internal/gitgraph"
+	"github.com/cfpperche/picode/internal/store"
+)
+
+// The integration queue's owner doors (ADR-0182). The queue is *read* inside
+// the Delivery read every surface already fetches; the owner acts on it here.
+// The agent's own door (request/withdraw) rides the delivery tool contract,
+// which the store already serves.
+//
+// Ordering and authorizing are the owner's alone; the store enforces that with
+// store.OwnerActor, so a route that forgot to check cannot grant them.
+
+func registerDeliveryQueueRoutes(mux Registrar, deps Deps) {
+	for _, route := range []struct{ ns, kind string }{{"workspaces", "workspace"}, {"agents", "agent"}, {"terminals", "term"}} {
+		mux.HandleFunc("POST /api/"+route.ns+"/{id}/delivery/queue", func(w http.ResponseWriter, r *http.Request) {
+			repo, ok := ownerDeliveryRepo(deps, w, r, route.kind, r.PathValue("id"))
+			if !ok {
+				return
+			}
+			var m store.QueueMutation
+			dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10))
+			dec.DisallowUnknownFields()
+			if err := dec.Decode(&m); err != nil {
+				writeErr(w, 400, "invalid queue request")
+				return
+			}
+			if err := dec.Decode(&struct{}{}); err != io.EOF {
+				writeErr(w, 400, "expected one JSON object")
+				return
+			}
+			if err := store.ValidateQueueMutation(m); err != nil {
+				writeErr(w, 400, err.Error())
+				return
+			}
+			entry, err := deps.Store.ApplyQueueMutation(repo, store.OwnerActor, m)
+			if err != nil {
+				writeQueueErr(w, err)
+				return
+			}
+			writeJSON(w, 200, map[string]any{"schemaVersion": 1, "entry": entry})
+		})
+	}
+	mux.HandleFunc("GET /api/delivery/integration", handleGetIntegrationSettings(deps))
+	mux.HandleFunc("PUT /api/delivery/integration", handlePutIntegrationSettings(deps))
+}
+
+// deliveryQueueRead is the Delivery read with the queue layered on (ADR-0182):
+// the Git snapshot stays the observer's, the queue and its declaration are
+// PiCode state read fresh, and the declaration is already resolved through the
+// workspace-first fallback the executor will use.
+type deliveryQueueRead struct {
+	delivery.Snapshot
+	Queue       []store.QueueEntry        `json:"queue"`
+	Integration store.IntegrationSettings `json:"integration"`
+}
+
+func queueLayer(deps Deps, kind, id, repo string, view delivery.Snapshot) (deliveryQueueRead, error) {
+	entries, err := deps.Store.ListQueueEntries(repo, 0)
+	if err != nil {
+		return deliveryQueueRead{}, err
+	}
+	settings, err := deps.Store.EffectiveIntegrationSettings(ownerWorkspaceID(deps, kind, id))
+	if err != nil {
+		return deliveryQueueRead{}, err
+	}
+	return deliveryQueueRead{Snapshot: view, Queue: entries, Integration: settings}, nil
+}
+
+// ownerDeliveryRepo resolves an owner (workspace, agent or terminal) to the
+// repository its queue belongs to, or answers the request itself.
+func ownerDeliveryRepo(deps Deps, w http.ResponseWriter, r *http.Request, kind, id string) (string, bool) {
+	cwd, ok := previewOwnerCwd(deps, w, r, kind, id)
+	if !ok {
+		return "", false
+	}
+	cwd = canonDir(cwd)
+	if !checkFileRoot(w, r, cwd) {
+		return "", false
+	}
+	repo := gitgraph.Key(cwd)
+	if repo == "" {
+		writeErr(w, 404, "This folder is not a Git repository.")
+		return "", false
+	}
+	return repo, true
+}
+
+// ownerWorkspaceID names the workspace an owner belongs to, for the
+// workspace-first declaration fallback.
+func ownerWorkspaceID(deps Deps, kind, id string) string {
+	switch kind {
+	case "workspace":
+		return id
+	case "agent":
+		if a, err := deps.Store.GetAgent(id); err == nil {
+			return a.WorkspaceID
+		}
+	case "term":
+		if t, err := deps.Store.GetTerminal(id); err == nil {
+			return t.WorkspaceID
+		}
+	}
+	return ""
+}
+
+// writeQueueErr keeps the queue's refusals honest: a missing entry is a 404, and
+// everything else the store refuses — a stale version, capacity, a state this
+// action cannot move — is a 409 carrying the store's own words.
+func writeQueueErr(w http.ResponseWriter, err error) {
+	if errors.Is(err, store.ErrNotFound) {
+		writeErr(w, 404, "that queue entry is gone")
+		return
+	}
+	writeErr(w, 409, err.Error())
+}
+
+func handleGetIntegrationSettings(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		scope := r.URL.Query().Get("workspace")
+		if len(scope) > 128 {
+			writeErr(w, 400, "Invalid workspace")
+			return
+		}
+		declared, ok, err := deps.Store.IntegrationSettingsFor(scope)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		effective, err := deps.Store.EffectiveIntegrationSettings(scope)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 200, map[string]any{"schemaVersion": 1, "workspace": scope, "declared": ok, "settings": declared, "effective": effective})
+	}
+}
+
+func handlePutIntegrationSettings(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		scope := r.URL.Query().Get("workspace")
+		if scope != "" {
+			if _, err := deps.Store.GetWorkspace(scope); err != nil {
+				writeErr(w, 404, "workspace not found")
+				return
+			}
+		}
+		var m store.IntegrationSettingsMutation
+		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&m); err != nil {
+			writeErr(w, 400, "invalid integration settings")
+			return
+		}
+		if err := dec.Decode(&struct{}{}); err != io.EOF {
+			writeErr(w, 400, "expected one JSON object")
+			return
+		}
+		if err := store.ValidateIntegrationSettings(m); err != nil {
+			writeErr(w, 400, err.Error())
+			return
+		}
+		settings, err := deps.Store.PutIntegrationSettings(scope, m)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 200, map[string]any{"schemaVersion": 1, "settings": settings})
+	}
+}

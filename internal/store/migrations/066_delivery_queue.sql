@@ -21,3 +21,11 @@ CREATE TABLE delivery_queue_requests (
     result TEXT NOT NULL,
     PRIMARY KEY(repo, actor, request_id)
 );
+-- How a project integrates (ADR-0182): the operation the queue runs. One row
+-- per scope — a workspace id, or '' for the machine default a workspace falls
+-- back to when it declares none. The declaration is configuration, never
+-- authority: who may order or authorize lives in the queue's own rows.
+CREATE TABLE delivery_integration (
+    scope TEXT NOT NULL PRIMARY KEY,
+    body TEXT NOT NULL
+);

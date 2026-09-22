@@ -83,8 +83,18 @@ delivery is an invariant, and the entry names a declaration of its repository.
 Eligibility is deliberately **not** stored: the branch still pointing at the
 reviewed revision, the target not having moved and the evidence still covering
 that revision are derived from Git and receipts when an entry is read or run, so
-a stale approval can never ride along inside the row. The command doors, the
-serialized executor and the Delivery-view lane are the slice's next steps
+a stale approval can never ride along inside the row.
+
+The owner's doors are `POST /api/{workspaces|agents|terminals}/{id}/delivery/queue`
+(act as `store.OwnerActor`; the store refuses `order` and `authorize` for anyone
+else) and `GET|PUT /api/delivery/integration`, the **declaration** of how a
+project integrates — `ffOnly` plus up to eight single-line commands, written per
+workspace with the machine as the fallback layer and a built-in default
+(`ffOnly`, no checks) when neither declares. The Delivery read carries both: its
+payload gains `queue` and the already-resolved `integration`, so a surface never
+has to repeat the fallback. Requesting and withdrawing an entry *as the agent*
+rides the delivery tool contract, and the serialized executor plus the
+Delivery-view lane are the slice's remaining steps
 (`docs/plans/delivery-flow.md`, D3).
 
 ## Integration observation (ADR-0170, D1b)
