@@ -173,5 +173,56 @@
         "summary": "`picode-desktop install` now delivers the Linux binary and the runtime — tmux, git, curl, Node.js — so a fresh Windows box reaches a working PiCode without a manual WSL session."
       }
     ]
+  },
+  {
+    "version": "0.5.0",
+    "date": "2026-09-22",
+    "highlights": [
+      {
+        "icon": "terminal",
+        "title": "One packages pane, every CLI",
+        "summary": "Nine agent CLIs share one Packages pane: install, update, enable, disable or remove from a single list that names each entry's CLI and scope, and offers only the controls that CLI can actually honour."
+      },
+      {
+        "icon": "agent",
+        "title": "An agent can carry its own packages",
+        "summary": "Pi and Omp agents take packages at agent scope — the entry rides that one agent's next start, so an extension loads for a single agent instead of the whole fleet."
+      },
+      {
+        "icon": "terminal",
+        "title": "Omp's own extensions are on the page",
+        "summary": "The extensions Omp loads at start now appear in the pane, with a working enable and disable that edits Omp's own list of disabled extensions and leaves every other byte alone."
+      },
+      {
+        "icon": "terminal",
+        "title": "Key maps are editable on four more CLIs",
+        "summary": "Omp, Codex, OpenCode and Antigravity key bindings open in PiCode's Settings pane, editing the CLI's own file rather than a copy."
+      },
+      {
+        "icon": "agent",
+        "title": "Omp's model roles, edited where they live",
+        "summary": "Every role Omp has — plus any you invented — gets a row with a model picker fed by Omp itself, fallback chains as ordered lists, and the quick-switch cycle, on both layers including the workspace file `omp config set` cannot reach."
+      },
+      {
+        "icon": "workspace",
+        "title": "A project can declare how it integrates",
+        "summary": "Delivery reads a workspace's own declaration — fast-forward only, plus up to eight single-line commands — and an agent can request a place in that queue and step back out, with the owner ordering and authorizing entries. The executor that runs them is still to come."
+      },
+      {
+        "icon": "inbox",
+        "title": "Automations reach agents of other CLIs",
+        "summary": "A scheduled or webhook message to a Claude Code, Codex or Omp agent is pasted into that agent's terminal while it is open, and a closed terminal says so in the Inbox instead of giving another reason."
+      },
+      {
+        "icon": "agent",
+        "title": "The panes follow the agent you are on",
+        "summary": "Settings, Packages, Providers and Connectors open the CLI of the selected agent instead of always Pi, from the user menu or the Ctrl+K palette."
+      },
+      {
+        "icon": "workspace",
+        "title": "Setup asks for less",
+        "summary": "Getting started installs tmux and PiCode first, the picker lists a CLI only when it is installed, and PiCode Desktop on Windows brings the runtime — tmux, git, curl, Node.js and npm — without choosing an agent CLI for you."
+      }
+    ]
   }
 ]

@@ -16,6 +16,338 @@ changelog entries included.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-22
+
+### Added
+
+- **The integration queue exists at its doors (ADR-0182).** A project can declare how it integrates — fast-forward only, plus up to eight single-line commands, per workspace with the machine as the fallback layer — and the Delivery read answers with both the queue and the resolved declaration.
+- **An agent can ask for a place, and take it back.** `picode delivery request-integration` names the revision and target the delivery declares (the daemon refuses a drifted revision), `withdraw-integration` steps out by the entry's own id and version, and `show` prints the entry. The same actions are in the MCP tool and in `packages/pi-delivery`; the owner orders and authorizes entries through the queue's owner-scoped API, and the store refuses `order`/`authorize` for anyone else.
+- Nothing runs on its own yet: the serialized executor and the queue's own view are still to come, and deployment execution remains unavailable.
+
+- **Omp model roles in Settings.** `#/clis/omp/settings` now edits Omp's own
+  role map: one row per role the CLI has (DEFAULT, SMOL, SLOW, VISION, PLAN,
+  COMMIT, TINY, MEMORY, TASK, ADVISOR and the five kind roles), plus any role
+  you invented, each with a model picker fed by Omp itself and a thinking-level
+  select. **Fallbacks** edits `retry.fallbackChains` as ordered lists, and
+  **Quick-switch cycle** edits `cycleOrder` — the list Omp's own hub draws as
+  `⟳ N` beside a role. Both layers, including the workspace file `omp config
+  set` cannot reach. New rows for `modelRoleStorage`, `defaultThinkingLevel`
+  and Omp's eight retry knobs (ADR-0181).
+- `GET /api/cli-models?cli=&workspace=` asks a CLI which models it can reach,
+  in the workspace being edited. Omp only; it runs when a picker opens.
+
+- Omp terminals now show their todo plan as the sidebar checklist — the
+  current step on the agent card, the full list in the disclosure — the
+  way Pi and Claude Code already do. A checklist-mirror extension rides
+  the same wrapper injection as omp's terminal-state extension and POSTs
+  the native `todo` tool's committed phases to the terminal's checklist
+  routes; omp registers no new tool and nothing is gated.
+
+- **Omp agents can carry their own packages.** The **This agent** install target
+  used to be Pi's alone. It now works for an Omp agent too: those entries are
+  PiCode's own list on that agent, and Omp receives them at its next start
+  (`-e`). "Only this agent's packages" is offered for Pi and Omp — the two CLIs
+  whose launch can be handed a per-agent list.
+- **One architecture file for packages.** `docs/architecture/packages.md`
+  describes the engine, the report the pane renders, the agent layer and the
+  measured vendor facts; the older split description is gone, and the
+  architecture index, the routes reference and the public guides point at it.
+
+- **Development flow: "When the flow bends".** The guide now walks the
+  thirteen situations where a step refuses — CI red after the fast-forward, a
+  land that cannot fast-forward, a dirty root checkout, a deploy mid-turn, a
+  handoff topic the board cannot see, a board over its target, an abandoned
+  session (`stalled:`), a clobbered living doc, a note refused on `main`, a
+  `make vale` vocabulary hit, a dead docs link, a `worktree-gc` keep, and a
+  debt outliving its note. Each card quotes the message the command actually
+  prints and names the action that unblocks it: a refusal describes state, it
+  is not a wall to route around.
+
+- **Development flow: escape hatches.** A table of the five deliberate
+  overrides — `PICODE_ALLOW_SWITCH`, `PICODE_ALLOW_MAIN_REWIND`,
+  `picode deploy --force` / `PICODE_DEPLOY_FORCE=1`, `FORCE=1` and
+  `--no-verify` — with the guard each one disables and the use it is
+  legitimate for. The mutation lock is not on the list.
+
+- Providers: **Guided sign-in** in the Add provider dialog now covers omp's
+  OAuth providers (Anthropic, OpenAI/Codex, GitHub Copilot, Kimi, xAI) —
+  one click opens the provider's authorize page in a browser tab, the
+  callback returns to PiCode, and the subscription is stored in the vault
+  and injected into Omp's terminal through its declared env names
+  (ADR-0178). No terminal detour for these providers; the strip remains for
+  the rest.
+
+- **Omp agents can carry their own extensions.** The packages pane's "This
+  agent" scope used to be Pi's alone; it now works for an Omp agent too. An
+  entry added there is PiCode's own list on that agent, and the agent's next
+  start passes it to Omp as `-e` — so the extension loads only for that agent,
+  and "only this agent's packages" switches off what Omp would otherwise
+  auto-load. Nothing is written into Omp's own configuration.
+
+- **Development flow**: a new guide page, "Development flow", maps the loop
+  every PiCode change follows — elaboration, isolated worktree iteration,
+  closing docs, owner landing, owner deploy, post-deploy cleanup — with a
+  diagram, the rules that enforce the order, and the guardrails that keep the
+  shared tree alive.
+
+- **Omp's own extensions are listed in the packages pane.** Omp loads these from
+  its own settings rather than from its plugin store, so the pane showed the
+  vendor's plugins and nothing else. Each configured entry now has its row — the
+  CLI's own name for it, the path it resolves to, the layer that declared it
+  ("Global" or "This workspace") and whether it is switched off — and
+  removing one takes it out of the layer that named it: PiCode edits the
+  workspace's `.omp/settings.json` (every other key left exactly as it was), and
+  the user layer goes through Omp's own `omp config set extensions`.
+
+- **OpenCode's keyboard map is editable in PiCode.** Agent CLIs → OpenCode →
+  Keyboard lists the 162 actions OpenCode's own config table declares (with its
+  descriptions) and writes `keybinds` rows into the CLI's user
+  `~/.config/opencode/tui.json` — never the legacy `keybinds` section in
+  `opencode.json`, which the CLI itself migrates away. Disabling an action is
+  written the CLI's own way (`"none"`), and the tab says a change needs a TUI
+  restart, which the loader's source confirms.
+- **Antigravity's keyboard map is editable in PiCode.** Agent CLIs →
+  Antigravity → Keyboard lists its 36 actions with the chords the installed build
+  ships, and PiCode writes the CLI's own `keybindings.json` — the vendor's
+  override file, where removing a row hands that action back to the built-in
+  binding. The tab says a change needs a restart, which is what a live session
+  showed.
+- **Codex's keyboard map is editable in PiCode.** Agent CLIs → Codex → Keyboard
+  lists its 149 keymap keys in the twelve contexts Codex puts them in — global, chat,
+  composer, editor, the four vim modes, pager, list, agents and approval — with
+  the description each key carries in Codex's own schema and the chords it
+  binds out of the box. PiCode writes `[tui.keymap.<context>]` tables in
+  `~/.codex/config.toml` and leaves every key it does not manage exactly as it
+  was, including everything the Settings tab edits. Chords are shown and written
+  in Codex's own spelling (`ctrl-alt-m`, `page-down`); a chord Codex cannot
+  express is refused by name rather than written, because Codex validates its
+  keymap when it starts and will not start on one it cannot parse.
+
+- Providers: a guest CLI's **Add provider** dialog now offers **Guided
+  sign-in** for providers the CLI signs into — one click closes the dialog
+  and starts the CLI's own login in a terminal (the vendor's OAuth happens
+  there, never in PiCode); the sign-in strip with **Open terminal** /
+  **Check now** takes over from there.
+
+- **Delivery in the PiCode tools switch.** An agent whose CLI is Claude Code, Codex or OpenCode can be given the `delivery` tool in its launch settings, so it registers a change and asks for review in the project's **Git ▸ Delivery** view without hand-written client configuration. The tool family existed since ADR-0171, but the form offered only Computer, Browser, Inbox and Checklist, so it could not be switched on for an agent whose launch settings had been customized.
+- **`packages/pi-delivery`** for an agent whose CLI is Pi: the same `register`, `update`, `request-review`, `withdraw-review`, `show` and `list` as a tool instead of a command, with the retry key derived from the session, the action and the payload so a repeated call replays the same declaration.
+
+- **Omp's keyboard map is editable in PiCode.** Agent CLIs → Omp → Keyboard
+  lists its 70 actions with the descriptions Omp itself gives them, and lets you
+  add, replace or hand back a binding. PiCode writes Omp's own file — its
+  `keybindings.yml`, or the `.yaml` or legacy `.json` file it is already using —
+  and leaves every row it does not know about exactly as it was. A row the file
+  holds in a shape PiCode will not rewrite is reported and never touched, a file
+  that changed since the pane read it is refused instead of overwritten, and the
+  tab says when Omp picks a change up (restart it).
+
+- Providers: Omp now has the same custom-provider surface as Pi — **Custom
+  provider** on Omp's pane adds a gateway (base URL, API type, models) by
+  merging into Omp's own `~/.omp/agent/models.yml`, leaving hand-edited
+  providers, unknown fields and comments untouched (ADR-0175). Omp's API key
+  lives inside the definition (the only place a custom Omp provider can carry
+  one); it is never shown back, only spent on the gateway — Verify and Load
+  models read it from the file. The form offers Omp's accepted options only,
+  and definitions appear as rows on the pane with Edit / Verify / Remove.
+
+### Changed
+
+- **The System page lists tmux as the only requirement** (mkcert and tailscale stay optional) and gains an **Agent CLIs** section with one row per CLI linking to its page; the `pi` row and the "install pi with npm" warning are gone (ADR-0179).
+- **Automations report "Pi is not installed" only when a run actually needs Pi** — a start, or a message to a Pi agent. A message to another CLI's agent does not need Pi.
+
+- Providers: the table lists only providers you have an account, a custom definition or a login to import for; the rest stay in Add provider's list instead of filling the pane with "No accounts yet" lines.
+
+- **Settings, Packages, Providers and Connectors follow the selected agent's CLI.** Opened from the user menu or the Ctrl+K palette, they now show the CLI of the agent you are on instead of always Pi; the palette row is now "CLI settings".
+- The configuration docs (Configure, Settings, Providers, MCP, Integrations) cover all nine agent CLIs and name Pi only where a feature is Pi's; the Backup page states that only Pi's files are copied.
+- Labels stop saying "pi" where they mean any CLI (the Browser and Computer identity notes; the connector error action is now "Open Agent CLIs") and say "Pi" where they mean it (start automations create a Pi agent).
+
+- A settings row may now be a model selector at a vendor-supplied path, or an
+  ordered list of strings. Everything else is unchanged: a key nobody declares
+  is never written, a document that does not parse is never overwritten, and
+  comments and unknown keys survive a save.
+
+- **New agent picks its CLI.** The sidebar's **New agent** — on the Agents tab, the create action on the Browser and Computer pages, and the mobile Agents section — opens the same CLI picker a workspace uses: Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity or Omp, with a Name and an optional Folder. A guest CLI agent gets its own terminal on that folder (ADR-0179); `POST /api/agents` accepts `cli`.
+- **The picker lists Pi only when it is installed**, like every other CLI.
+
+- **`picode provision` no longer blocks on `pi`.** The doctor reports which agent CLIs it found on PATH and converges with none of them installed (ADR-0179). The member container on a shared server no longer installs pi; it keeps node and npm so members install the CLIs they use from Agent CLIs.
+- **PiCode Desktop (Windows) installs tmux, git, curl, Node.js 22 and npm — no agent CLI.** A machine without pi now finishes the install, `--user` aims only the picode binary, and a Node.js already present is left alone.
+
+- **PiCode is an ADE for coding-agent CLIs, not a Pi UI.** The README, the docs landing page, `llms.txt` and the operating contract now describe an Agent Development Environment for Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and Omp; no CLI is required to install PiCode, and tmux is the only runtime dependency (ADR-0179).
+- **Getting started installs tmux and PiCode first.** The agent CLIs come afterwards, from Agent CLIs or with the vendor's command; the from-source, remote-server and shared-server guides no longer ask for `pi` on PATH before the install.
+- The `picode --help` banner and the systemd unit's `Description=` now say "browser ADE for coding-agent CLIs".
+
+- **One packages pane for every CLI.** Which pane opened used to depend on the
+  CLI's name: Pi got the rich one, the other eight a simpler one. There is one
+  pane now — it asks the CLI's own engine what that CLI can do and draws exactly
+  that, so each control appears only where the CLI has the mechanism behind it
+  and a verb the CLI lacks reads as one line in the CLI's own words. Pi's
+  controls, wording, transcript and gallery are unchanged.
+- **A CLI's marketplace and updates, in the same pane.** Where a CLI has its own
+  update command, opening the pane compares its installed list with the CLI's
+  own catalog, and **Update** appears only on the rows that catalog says are
+  behind; a catalog PiCode cannot read leaves every row unmarked with the
+  reason. Where the CLI manages marketplace sources, the **Marketplace** tab
+  lists them with **Add source** beside per-source **Update** and **Remove**.
+
+- The development-flow diagram's phase-1 ADR diamond draws its `no` leg now:
+  a UI refinement or a route move needs no record, while behavior changes
+  still land in `docs/architecture/`.
+
+- **One packages pane, every CLI.** Which pane opened used to depend on the
+  CLI's name: Pi got the rich one, the other eight a simpler one. Now a single
+  pane asks the CLI's own engine what it can do and draws that — the gallery
+  where the CLI's catalog is PiCode's, the vendor's roster elsewhere, and each
+  control (install, remove, toggle, update, inspect, the config editor, the
+  agent's "only this agent's packages" switch) only where the CLI has the
+  mechanism behind it. The scope radios appear when the layer is one the read
+  can honour, and the copy each surface spoke before is kept word for word
+  ("Install to" for the gallery, "Plugins go to" for a vendor). Links that
+  pointed at either old pane keep working.
+
+- **Agent CLIs: the user-level scope is now called "Global"** (was "This
+  machine") across packages, native settings, memory, connectors and pi's own
+  panes — the chip, the installed-row tags, the fallback buttons and the
+  400 message that named the old layer. Scopes
+  now read `Global / This workspace / This agent`. Machine-scoped prose that
+  is not a scope label (pairing's "This machine is trusted", the server bind
+  "This machine only") is unchanged.
+
+- The Keyboard tab of an agent CLI whose map PiCode writes now says when that CLI
+  reads a change, in the CLI's own terms: Codex applies one when it starts, and
+  only its own in-session editor is live.
+
+- Providers: every CLI's bar button is now called **Add provider** (guests'
+  dialog included) — the same word for the same door on all nine CLIs, and
+  the guest dialog is titled to match.
+
+- `picode help` and `picode mcp` list PiCode's tool families from the catalog; the help line named only computer and browser.
+
+- **Providers**: when a second sign-in would replace an unnamed login, the pane offers two doors — **Name and add** (type a name for the new login) or **Keep both** (the login already saved is named from what PiCode knows and the new one gets its own row). Nothing is replaced without the person choosing.
+
+- The Keyboard tab of every agent CLI says what its map is: Pi and Omp are
+  editable there; Hermes Agent points at the three keys its Settings tab carries;
+  Grok and Muse Code link their own key list; and Claude Code, Codex, OpenCode
+  and Antigravity say their editor has not shipped yet.
+
+- **Desktop app**: every link that leaves the app — Documentation, **Full changelog**, setup guides, "How it works", help links — now opens in a **PiCode browser tab** instead of the system browser. In a plain browser, links keep going to the system browser, where remote pages belong.
+
+- The **Keyboard** tab of every agent CLI in Agent CLIs now answers for that
+  CLI: Pi keeps its map editor, and the others state what their map actually is
+  and what to do next — the vendor's key list for Grok and Muse Code, which
+  refuse remapping; the documentation for Codex, Claude Code, OpenCode and
+  Antigravity, whose editors have not shipped; and Hermes Agent, whose three
+  rebindable keys are now rows in its **Settings** tab (a **Keyboard** group:
+  push-to-talk key, copy shortcut, and what happens to what you type while it
+  works) with the Keyboard tab pointing at them. The "in development — coming
+  soon" placeholder is gone: it promised a feature instead of describing the CLI.
+
+- Providers: the custom-provider form's URL hints and help lines no longer
+  name Pi specifically; each CLI's Advanced section carries only what that
+  CLI reads (Pi keeps the full set).
+
+- **User menu**: **Documentation** opens in a PiCode browser tab instead of the system browser (desktop shell). In a plain browser it keeps going to the system browser, where remote pages live.
+
+### Removed
+
+- The `/api/cli-packages*` API family (ADR-0176's one-release alias) is gone.
+  Every CLI's package verbs — its catalog and its configured sources, install,
+  remove, update, toggle, marketplace and inspect — are on `/api/packages*`,
+  with the CLI named in the request (`cli`), and the answers are the unified
+  report every pane already reads.
+
+- The Pi update card on the System page and `POST /api/system/pi-update`; Pi updates from Agent CLIs like every other CLI (ADR-0087).
+
+### Fixed
+
+- **PiCode Desktop (Windows): installing a CLI from Agent CLIs works after setup.** When the distro's npm installs into a root-owned `/usr` prefix, setup now points your account's npm prefix at `~/.local`, so **Install** for Pi, Claude Code, Codex, OpenCode or Omp runs without root. An nvm setup is left alone.
+- Setup upgrades a Node.js older than 22 through NodeSource again (Pi needs 22.19 or newer), and names the replacement in the confirmation on a distro PiCode did not create.
+
+- The packages pane groups a CLI's plugins by the vendor's own provenance
+  again (`From a marketplace`, `Ships with the CLI`, `Local plugin files`, …):
+  a row carries that fact as `kind`, and the pane was reading the old alias's
+  name for it.
+
+- **Automations reach agents of other CLIs.** A scheduled or webhook message to a Claude Code, Codex, Omp or other non-Pi agent is now pasted into that agent's terminal while it is open; before, it was always skipped as "agent in terminal" or "closed". A closed terminal now skips as **terminal closed**, with the reason in the Inbox.
+- **Settings, Packages, Providers and Connectors open the right CLI** from the user menu and the Ctrl+K palette when the selected tab is a non-Pi agent's terminal; they fell back to Pi.
+- **Undo after removing a free agent** recreates it with its CLI, provider and model instead of as a Pi agent.
+
+- **OpenCode: removing a plugin works from the packages pane.** Every removal
+  used to be reserved for the CLI's job lane, which runs a command OpenCode does
+  not have, so the pane answered *"this CLI does not expose that operation:
+  opencode remove"* under a live Remove button. The transport declaration is one
+  fact per verb now: OpenCode's install stays its own `plugin` command while its
+  removal is PiCode's own write of the config file that names the plugin
+  (comments and every other byte preserved), answered with the CLI's fresh list
+  and shown as the same removal transcript Pi's own mutations show. A plugin the
+  CLI's own config does not name is still refused, by name.
+
+- **Guest CLI settings never saved from a browser.** The pane handed a raw object to
+  `fetch`, so every save since 2026-09-20 answered "invalid request body" (found by
+  driving a real write on a scratch instance). The body is JSON-encoded now, for every
+  guest CLI's Settings pane.
+- A settings value carrying a line break is refused by name instead of being
+  written as a YAML block the next save would duplicate.
+- Writing a three-level YAML key whose middle map was missing appended a second
+  top-level block instead of joining the existing one.
+
+- Omp: Enable/Disable on one of the CLI's own extension rows now writes the
+  setting Omp actually reads (`disabledExtensions`) instead of running
+  `omp plugin disable`, which does not know a configured extension. A workspace
+  entry is edited in `.omp/settings.json`; a user-level one goes through
+  `omp config set`.
+
+- A keyboard row on a phone keeps its label and its keycaps on one line with the
+  note under them, instead of squeezing the keycaps into whatever the desktop
+  grid left over — a CLI whose labels are long (Codex's are full sentences) had
+  its chips drawn over the label. The narrow-window layout on the desktop app
+  gets the same treatment.
+
+- **On macOS, a running dev server answered "stopped" and every hidden row was
+  forgotten.** PiCode decided whether a process was still alive by reading
+  `/proc`, and treated a file it could not read as a process that had ended —
+  correct on Linux, where `/proc` is always there, and wrong on macOS, where it
+  never is. Stop reported success over a server that kept running, and the
+  Servers panel's hidden list emptied itself on the next read. Liveness is now
+  asked the portable way off Linux.
+- **A preview of a project reached through a symlink served 404 for its own
+  files.** The containment check resolved the file but compared it against the
+  folder as written, so a project under a linked path — every path on macOS,
+  where `/var` is `/private/var`, and any linked mount or home elsewhere —
+  looked like it was escaping itself. Both sides are resolved now; a symlink
+  that really does leave the folder is still refused.
+
+- **Muse Code's Connectors pane writes a file Muse accepts again.** The driver wrote the MCP block under `mcp_servers`; Muse reads `mcpServers`, so a server PiCode added never started — and a file carrying both keys made Muse drop the block entirely. Measured against the installed CLI (`muse mcp --help` names `mcpServers`) after a vendor-session sweep found the mismatch.
+
+- **PiCode's tools work for a Codex agent.** Codex starts an MCP server with an empty environment, so a Codex agent's tool calls answered `no identity` — Delivery, Browser, Computer, Inbox and Checklist were all unreachable from one. The launch now writes the identity into each server's own config (`mcp_servers.<name>.env.…`); Claude Code and OpenCode inherit the launch environment and needed nothing.
+- **PiCode · Delivery appears in the connector catalog**, so an agent whose CLI takes tools from its own configuration can add the Delivery tool like the other four.
+
+- **Providers**: when a CLI renews its tokens by itself, PiCode **harvests the renewal back into the saved row** on the next look — Verify, Usage and the in-use match keep working without a re-import. Matched by the stable refresh token, never guessed; the CLI's own file is only ever read.
+
+- **Agent CLIs**: the section tabs (Launch, Terminals, …, Connectors) no longer grow a stray vertical scrollbar beside the last tab on Windows. The strip still scrolls sideways when a CLI carries all nine tabs.
+
+- A QA scratch instance started from inside a PiCode terminal no longer passes that session's agent identity to the terminals it opens, and keeps its sessions in its own tmux server.
+
+- **Inspector**: the Changes tab reads in the same typography as Files. Branch group headers no longer render in uppercase small caps, and file rows are no longer bolder and wider-tracked than the Files tree — a shared CSS class name with the Servers panel's section labels leaked that style into every Changes row.
+
+- **Providers**: adding a second login to a CLI whose file carries no account name now asks for the name **before** writing — the preview says what the import would replace, so the previous tokens are no longer gone by the time the question appears. The name the person types is what the row shows.
+
+- **`picode inbox notify` diagnosed a missing flag as a missing daemon.**
+  Leaving out `--title` answered "PiCode is not running" and exited 1, because
+  the command looked for the daemon before reading what you typed. It now
+  validates first, the way `picode inbox ask` already did, and says which flag
+  is missing with the usage exit code.
+
+### Security
+
+- **A page open in another tab can no longer submit pairing codes to your
+  PiCode.** The pairing form was the one door left outside the cross-site
+  check, so another site could post guesses at it — it still needed a code
+  off your screen, and five wrong ones lock it out, but there was no reason
+  to leave the door swinging. Reading the pairing page is unchanged, and so
+  is pairing itself: `picode pair` and any script still work, and a device
+  arriving on an address PiCode has never seen can still pair, because the
+  address check deliberately stays off this route.
+
 ## [0.4.0] - 2026-09-21
 
 ### Added
@@ -4274,7 +4606,8 @@ changelog entries included.
   binary (0001), dual-channel tmux+RPC agent control (0002), dependence on
   user-installed `pi` (0003).
 
-[Unreleased]: https://github.com/cfpperche/picode/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/cfpperche/picode/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/cfpperche/picode/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cfpperche/picode/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/cfpperche/picode/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/cfpperche/picode/compare/v0.2.0...v0.3.0
