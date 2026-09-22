@@ -41,10 +41,17 @@ export function moreGroups(query) {
       rows: ids.map(id => MORE_SECTIONS.find(row => row[0] === id)).filter(row => matchesListSearch(query, title, ...row)),
     }))
     .filter(group => group.rows.length);
-  if (query.trim() && matchesListSearch(query, "Pi settings", "model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["pi-settings", "Pi settings", "Model, thinking, tools and keys"]] });
-  if (query.trim() && matchesListSearch(query, "Packages", "skills extensions updates")) groups.unshift({ title: "Agent CLIs", rows: [["pi-packages", "Packages", "Pi skills, extensions and updates"]] });
-  if (query.trim() && matchesListSearch(query, "Providers", "accounts keys usage login")) groups.unshift({ title: "Agent CLIs", rows: [["pi-providers", "Providers", "Pi accounts, keys and usage"]] });
-  if (query.trim() && matchesListSearch(query, "Connectors", "MCP servers tools")) groups.unshift({ title: "Agent CLIs", rows: [["connectors", "Connectors", "MCP servers and tools"]] });
+  // The CLI-pane shortcuts share one "Agent CLIs" group; one group per
+  // match repeated the heading over adjacent rows.
+  if (query.trim()) {
+    const cliRows = [
+      ["pi-settings", "CLI settings", "The last agent's CLI configuration", "pi model thinking prompt"],
+      ["pi-packages", "Packages", "Skills, extensions and updates", "skills extensions updates"],
+      ["pi-providers", "Providers", "Accounts, keys and usage", "accounts keys usage login"],
+      ["connectors", "Connectors", "MCP servers and tools", "MCP servers tools"],
+    ].filter(([, title, , keys]) => matchesListSearch(query, title, keys)).map(([id, title, sub]) => [id, title, sub]);
+    if (cliRows.length) groups.unshift({ title: "Agent CLIs", rows: cliRows });
+  }
   return groups;
 }
 
