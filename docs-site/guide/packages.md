@@ -16,7 +16,7 @@ not. Packages run with **full access** — only install what you review.
 Canonical: [pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md).
 
 Pick a target and Install. **Installed** lists what each target has (Update when a
-newer version exists, Remove); **Marketplace** is the pi.dev gallery. Without
+newer version exists, Remove); **Marketplace** on Pi's pane is the pi.dev gallery. Without
 an agent selected, only **Global** is offered.
 
 | Target | Who gets it | How |

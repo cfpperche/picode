@@ -1,6 +1,6 @@
 # Commands
 
-Type `/` in the composer. PiCode opens **its** UI — it does not type into the terminal.
+Type `/` in the composer of a Pi agent (the managed mode's chat). PiCode opens **its** UI — it does not type into the terminal. Other CLIs keep their own slash commands inside their TUI.
 
 Each slash-menu hint opens this page at that heading.
 
