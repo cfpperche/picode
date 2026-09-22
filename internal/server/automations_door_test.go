@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -121,5 +122,54 @@ func TestMapDoorOutcome(t *testing.T) {
 	failStatus, failReason := mapDoorOutcome(http.StatusServiceUnavailable, map[string]any{"error": "Need tmux to send to a terminal."})
 	if failStatus != store.RunFailed || failReason == "" {
 		t.Fatalf("fail = %q %q", failStatus, failReason)
+	}
+}
+
+// The public entry point, not doorRun: Fire derives the mode from the guest's
+// launch terminal (agentSession) and must hand an open terminal to the door
+// instead of skipping it as "agent in terminal" — the regression a doorRun-only
+// test could not see (2026-09-22 review). A closed terminal skips with its own
+// reason, before any door call.
+func TestFireMessageToGuestAgent(t *testing.T) {
+	deps, aut, agent := doorTestSetup(t)
+	tm, err := deps.Store.CreateTerminalIn(aut.WorkspaceID, "Claude", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := deps.Store.SetTerminalLaunch(tm.ID, "claude-code", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	tid := tm.ID
+	if _, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{TerminalID: &tid}); err != nil {
+		t.Fatal(err)
+	}
+	enabled := true
+	if _, err := deps.Store.UpdateAutomation(aut.ID, store.AutomationPatch{Enabled: &enabled}); err != nil {
+		t.Fatal(err)
+	}
+	r := automationRunner{deps: deps}
+
+	closed, err := r.Fire(aut, doorFiring())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if closed.Status != store.RunSkipped || closed.Reason != reasonTermClosed {
+		t.Fatalf("closed terminal: run = %+v", closed)
+	}
+
+	if !deps.Tmux.Available() {
+		t.Skip("tmux not available")
+	}
+	sess := tmux.ShellSessionName(tm.ID)
+	if err := deps.Tmux.NewSession(context.Background(), sess, t.TempDir(), "sh"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = deps.Tmux.KillSession(context.Background(), sess) })
+	open, err := r.Fire(aut, doorFiring())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if open.Reason == reasonInTerminal || open.Reason == reasonTermClosed || open.Reason == reasonPiMissing {
+		t.Fatalf("open terminal never reached the door: run = %+v", open)
 	}
 }
