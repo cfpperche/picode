@@ -81,6 +81,29 @@ const (
 	VerbMarketRemove Verb = "marketplace-remove"
 )
 
+// Commands reports that a CLI reaches this verb with its own command: an argv
+// the durable job lane reserves and runs.
+func Commands(cli string, verb Verb) bool {
+	s := lookup(cli)
+	return s != nil && s.argv[verb] != nil
+}
+
+// Writes reports that a CLI reaches this verb only through PiCode's own edit of
+// one of its config files — the case OpenCode's removal and disable are, and
+// the reason its declaration cannot be one transport for every verb. There is
+// no argv to hand a lane: the engine writes the file and the answer is the
+// CLI's fresh list.
+//
+// A CLI with both a command and a writer uses the command wherever one exists
+// (the declaration's own rule), so this and Commands never both answer true.
+func Writes(cli string, verb Verb) bool {
+	s := lookup(cli)
+	if s == nil || s.argv[verb] != nil {
+		return false
+	}
+	return s.writer != nil && (verb == VerbRemove || verb == VerbDisable)
+}
+
 // Row is one plugin as the pane shows it. Status is the vendor's own word when
 // it prints one; Note is the one line the row must carry (a PiCode-managed
 // integration, a text-parsed roster, a vendor caveat).
@@ -647,12 +670,16 @@ func markUpdates(installed, catalog []Row) int {
 // Run executes one verb through the vendor binary, on the user's behalf and
 // with no auto-consent flag. It returns the vendor's stdout; a refusal rides
 // the error verbatim so the pane shows the vendor's own words.
+//
+// A verb this CLI reaches through its own config file (Writes) runs here
+// instead of shelling out: the write happens in process and the answer is the
+// empty line the caller's pane shows — there is no argv for anyone to run.
 func Run(ctx context.Context, cli string, verb Verb, p Paths, t Target) (string, error) {
 	s := lookup(cli)
 	if s == nil {
 		return "", ErrNoDriver
 	}
-	if s.argv[verb] == nil && s.writer != nil && (verb == VerbRemove || verb == VerbDisable) {
+	if Writes(cli, verb) {
 		if _, err := s.scope(t.Scope); err != nil {
 			return "", err
 		}
@@ -672,6 +699,18 @@ func Run(ctx context.Context, cli string, verb Verb, p Paths, t Target) (string,
 	out, err := runVendor(ctx, s.bin, dir, args...)
 	Invalidate(cli)
 	return out, err
+}
+
+// MarketFetches reports whether a CLI fetches marketplace sources with its own
+// command — an add and an update are the two actions that go to the network, so
+// they are the job lane's work. A source removal is a local change, so a CLI
+// that only removes one is not a fetch and does not declare it.
+func MarketFetches(cli string) bool {
+	s := lookup(cli)
+	if s == nil {
+		return false
+	}
+	return s.market["add"] != nil || s.market["update"] != nil
 }
 
 // MarketArgv is Market's pure half: the argv of one marketplace action,

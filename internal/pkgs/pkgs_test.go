@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/pipkg"
@@ -194,6 +195,72 @@ func TestGuestDriverKeepsTheVendorScopeWords(t *testing.T) {
 	}
 	if claude["local"] != Workspace || claude["user"] != Machine {
 		t.Fatalf("claude scopes = %+v", claude)
+	}
+}
+
+// The transport declaration is one fact per mutation verb, and OpenCode is the
+// mixed CLI that pins it: its install is its own `plugin` command while its
+// removal is a write of its own config file. The single bool this replaced
+// (`Caps.Async`) could only have told the truth about one of the two.
+func TestTheTransportDeclarationIsPerVerb(t *testing.T) {
+	oc := DriverFor("opencode").Caps()
+	if !oc.Install || !oc.Remove {
+		t.Fatalf("OpenCode exposes both verbs: %+v", oc)
+	}
+	if !oc.Lane.Install || oc.Lane.Remove {
+		t.Fatalf("OpenCode's install is its own command and its removal a write of its own file: %+v", oc.Lane)
+	}
+	// It has neither of the other two verbs, so neither can be on the lane.
+	if oc.Lane.Update || oc.Lane.Marketplace {
+		t.Fatalf("OpenCode has no update or marketplace verb: %+v", oc.Lane)
+	}
+	// Every mutation of a CLI that has vendor commands for them is the lane's.
+	omp := DriverFor("omp").Caps()
+	if !omp.Lane.Install || !omp.Lane.Remove || !omp.Lane.Update || !omp.Lane.Marketplace {
+		t.Fatalf("omp's mutations run the vendor's own commands: %+v", omp.Lane)
+	}
+	// Pi keeps its own mutations: nothing of its is reserved as a job.
+	if pi := DriverFor("pi").Caps(); pi.Lane != (Transport{}) {
+		t.Fatalf("pi runs every mutation itself: %+v", pi.Lane)
+	}
+}
+
+// A verb the declaration puts off the lane performs the mutation instead of
+// handing back a command, and the empty command is how the route reads that:
+// nothing for a lane to run, so the answer is the CLI's fresh list. Every byte
+// of the config file outside the removed module survives.
+func TestGuestRemoveOpenCodeWritesTheFileItReads(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	cfg := filepath.Join(dir, ".config", "opencode")
+	if err := os.MkdirAll(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(cfg, "opencode.json")
+	body := "{\n  \"plugin\": [\"opencode-wakatime\", \"keep-me\"],\n  \"model\": \"x\"\n}\n"
+	if err := os.WriteFile(file, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := DriverFor("opencode").Remove(context.Background(), Query{}, Target{
+		Name: "opencode-wakatime", Source: "opencode-wakatime",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Exe != "" || cmd.Line != "" || len(cmd.Args) != 0 {
+		t.Fatalf("a write has no command to hand a lane: %+v", cmd)
+	}
+	at := strings.Index(body, `"opencode-wakatime", `)
+	if at < 0 {
+		t.Fatal("the fixture does not name the removed module")
+	}
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != body[:at]+body[at+len(`"opencode-wakatime", `):] {
+		t.Fatalf("the file after the write = %q, want the original with only the module gone", got)
 	}
 }
 

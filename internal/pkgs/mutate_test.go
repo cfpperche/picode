@@ -326,15 +326,38 @@ func TestGuestInspectMatchesTheEngine(t *testing.T) {
 func TestGuestMutationRefusalsKeepTheEnginesWords(t *testing.T) {
 	ctx := context.Background()
 
-	// OpenCode removes by rewriting its own config file, and that is not a
-	// command the job lane can carry.
-	_, err := DriverFor("opencode").Remove(ctx, Query{Vendor: "user"}, Target{Name: "a"})
-	_, _, engineErr := clipkgs.Argv("opencode", clipkgs.VerbRemove, clipkgs.Paths{}, clipkgs.Target{Name: "a", Scope: "user"})
-	sameRefusal(t, err, engineErr)
+	// OpenCode removes by rewriting its own config file, so its removal is not
+	// a command the job lane can carry and not a refusal either: the driver
+	// performs the engine's own write and answers the empty command the route
+	// reads as "there is nothing to run". This row used to pin the refusal
+	// (*"this CLI does not expose that operation: opencode remove"*) that the
+	// pane drew as an error under a live button.
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, "opencode"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(home, "opencode", "opencode.json")
+	if err := os.WriteFile(file, []byte(`{"plugin": ["a"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := DriverFor("opencode").Remove(ctx, Query{Vendor: "user"}, Target{Name: "a", Source: "a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Exe != "" || cmd.Line != "" || len(cmd.Args) != 0 {
+		t.Fatalf("a write has no command to hand a lane: %+v", cmd)
+	}
+	if got, err := os.ReadFile(file); err != nil || string(got) != `{"plugin": []}` {
+		t.Fatalf("the engine did not perform the removal: %q (%v)", got, err)
+	}
+	if _, _, err := clipkgs.Argv("opencode", clipkgs.VerbRemove, clipkgs.Paths{}, clipkgs.Target{Name: "a", Scope: "user"}); !errors.Is(err, clipkgs.ErrVerbAbsent) {
+		t.Fatalf("the CLI still exposes no removal command: %v", err)
+	}
 
 	// A CLI with no update verb, and one with no marketplace at all.
 	_, err = DriverFor("agy").Update(ctx, Query{Vendor: "user"}, Target{Name: "a"})
-	_, _, engineErr = clipkgs.Argv("agy", clipkgs.VerbUpdate, clipkgs.Paths{}, clipkgs.Target{Name: "a", Scope: "user"})
+	_, _, engineErr := clipkgs.Argv("agy", clipkgs.VerbUpdate, clipkgs.Paths{}, clipkgs.Target{Name: "a", Scope: "user"})
 	sameRefusal(t, err, engineErr)
 
 	_, err = DriverFor("hermes").Marketplace(ctx, Query{Vendor: "user"}, MarketRequest{Action: "add", Source: "owner/repo"})

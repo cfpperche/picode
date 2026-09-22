@@ -8,7 +8,8 @@
 // Pi keeps its own API for its own mutations — the package pages, the config
 // descriptors, the store write behind the agent scope — while a vendor's
 // plugins go through the job lane (ADR-0087). Which one a pane uses is the
-// driver's own declaration (`Caps.Async`), not a branch on which CLI it is.
+// driver's own declaration (`Caps.Lane`, per verb), not a branch on which CLI
+// it is.
 //
 // The surface a report declares (`Catalog`) also decides which vocabulary the
 // pane speaks: a CLI whose installable list is PiCode's own npm gallery holds
@@ -143,15 +144,42 @@ export function paneWords(surface) {
   return PANE_WORDS[surface] || PANE_WORDS.vendor;
 }
 
+// LANE_VERBS is the transport vocabulary: the mutations a driver's `Caps.Lane`
+// declares one by one, in the pane's own verb words (the ones `GUEST_VERB_NOTES`
+// below uses). `marketplace` covers the two source actions that fetch; a source
+// removal is a local change and never the lane's.
+export const LANE_VERBS = ["install", "remove", "update", "marketplace"];
+
+// laneMutation says one mutation is a vendor command the CLI's own durable job
+// lane reserves and runs (`Caps.Lane`, ADR-0087): the request answers the job,
+// the CLI's fresh list follows from the lane's events, and the pane follows
+// them. A verb the declaration leaves false is a mutation PiCode performs
+// itself — a config file it splices — which answers the CLI's fresh list
+// instead. The declaration is per verb because a CLI can be mixed: OpenCode's
+// install is its own `plugin` command while its removal is an edit of its own
+// config file, and one bool could only contradict one of them.
+export function laneMutation(caps, verb) {
+  return !!(caps && caps.lane && caps.lane[verb]);
+}
+
+// anyLaneMutation says the CLI has at least one mutation the lane runs, which is
+// what a pane subscribes to the lane's events for. It is what the single
+// `Caps.Async` bool used to answer.
+export function anyLaneMutation(caps) {
+  return LANE_VERBS.some(verb => laneMutation(caps, verb));
+}
+
 // directMutation says whether a mutation is one of PiCode's own calls — the
-// source, its layer, and the target the answer comes back for — rather than a
-// job in the CLI's own lane. A CLI whose mutations are direct calls (`Caps.Async`
-// false, Pi's own pipkg) always is; so is any write into the agent scope, and any
-// row that lives there, because that layer is PiCode's own list on the agent row
-// for every CLI — the CLI's launch is what passes the entries on (ADR-0176 slice
-// 4). A vendor row in a vendor's layer is the lane's, and only its.
+// source, its layer, and the target the answer comes back for — rather than one
+// a CLI's own surface takes. A CLI whose mutations are all PiCode's own calls
+// (`Caps.Lane` names no verb, Pi's own pipkg) always is; so is any write into
+// the agent scope, and any row that lives there, because that layer is PiCode's
+// own list on the agent row for every CLI — the CLI's launch is what passes the
+// entries on (ADR-0176 slice 4). A vendor row in a vendor's layer takes the
+// vendor's route whether the mutation runs on the lane or is a write of the
+// vendor's own file.
 export function directMutation(caps, { scope = "user", row = null } = {}) {
-  if (!caps || !caps.async) return true;
+  if (!caps || !anyLaneMutation(caps)) return true;
   return (row ? row.scope : scope) === "agent";
 }
 
@@ -350,11 +378,13 @@ export function refusalCommand(error) {
 // packagesApi(cli, {workspaceId, agentId, scope}) is the request builder for
 // every route one pane needs (ADR-0176). The reads answer the unified report —
 // the roster, its badge, and the catalog a CLI's mechanism keeps — and the
-// verbs answer where that mechanism runs them: a vendor's own command through
-// the job lane, PiCode's own package API for a CLI whose mutations are direct
-// calls that answer the new list (`Caps.Async` false). A pane never assembles a
-// URL, a query name or a body field inline: it asks for the route it needs, so
-// one rename happens in one place and the shapes are testable without a browser.
+// verbs answer where that mechanism runs them: a vendor's own route (a job, or
+// the driver's own write answering the fresh list) for a CLI whose mutations
+// are the vendor's, PiCode's own package API for a CLI whose mutations are all
+// its own calls (`Caps.Lane` names none, Pi's own pipkg). A pane never
+// assembles a URL, a query name or a body field inline: it asks for the route
+// it needs, so one rename happens in one place and the shapes are testable
+// without a browser.
 //
 // `ref` on a marketplace action is the scope the vendor's own add/update runs
 // in (Claude's `--scope`, Muse's and Omp's working directory), so a machine
@@ -426,9 +456,9 @@ export function packagesApi(cli, { workspaceId = "", agentId = "", scope = "user
       path: "/api/cli-packages/inspect",
       body: { cli: id, target: (fields && (fields.name || fields.target)) || "" },
     }),
-    // PiCode's own package API, for a CLI whose mutations are direct calls that
-    // answer the new list (`Caps.Async` false): the source, its layer, and the
-    // target the answer comes back for.
+    // PiCode's own package API, for a CLI whose mutations are all its own
+    // calls (`Caps.Lane` names none): the source, its layer, and the target the
+    // answer comes back for.
     direct: {
       install: fields => ({ method: "POST", path: "/api/packages", body: directBody(fields) }),
       update: fields => ({ method: "POST", path: "/api/packages/update", body: directBody(fields) }),

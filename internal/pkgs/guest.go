@@ -38,10 +38,14 @@ func (g guestDriver) Caps() Caps {
 		Toggle:    c.Toggle,
 		Update:    c.Update,
 		Inspect:   c.Inspect,
-		// A guest's mutations run the vendor's own command in the durable job
-		// lane (ADR-0087), so the request answers the job and the pane follows
-		// the lane's events.
-		Async:          true,
+		// A guest's mutations are the vendor's own commands in the durable job
+		// lane ADR-0087 built, so the request answers the job and the pane
+		// follows the lane's events — except where the CLI has no command at
+		// all and PiCode writes its config file itself (OpenCode's removal),
+		// which is one verb, not the whole driver: `Lane` is declared per verb
+		// from the same engine table `Caps.Install`/`Remove`/`Update` come
+		// from, so the two cannot disagree.
+		Lane:           g.lane(),
 		Marketplace:    c.Marketplace,
 		CatalogInstall: c.CatalogInstall,
 		// The agent row's "only this agent's packages" switch is PiCode's own
@@ -50,6 +54,23 @@ func (g guestDriver) Caps() Caps {
 		// has for skipping what it would auto-load (ADR-0176 slice 4); no
 		// other guest is handed PiCode entries at all.
 		IsolatedSwitch: g.cli == "omp",
+	}
+}
+
+// lane is the transport half of the declaration, derived from the same engine
+// table `Caps.Install`/`Remove`/`Update` come from: a verb the CLI reaches with
+// its own command is the job lane's, a verb whose only path is PiCode's edit of
+// the CLI's config file is not, and the marketplace fetches are the lane's
+// wherever the CLI manages sources at all. OpenCode is the mixed CLI this is
+// for — its install is `opencode plugin <module>`, its removal a splice of its
+// own opencode.json — so one bool could not describe it.
+func (g guestDriver) lane() Transport {
+	command := func(verb clipkgs.Verb) bool { return clipkgs.Commands(g.cli, verb) }
+	return Transport{
+		Install:     command(clipkgs.VerbInstall),
+		Remove:      command(clipkgs.VerbRemove),
+		Update:      command(clipkgs.VerbUpdate),
+		Marketplace: clipkgs.MarketFetches(g.cli),
 	}
 }
 
@@ -176,13 +197,19 @@ func (g guestDriver) Install(_ context.Context, q Query, t Target) (Command, err
 	return g.command(q, clipkgs.VerbInstall, t)
 }
 
-// Remove answers the vendor command a plugin removal runs. It is the lane's
-// verb: a CLI whose only removal is a write of its own config file (OpenCode's
-// plugin array) has no command to hand the lane, and refuses exactly as its
-// route always has. Omp's own `extensions` are the same kind of fact read from
-// a different file — a row that came from the workspace settings is written
-// back by PiCode, and the user layer goes through the CLI's config command — so
-// an extension row is asked of the engine first, by the identity the pane sent.
+// Remove answers the vendor command a plugin removal runs, or performs the
+// removal itself where the CLI has no such command. It is the lane's verb
+// wherever the vendor has an argv; a CLI whose only removal is a write of its
+// own config file (OpenCode's `plugin` array) has none to hand the lane, so the
+// engine performs the splice here and the empty command is what tells the route
+// there is nothing to run — the answer is then the CLI's fresh list, which is
+// also what its `Lane.Remove: false` declares. A module the config does not
+// name is refused by name, from the engine.
+//
+// Omp's own `extensions` are the same kind of fact read from a different file —
+// a row that came from the workspace settings is written back by PiCode, and the
+// user layer goes through the CLI's config command — so an extension row is
+// asked of the engine first, by the identity the pane sent.
 func (g guestDriver) Remove(ctx context.Context, q Query, t Target) (Command, error) {
 	if g.cli == "omp" {
 		rm, ok, err := clipkgs.OmpExtensionRemove(ctx, g.paths(q), g.target(q, t))
@@ -195,6 +222,10 @@ func (g guestDriver) Remove(ctx context.Context, q Query, t Target) (Command, er
 			}
 			return Command{Exe: clipkgs.Bin(g.cli), Args: rm.Args, Dir: rm.Dir, Line: rm.Line}, err
 		}
+	}
+	if clipkgs.Writes(g.cli, clipkgs.VerbRemove) {
+		_, err := clipkgs.Run(ctx, g.cli, clipkgs.VerbRemove, g.paths(q), g.target(q, t))
+		return Command{}, err
 	}
 	return g.command(q, clipkgs.VerbRemove, t)
 }
