@@ -305,10 +305,10 @@ export function matchParts(text, needle) {
 }
 
 // SOURCE_GROUPS names where an installed plugin came from, in the order the
-// list shows them. The keys are the vendors' own provenance words
-// (`sourceKind`), so a list that mixes them — Hermes' bundled rows beside yours,
-// Claude's claude.ai-managed ones beside the machine's — reads as groups instead
-// of one undifferentiated column.
+// list shows them. The keys are the vendors' own provenance words (`kind`, the
+// unified row's own field), so a list that mixes them — Hermes' bundled rows
+// beside yours, Claude's claude.ai-managed ones beside the machine's — reads as
+// groups instead of one undifferentiated column.
 export const SOURCE_GROUPS = [
   { key: "picode", label: "Added by PiCode" },
   { key: "marketplace", label: "From a marketplace" },
@@ -332,7 +332,7 @@ export const SOURCE_GROUPS = [
 export function sourceGroupKey(row) {
   const r = row || {};
   if (r.managedByPiCode) return "picode";
-  const kind = String(r.sourceKind || "").toLowerCase();
+  const kind = String(r.kind || "").toLowerCase();
   if (kind.startsWith("marketplace")) return "marketplace";
   if (kind === "bundled") return "bundled";
   if (kind === "synced") return "synced";
@@ -344,7 +344,7 @@ export function sourceGroupKey(row) {
   if (kind === "user") return "user";
   if (kind) return "other";
   if (r.marketplace) return "marketplace";
-  if (r.installPath && r.source) return "path";
+  if (r.installedPath && r.source) return "path";
   return "other";
 }
 
@@ -376,15 +376,18 @@ export function refusalCommand(error) {
 }
 
 // packagesApi(cli, {workspaceId, agentId, scope}) is the request builder for
-// every route one pane needs (ADR-0176). The reads answer the unified report —
-// the roster, its badge, and the catalog a CLI's mechanism keeps — and the
-// verbs answer where that mechanism runs them: a vendor's own route (a job, or
-// the driver's own write answering the fresh list) for a CLI whose mutations
-// are the vendor's, PiCode's own package API for a CLI whose mutations are all
-// its own calls (`Caps.Lane` names none, Pi's own pipkg). A pane never
-// assembles a URL, a query name or a body field inline: it asks for the route
-// it needs, so one rename happens in one place and the shapes are testable
-// without a browser.
+// every route one pane needs (ADR-0176). Every one of them is on the
+// `/api/packages*` family, and the CLI the pane renders is named in the request
+// — as the `cli` query parameter on a read, as the `cli` field on a mutation.
+// The reads answer the unified report (the roster, its badge, and the catalog a
+// CLI's mechanism keeps) and the verbs answer where that mechanism runs them: a
+// durable job, or the driver's own write answering the CLI's fresh report, for
+// a CLI whose mutations are the vendor's; PiCode's own package API for a CLI
+// whose mutations are all its own calls (`Caps.Lane` names none, Pi's own
+// pipkg) — and that path deliberately names no CLI, because it is PiCode's
+// mutation rather than the CLI's. A pane never assembles a URL, a query name or
+// a body field inline: it asks for the route it needs, so one rename happens in
+// one place and the shapes are testable without a browser.
 //
 // `ref` on a marketplace action is the scope the vendor's own add/update runs
 // in (Claude's `--scope`, Muse's and Omp's working directory), so a machine
@@ -438,22 +441,25 @@ export function packagesApi(cli, { workspaceId = "", agentId = "", scope = "user
     updates: opts => get("/api/packages/updates", { ...opts, vendor: true }),
     // PiCode's own gallery (the catalog a `gallery` report declares).
     gallery: q => ({ method: "GET", path: "/api/packages/gallery?q=" + encodeURIComponent(String(q == null ? "" : q).trim()), body: null }),
-    // The CLI's own configured sources. A CLI with no source-management verb
+    // The CLI's own catalog and its configured sources: reads on the same
+    // family, the CLI named in the query. A CLI with no source-management verb
     // answers 400, which is the contract's "it has none", not a failure.
-    available: () => get("/api/cli-packages/available"),
-    marketplaces: () => get("/api/cli-packages/marketplaces"),
-    install: fields => post("/api/cli-packages/install", fields),
-    remove: fields => post("/api/cli-packages/remove", fields),
-    update: fields => post("/api/cli-packages/update", fields),
-    toggle: (fields, on) => post("/api/cli-packages/toggle", { ...fields, on }),
+    available: () => get("/api/packages/available"),
+    marketplaces: () => get("/api/packages/marketplaces"),
+    // The CLI's own verbs, on the paths PiCode's own calls use: the `cli` in
+    // each body is what makes it this CLI's mutation rather than PiCode's own.
+    install: fields => post("/api/packages", fields),
+    remove: fields => ({ method: "DELETE", path: "/api/packages", body: body(fields) }),
+    update: fields => post("/api/packages/update", fields),
+    toggle: (fields, on) => post("/api/packages/toggle", { ...fields, on }),
     marketplace: (action, fields = {}) => ({
       method: "POST",
-      path: "/api/cli-packages/marketplace",
+      path: "/api/packages/marketplace",
       body: { ...body(fields), action, ...ref(fields) },
     }),
     inspect: fields => ({
       method: "POST",
-      path: "/api/cli-packages/inspect",
+      path: "/api/packages/inspect",
       body: { cli: id, target: (fields && (fields.name || fields.target)) || "" },
     }),
     // PiCode's own package API, for a CLI whose mutations are all its own

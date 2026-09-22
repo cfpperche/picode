@@ -263,7 +263,6 @@ func registerAll(mux Registrar, deps Deps) {
 	registerPeerCommunication(mux, deps)
 	registerPeerOnboarding(mux, deps)
 	registerPackageRoutes(mux, deps)
-	registerCLIPackageRoutes(mux, deps)
 	registerDockerRoutes(mux, deps)
 	registerDeviceRoutes(mux, &deps)
 
