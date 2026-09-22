@@ -14,6 +14,10 @@ test("providerFaviconUrl", () => {
   assert.ok(providerFaviconUrl("xai").includes("grok.svg"));
   assert.ok(providerFaviconUrl("anthropic").includes("claude.svg"));
   assert.equal(providerFaviconUrl("nope"), "");
+  // Omp's catalog ids map onto the set's own marks; one it lacks gets none.
+  assert.ok(providerFaviconUrl("bedrock-mantle").includes("bedrock.svg"));
+  assert.ok(providerFaviconUrl("qwen-portal").includes("qwen.svg"));
+  assert.equal(providerFaviconUrl("google-antigravity"), "");
   assert.equal(providerLetter("xai"), "X");
 });
 
