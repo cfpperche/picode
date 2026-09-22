@@ -4,7 +4,7 @@ import { api, humanizeError } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import {
   packagesApi, packagesNotes, packagesSurface, paneWords, behindFor,
-  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, cliPackagesHash,
+  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation, cliPackagesHash,
 } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { pkgName } from "@picode/shared/domain/pkgName.js";
@@ -269,8 +269,10 @@ export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
     const id = row ? keyOf(row) : "";
     if (id) setRowError(prev => ({ ...prev, [id]: null })); else setSourceProblem(null);
     // A direct mutation answers the CLI's fresh list, so the pane shows the
-    // transcript PiCode ran and re-reads the report (Pi's own transport).
-    if (!caps.async) {
+    // transcript PiCode ran and re-reads the report (Pi's own transport); the
+    // agent scope is that kind of write for every CLI, and `directMutation` is
+    // where that rule lives (ADR-0176 slice 4).
+    if (directMutation(caps, { scope })) {
       setRun({ action: "install", source: target, scope, cwd: scope === "project" ? (report.workspacePath || "") : "", step: 0, error: "", done: false });
       const tick = startJobTick(setRun, 2);
       try {
@@ -334,11 +336,13 @@ export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
     }
   }
 
-  // A direct update is PiCode's own call and answers the fresh list.
+  // A direct update is PiCode's own call and answers the fresh list — including
+  // any row in the agent's own list, which is PiCode's store for every CLI
+  // (`directMutation`, ADR-0176 slice 4).
   async function updateRow(row, entry) {
     if (guard || !report) return;
-    if (!caps.async) {
-      const layer = row.scope === "workspace" ? "project" : "user";
+    if (directMutation(caps, { row })) {
+      const layer = row.scope === "workspace" ? "project" : row.scope === "agent" ? "agent" : "user";
       setRun({ action: "update", source: row.source, scope: layer, cwd: layer === "project" ? (report.workspacePath || "") : "", step: 0, error: "", done: false });
       const tick = startJobTick(setRun, 2);
       try {
@@ -360,7 +364,7 @@ export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
   async function removeRow(row) {
     if (guard || !report) return;
     const name = row.name || row.id || row.source;
-    if (!caps.async) {
+    if (directMutation(caps, { row })) {
       const ok = await askConfirm({
         title: "Remove package",
         message: "Remove " + row.source + " from " + cli + "? This does not uninstall " + cli + " itself.",

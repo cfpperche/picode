@@ -410,6 +410,12 @@ var omp = &spec{
 	scopes: []Scope{
 		{ID: "user", Label: "Global"},
 		{ID: "project", Label: "This workspace", Note: "Omp applies a project scope to marketplace installs; a local path or npm package installs for the machine."},
+		// PiCode's own list for one agent, not a vendor layer: `omp` has no
+		// per-agent scope, so the entries ride the launch as `-e` (the same
+		// mechanism pi's agent row uses). Declared here because a read has to
+		// answer the rows — the write is PiCode's store, and the launch is
+		// what makes them real (ADR-0176 slice 4).
+		{ID: "agent", Label: "This agent", Note: "PiCode passes this agent's own entries to Omp at its next start."},
 	},
 	roster:    ompRoster,
 	available: true,

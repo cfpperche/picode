@@ -143,6 +143,18 @@ export function paneWords(surface) {
   return PANE_WORDS[surface] || PANE_WORDS.vendor;
 }
 
+// directMutation says whether a mutation is one of PiCode's own calls — the
+// source, its layer, and the target the answer comes back for — rather than a
+// job in the CLI's own lane. A CLI whose mutations are direct calls (`Caps.Async`
+// false, Pi's own pipkg) always is; so is any write into the agent scope, and any
+// row that lives there, because that layer is PiCode's own list on the agent row
+// for every CLI — the CLI's launch is what passes the entries on (ADR-0176 slice
+// 4). A vendor row in a vendor's layer is the lane's, and only its.
+export function directMutation(caps, { scope = "user", row = null } = {}) {
+  if (!caps || !caps.async) return true;
+  return (row ? row.scope : scope) === "agent";
+}
+
 // behindFor finds the catalog's answer for one installed row. The CLI's own
 // update check names the source, the layer it lives in and the version pair; a
 // row the check did not name is not behind, and nothing else may invent one — a
