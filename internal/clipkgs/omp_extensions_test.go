@@ -552,6 +552,23 @@ func TestOmpExtensionToggleCreatesTheDisabledList(t *testing.T) {
 	if !strings.Contains(string(raw), `"theme": {"keep": true}`) {
 		t.Errorf("the write reformatted the file:\n%s", raw)
 	}
+
+	// The created array is a real state the toggle produces: turning the entry
+	// back on leaves it empty, and turning it off again adds the id to that
+	// array — not a second key, and not a refusal.
+	file := filepath.Join(dir, ".omp", "settings.json")
+	if _, ok, err := OmpExtensionToggle(context.Background(), Paths{Cwd: dir}, Target{Name: "tool", On: true}); err != nil || !ok {
+		t.Fatalf("the enable = %v / %v", ok, err)
+	}
+	if _, _, disabled, _ := ompSettingsDoc(t, file); len(disabled) != 0 {
+		t.Errorf("disabledExtensions = %v, want the id gone", disabled)
+	}
+	if _, ok, err := OmpExtensionToggle(context.Background(), Paths{Cwd: dir}, Target{Name: "tool", On: false}); err != nil || !ok {
+		t.Fatalf("the second disable = %v / %v", ok, err)
+	}
+	if _, _, disabled, _ := ompSettingsDoc(t, file); len(disabled) != 1 || disabled[0] != "extension-module:tool" {
+		t.Errorf("disabledExtensions = %v, want the id in the array the toggle created", disabled)
+	}
 }
 
 // TestOmpExtensionToggleRunsTheVendorCommandForTheUserLayer: the user layer is
