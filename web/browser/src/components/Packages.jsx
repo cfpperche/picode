@@ -190,7 +190,7 @@ export default function Packages({ hidden, embedded = false, workspaceId, worksp
         <div className="pkg-install-go">
           <span className="pkg-scope-label" aria-hidden="true">Install to</span>
           <div className="pkg-scope" role="radiogroup" aria-label="Install to">
-            <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
+            <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>Global</button>
             {workspaceId ? (
               <button
                 type="button"
@@ -273,7 +273,7 @@ export default function Packages({ hidden, embedded = false, workspaceId, worksp
               <ul className="pkg-grid" role="tabpanel">
                 {filtered.map((p) => {
                   const u = behindOf(p);
-                  const scopeLabel = p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine";
+                  const scopeLabel = p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "global";
                   return (
                     <li key={p.scope + ":" + p.source} className="pkg-card pkg-card-installed">
                       <div className="pkg-preview" aria-hidden="true">

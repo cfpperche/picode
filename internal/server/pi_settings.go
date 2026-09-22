@@ -58,7 +58,7 @@ func handlePutPiSettings(deps Deps) http.HandlerFunc {
 		// before trust or path resolution can blame something else.
 		if req.Layer != "" && req.Layer != "global" {
 			if bad := machineOnlyInPatch(req.Patch); bad != "" {
-				writeErr(w, http.StatusBadRequest, bad+" is kept for this machine only; edit it on the This machine layer")
+				writeErr(w, http.StatusBadRequest, bad+" is kept for this machine only; edit it on the Global layer")
 				return
 			}
 		}

@@ -31,7 +31,7 @@ test("the route's layer and the driver's scope map one way each", () => {
 });
 
 test("a CLI with one file opens on that layer whatever the route says", () => {
-  const single = [{ scope: "user", label: "This machine" }];
+  const single = [{ scope: "user", label: "Global" }];
   assert.equal(defaultLayer(single, "project"), "global");
   const both = [{ scope: "user" }, { scope: "project" }];
   assert.equal(defaultLayer(both, "project"), "project");
@@ -51,11 +51,11 @@ test("fields keep their declared order inside their group", () => {
 test("a row says where its value comes from, and never claims an inheritance that did not happen", () => {
   const field = { key: "ui.yolo" };
   const layers = [
-    { scope: "user", label: "This machine", values: { "ui.yolo": false } },
+    { scope: "user", label: "Global", values: { "ui.yolo": false } },
     { scope: "project", label: "This workspace", values: {} },
   ];
   assert.deepEqual(rowState(field, layers, "user"), { value: false, setHere: true, from: "" });
-  assert.deepEqual(rowState(field, layers, "project"), { value: false, setHere: false, from: "This machine" });
+  assert.deepEqual(rowState(field, layers, "project"), { value: false, setHere: false, from: "Global" });
 
   const unset = rowState({ key: "models.default" }, layers, "project");
   assert.equal(unset.value, undefined);

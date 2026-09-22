@@ -48,7 +48,7 @@ var catalog = []spec{
 		clear: "",
 		stores: []storeSpec{{
 			scope: "global",
-			label: "This machine",
+			label: "Global",
 			dir:   fixedDir(".codex", "memories"),
 		}},
 	},
@@ -59,7 +59,7 @@ var catalog = []spec{
 		clear:  "grok memory clear",
 		toggle: "",
 		stores: []storeSpec{
-			{scope: "global", label: "This machine", dir: fixedDir(".grok", "memory-v2", "global")},
+			{scope: "global", label: "Global", dir: fixedDir(".grok", "memory-v2", "global")},
 			{scope: "workspace", label: "This workspace", dir: grokWorkspaceDir},
 		},
 	},
@@ -69,7 +69,7 @@ var catalog = []spec{
 		toggle: "memory.memory_enabled",
 		stores: []storeSpec{{
 			scope: "global",
-			label: "This machine",
+			label: "Global",
 			dir:   fixedDir(".hermes", "memories"),
 		}},
 	},

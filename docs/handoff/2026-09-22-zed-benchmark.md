@@ -1,0 +1,13 @@
+# 2026-09-22 — feat/zed-benchmark: the Zed study, and ADR-0091's trigger re-measured
+
+One commit, docs only. The owner asked what a Zed benchmark would buy PiCode. Zed was cited in nine ADRs and three studies without ever having a note of its own, so every past borrow rested on a one-line reference. `docs/benchmarks/2026-09-22-zed.md` gives it receipts.
+
+**The agent surface.** Zed reviews a whole turn in one multibuffer tab — keep or reject per hunk, keep all, and `undo last reject` — while PiCode reviews one card per tool call and joins none of them (`Conversation.jsx:724`). A crosshair toggle follows the agent file by file; PiCode has the file pane and the feed and nothing connecting them. Tool permissions are a precedence table where the host's deny outranks a guest agent's own rules. Terminal Threads name a CLI in a terminal as a first-class thread kind, which is evidence for the shape ADR-0069 and ADR-0089 already chose rather than a gap.
+
+**The finding that needs the owner.** ADR-0091 refuses an agent-protocol client until one protocol carries first-party, non-adapter support across most of the CLIs PiCode hosts, and deliberately does not date the trigger. Re-measured against the nine in `internal/clipkgs/specs.go`: five ship first-party native ACP (Grok Build, Hermes, OpenCode, Antigravity, Omp), two more are vendor co-maintained adapters (Claude Code with Anthropic on it, Codex with OpenAI). Pi is the weakest citizen of the nine — upstream closed PR #836 saying an ACP mode belongs outside pi-mono, on top of rpc mode. So the condition is arguably met for exactly the population the ADR was written about, while staying irrelevant for the one agent PiCode manages. **The ADR stands.** The study does not supersede it; the question is on the board in `docs/handoff/open/acp-trigger.md`, with the cost of re-opening priced as honestly as the sources allow.
+
+**Performance.** Zed's comparison pages claim startup, memory and typing-latency numbers with no methodology, and independent runs contradict them, so the study borrows the discipline and not the figures. PiCode's own `<100ms` line (`benchmarks.md:127`) is measured by nothing and no gate in `ci-gates` can fail on latency or size; the browser entry bundle is 1.0 MB gzipped and unbudgeted. Recorded in `docs/handoff/open/performance.md` with two cheap gates the owner can accept or decline.
+
+Corrections worth carrying: Zed's "text threads vs agent threads" confusion that 2026 reviews still repeat was removed in v0.231.1 (2026-04-08), and there is no "Agent 1.0" — Zed itself hit 1.0 on 2026-04-29.
+
+Verified: `make close` green, scoped; `main` merged in afterwards and re-closed. visual-review: n/a — no UI. Nothing deployed.
