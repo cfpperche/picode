@@ -28,6 +28,12 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 SHARDS=${GO_TEST_SHARDS:-4}
+# Extra flags for every `go test` below. CI passes -race: the race detector
+# makes internal/server take over ten minutes in one process, which is the
+# default per-binary timeout, so `go test -race ./...` on a runner died with
+# `panic: test timed out after 10m0s` every run. Sharded, each shard finishes
+# well inside it (measured: 275-385 s per shard, 446 s wall clock).
+FLAGS=${GO_TEST_FLAGS:-}
 HEAVY=${GO_TEST_HEAVY:-github.com/cfpperche/picode/internal/server}
 [ $# -gt 0 ] || set -- ./...
 
@@ -40,18 +46,18 @@ trap 'rm -rf "$tmp"' EXIT
 status=0
 
 if [ -n "$rest" ]; then
-  ( env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath $rest > "$tmp/rest.log" 2>&1; echo $? > "$tmp/rest.rc" ) &
+  ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath $rest > "$tmp/rest.log" 2>&1; echo $? > "$tmp/rest.rc" ) &
 fi
 
 if [ -n "$heavy" ]; then
   names=$(env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath -list '.*' "$heavy" 2>/dev/null | grep -vE '^(ok|\?|FAIL)' || true)
   if [ -z "$names" ] || [ "$SHARDS" -le 1 ]; then
     SHARDS=1
-    ( env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath "$heavy" > "$tmp/shard0.log" 2>&1; echo $? > "$tmp/shard0.rc" ) &
+    ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath "$heavy" > "$tmp/shard0.log" 2>&1; echo $? > "$tmp/shard0.rc" ) &
   else
     for i in $(seq 0 $((SHARDS - 1))); do
       rx="^($(printf '%s\n' $names | awk -v i="$i" -v n="$SHARDS" 'NR % n == i' | paste -sd'|'))$"
-      ( env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath -run "$rx" "$heavy" > "$tmp/shard$i.log" 2>&1; echo $? > "$tmp/shard$i.rc" ) &
+      ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath -run "$rx" "$heavy" > "$tmp/shard$i.log" 2>&1; echo $? > "$tmp/shard$i.rc" ) &
     done
   fi
 fi

@@ -74,12 +74,7 @@ export function mobileRoute(hash) {
       ...(toolMatch[4] ? { path: dec(toolMatch[4]) } : {}),
       ...(params.get("root") ? { root: params.get("root") } : {}),
       ...(toolMatch[1] === "git" && params.get("commit") ? { commit: params.get("commit") } : {}),
-      ...(toolMatch[1] === "inspector" && (view === "files" || view === "pr") ? { view } : {}),
-      // Git's Delivery view carries its lens the way the desktop's gitHash
-      // does: `view=delivery` plus `lane=deployment`. The lane names which
-      // lens is open and carries no path, permission or execution intent
-      // (ADR-0170).
-      ...(toolMatch[1] === "git" && view === "delivery" ? { view, ...(params.get("lane") === "deployment" ? { lane: "deployment" } : {}) } : {}) };
+      ...(toolMatch[1] === "inspector" && (view === "files" || view === "pr") ? { view } : {}) };
   }
   const parts = h.split("/").filter(Boolean);
   const head = parts[0] || "";
@@ -184,7 +179,7 @@ export function parentHash(route, wsId) {
 }
 
 // Compatible desktop links, with the optional folder equality precondition.
-export function toolHash(screen, owner, { path = "", root = "", commit = "", view = "", lane = "" } = {}) {
+export function toolHash(screen, owner, { path = "", root = "", commit = "", view = "" } = {}) {
   const kind = { agent: "a", term: "t", workspace: "w" }[owner.kind];
   if (!kind || !owner.id) return "#/work";
   const head = screen === "git" ? "git" : screen === "inspector" ? "inspector" : path ? "file" : "tree";
@@ -192,8 +187,5 @@ export function toolHash(screen, owner, { path = "", root = "", commit = "", vie
   if (root) params.set("root", root);
   if (screen === "git" && commit) params.set("commit", commit);
   if (screen === "inspector" && view) params.set("view", view);
-  // The lens travels only with Git's Delivery view, the rule the desktop's
-  // gitHash writes and reads (ADR-0170).
-  if (screen === "git" && view === "delivery") { params.set("view", view); if (lane === "deployment") params.set("lane", lane); }
   return "#/" + head + "/" + kind + "/" + encodeURIComponent(owner.id) + (head === "file" ? "/" + encodeURIComponent(path) : "") + (params.size ? "?" + params : "");
 }

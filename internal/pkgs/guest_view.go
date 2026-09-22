@@ -1,7 +1,7 @@
-// The guest pane's JSON, derived from the unified model (ADR-0176 slice 2), as
-// legacy.go derives Pi's. The bytes the pane parses stay exactly what the
-// handlers answered while they called clipkgs directly: these mappers are pure,
-// so the two can be compared over fixtures in a test instead of trusted.
+// The guest pane's JSON, derived from the unified model (ADR-0176 slices 2 and
+// 2b), as legacy.go derives Pi's. The bytes the pane parses stay exactly what
+// the handlers answered while they called clipkgs directly: these mappers are
+// pure, so the two can be compared over fixtures in a test instead of trusted.
 package pkgs
 
 import "github.com/cfpperche/picode/internal/clipkgs"
@@ -62,8 +62,8 @@ func GuestMarketplaces(cli string, rows []Row) MarketplacesView {
 }
 
 // GuestViewOf is the same payload built from the engine's own report: the
-// mutation handlers read through clipkgs and answer with this until they move
-// onto the driver (slice 2b).
+// engine-side twin of Guest, which the byte-equality test compares the driver's
+// mapping against.
 func GuestViewOf(cli string, rep clipkgs.Report) GuestView {
 	rows := rep.Rows
 	if rows == nil {
@@ -79,6 +79,32 @@ func GuestViewOf(cli string, rep clipkgs.Report) GuestView {
 		ReadAt:    rep.ReadAt,
 		CheckedAt: rep.CheckedAt,
 	}
+}
+
+// MarketplaceSourcesView is POST /api/cli-packages/marketplace with action
+// `remove` as the pane reads it: the CLI's sources after the removal. It carries
+// no `cli` key of its own — the pane knows which CLI it acted on — and the key
+// order is the one-key map this route answered before it moved to the driver.
+type MarketplaceSourcesView struct {
+	Marketplaces []clipkgs.Row `json:"marketplaces"`
+}
+
+// GuestMarketplaceSources maps the CLI's remaining source rows onto that
+// payload.
+func GuestMarketplaceSources(rows []Row) MarketplaceSourcesView {
+	return MarketplaceSourcesView{Marketplaces: guestRowsLegacy(rows)}
+}
+
+// InspectView is POST /api/cli-packages/inspect as the pane reads it: the
+// vendor's own inspection output for one plugin, in the vendor's words.
+type InspectView struct {
+	CLI    string `json:"cli"`
+	Output string `json:"output"`
+}
+
+// GuestInspect maps one inspection onto that payload.
+func GuestInspect(cli, output string) InspectView {
+	return InspectView{CLI: cli, Output: output}
 }
 
 // guestScopes is the declaration's scopes as the pane shows them: the CLI's own

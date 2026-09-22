@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -418,7 +419,8 @@ func handleCredentialImport(deps Deps) http.HandlerFunc {
 			// sign-in of a store that carries no account name has to be kept
 			// beside the first instead of replacing it (ADR-0166's rule: the
 			// vault never silently eats a login).
-			As string `json:"as"`
+			As      string `json:"as"`
+			Preview bool   `json:"preview"`
 		}
 		if !readCLIJSON(w, r, &req) {
 			return
@@ -429,11 +431,48 @@ func handleCredentialImport(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "No saved login was found for this CLI on this machine.")
 			return
 		}
+		// What this import would do, before doing it: the pane asks the
+		// person to name a login BEFORE the write when the write would
+		// replace an unnamed one — after the write, the replaced tokens are
+		// already gone (2026-09-21).
+		if req.Preview {
+			who := login.Label
+			if who == "" {
+				who = deps.usageClient().Identity(r.Context(), login.Provider, accessTokenOf(login.Cred))
+			}
+			identity := strings.TrimSpace(req.As)
+			if identity == "" {
+				identity = login.Identity
+			}
+			if identity == "" {
+				identity = who
+			}
+			id := credentials.Key(login.Cred, identity)[:12]
+			existing, found, err := credentials.Default().Row(login.Provider, id)
+			if err != nil {
+				writeVaultErr(w, err)
+				return
+			}
+			out := map[string]any{
+				"preview": true,
+				"created": !found,
+				"who":     who,
+				"stamp":   tokenStamp(login.Cred),
+			}
+			if identity != "" {
+				out["identity"] = identity
+			}
+			if found {
+				out["existing"] = rowView(existing)
+			}
+			writeJSON(w, http.StatusOK, out)
+			return
+		}
 		// What this login is called, in the order that keeps rows honest: the
-		// name the person gave, the account the store itself names (Grok's
-		// principal, Codex's account id), else the account the vendor's own
-		// profile endpoint answers with on this explicit click. An unnamed
-		// login is one row per provider, and the pane says so.
+		// name the person gave, the account the store itself names, else the
+		// account the vendor's own profile endpoint answers with on this
+		// explicit click. An unnamed login is one row per provider, and the
+		// pane says so.
 		who := login.Label
 		if who == "" {
 			who = deps.usageClient().Identity(r.Context(), login.Provider, accessTokenOf(login.Cred))
@@ -458,6 +497,15 @@ func handleCredentialImport(deps Deps) http.HandlerFunc {
 		if err != nil {
 			writeVaultErr(w, err)
 			return
+		}
+		// The name the person typed is what the row shows — not the generic
+		// label the counter handed out.
+		if strings.TrimSpace(req.As) != "" && isDefaultLabel(row.Label) {
+			if err := catalog.RenameAccount(login.Provider, row.ID, strings.TrimSpace(req.As)); err != nil {
+				writeVaultErr(w, err)
+				return
+			}
+			row.Label = strings.TrimSpace(req.As)
 		}
 		if who != "" {
 			_ = credentials.Default().SetIdentity(login.Provider, row.ID, who, "")
@@ -515,6 +563,18 @@ func liveRowID(provider string, rows []catalog.Account, login clicreds.Login) st
 	}
 	return ""
 }
+
+// isDefaultLabel reports the labels the counter hands out ("Default",
+// "Account 2", …): a named login replaces them, a person's own label stays.
+func isDefaultLabel(label string) bool {
+	label = strings.TrimSpace(label)
+	if label == "" || label == "Default" {
+		return true
+	}
+	return defaultLabelRe.MatchString(label)
+}
+
+var defaultLabelRe = regexp.MustCompile(`^Account \d+$`)
 
 // accessTokenOf reads the OAuth access token out of a vault credential, for
 // the callers that need to ask a vendor who the account is.

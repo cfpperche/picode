@@ -141,17 +141,18 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // equivalent for, linked rather than hidden behind a menu item (ADR-0169).
   const customDoor = data && data.custom && data.custom.available ? (data.custom.href || cliProvidersHash("pi", { custom: true })) : "";
   const total = providers.reduce((n, p) => n + ((p.accounts || []).length), 0);
-  // With one provider, the bar's Add already says everything a per-provider
-  // one would: the same dialog, the same preselection. It is only when a CLI
-  // has several that a per-provider Add earns its place.
-  const multiProvider = providers.length > 1;
   const canAddKey = addKind === "key" && providers.length > 0;
-  const perProviderAdd = canAddKey && multiProvider ? addLabel : "";
+  // The bar's primary exists wherever the CLI can add anything: pi opens its
+  // catalog dialog, a guest opens the key dialog whose select lists the CLI's
+  // own providers. With that button up in the bar, a per-provider Add would
+  // say the same thing one row below it — so it only earns its place when the
+  // bar cannot offer a primary at all (no providers, or nothing to add).
+  const barPrimary = !!addSpec && providers.length > 0;
+  const perProviderAdd = canAddKey && !barPrimary ? addLabel : "";
   // The bar outlives an empty roster only where Add can work on its own: pi's
   // dialog also carries the custom-provider door, so it needs no provider to
   // already exist.
   const bar = providers.length > 0 || addKind === "provider";
-  const barPrimary = !!addSpec && (addKind === "provider" || (providers.length > 0 && !multiProvider));
   // The legend names columns: with no rows under it there is nothing to name.
   const anyRows = providers.some((p) => (p.accounts || []).length > 0);
 
@@ -264,7 +265,21 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   async function checkSignin() {
     setBusy("check");
     try {
-      let row = await api("/api/credentials/import", json("POST", { cli }));
+      // Ask BEFORE the write: preview says whether this login would replace
+      // an unnamed one, and after the write the replaced tokens are already
+      // gone — the name has to come first.
+      const pre = await api("/api/credentials/import", json("POST", { cli, preview: true }));
+      let as = "";
+      if (!pre.created && !pre.identity) {
+        const name = await askPrompt({
+          title: "Name this login",
+          message: "This CLI's store carries no account name, so its logins cannot be told apart. Name this one and the next sign-in is kept beside it instead of on top of it.",
+          defaultValue: pre.who || "",
+          confirmLabel: "Name it",
+        });
+        if (name) as = name;
+      }
+      const row = await api("/api/credentials/import", json("POST", { cli, ...(as ? { as } : {}) }));
       // The file still holds the account that was there when Sign in was
       // clicked. Closing the strip here is a lie: no second account arrived.
       if (signin && signin.stamp && row.stamp === signin.stamp) {
@@ -274,19 +289,9 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
         }));
         return;
       }
-      // A store that carries no account name would have this sign-in replace
-      // the row already there. Ask, then keep both.
-      if (row.created === false && !row.identity) {
-        const name = await askPrompt({
-          title: "Name this login",
-          message: "This CLI's store carries no account name, so its logins cannot be told apart. Name this one and the next sign-in is kept beside it instead of on top of it.",
-          defaultValue: row.who || "",
-          confirmLabel: "Name it",
-        });
-        if (name) row = await api("/api/credentials/import", json("POST", { cli, as: name }));
-      }
       setSignin(null);
-      toast.ok(row.who ? "Signed in as " + row.who + "." : "Saved to the vault.");
+      if (as) toast.ok("Saved as " + as + ".");
+      else toast.ok(row.who ? "Signed in as " + row.who + "." : "Saved to the vault.");
       await load();
     } catch (ex) {
       setSignin((prev) => ({
