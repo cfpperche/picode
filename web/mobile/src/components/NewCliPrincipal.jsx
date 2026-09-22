@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
 import * as Dialog from "./MobileSheet.jsx";
 import { api, humanizeError } from "@picode/shared/client/api.js";
-import { managedPrincipalSchema, parseForm } from "@picode/shared/contracts/schemas.js";
+import { managedPrincipalSchema, freeAgentPickSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { catalogForAgent } from "@picode/shared/domain/managedPrincipal.js";
+import FolderField from "./FolderField.jsx";
 
 // Workspace catalog picker (ADR-0159 Fatia 3). Same fields as desktop;
 // the sheet stays a sheet at every width (ADR-0072).
 
+// workspace = { free: true } is the sidebar's free New agent (ADR-0179): same
+// picker, a folder field, POST /api/agents.
 export default function NewCliPrincipal({ open, workspace, onClose, onCreated }) {
+  const free = !!(workspace && workspace.free);
   const [status, setStatus] = useState("loading");
+  const [path, setPath] = useState("");
   const [clis, setClis] = useState([]);
   const [loadError, setLoadError] = useState("");
   const [cliId, setCliId] = useState("");
@@ -24,6 +29,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
     setError("");
     setBusy(false);
     setName("");
+    setPath("");
     setClis([]);
     setCliId("");
     let live = true;
@@ -42,19 +48,23 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   }, [open, retry]);
 
   const selected = clis.find((c) => c.id === cliId);
-  const title = "New agent" + (workspace && workspace.name ? " in " + workspace.name : "");
+  const title = "New agent" + (!free && workspace && workspace.name ? " in " + workspace.name : "");
 
   async function onSubmit(e) {
     e.preventDefault();
-    const parsed = parseForm(managedPrincipalSchema, { cli: cliId, name });
+    const parsed = free
+      ? parseForm(freeAgentPickSchema, { cli: cliId, name, path })
+      : parseForm(managedPrincipalSchema, { cli: cliId, name });
     if (!parsed.ok) { setError(parsed.error); return; }
-    if (!workspace || !workspace.id) { setError("Pick a workspace first."); return; }
+    if (!free && (!workspace || !workspace.id)) { setError("Pick a workspace first."); return; }
     setError("");
     setBusy(true);
     try {
       const body = { cli: parsed.value.cli };
       if (parsed.value.name) body.name = parsed.value.name;
-      const created = await api("/api/workspaces/" + encodeURIComponent(workspace.id) + "/agents", {
+      if (free && parsed.value.path) body.path = parsed.value.path;
+      const url = free ? "/api/agents" : "/api/workspaces/" + encodeURIComponent(workspace.id) + "/agents";
+      const created = await api(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -112,6 +122,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
           onChange={(e) => setName(e.target.value)}
           disabled={!!busy}
         />
+        {free ? <FolderField name="path" placeholder="Folder (optional — a private work folder when empty)" value={path} onChange={setPath} resetKey={open} /> : null}
         <p className="form-error" hidden={!error}>{error}</p>
         <div className="dlg-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={!!busy}>Cancel</button>
@@ -127,7 +138,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">{title}</Dialog.Title>
-          <Dialog.Description className="dlg-body">Pick which agent runs in this folder.</Dialog.Description>
+          <Dialog.Description className="dlg-body">{free ? "Pick which agent runs, and the folder it works in." : "Pick which agent runs in this folder."}</Dialog.Description>
           {body}
         </Dialog.Content>
       </Dialog.Portal>
