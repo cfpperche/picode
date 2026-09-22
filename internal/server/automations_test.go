@@ -71,9 +71,12 @@ func TestDecideFire(t *testing.T) {
 		{"agent_in_terminal", fireInput{Enabled: true, Action: store.AutomationStart, AgentMode: modeInteractive}, fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}},
 		{"start_ok", fireInput{Enabled: true, Action: store.AutomationStart, AgentMode: modeStopped}, fireDecision{}},
 		{"target_gone", fireInput{Enabled: true, Action: store.AutomationMessage}, fireDecision{Status: store.RunFailed, Reason: reasonTargetGone, Notify: true}},
-		{"target_interactive", fireInput{Enabled: true, Action: store.AutomationMessage, TargetExists: true, AgentMode: modeInteractive}, fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}},
-		{"message_needs_pi_to_start_the_agent", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, AgentMode: modeStopped}, fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}},
-		{"message_to_a_running_agent_needs_no_pi", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, AgentMode: modeManaged}, fireDecision{}},
+		{"target_interactive", fireInput{Enabled: true, Action: store.AutomationMessage, TargetExists: true, TargetIsPi: true, AgentMode: modeInteractive}, fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}},
+		{"message_needs_pi_to_start_the_agent", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, TargetIsPi: true, AgentMode: modeStopped}, fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}},
+		{"message_to_a_running_agent_needs_no_pi", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, TargetIsPi: true, AgentMode: modeManaged}, fireDecision{}},
+		{"message_to_a_guest_with_its_terminal_open_delivers", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, TargetIsPi: false, AgentMode: modeInteractive}, fireDecision{}},
+		{"message_to_a_guest_with_its_terminal_closed_is_skipped", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, TargetIsPi: false, AgentMode: modeStopped}, fireDecision{Status: store.RunSkipped, Reason: reasonTermClosed}},
+		{"message_to_a_pi_agent_in_its_terminal_is_skipped", fireInput{Enabled: true, Action: store.AutomationMessage, TargetExists: true, TargetIsPi: true, AgentMode: modeInteractive}, fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}},
 	}
 	for _, c := range cases {
 		if got := decideFire(c.in); got != c.want {

@@ -67,6 +67,41 @@ D1a introduced declarations only. D1b adds the observation and desktop/mobile
 presentation described below; publication remains the next separate slice in
 [the delivery plan](../plans/delivery-flow.md).
 
+## The integration queue (ADR-0182)
+
+`internal/store/delivery_queue.go` owns one table from migration 066, built with
+the mechanics the declarations proved: the row's truth lives in its JSON body,
+`delivery_queue_requests` receipts compare byte-for-byte so a retry replays
+instead of writing twice, the row and the `delivery.changed` event commit in the
+same transaction, and the delivery mutex serializes both stores because they feed
+one view. States are `waiting → authorized → running → done | failed`, plus
+`withdrawn`; `order` and `authorize` are refused for every actor but
+`store.OwnerActor`, so the owner's authority holds even where a door forgets to
+check it, and an agent withdraws only its own entry. One active entry per
+delivery is an invariant, and the entry names a declaration of its repository.
+
+Eligibility is deliberately **not** stored: the branch still pointing at the
+reviewed revision, the target not having moved and the evidence still covering
+that revision are derived from Git and receipts when an entry is read or run, so
+a stale approval can never ride along inside the row.
+
+The owner's doors are `POST /api/{workspaces|agents|terminals}/{id}/delivery/queue`
+(act as `store.OwnerActor`; the store refuses `order` and `authorize` for anyone
+else) and `GET|PUT /api/delivery/integration`, the **declaration** of how a
+project integrates — `ffOnly` plus up to eight single-line commands, written per
+workspace with the machine as the fallback layer and a built-in default
+(`ffOnly`, no checks) when neither declares. The Delivery read carries both: its
+payload gains `queue` and the already-resolved `integration`, so a surface never
+has to repeat the fallback. The agent's half rides the delivery tool contract: `request-integration` asks for
+a place for the launch's **own** delivery, naming the revision and target the
+delivery declares — the store checks both, so a drifted or unreviewed revision
+cannot be queued — and `withdraw-integration` takes it back by the entry's own id
+and version, which `show` prints. All three faces (the `picode delivery` command,
+the MCP family and the pi package) offer the same actions and the same fields,
+and a test compares the enum of one with the action list of the other. The
+serialized executor and the Delivery-view lane are the slice's remaining steps
+(`docs/plans/delivery-flow.md`, D3).
+
 ## Integration observation (ADR-0170, D1b)
 
 `internal/delivery` reads local refs, explicit target ancestry, checkout state and

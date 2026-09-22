@@ -211,7 +211,7 @@ func TestServerURL(t *testing.T) {
 // Steps must stay in dependency order: fixing the service before systemd runs,
 // or checking health before the service exists, reports nonsense.
 func TestStepsAreInDependencyOrder(t *testing.T) {
-	want := []string{"wsl-conf", "systemd", "linger", "cert", "service", "health", "pi", "tailnet", "tailnet-cert", "reach"}
+	want := []string{"wsl-conf", "systemd", "linger", "cert", "service", "health", "clis", "tailnet", "tailnet-cert", "reach"}
 	steps := Steps()
 	if len(steps) != len(want) {
 		t.Fatalf("got %d steps, want %d", len(steps), len(want))
@@ -223,21 +223,27 @@ func TestStepsAreInDependencyOrder(t *testing.T) {
 	}
 }
 
-func TestPiStep(t *testing.T) {
+// The CLI step is informational (ADR-0179): it names what is on PATH and
+// never blocks — a machine with no agent CLI still converges.
+func TestCLIsStep(t *testing.T) {
 	old := lookPath
 	lookPath = func(name string) (string, error) {
-		if name == "pi" {
-			return "/usr/bin/pi", nil
+		if name == "claude" || name == "omp" {
+			return "/usr/bin/" + name, nil
 		}
 		return "", errors.New("no")
 	}
 	t.Cleanup(func() { lookPath = old })
-	if got := piStep().Check(Env{}); got.Status != StatusOK {
+	got := clisStep().Check(Env{})
+	if got.Status != StatusOK || !strings.Contains(got.Detail, "Claude Code") || !strings.Contains(got.Detail, "Omp") || strings.Contains(got.Detail, "Pi,") {
 		t.Fatalf("%+v", got)
 	}
 	lookPath = func(string) (string, error) { return "", errors.New("no") }
-	if got := piStep().Check(Env{}); got.Status != StatusBlocked || !strings.Contains(got.Detail, "npm install") {
+	if got := clisStep().Check(Env{}); got.Status != StatusOK || !strings.Contains(got.Detail, "none yet") {
 		t.Fatalf("%+v", got)
+	}
+	if clisStep().Fix(Env{}) != nil {
+		t.Fatal("the CLI step has nothing to fix")
 	}
 }
 

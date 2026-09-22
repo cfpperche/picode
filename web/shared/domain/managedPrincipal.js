@@ -8,14 +8,14 @@ export function catalogForPrincipal(clis) {
   return (clis || []).filter((c) => c && c.id && c.launchable !== false && c.installed);
 }
 
-// Workspace New → Agent (ADR-0160): Pi is always first (managed + TUI),
-// then every installed launchable CLI. Uninstalled CLIs stay off the
-// list; the Agent CLIs hub is how you install them.
+// New → Agent, in a workspace or free (ADR-0160, ADR-0179): Pi first when
+// it is installed (managed + TUI), then every other installed launchable
+// CLI. An absent Pi is absent like any other CLI — the picker never offers
+// a runtime that cannot launch; the Agent CLIs hub is how you install one.
 export function catalogForAgent(clis) {
-  const rest = catalogForPrincipal(clis).filter((c) => c.id !== "pi");
-  const raw = (clis || []).find((c) => c && c.id === "pi");
-  const pi = { id: "pi", name: (raw && raw.name) || "Pi", installed: true, launchable: true };
-  return [pi, ...rest];
+  const rows = catalogForPrincipal(clis);
+  const pi = rows.find((c) => c.id === "pi");
+  return pi ? [pi, ...rows.filter((c) => c.id !== "pi")] : rows;
 }
 
 export function agentIsPi(agent) {

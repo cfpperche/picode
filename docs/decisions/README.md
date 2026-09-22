@@ -7,7 +7,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 |---|---|---|
 | [0001](0001-browser-go-binary.md) | Browser app served by single Go binary (`go:embed`) | accepted |
 | [0002](0002-dual-channel-tmux-rpc.md) | Dual-channel agent control: tmux PTY + pi RPC | accepted |
-| [0003](0003-user-installed-pi.md) | Depend on user-installed Pi, no vendoring | accepted |
+| [0003](0003-user-installed-pi.md) | Depend on user-installed Pi, no vendoring | accepted; the "requires pi on PATH" half superseded by 0179 (no vendoring stands) |
 | [0004](0004-defer-frontend-framework.md) | Defer frontend framework — vanilla ES + vendored xterm.js | superseded by 0008 |
 | [0008](0008-react-vite-tailwind.md) | React + Vite + Tailwind; tokens stay the design system | accepted |
 | [0009](0009-lifecycle-surfaces.md) | Catalog from pi; auth via `/login`; MCP not in wizard | accepted |
@@ -102,7 +102,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0095](0095-mobile-files-git.md) | Mobile files, editing and Git workflows | accepted; amended 2026-09-08 (the graph's write vocabulary as a sheet) |
 | [0096](0096-git-graph-write-actions.md) | The git graph acts on what you point at: target-bound actions in risk tiers, delivered through ADR-0078's three doors; git never runs in the service process | accepted, amends 0022/0032/0038/0073, extends 0078; amended 2026-09-08 after an adversarial review |
 | [0097](0097-cross-cli-dashboard-metrics.md) | The dashboard measures every agent CLI, not just pi, and every metric carries a state saying whether that CLI could report it | proposed, amends 0041/0042 |
-| [0098](0098-windows-clean-install.md) | Windows clean-machine install — the desktop exe installs the Linux binary and the runtime (tmux, Node, pi) itself; first run through `install.ps1` (no SmartScreen), winget as a second door, no paid signing; imported PiCode distro as a later opt-in | accepted, extends 0020 and 0093, amends 0003's first-run boundary; amended 2026-09-08 |
+| [0098](0098-windows-clean-install.md) | Windows clean-machine install — the desktop exe installs the Linux binary and the runtime (tmux, Node, pi) itself; first run through `install.ps1` (no SmartScreen), winget as a second door, no paid signing; imported PiCode distro as a later opt-in | accepted, extends 0020 and 0093, amends 0003's first-run boundary; amended 2026-09-08; runtime without pi since 0179 (2026-09-22) |
 | [0099](0099-package-configuration-gui.md) | Packages with a known adapter get a config GUI that edits the extension's own files (workspace layer + agent overlay); reset is scoped, never one button | accepted, extends 0010/0028, supersedes 0033 §5 "No PiCode GUI page" |
 | [0100](0100-pin-reminders.md) | Pin reminders — a `pin_reminders` row (once / interval with schedule-or-completion anchor / cron in a named zone) fired by the one-minute engine into an Inbox item that is the acknowledgement state; sticky notice + push as projections; missed slot fires once | accepted 2026-09-08, builds on 0037, 0045, 0048 |
 | [0101](0101-settings-under-agent-clis.md) | Native Settings under Agent CLIs, contextual URLs and legacy redirects | accepted; supersedes 0012 navigation |
@@ -183,4 +183,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0176](0176-packages-unification.md) | One package subsystem — `internal/pkgs` with a `Driver`/`Caps`/`Row` model, scope as a declared capability (machine/workspace/agent), one `/api/packages*` family and one pane; `pipkg` and `clipkgs` become drivers with their readers, argv builders, parsers, fixtures, gallery and descriptors intact; supersedes 0167's engine clause, amends 0010 | proposed, plan: `docs/plans/packages-unification.md` |
 | [0177](0177-delivery-lens-removed.md) | Delivery's publication lens is removed from the product | accepted |
 | [0178](0178-guest-oauth-from-picode.md) | Guided vendor OAuth from the Providers pane — the engine behind pi’s Add provider serves guests (omp first), tokens land in the vault and travel by env | accepted, supersedes 0168’s client-id clause |
-| [0180](0180-terminal-browser-handoff.md) | terminal-browser-handoff | proposed |
+| [0179](0179-agent-clis-optional.md) | Agent CLIs are optional; tmux is the only runtime dependency — install, provision, System and the desktop installer report which CLIs are present and require none; free agents may name any launchable CLI | proposed (direction approved by the owner, 2026-09-22); supersedes 0003's requirement, amends 0045/0050/0098/0160 |
+| [0180](0180-terminal-browser-handoff.md) | terminal-browser-handoff | accepted (owner, 2026-09-22) |
+| [0181](0181-structured-cli-settings.md) | A settings row may be a role or an ordered list, and its path may come from the vendor (omp's model roles, fallback chains and quick-switch cycle) | accepted (owner, 2026-09-22), amends 0163 |
+| [0182](0182-integration-queue.md) | The integration queue — a durable per-repository queue of integration intents, eligibility bound to the reviewed revision and expiring with it, executing the operation the project declares through PiCode's own runner (never one repository's land script); any project may use it and PiCode works without it | accepted (owner, 2026-09-22) |

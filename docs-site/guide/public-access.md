@@ -64,8 +64,8 @@ it, over loopback, which is why `trustedProxies` is `127.0.0.1/32`.
 
 ## A container per person
 
-For people you do not know, a Linux user is a thin fence: `pi` is a
-shell. Put each member's PiCode in a container instead:
+For people you do not know, a Linux user is a thin fence: an agent CLI
+is a shell. Put each member's PiCode in a container instead:
 
 ```sh
 sudo apt install systemd-container debootstrap    # once per box
@@ -73,10 +73,10 @@ sudo picode provision --user alice --shared --container
 ```
 
 Alice gets a root filesystem of her own (a minimal image of the box's
-release with `pi`, `tmux`, `git`), her home bound in, a private user
+release with `tmux`, `git`, Node.js and npm — she installs the agent CLIs she uses from Agent CLIs), her home bound in, a private user
 namespace, no capabilities to speak of, and limits (2 CPUs, 4 GB, 512
 tasks). She cannot see the host's `/etc`, other homes or the host's
-`pi` settings. What she still shares: the kernel and the network stack.
+CLI settings. What she still shares: the kernel and the network stack.
 For anything stronger — strangers paying for it — the next step is a VM
 per person, which is a different product decision.
 

@@ -57,7 +57,7 @@ type Deps struct {
 	Store        *store.Store
 	Tmux         *tmux.Manager
 	Runtime      *rpc.Runtime
-	AgentCmd     string // command spawned per workspace ("pi" — ADR-0003)
+	AgentCmd     string // the pi command for managed Pi agents; no other CLI depends on it (ADR-0179)
 
 	// Usage is the vendor-call client (quota listings, account identity).
 	// Nil means usage.Default; tests point it at a local server so no test
@@ -257,7 +257,6 @@ func registerAll(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/health", handleHealth)
 	mux.HandleFunc("GET /api/version", handleVersion)
 	mux.HandleFunc("GET /api/system", handleSystem(deps))
-	mux.HandleFunc("POST /api/system/pi-update", handlePiSelfUpdate(deps))
 	mux.HandleFunc("GET /api/catalog", handleCatalog(deps))
 	mux.HandleFunc("GET /api/share", handleShare(deps))
 	registerMCPRoutes(mux, deps)
@@ -265,7 +264,6 @@ func registerAll(mux Registrar, deps Deps) {
 	registerPeerCommunication(mux, deps)
 	registerPeerOnboarding(mux, deps)
 	registerPackageRoutes(mux, deps)
-	registerCLIPackageRoutes(mux, deps)
 	registerDockerRoutes(mux, deps)
 	registerDeviceRoutes(mux, &deps)
 
@@ -283,6 +281,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerChecklistRoutes(mux, deps)
 	registerDeliveryRoutes(mux, deps)
 	registerDeliveryObservationRoutes(mux, deps)
+	registerDeliveryQueueRoutes(mux, deps)
 	registerAgentFileRoutes(mux, deps)
 	registerPreviewRoutes(mux, deps)
 	registerDevServerRoutes(mux, deps)

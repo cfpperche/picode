@@ -245,15 +245,27 @@ func TestSystemEndpoint(t *testing.T) {
 	}
 	defer res.Body.Close()
 
+	rawBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	raw := string(rawBytes)
 	var body systemReport
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+	if err := json.Unmarshal(rawBytes, &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if _, err := exec.LookPath("tmux"); err == nil && !body.Tmux.Installed {
 		t.Error("tmux installed but report says otherwise")
 	}
-	if _, err := exec.LookPath("cat"); err == nil && !body.Pi.Installed {
-		t.Error("agent cmd (cat) installed but report says pi missing")
+	// ADR-0179: no agent CLI is probed by /api/system — the report must not
+	// carry a pi key or a "pi is not installed" warning even with pi absent.
+	if strings.Contains(raw, `"pi"`) {
+		t.Errorf("report still carries a pi block: %s", raw)
+	}
+	for _, w := range body.Warnings {
+		if strings.Contains(strings.ToLower(w), "pi is not installed") {
+			t.Errorf("report warns about pi: %q", w)
+		}
 	}
 	if _, err := exec.LookPath("tailscale"); err == nil && !body.Tailscale.Installed {
 		t.Error("tailscale installed but report says otherwise")

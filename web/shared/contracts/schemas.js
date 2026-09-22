@@ -85,6 +85,14 @@ export const managedPrincipalSchema = z.object({
   name: z.string().trim().max(80, "Use up to 80 characters for the name."),
 });
 
+// Free New → Agent (ADR-0179): any launchable CLI, a name (the work folder
+// is derived from it when no folder is given) and an optional folder.
+export const freeAgentPickSchema = z.object({
+  cli: required("CLI").max(64, "Unknown CLI."),
+  name: required("Name").max(80, "Use up to 80 characters for the name."),
+  path: z.string().trim(),
+});
+
 export const cliProfileSchema = z.object({ name: required("Profile name").max(80, "Use up to 80 characters for the name.") });
 
 // Cross-CLI session handoff (ADR-0088): the choices the dialog sends.

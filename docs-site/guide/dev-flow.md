@@ -24,6 +24,7 @@ feature, `feat/cascade-delete`, carries through both.
     <div class="devflow-step"><span class="devflow-kicker">Substantial feature</span> adapt and cite a <code>docs/benchmarks/</code> note (Cursor, t3code, paseo)</div>
     <div class="devflow-decide"><span class="devflow-q">Crosses a boundary</span> — protocol, persistence, security model, process?</div>
     <div class="devflow-branch"><span class="devflow-tag yes">yes</span><code>make adr NAME=…</code> seeds the record before the first edit</div>
+    <div class="devflow-branch"><span class="devflow-tag no">no</span>straight on — a UI refinement or a route move needs no record; behavior changes still land in <code>docs/architecture/</code></div>
   </div>
 </section>
 
@@ -113,6 +114,111 @@ feature, `feat/cascade-delete`, carries through both.
 - Screen evidence lives in `var/screenshots/` (gitignored), not in the repo's
   frozen history under `docs/screenshots/`.
 
+## When the flow bends
+
+Every step above can refuse — and a refusal names the state that makes the
+step unsafe, it does not ask to be routed around. Each card quotes the message
+the command actually prints; when a script is refactored its quote is what
+goes stale first, so re-grep the phrase before trusting a card.
+
+<div class="bend">
+
+<div class="bend-item">
+<p class="bend-when"><code>make ci</code> fails after the fast-forward</p>
+<p class="bend-says"><code>land: make ci FAILED on main at &lt;sha&gt; — fix it (the branch is already merged; a follow-up branch is the honest fix).</code></p>
+<p class="bend-do">Open a follow-up branch. Never rewind <code>main</code> — that guard exists because a stale fast-forward once erased merged work.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when"><code>make land</code> cannot fast-forward</p>
+<p class="bend-says"><code>main cannot fast-forward to &lt;branch&gt;: either it is merged already, or it needs make close (merge main into the branch) first.</code></p>
+<p class="bend-do">Merge <code>main</code> into the branch, run <code>make close</code> again, land after.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when"><code>make land</code> refuses the root</p>
+<p class="bend-says"><code>the root checkout has local changes to N path(s) this branch also changes: …</code></p>
+<p class="bend-do">Park or finish that overlapping edit first — <code>git add -A</code> is not a way past it.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when"><code>make deploy</code> refuses</p>
+<p class="bend-says"><code>a restart would end 1 turn(s): terminal "codex" is working</code> … <code>Wait, or picode deploy --force (PICODE_DEPLOY_FORCE=1 for make deploy).</code></p>
+<p class="bend-do">Wait for a quiet window. Force is the owner's call, and never fires while your own jobs are in flight.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when"><code>make handoff</code> names an invisible topic file</p>
+<p class="bend-says"><code>handoff: a topic file is invisible — it lists bullets but none under a ## Next or ## Debts heading</code> … <code>Fix: add the heading, or delete the bullets if they are not open items.</code></p>
+<p class="bend-do">Put the bullets under a heading the board reads. Deleting another session's line to silence the error is not a fix.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when">The board is over its target</p>
+<p class="bend-says">A warning, never a gate (ADR-0145): it still renders, <code>make close</code> still passes.</p>
+<p class="bend-do">Prune by paying debts, not by trimming what the team wrote down.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when">A session cannot finish</p>
+<p class="bend-says">Nothing prints — the branch just sits there.</p>
+<p class="bend-do">Leave the tree compiling and green; write the gap in <code>docs/handoff/open/&lt;topic&gt;.md</code>. <code>make worktree-status</code> marks it <code>stalled: …</code> — <code>no commits yet</code>, <code>nothing committed — empty branch</code>, or idle past a day.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when">A commit is refused over a living doc</p>
+<p class="bend-says"><code>CHANGELOG.md no longer starts with # Changelog.</code> … <code>a parallel session likely wrote into this worktree</code></p>
+<p class="bend-do"><code>git restore --staged --worktree &lt;file&gt;</code>, re-apply the edit, stage explicit paths.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when">A commit on <code>main</code> is refused</p>
+<p class="bend-says"><code>Refusing to commit a new session note directly on main (ADR-0149).</code></p>
+<p class="bend-do">A new note belongs to its branch. <code>main</code> accepts an amendment to a note that landed, or a new <code>docs/handoff/open/&lt;topic&gt;.md</code>.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when"><code>make vale</code> flags repo vocabulary</p>
+<p class="bend-says"><code>error  Possible typo: '&lt;word&gt;'.  PiCode.Spelling</code></p>
+<p class="bend-do">Add the word to <code>styles/config/vocabularies/PiCode/accept.txt</code> in the branch — the gate checks spelling, not style.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when">A docs link is dead</p>
+<p class="bend-says">The build fails, so Pages never updates — it froze for days this way once.</p>
+<p class="bend-do">Point the link at a real page; local examples are inline code, never bare URLs (<code>ignoreDeadLinks</code> covers only <code>localhost</code> and <code>127.0.0.1</code>).</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when"><code>make worktree-gc</code> keeps a tree</p>
+<p class="bend-says"><code>keep .worktrees/x (feat/x: written in the last hour; FORCE=1 to remove)</code> — or <code>not merged</code>, <code>dirty</code></p>
+<p class="bend-do">Read the reason. Recent is not garbage; <code>dirty</code> means someone still needs it.</p>
+</div>
+
+<div class="bend-item">
+<p class="bend-when">A debt outlives its note</p>
+<p class="bend-says">Nothing prints; a note's sections drop off the board after 7 days.</p>
+<p class="bend-do">Promote it to <code>docs/handoff/open/&lt;topic&gt;.md</code> and delete the note's echo in the same commit — one home per item.</p>
+</div>
+
+</div>
+
+### Escape hatches
+
+Each knob below disables a guard on purpose, for a caller who accepts what the
+guard was preventing. The list is short because overrides are rare events.
+
+| Knob | What it disables | Legitimate use |
+|---|---|---|
+| `PICODE_ALLOW_SWITCH=1` | the rule that keeps the root checkout on `main` — and, for that command, every `pre-commit` refusal | a deliberate one-off switch, then back to `main` |
+| `PICODE_ALLOW_MAIN_REWIND=1` | the refusal to rewind `main` behind its tip | after a measured mistake, never to "undo" a merge casually |
+| `picode deploy --force`, `PICODE_DEPLOY_FORCE=1` | the mid-turn refusal on deploy | the owner, when the fleet must restart anyway |
+| `FORCE=1` | `make worktree-gc`'s "written in the last hour" keep | a tree that is merged, clean and genuinely abandoned |
+| `--no-verify` | `pre-commit` for one commit | never as a shortcut around a refusal you have not read |
+
+The mutation lock is not on this list: `flock` on `/tmp/picode-mutate.lock`
+serializes deploy and desktop restart, force or not.
+
 ## What this page is not
 
 Not the command reference — the build targets live in
@@ -126,6 +232,18 @@ and any decision can be re-argued with the owner — in a new ADR, never by a
 commit that contradicts one silently.
 
 <style>
+.vp-doc .bend { display: flex; flex-direction: column; gap: 10px; margin: 16px 0 4px; }
+.vp-doc .bend-item {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+  padding: 10px 14px;
+}
+.vp-doc .bend-when { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--vp-c-text-1); }
+.vp-doc .bend-says { margin: 6px 0 0; font-size: 13px; line-height: 1.55; color: var(--vp-c-text-2); }
+.vp-doc .bend-says code { font-size: 12.5px; }
+.vp-doc .bend-do { margin: 8px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--vp-c-text-1); }
+
 .vp-doc .devflow { margin: 20px 0 12px; }
 .vp-doc .devflow-phase {
   border: 1px solid var(--vp-c-divider);
@@ -186,6 +304,11 @@ commit that contradicts one silently.
   border-radius: 999px; font-size: 11px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--vp-c-brand-1); background: var(--vp-c-brand-soft);
+}
+.vp-doc .devflow-tag.no {
+  color: var(--vp-c-text-2);
+  background: transparent;
+  border: 1px solid var(--vp-c-divider);
 }
 .vp-doc .devflow-loop {
   font-size: 12.5px; font-style: italic;

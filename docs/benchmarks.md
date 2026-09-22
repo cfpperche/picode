@@ -51,8 +51,9 @@ GitHub Pages. The app never hosts a docs viewer. See
 1. **One generator, not ours.** VitePress only. No handmade HTML site, no
    in-app iframe, no second copy in the React bundle.
 2. **Reference has anchors.** Slash hints open `/commands#{id}` in a new tab.
-3. **Pi correlation.** When a heading exists in pi, link the canonical doc
-   and a same / changed / TUI-only table. Do not paste pi.
+3. **Vendor correlation.** When a heading exists in a CLI (Pi or any other),
+   link that CLI's canonical doc and a same / changed / TUI-only table. Do
+   not paste vendor docs.
 4. **Diátaxis-ish IA.** Getting started ≠ command reference ≠ internal ADRs.
 5. **Short.** Tables over prose. Status of debts said plainly.
 6. **Feature page rhythm (LibreChat).** A user-visible capability gets
@@ -151,7 +152,7 @@ state = one line + one action; statusbar = live state, not hints).
 
 **Terminal honesty (ttyd)**
 - [ ] The embedded terminal behaves like a terminal: selection, copy/paste,
-      scrollback, resize. Users of the real Pi TUI must feel at home.
+      scrollback, resize. Users of each CLI's real TUI must feel at home.
 
 ### Anti-benchmarks (things we refuse)
 

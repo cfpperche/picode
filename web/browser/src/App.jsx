@@ -108,7 +108,7 @@ import { isSearchTool, hitsFromResult } from "@picode/shared/domain/searchCards.
 import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import PromptDialog from "./components/PromptDialog.jsx";
 import { askPrompt } from "./lib/prompt.js";
-import { locate, firstAgentId, displayAgentName, mentionAgents } from "@picode/shared/domain/tree.js";
+import { locate, ownerOfTerminal, firstAgentId, displayAgentName, mentionAgents } from "@picode/shared/domain/tree.js";
 import { leafUserId } from "./lib/sessionCards.js";
 
 function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
@@ -133,7 +133,7 @@ import { hasUnseenRelease, readSeenVersion, shouldAutoOpen, writeSeenVersion } f
 import ShareGist from "./components/ShareGist.jsx";
 import LlamaPanel from "./components/LlamaPanel.jsx";
 import TermSettingsPage from "./components/TermSettingsPage.jsx";
-import { createWorkspaceSchema, createWorkspaceCloneSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
+import { createWorkspaceSchema, createWorkspaceCloneSchema, createWsAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { parentDir } from "@picode/shared/domain/cloneUrl.js";
 import Toasts from "./components/Toasts.jsx";
 import { useMedia } from "./lib/media.js";
@@ -410,6 +410,9 @@ export default function App({ shellChrome = false } = {}) {
   const located = locate(workspaces, freeAgents, selectedId);
   const selected = located && located.workspace;
   const agent = located && located.agent;
+  // A CLI agent opens as its bound terminal's tab (ADR-0160), so "the selected
+  // agent" for the CLI panes is the agent that owns the selected terminal.
+  const ctxAgent = agent || (isTermTab(selectedId) ? ownerOfTerminal(workspaces, freeAgents, tabTermId(selectedId)) : null);
   // A workspace terminal tab still has that folder as the packages/MCP context
   // (machine list must not disappear — same rule as GET /api/packages).
   const paneWs = selected || (isTermTab(selectedId) ? workspaceForTerminal(terminals, workspaces, tabTermId(selectedId)) : null);
@@ -683,7 +686,7 @@ export default function App({ shellChrome = false } = {}) {
       scrollToEnd();
       if ((t.bytes || 0) > 32 * 1024 * 1024) {
         if (t.compacted) {
-          toast.info("Compacted — the file stays large on disk, so cold boots stay slow until pi loads sessions lazily.");
+          toast.info("Compacted — the session file stays large on disk, so this agent keeps loading slowly after a restart.");
         } else {
           toast.info("Huge session — run /compact to shrink future boots.");
         }
@@ -2200,7 +2203,7 @@ export default function App({ shellChrome = false } = {}) {
     const loc = locate(fleetRef.current.workspaces, fleetRef.current.freeAgents, agentId);
     const found = loc && loc.agent;
     notify(agentFinishNotice({
-      agent: { id: agentId, name: found ? displayAgentName(found) : "Agent", cli: "pi" },
+      agent: { id: agentId, name: found ? displayAgentName(found) : "Agent", cli: (found && found.cli) || "pi" },
       turn: last,
       target: workspaceHash(agentId),
     }));
@@ -2917,7 +2920,10 @@ export default function App({ shellChrome = false } = {}) {
         created = await api("/api/agents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: snap.name, path: snap.workPath || "" }),
+          body: JSON.stringify({
+            cli: snap.cli, name: snap.name, path: snap.workPath || "",
+            provider: snap.provider || "", model: snap.model || "", thinking: snap.thinking || "",
+          }),
         });
       }
       const patch = {};
@@ -3085,7 +3091,7 @@ export default function App({ shellChrome = false } = {}) {
       }
       return;
     }
-    const schema = formKind === "workspace" ? createWorkspaceSchema : formKind === "free" ? createFreeAgentSchema : createWsAgentSchema;
+    const schema = formKind === "workspace" ? createWorkspaceSchema : createWsAgentSchema;
     const parsed = parseForm(schema, formKind === "workspace" ? { name, path } : { name, path, ...newCfg });
     if (!parsed.ok) { setFormError(parsed.error); return; }
     const body = parsed.value;
@@ -3098,14 +3104,6 @@ export default function App({ shellChrome = false } = {}) {
           body: JSON.stringify(body),
         });
         await loadWorkspaces();
-      } else if (formKind === "free") {
-        const ag = await api("/api/agents", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        await loadWorkspaces();
-        openTab(ag.id);
       } else {
         if (!formWs) { setFormError("Name is required."); return; }
         const ag = await api("/api/workspaces/" + formWs + "/agents", {
@@ -3700,7 +3698,7 @@ export default function App({ shellChrome = false } = {}) {
         workspaces={workspaces}
         selectedId={selectedId}
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}
-        onNewFree={() => { setFormKind("free"); setShowForm(true); }}
+        onNewFree={() => { setCliPrincipalWs({ free: true }); }}
         onNewAgent={(id) => {
           const ws = workspaces.find((w) => w.id === id);
           if (ws && ws.id !== "ws_free") setCliPrincipalWs(ws);
@@ -3767,7 +3765,7 @@ export default function App({ shellChrome = false } = {}) {
           inShell: shellChrome,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id }),
+          onNavigate: (kind) => go(kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }),
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,
@@ -4289,13 +4287,13 @@ export default function App({ shellChrome = false } = {}) {
           themeMode={themeMode}
           onTheme={setTheme}
         />
-        <System hidden={route !== "system"} version={version} system={system} />
+        <System hidden={route !== "system"} version={version} system={system} clis={clis} />
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
-        <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
-        <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
-        <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
+        <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
+        <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
+        <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} />
         <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
@@ -4360,7 +4358,7 @@ export default function App({ shellChrome = false } = {}) {
             location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : "");
             return;
           }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
             const via = loc && loc.agent && loc.agent.mode === "interactive" ? "tui" : undefined;

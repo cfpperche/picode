@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { locate, firstAgentId, displayAgentName, agentsOf, paneContext, mentionAgents } from "./tree.js";
+import { locate, firstAgentId, displayAgentName, agentsOf, paneContext, mentionAgents, ownerOfTerminal } from "./tree.js";
 
 const ws = { id: "w1", name: "Repo", agents: [{ id: "a1", name: "default" }, { id: "a2", name: "review" }] };
 
@@ -30,4 +30,13 @@ test("paneContext names agent and folder once", () => {
   assert.equal(paneContext("review", "Repo"), "review · Repo");
   assert.equal(paneContext("Repo", "Repo"), "Repo");
   assert.equal(paneContext("", ""), "");
+});
+
+test("ownerOfTerminal finds the CLI agent bound to a terminal, in a workspace or free", () => {
+  const ws = [{ id: "w", agents: [{ id: "a1", cli: "claude-code", terminalId: "t1" }, { id: "a2", cli: "pi" }] }];
+  const free = [{ id: "f1", cli: "omp", terminalId: "t9" }];
+  assert.equal(ownerOfTerminal(ws, free, "t1").id, "a1");
+  assert.equal(ownerOfTerminal(ws, free, "t9").id, "f1");
+  assert.equal(ownerOfTerminal(ws, free, "loose"), null);
+  assert.equal(ownerOfTerminal(ws, free, ""), null);
 });

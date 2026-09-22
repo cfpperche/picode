@@ -55,7 +55,12 @@ func registerDeliveryObservationRoutes(mux Registrar, deps Deps) {
 				mu.Unlock()
 				select {
 				case <-entry.done:
-					writeJSON(w, 200, entry.view)
+					out, err := queueLayer(deps, route.kind, r.PathValue("id"), repo, entry.view)
+					if err != nil {
+						writeErr(w, 500, err.Error())
+						return
+					}
+					writeJSON(w, 200, out)
 				case <-r.Context().Done():
 				}
 				return
@@ -126,7 +131,12 @@ func registerDeliveryObservationRoutes(mux Registrar, deps Deps) {
 			entry.at = time.Now()
 			close(entry.done)
 			mu.Unlock()
-			writeJSON(w, 200, view)
+			out, err := queueLayer(deps, route.kind, r.PathValue("id"), repo, view)
+			if err != nil {
+				writeErr(w, 500, err.Error())
+				return
+			}
+			writeJSON(w, 200, out)
 		})
 	}
 }

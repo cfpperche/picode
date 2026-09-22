@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/version"
 )
 
@@ -12,7 +11,7 @@ const fullProbe = `@@picode@@
 picode 0.3.1
 @@tools@@
 missing:tmux
-missing:pi
+missing:npm
 v22.14.0
 @@family@@
 ID=ubuntu
@@ -25,7 +24,7 @@ func TestParseProbe(t *testing.T) {
 	if r.Picode != "0.3.1" {
 		t.Errorf("Picode = %q", r.Picode)
 	}
-	if strings.Join(r.Missing, ",") != "tmux,pi" {
+	if strings.Join(r.Missing, ",") != "tmux,npm" {
 		t.Errorf("Missing = %q", r.Missing)
 	}
 	if r.NodeMajor != "22" {
@@ -126,16 +125,17 @@ func TestWSLPath(t *testing.T) {
 	}
 }
 
-func TestParsePiNodeMajor(t *testing.T) {
-	doc := []byte(`{"name":"@earendil-works/pi-coding-agent","engines":{"node":">=22.19.0"}}`)
-	if got, err := ParsePiNodeMajor(doc); err != nil || got != "22" {
-		t.Errorf("ParsePiNodeMajor = %q, %v", got, err)
+func TestRuntimeToolsNameNoAgentCLI(t *testing.T) {
+	for _, tool := range RuntimeTools {
+		if tool == "pi" || tool == "claude" || tool == "codex" || tool == "omp" {
+			t.Fatalf("runtime list still names an agent CLI: %q (ADR-0179)", tool)
+		}
 	}
-	if _, err := ParsePiNodeMajor([]byte(`{"engines":{}}`)); err == nil {
-		t.Error("missing engines.node should fail")
+	if strings.Contains(probeScript, "pi ") || strings.Contains(probeScript, "missing:pi") {
+		t.Fatal("the probe still looks for pi")
 	}
-	if _, err := ParsePiNodeMajor([]byte(`not json`)); err == nil {
-		t.Error("bad json should fail")
+	if RuntimeNodeMajor != "22" {
+		t.Fatalf("RuntimeNodeMajor = %q, CI builds with 22", RuntimeNodeMajor)
 	}
 }
 
@@ -195,13 +195,6 @@ func TestNodeSourceScript(t *testing.T) {
 	}
 }
 
-func TestPiInstallArgs(t *testing.T) {
-	args := PiInstallArgs()
-	if strings.Join(args, " ") != "install -g @earendil-works/pi-coding-agent@latest" {
-		t.Errorf("argv = %q", args)
-	}
-}
-
 func TestSetRegisteredCommand(t *testing.T) {
 	if got := strings.Join(SetRegisteredCommand(), " "); !strings.Contains(got, MarkerPath) {
 		t.Errorf("marker command = %q", got)
@@ -224,7 +217,7 @@ func TestNoDollarCrossesTheWSLBoundary(t *testing.T) {
 		"nodesrc": script,
 		"place":   PlacePicodeScript("/mnt/c/x"),
 		"marker":  strings.Join(SetRegisteredCommand(), " "),
-		"userpi":  UserPiInstallScript(),
+		"prefix":  NpmUserPrefixScript(),
 	}
 	for name, script := range scripts {
 		if strings.Contains(script, "$") {
@@ -272,19 +265,16 @@ func TestPlacePicodeScript(t *testing.T) {
 	}
 }
 
-func TestUserPiInstallScript(t *testing.T) {
-	got := UserPiInstallScript()
-	for _, want := range []string{
-		"mkdir -p ~/.npm-global ~/.local/bin",
-		"npm config set prefix ~/.npm-global",
-		"npm install -g " + pipkg.PiPackage + "@latest",
-		"ln -sf ~/.npm-global/bin/pi ~/.local/bin/pi",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("script lacks %q:\n%s", want, got)
-		}
+func TestParseProbeNamesOldNodeAndSystemPrefix(t *testing.T) {
+	r := ParseProbe([]byte("@@tools@@\nmissing:npm-user-prefix\nv18.19.1\n"))
+	got := strings.Join(r.Missing, ",")
+	if got != "npm-user-prefix,"+NodeUpgrade {
+		t.Fatalf("Missing = %q", got)
 	}
-	if strings.Contains(got, "$") {
-		t.Errorf("user pi script carries a `$` across wsl.exe:\n%s", got)
+	if r := ParseProbe([]byte("@@tools@@\nv22.14.0\n")); len(r.Missing) != 0 {
+		t.Fatalf("a current node and a user prefix report %q", r.Missing)
+	}
+	if !strings.Contains(probeScript, "npm config get prefix") || strings.Contains(probeScript, "$") {
+		t.Fatal("the probe must check the npm prefix without a `$`")
 	}
 }

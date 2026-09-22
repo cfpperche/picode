@@ -1,5 +1,5 @@
 ---
-description: API keys and account logins for Pi on this machine.
+description: API keys and account logins for every agent CLI on this machine, in one encrypted vault.
 ---
 
 # Providers

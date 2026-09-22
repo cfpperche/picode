@@ -458,3 +458,81 @@
   .cli-memory-sum { flex-basis: 100%; }
 }
 .cli-memory-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Model roles (ADR-0181): one row per role the CLI has, the selector in a
+   picker fed by the CLI itself, the thinking suffix beside it. The row is the
+   same `set-row` every other setting uses, so provenance, the accent bar and
+   "Use inherited" are the same language — only the control is new. */
+#cli-settings-view .set-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.role-tag {
+  flex: none; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
+  padding: 1px 5px; border-radius: 4px;
+  background: var(--bg-base); border: 1px solid var(--border); color: var(--text-secondary);
+}
+/* The CLI's own badge for a role in its quick-switch cycle (`⟳ 2`). */
+.role-loop { flex: none; font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
+/* One control height across the row (shadcn h-9 / HIG): the picker, the level
+   select and the buttons beside them are all --ctl-h. */
+.role-pick {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: var(--ctl-h); box-sizing: border-box; padding: 0 10px;
+  min-width: 12rem; max-width: 22rem;
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.role-pick:disabled { opacity: 0.55; cursor: default; }
+.role-pick .cockpit-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.role-level {
+  height: var(--ctl-h); box-sizing: border-box; padding: 0 8px;
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  font: inherit; font-size: 12.5px;
+}
+.combo-note { margin: 0; padding: 6px 10px; font-size: 11.5px; color: var(--text-secondary); border-top: 1px solid var(--border); }
+
+/* A chain and the cycle are ordered lists: the entries stack under the label
+   and move with their own buttons, because order is the value. */
+.role-list { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 0; width: 100%; }
+.role-item { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.role-item-name {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--mono); font-size: 12px;
+  height: var(--ctl-h); display: flex; align-items: center;
+  padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base);
+}
+.role-item .set-text { flex: 1 1 auto; min-width: 0; }
+.role-add { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.role-add-label { font-size: 12.5px; color: var(--text-secondary); white-space: nowrap; }
+/* The browser's own focus outline is a 2px black ring; the app's is the accent. */
+#cli-settings-view .set-text:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.role-add .set-text { flex: 1 1 auto; max-width: 22rem; }
+.role-add-btn { margin-top: 4px; align-self: flex-start; }
+
+/* A role row carries three controls (picker, thinking, Use inherited). This
+   pane lays `set-ctl` out as a two-column grid — control | button — so the
+   third control fell onto a second grid row and a set row measured 80px beside
+   an unset one at 38px (visual review, 2026-09-22). A role row declares its
+   own three columns, and a list row gives its list the whole width; below the
+   width where the three fit, the role row stacks and its cluster wraps. */
+#cli-settings-view .set-row-role { align-items: center; }
+#cli-settings-view .set-row-role .set-label { flex: 1 1 auto; min-width: 6rem; }
+#cli-settings-view .set-row-role .set-ctl { grid-template-columns: minmax(10rem, 14rem) 11rem 7.5rem; }
+/* The list's own "Use inherited" goes under the list: beside the first entry
+   it read as an action on that entry (visual review, 2026-09-22). */
+#cli-settings-view .set-row-stack .set-ctl { grid-template-columns: minmax(0, 1fr); align-items: start; }
+#cli-settings-view .set-row-stack .set-ctl > .btn { justify-self: start; }
+@media (max-width: 860px) {
+  #cli-settings-view .set-row-role { flex-direction: column; align-items: stretch; gap: 6px; }
+  #cli-settings-view .set-row-role .set-ctl { display: flex; flex-wrap: wrap; justify-content: flex-start; }
+  #cli-settings-view .set-row-role .role-pick { flex: 1 1 auto; min-width: 8rem; }
+  /* A list shared its row with "Use inherited" and measured 213px on a
+     390px phone, cutting a selector to its first eight letters (visual
+     review, 2026-09-22). The button goes under the list, and each entry
+     puts its name on a line of its own so a model id is never truncated. */
+  #cli-settings-view .set-row-stack .set-ctl { grid-template-columns: minmax(0, 1fr); }
+  #cli-settings-view .set-row-stack .set-ctl > .btn { justify-self: start; }
+  #cli-settings-view .role-item { flex-wrap: wrap; }
+  #cli-settings-view .role-item-name { flex-basis: 100%; }
+}

@@ -74,11 +74,12 @@ func GatewayUnitFile(execPath, configPath string) string {
 }
 
 // UnitFile is the systemd user unit. execPath is the installed binary.
-// pathEnv is the PATH snapshot so nvm/`pi` still resolve after install.
+// pathEnv is the PATH snapshot so CLIs installed through nvm or npm (`pi`,
+// `claude`, `codex`, …) still resolve after install.
 func UnitFile(execPath, pathEnv, home string) string {
 	var b strings.Builder
 	b.WriteString("[Unit]\n")
-	b.WriteString("Description=PiCode (browser ADE for Pi agents)\n")
+	b.WriteString("Description=PiCode (browser ADE for coding-agent CLIs)\n")
 	b.WriteString("After=network-online.target\n")
 	b.WriteString("Wants=network-online.target\n\n")
 	b.WriteString("[Service]\n")

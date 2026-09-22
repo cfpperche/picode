@@ -10,6 +10,14 @@ import {
   rowState,
   dangerNote,
   coerce,
+  splitSelector,
+  joinSelector,
+  listValue,
+  cyclePosition,
+  selectorsInUse,
+  roleAliases,
+  isRoleField,
+  isListField,
   memoryEmptyLine,
   memoryKindLabel,
   cliMemoryHash,
@@ -115,4 +123,63 @@ test("the memory route round-trips", () => {
   assert.equal(cliMemoryLocation("#/clis/pi/settings"), null);
   // An unknown scope is dropped, never adopted.
   assert.equal(cliMemoryLocation("#/clis/pi/memory?scope=elsewhere").scope, "");
+});
+
+// ── Model roles (ADR-0181) ──────────────────────────────────────────────────
+
+test("a selector splits for display and joins back byte for byte", () => {
+  const levels = ["off", "minimal", "low", "medium", "high", "xhigh", "max", "auto"];
+  // The model id may carry slashes, dots and an @upstream routing suffix; only
+  // a known level after the last colon is a level.
+  for (const value of [
+    "openai/gpt-4.1-mini",
+    "openrouter/z-ai/glm-4.7@cerebras:high",
+    "deepseek/deepseek-flash:max",
+    "@smol",
+    "*",
+    "provider/model:not-a-level",
+  ]) {
+    const { base, level } = splitSelector(value, levels);
+    assert.equal(joinSelector(base, level), value, value);
+  }
+  assert.deepEqual(splitSelector("deepseek/deepseek-flash:max", levels), { base: "deepseek/deepseek-flash", level: "max" });
+  assert.deepEqual(splitSelector("provider/model:not-a-level", levels), { base: "provider/model:not-a-level", level: "" });
+  assert.deepEqual(splitSelector(undefined, levels), { base: "", level: "" });
+  // An empty base is never joined into a lone suffix.
+  assert.equal(joinSelector("", "high"), "");
+  assert.equal(joinSelector("  ", "high"), "");
+});
+
+test("a list value tolerates the shapes a config file holds", () => {
+  assert.deepEqual(listValue(["a", "b"]), ["a", "b"]);
+  assert.deepEqual(listValue("a"), ["a"]);
+  assert.deepEqual(listValue(""), []);
+  assert.deepEqual(listValue(undefined), []);
+  assert.deepEqual(listValue({}), []);
+});
+
+test("the cycle badge counts from one, and says zero when the role is out", () => {
+  assert.equal(cyclePosition(["smol", "default", "slow"], "smol"), 1);
+  assert.equal(cyclePosition(["smol", "default", "slow"], "default"), 2);
+  assert.equal(cyclePosition(["smol", "default", "slow"], "slow"), 3);
+  assert.equal(cyclePosition(["smol", "default", "slow"], "plan"), 0);
+  assert.equal(cyclePosition(undefined, "smol"), 0);
+});
+
+test("the picker offers what the files already use, and the CLI's own aliases", () => {
+  const fields = [
+    { key: "modelRoles.default", kind: "role" },
+    { key: "modelRoles.smol", kind: "role" },
+    { key: "symbolPreset", kind: "text" },
+  ];
+  const layers = [
+    { scope: "user", values: { "modelRoles.default": "openai/gpt-5", symbolPreset: "ascii" } },
+    { scope: "project", values: { "modelRoles.smol": "zai/glm-5.3-flash", "modelRoles.default": "@smol" } },
+  ];
+  // Sorted, de-duplicated, and an alias is not a model.
+  assert.deepEqual(selectorsInUse(fields, layers), ["openai/gpt-5", "zai/glm-5.3-flash"]);
+  assert.deepEqual(roleAliases(fields), ["*", "@default", "@smol"]);
+  assert.equal(isRoleField(fields[0]), true);
+  assert.equal(isRoleField(fields[2]), false);
+  assert.equal(isListField({ kind: "list" }), true);
 });

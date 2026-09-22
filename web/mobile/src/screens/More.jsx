@@ -22,7 +22,7 @@ import SnippetsList from "./SnippetsList.jsx";
 import "../styles/mobile-lists.css";
 
 // Mobile-owned settings, loaded only when their section opens.
-export default function More({ fleetReady = true, section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onCatalogChange, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig, workspaces = [], freeAgents = [], legacyAgentId = "" }) {
+export default function More({ fleetReady = true, section, apps, catalog, clis = [], system, version, themeMode, onTheme, last, onRefreshCatalog, onCatalogChange, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig, workspaces = [], freeAgents = [], legacyAgentId = "" }) {
   const [query, setQuery] = useState("");
   if (!section) {
     const groups = moreGroups(query);
@@ -78,9 +78,9 @@ export default function More({ fleetReady = true, section, apps, catalog, system
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
       {section === "clis" ? <AgentClis catalog={catalog} onCatalogChange={onCatalogChange} legacyContextReady={fleetReady} legacyPackageContext={{ workspaceId: workspace?.id || "", agentId: agent?.id || legacyAgentId || "" }} legacyAgentId={last?.agent?.id || legacyAgentId} onAgentConfig={onAgentConfig} /> : null}
-      {section === "automations" ? <Automations hidden={false} catalog={catalog} system={system} workspaces={workspaces} freeAgents={freeAgents} /> : null}
+      {section === "automations" ? <Automations hidden={false} catalog={catalog} clis={clis} system={system} workspaces={workspaces} freeAgents={freeAgents} /> : null}
       {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
-      {section === "system" ? <System hidden={false} version={version} system={system} /> : null}
+      {section === "system" ? <System hidden={false} version={version} system={system} clis={clis} /> : null}
       {section === "llama" ? <LlamaPanel onRefresh={onRefreshCatalog} /> : null}
       {section === "integrations" ? <Integrations hidden={false} /> : null}
       {section === "notifications" ? <section className="settings-wrap"><div className="settings-card"><PushPrefs /></div></section> : null}

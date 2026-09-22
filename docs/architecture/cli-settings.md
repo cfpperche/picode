@@ -99,6 +99,83 @@ per layer with the keys that layer sets; `PATCH /api/cli-settings` takes
 Both publish an ephemeral `cli.settings` event — the file stays authoritative
 (ADR-0048 invalidates views, it does not carry the config).
 
+## Model roles: a row whose path the vendor supplies (ADR-0181)
+
+ADR-0163 said fields are scalars only, and that was what made the splice safe.
+Omp needed two shapes it could not express, so the engine gained exactly two
+kinds and nothing more:
+
+- **`role`** is still one scalar — a model selector — but its path is composed
+  per request from the vendor's catalog plus the files. Omp has fifteen
+  built-in roles (`src/config/model-roles.ts`, transcribed into
+  `omp_roles.go` and pinned by `TestOmpRoleCatalogIsTheVendorsOwn`), and the
+  union rule is the vendor's own: built-ins first, then a role named by
+  `cycleOrder`, by an assignment, or by `modelTags`. A role only the workspace
+  sets is still a row on the machine layer, showing what that layer inherits.
+- **`list`** is an ordered list of strings — `retry.fallbackChains.<key>` and
+  `cycleOrder`. It is written by `spliceList`, which is now the whole body of
+  ADR-0174's `Doc.SetStrings`: one implementation, so the settings writer and
+  the key-map writer cannot drift on a file with no final newline or a value
+  the user broke across lines.
+
+A field may carry `Path`, because `retry.fallbackChains.openai/gpt-4.1-mini`
+cannot be split on dots. `Path` never leaves the server — the pane echoes the
+opaque key and the writer rebuilds the path from the declaration whose prefix
+owns it, which is also the only place that decides a **new** name is writable.
+A role id must match omp's own rule (`^[a-zA-Z][A-Za-z0-9_-]*$`, its hub's);
+a chain key must be addressable as one line by the YAML walker (no colon, no
+quote, no leading indicator). Anything else is refused **by name** and the file
+is untouched.
+
+**What the writer does not do is judge a selector.** `openrouter/z-ai/glm-4.7@cerebras:high`
+is one model id with a routing suffix and a thinking suffix; only the first
+slash splits the provider, and an id may legitimately end in `:max`. So PiCode
+enforces only what its own writer must guarantee — a scalar is one line, and a
+value with a line break is refused rather than written as a YAML block that the
+next save would duplicate — and leaves the meaning to Omp. The pane splits a
+selector for display and joins back exactly the two pieces it split, so a value
+PiCode did not recognise round-trips byte for byte.
+
+A value a layer holds in a shape the writer will not rewrite is reported in the
+layer's `unreadable` list, dropped from its values, and drawn as one line plus
+**Open the file**.
+
+**The picker asks the CLI.** `GET /api/cli-models?cli=&workspace=`
+(`internal/climodels`) runs the vendor's own read-only catalog command in the
+workspace being edited, when a picker opens and never on mount. The directory
+decides the answer: measured 2026-09-22, the same command returned 55 models in
+one folder and 0 in the next, because the project set `disabledProviders`. Zero
+is ambiguous — a disabled provider and a missing credential look identical from
+outside — so the pane says the list is empty and does not guess why.
+
+**Why this pane and not the CLI's own command** (measured 2026-09-22, omp
+18.2.8): `omp config set` writes the *global* file wherever it runs, `--scope`
+is not an option, and it prints the **effective** value rather than what it
+wrote — inside a project that sets `symbolPreset: ascii`, `omp config set
+symbolPreset nerd` wrote `nerd` globally and answered `[ok] Set symbolPreset =
+ascii`. The workspace layer is reachable only by writing the file.
+
+**Two defects the first real write found** (2026-09-22, driving the pane on a
+scratch instance instead of stubbing its requests): the pane handed a raw
+object to `fetch`, so every guest CLI's save had answered "invalid request
+body" since the pane shipped on 2026-09-20 — the body is JSON-encoded now, the
+way every other pane sends one; and `yamlInsert` created a nested key's whole
+chain from the root when only the *middle* was missing, appending a second
+`modelTags:` block beside the one the file had, which the parser refused. It
+now creates only the missing tail under the deepest prefix the document
+already has, the walk `jsonInsert` has done since its own review. A
+two-level key never hit either path; the fixtures did not either
+(`docs/handoff/open/process.md`'s "fixtures do not test a writer").
+
+**Pickup is a restart**, measured live the same day: with an Omp TUI running,
+an edit to `config.yml` changed nothing passively, after two resizes or after a
+keystroke; the same binary restarted in the same directory came up on the new
+value. There is no watcher in the CLI's config layer, and `reloadFromDisk()`
+has one caller (a structured subagent). PiCode launches every Omp terminal with
+its own `--session-dir` but a shared `~/.omp/agent`, so several live terminals
+share this file: the last save wins it, and each other terminal picks the
+change up when *it* restarts.
+
 ## Pi (ADR-0101, machine rows added 2026-09-20)
 
 Pi keeps its own API (`/api/pi-settings`), its three layers, its trust rule and

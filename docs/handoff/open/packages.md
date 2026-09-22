@@ -105,24 +105,107 @@
   answers the CLI's fresh list instead of reserving a job, because a command
   with no argv is the engine's own write.
 
-- [ ] **An extension row draws Enable/Disable, and Omp's disable verb does not
-  know extensions.** `Caps.Toggle` is the CLI's, and the pane offers the control
-  on every row of that CLI, so turning an extension off runs `omp plugin disable
-  <entry>` — measured 2026-09-21: *"Plugin packages/pi-browser/extensions/
-  browser.ts not found in runtime config"*. The CLI's own way is the
-  `disabledExtensions` array the read already parses: a splice of the workspace
-  file, and `omp config set disabledExtensions '<json array>'` for the user
-  layer. Closes when the toggle asks the engine for an extension first, the way
-  the removal now does (slice 5, `feat/packages-omp`).
+- [x] **An extension row draws Enable/Disable, and Omp's disable verb does not
+  know extensions.** Paid 2026-09-22 (`feat/packages-toggle`, the debt ADR-0176
+  slice 5 recorded for `feat/packages-omp`). `clipkgs.OmpExtensionToggle` asks
+  the same two layers the removal asks, by the identity the pane sent: the
+  workspace's `<ws>/.omp/settings.json` gets the CLI's own id
+  (`extension-module:<name>`) spliced into `disabledExtensions` — out of it when
+  the row is being enabled, and the key itself created when the file has none —
+  every other byte preserved and the result re-parsed and compared; the user
+  layer runs the CLI's own `omp config set disabledExtensions '<json array>'` in
+  the user's directory, which is where that command writes (measured 2026-09-21:
+  it writes the user file wherever it runs and refuses `--scope`). The driver's
+  `Toggle` asks the engine for an extension before it asks for the vendor's verb,
+  exactly as `Remove` does, and answers the CLI's fresh list — the line it ran
+  rides a refusal, and the workspace write has none, the same empty line
+  OpenCode's in-process toggle answers. A plugin row keeps today's behaviour, and
+  the pane is unchanged (the control already rendered). Tests:
+  `TestOmpExtensionToggleWritesTheWorkspaceFile`,
+  `TestOmpExtensionToggleCreatesTheDisabledList`,
+  `TestOmpExtensionToggleRunsTheVendorCommandForTheUserLayer`,
+  `TestGuestToggleOmpExtensionWritesTheCLIsOwnList` and
+  `TestCLIPackagesOmpExtensionToggle`.
 
-- [ ] **OpenCode's removal is unreachable from the pane.** Its declaration says
-  `Remove: true`, because OpenCode's plugin list is its own config array and
-  `clipkgs.Run` writes it in process — but every removal goes to the durable job
-  lane, which runs an argv, and OpenCode's removal has none. So
-  `POST /api/cli-packages/remove` answers 400 *"this CLI does not expose that
-  operation: opencode remove"* while the pane draws the button (`Caps.Remove`
-  is true), and no route removes an OpenCode plugin. Measured 2026-09-21
-  (`feat/packages-mut`, slice 2b: the driver answers the lane's verbs with the
-  engine's own refusal, byte-identical to the handlers it replaced). Closes when
-  a mutation can be an in-process write on the lane, or OpenCode's removal moves
-  to the synchronous path its toggle already uses.
+- [x] **OpenCode's removal is unreachable from the pane.** Paid 2026-09-22
+  (`feat/packages-opencode`): the transport declaration became one fact per verb
+  (`Caps.Lane Transport` in `internal/pkgs/pkgs.go`) instead of the single
+  `Async` bool, which could only have described one half of a mixed CLI. A verb
+  the CLI reaches with its own command is the lane's (`clipkgs.Commands`); a
+  verb whose only path is PiCode's edit of the CLI's config file is a write, and
+  the driver performs it (`clipkgs.Writes`, asked of the engine before the
+  vendor's verbs). OpenCode declares `lane {install:true, remove:false,
+  update:false, marketplace:false}`: its install is `opencode plugin <module>`,
+  its removal the splice of its own `opencode.json` that `opencode.go` already
+  wrote (comments and every other byte survive, the result re-parsed and
+  compared, the atomic write keeping the file's own mode). The driver performs
+  that write in process and answers the empty line it ran, so
+  `POST /api/cli-packages/remove` answers the CLI's fresh list with 200 where it
+  answered 400 *"this CLI does not expose that operation: opencode remove"*
+  while `Caps.Remove` was true; a module the CLI's own configs do not name is
+  still refused by name (`ErrStale`, 409) with nothing written. The pane reads
+  the per-verb declaration (`laneMutation(caps, "remove")`,
+  `web/shared/domain/cliPackages.js`) and takes the flow Pi's direct mutations
+  take — the transcript while the write runs, then the CLI's fresh list read
+  back — so the state a removal draws is a transcript where the 400 was drawn as
+  a row error. Measured 2026-09-22 on the branch: `GET
+  /api/packages/report?cli=opencode&vendor=user` answers that `lane` object;
+  removing `opencode-wakatime` from a two-module config left
+  `{"plugin": ["opencode-notify"], "model": …, // the module list}` intact and
+  answered the one-row fresh list; and a scratch instance drew the removal
+  transcript (card read). Tests: `TestOpenCodeRemoveThroughTheEngine` (three
+  cases; the expected file is built from the original's bytes around the removed
+  element), `TestOpenCodeRemoveThroughTheEngineRefusesAModuleNoConfigNames`,
+  `TestTheTransportDeclarationIsPerVerb`,
+  `TestGuestRemoveOpenCodeWritesTheFileItReads`,
+  `TestCLIPackagesOpenCodeRemoveIsPiCodeOwnWrite`; re-tabled rows:
+  `TestGuestMutationRefusalsKeepTheEnginesWords` (the OpenCode removal row) and
+  the `directMutation` rows in `cliPackages.test.js`, plus the new
+  `the transport declaration is read one verb at a time`.
+
+- [x] **The `/api/cli-packages*` family is an alias for one release
+  (ADR-0176).** Paid 2026-09-22 (`feat/packages-alias`) — the window was closed
+  by the owner's call, not by a calendar check — and shipped in **0.5.0**
+  (`eaf923dd release: cut 0.5.0`; production answers 404 for the family and 200
+  for `/api/packages/report`). The whole family is gone: the
+  route registrations, `handleCLIPackages`/`handleCLIPackagesAvailable`/
+  `handleCLIPackageUpdates`/`handleCLIPackageMarkets` and
+  `internal/pkgs/guest_view.go` with every mapper in it (the guest answers are
+  now `pkgs.Report`/`pkgs.Row` themselves). `internal/server/cli_packages.go`
+  became `internal/server/packages_vendor.go`: the surviving handlers are the
+  CLI's own surface on the unified paths — `GET /api/packages/available`,
+  `GET /api/packages/marketplaces`, `POST /api/packages/toggle`,
+  `/marketplace`, `/inspect`, and the `cli`-named branch of
+  `POST /api/packages`, `POST /api/packages/update`, `DELETE /api/packages`
+  (PiCode's own calls name no CLI, which is what keeps the two apart).
+  `cliPackagePaths`, `packageCommand`, `resolvePackageJob`, `cliJobView`,
+  `publishPackageChange` and `jobKey` survive unchanged — they are the engine
+  the family still needs; `guestQuery` was renamed `vendorQuery`,
+  `Guest*` had no other caller. The one in-repo caller,
+  `web/shared/domain/cliPackages.js`, now reads the unified paths for every
+  verb (`directMutation`/`laneMutation`/`anyLaneMutation` unchanged, deciding
+  the lane-versus-own-write path exactly as before), with one field adapted at
+  that boundary: `sourceGroupKey` reads the unified row's `kind` (and
+  `installedPath`), where it read the alias's `sourceKind`/`installPath`.
+  Inventory of `/api/cli-packages` callers before the deletion: the Go route
+  family (`internal/server/cli_packages.go`), the JS module and its test — no
+  caller in Go outside that file, `ext/`, `desktop-shell/`, `scripts/` or
+  `docs-site/`; `scripts/qa-cli-packages.mjs` names the pane's DOM id
+  (`#cli-packages-view`), never the route. Tests: the byte-pinning ones went
+  with the mappers (`TestGuestViewMatchesTheEngineByteForByte`,
+  `TestGuestViewIsThePanesPayload`, `TestGuestMutationViewsAreThePanesPayload`)
+  and the alias-only refusals (`TestCLIPackagesGuests`'s `cli=pi` and
+  `scope=agent` rows) went with the routes; the driver equivalence they
+  guarded is now `TestGuestRowsCarryTheEnginesFacts` /
+  `TestGuestMutationAnswersCarryTheEnginesFacts`, and every route behaviour is
+  covered on the unified paths (`TestPackageReportReadsTheVendor`,
+  `TestPackageVendorRoutesPinTheRefusals`, `TestPackageToggleAnswersTheFreshReport`,
+  `TestPackageInstallIsAnIdempotentJob`, `TestPackageMarketplaceRemoveLeavesNoJob`,
+  `TestPackageMarketplacesReadOnLoad`, `TestPackageInspectIsVendorText`,
+  `TestPackageRefusalCarriesTheCommand`, `TestPackageJobCarriesTheCommand`,
+  `TestPackageOpenCodeRemoveIsPiCodeOwnWrite`, `TestPackageOmpExtensions`,
+  `TestPackageOmpExtensionToggle`, `TestPackageUpdatesMarksWhatIsBehind`).
+  Measured through the pane against a scratch instance (a guest install, an
+  update, a toggle, a remove, the Omp extension own-write and a refusal); the
+  run and its evidence are recorded in
+  `docs/handoff/2026-09-22-packages-alias.md`.

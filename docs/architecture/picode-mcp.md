@@ -40,10 +40,13 @@ and each one went on to declare a delivery through the tool:
 
 A connector card (`ToolPresets`, the Connectors pane) writes command and args
 only, so for Hermes and Muse a card alone is not enough: the entry needs the
-identity written into it, and an entry at user or workspace scope has no
-per-terminal value to write. Until that path carries one, those two CLIs reach
-the tools only through an entry whose env was filled for the terminal that uses
-it — recorded as a debt in `docs/handoff/open/delivery-flow.md`.
+identity written into its environment field, and one entry can serve only one
+terminal — their config is a single file with no workspace layer (PiCode
+refuses the workspace scope for both, measured 2026-09-21) and neither CLI
+exposes a per-launch config override, so the launch cannot write the value the
+way `toolIdentityEnv` does for Codex. Recorded as a debt in
+`docs/handoff/open/delivery-flow.md`; the user-facing steps are in
+[the guide](../../docs-site/guide/picode-mcp.md).
 
 ## The wire
 

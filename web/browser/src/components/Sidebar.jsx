@@ -4,15 +4,15 @@ import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import RailTabs from "./RailTabs.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./ShareDrawer.jsx";
-import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconGit, IconX, IconChevronRight, IconPin, IconSession, IconGrid } from "./Icons.jsx";
+import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconChevronRight, IconPin, IconGrid } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
-import { wsLine } from "@picode/shared/domain/repoLine.js";
 import { freeTerminals, workspaceTerminals, FREE_WS } from "../lib/termGroups.js";
 import { moveId, movePhrase } from "../lib/sidebarOrder.js";
 import ProviderFaces from "./ProviderFaces.jsx";
-import { AgentRow, OrderMoves, RowMenu, RowMenuItem, TermRow } from "./WorkspaceRows.jsx";
+import { AgentRow, TermRow } from "./WorkspaceRows.jsx";
+import WorkspaceMenu from "./WorkspaceMenu.jsx";
 import { SortableList, SortableRow } from "./SortableRows.jsx";
 
 // Workspace cards wear the project's favicon when it has one (ADR-0027).
@@ -229,7 +229,7 @@ export default function Sidebar({
         </div>
         <div className="side-scroll">
         {sortedFreeAgents.length === 0 ? (
-          <p className="side-empty pins-empty">No free agents yet. <button type="button" className="side-empty-act" onClick={() => onNewFree()}>New agent</button></p>
+          <p className="side-empty pins-empty">No agents yet. <button type="button" className="side-empty-act" onClick={() => onNewFree()}>New agent</button></p>
         ) : (
           <SortableList ids={sortedFreeAgents.map((a) => a.id)} onReorder={(ids, activeId) => commitOrder("agents", FREE_WS, sortedFreeAgents.map((a) => a.id), ids, activeId, (id) => displayAgentName(sortedFreeAgents.find((a) => a.id === id), null))}>
             <ul className="ws-list">{sortedFreeAgents.map((ag) => agentRow(ag, null, sortedFreeAgents.map((a) => a.id), "agents", FREE_WS))}</ul>
@@ -252,10 +252,6 @@ export default function Sidebar({
           {workspaces.map((ws) => {
             const wsAgents = agentsOf(ws);
             const wsTerms = workspaceTerminals(terminals, ws.id).filter((t) => !ownedTerminalIds.has(t.id));
-            // Not a line on the card any more (the rows below already carry
-            // path and branch); the menu still asks whether this folder is a
-            // repository before offering its history.
-            const wsRepo = wsLine(ws);
             const wsAgentIds = wsAgents.map((a) => a.id);
             const wsTermIds = wsTerms.map((t) => t.id);
             const wsIndex = workspaces.findIndex((w) => w.id === ws.id);
@@ -282,19 +278,16 @@ export default function Sidebar({
                     <DropdownMenu.Item className="um-item" onSelect={() => onNewAgent && onNewAgent(ws.id)}>Agent</DropdownMenu.Item>
                     <DropdownMenu.Item className="um-item" onSelect={() => onNewTerm?.(ws.id)}>Shell terminal</DropdownMenu.Item>
                   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
-                  <RowMenu label={ws.name}>
-                    <OrderMoves
-                      up={wsIndex > 0 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, -1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
-                      down={wsIndex >= 0 && wsIndex < workspaces.length - 1 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, 1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
-                    />
-                    <RowMenuItem onSelect={() => { location.hash = "#/clis/messages/" + encodeURIComponent("workspace:" + ws.id); }}><IconSession size={13} /> Communication</RowMenuItem>
-                    <RowMenuItem onSelect={() => onFileTree && onFileTree("workspace", ws.id, ws.name)}><IconFolder size={13} /> Files</RowMenuItem>
-                    {wsRepo.git ? <RowMenuItem onSelect={() => onGitGraph && onGitGraph("workspace", ws.id, ws.name)}><IconGit size={13} /> Git graph</RowMenuItem> : null}
-                    {/* Sessions read through an agent — an empty workspace
-                        answers 409, so it does not offer the item (ADR-0027). */}
-                    {wsAgents.length ? <RowMenuItem onSelect={() => onSessions && onSessions(ws.id)}><IconSession size={13} /> Sessions</RowMenuItem> : null}
-                    <RowMenuItem danger onSelect={() => onRemove(ws)}><IconX size={13} /> Remove workspace</RowMenuItem>
-                  </RowMenu>
+                  <WorkspaceMenu
+                    ws={ws}
+                    hasAgents={wsAgents.length > 0}
+                    onMoveUp={wsIndex > 0 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, -1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
+                    onMoveDown={wsIndex >= 0 && wsIndex < workspaces.length - 1 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, 1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
+                    onFileTree={onFileTree}
+                    onGitGraph={onGitGraph}
+                    onSessions={onSessions}
+                    onRemove={onRemove}
+                  />
                 </span>
               </div>
               {isOpen(ws.id) ? (

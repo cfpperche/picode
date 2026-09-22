@@ -1,0 +1,133 @@
+package store
+
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+)
+
+// IntegrationSettings is how a project integrates (ADR-0182): the operation the
+// queue runs — whether the target accepts only fast-forwards, and the commands
+// that must pass before the operation counts as done. The declaration is
+// configuration; authority stays in the queue's own rows.
+//
+// Scope follows the owner's rule for the queue: a workspace declares first, and
+// a workspace that declares nothing falls back to the machine default.
+type IntegrationSettings struct {
+	Scope     string   `json:"scope"`
+	FFOnly    bool     `json:"ffOnly"`
+	Checks    []string `json:"checks,omitempty"`
+	Version   int      `json:"version"`
+	UpdatedAt string   `json:"updatedAt"`
+	FromScope string   `json:"fromScope,omitempty"` // the layer the effective value came from
+}
+
+// MachineIntegrationScope is the scope key of the machine default. Every other
+// key is a workspace id.
+const MachineIntegrationScope = ""
+
+// MaxIntegrationChecks bounds how many commands a project may declare.
+const MaxIntegrationChecks = 8
+
+// IntegrationSettingsMutation is one declaration write.
+type IntegrationSettingsMutation struct {
+	FFOnly          bool     `json:"ffOnly"`
+	Checks          []string `json:"checks,omitempty"`
+	ExpectedVersion int      `json:"expectedVersion,omitempty"`
+}
+
+// ValidateIntegrationSettings checks a declaration's shape: at most eight
+// commands, each one non-empty line of at most 300 bytes. Nothing runs them.
+func ValidateIntegrationSettings(m IntegrationSettingsMutation) error {
+	if len(m.Checks) > MaxIntegrationChecks {
+		return fmt.Errorf("at most %d checks", MaxIntegrationChecks)
+	}
+	for i, c := range m.Checks {
+		if strings.TrimSpace(c) == "" || len(c) > 300 || strings.ContainsAny(c, "\r\n") {
+			return fmt.Errorf("check %d must be one non-empty line, at most 300 bytes", i+1)
+		}
+	}
+	return nil
+}
+
+// IntegrationSettingsFor reads one layer. known is false when the layer has no
+// declaration of its own — which is a fact, not an error.
+func (s *Store) IntegrationSettingsFor(scope string) (IntegrationSettings, bool, error) {
+	var raw string
+	err := s.db.QueryRow(`SELECT body FROM delivery_integration WHERE scope=?`, scope).Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return IntegrationSettings{}, false, nil
+	}
+	if err != nil {
+		return IntegrationSettings{}, false, err
+	}
+	var v IntegrationSettings
+	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+		return IntegrationSettings{}, false, err
+	}
+	v.FromScope = scope
+	return v, true, nil
+}
+
+// EffectiveIntegrationSettings is the workspace-first fallback: the workspace's
+// declaration when it has one, the machine's otherwise, and a default that
+// requires nothing beyond a fast-forward when neither exists.
+func (s *Store) EffectiveIntegrationSettings(workspaceID string) (IntegrationSettings, error) {
+	if workspaceID != MachineIntegrationScope {
+		if v, ok, err := s.IntegrationSettingsFor(workspaceID); err != nil {
+			return IntegrationSettings{}, err
+		} else if ok {
+			return v, nil
+		}
+	}
+	if v, ok, err := s.IntegrationSettingsFor(MachineIntegrationScope); err != nil {
+		return IntegrationSettings{}, err
+	} else if ok {
+		return v, nil
+	}
+	return IntegrationSettings{Scope: MachineIntegrationScope, FFOnly: true, Version: 0, FromScope: "default"}, nil
+}
+
+// PutIntegrationSettings writes one layer and announces it, so every surface
+// that shows the declaration refetches instead of guessing.
+func (s *Store) PutIntegrationSettings(scope string, m IntegrationSettingsMutation) (IntegrationSettings, error) {
+	if err := ValidateIntegrationSettings(m); err != nil {
+		return IntegrationSettings{}, err
+	}
+	s.deliveryMu.Lock()
+	defer s.deliveryMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return IntegrationSettings{}, err
+	}
+	defer s.rollback(tx)
+	next := IntegrationSettings{Scope: scope, FFOnly: m.FFOnly, Checks: append([]string{}, m.Checks...), UpdatedAt: nowUTC()}
+	var raw string
+	err = tx.QueryRow(`SELECT body FROM delivery_integration WHERE scope=?`, scope).Scan(&raw)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return IntegrationSettings{}, err
+	}
+	if err == nil {
+		var current IntegrationSettings
+		if uerr := json.Unmarshal([]byte(raw), &current); uerr != nil {
+			return IntegrationSettings{}, uerr
+		}
+		next.Version = current.Version + 1
+	} else {
+		next.Version = 1
+	}
+	body, _ := json.Marshal(next)
+	if _, err = tx.Exec(`INSERT INTO delivery_integration(scope,body) VALUES(?,?)
+		ON CONFLICT(scope) DO UPDATE SET body=excluded.body`, scope, string(body)); err != nil {
+		return IntegrationSettings{}, err
+	}
+	if err = s.AppendEventTx(tx, "delivery.changed", nil, nil, map[string]any{"integration": scope, "version": next.Version}); err != nil {
+		return IntegrationSettings{}, err
+	}
+	if err := s.commit(tx); err != nil {
+		return IntegrationSettings{}, err
+	}
+	return next, nil
+}

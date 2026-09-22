@@ -35,7 +35,7 @@ chmod +x picode-linux-amd64
 user unit and starts it. `--env KEY=VALUE` (repeatable) goes into
 `~/.config/systemd/user/picode.service.d/env.conf`, which later deploys
 and updates leave alone. `provision --dry-run` is the doctor: linger,
-systemd, certificate, service, health, `pi` on PATH, Tailscale, and
+systemd, certificate, service, health, which agent CLIs are on PATH, Tailscale, and
 whether other machines can reach this daemon. Run `provision` without
 `--dry-run` to fix what it can (linger and the certificate need root
 once; it says so).
@@ -43,9 +43,11 @@ once; it says so).
 `picode update` checks GitHub, verifies the download against the
 release's `SHA256SUMS`, and only then restarts on the new binary.
 
-Also needed on the box: `pi` (`npm install -g @earendil-works/pi-coding-agent`),
-tmux 3.5+, and `mkcert` if you want a certificate browsers trust without
-a warning (`provision` issues it).
+Also needed on the box: tmux 3.5+, and `mkcert` if you want a certificate
+browsers trust without a warning (`provision` issues it). The agent CLIs
+you use (Pi, Claude Code, Codex, …) are installed the same way as on a
+laptop — from **Agent CLIs** or with the vendor's command; none is
+required, and `provision --dry-run` only reports which ones it found.
 
 ## 2. Tell it where it lives
 

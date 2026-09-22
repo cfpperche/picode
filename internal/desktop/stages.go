@@ -1,14 +1,11 @@
 package desktop
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/version"
 )
 
@@ -25,8 +22,32 @@ const MarkerPath = "/etc/picode-desktop-registered"
 
 // RuntimeTools is what install-runtime converges, in display order. mkcert
 // is deliberately absent: it is a best effort inside the apt phase, and its
-// absence stays the provision cert step's existing blocked message.
-var RuntimeTools = []string{"tmux", "git", "curl", "node", "npm", "pi"}
+// absence stays the provision cert step's existing blocked message. No agent
+// CLI is in the list (ADR-0179): the user installs the ones they use from
+// Agent CLIs after the first login; node and npm are here for that.
+var RuntimeTools = []string{"tmux", "git", "curl", "node", "npm"}
+
+// RuntimeNodeMajor is the Node.js major the runtime stage installs when node
+// or npm is missing — the version CI builds with (.github/workflows), not a
+// number read from any CLI's package. A node already present is left alone.
+const RuntimeNodeMajor = "22"
+
+// NpmUserPrefix names the probe's "the account's npm installs need root"
+// item: a global prefix under /usr (NodeSource's, or the distro's) is
+// root-owned, and Agent CLIs' Install runs `npm install -g` as the account.
+// The runtime stage points that account's prefix at ~/.local, whose bin the
+// login shell already carries (ADR-0179). An nvm prefix is left alone.
+const NpmUserPrefix = "npm-user-prefix"
+
+// NodeUpgrade names the probe's "node is older than RuntimeNodeMajor" item:
+// the CLIs a user installs later (Pi needs >=22.19) refuse an older engine.
+var NodeUpgrade = "node-" + RuntimeNodeMajor
+
+// NpmUserPrefixScript sets the account's npm prefix to ~/.local. It runs as
+// that account; no `$` crosses the wsl.exe boundary.
+func NpmUserPrefixScript() string {
+	return "set -e\nmkdir -p ~/.local/bin\nnpm config set prefix ~/.local"
+}
 
 // BasePackages is the apt half of the runtime. gnupg is not in ADR-0098's
 // list; the NodeSource keyring needs it and a minimal image may not have it.
@@ -45,7 +66,7 @@ which git >/dev/null 2>&1 || echo "missing:git"
 which curl >/dev/null 2>&1 || echo "missing:curl"
 which node >/dev/null 2>&1 || echo "missing:node"
 which npm >/dev/null 2>&1 || echo "missing:npm"
-which pi >/dev/null 2>&1 || echo "missing:pi"
+npm config get prefix 2>/dev/null | grep -q '^/usr' && echo "missing:npm-user-prefix"
 node --version 2>/dev/null || echo "nodeversion:"
 echo "@@family@@"
 grep ^ID= /etc/os-release 2>/dev/null || echo ID=unknown
@@ -102,6 +123,9 @@ func ParseProbe(out []byte) ProbeResult {
 		} else if m := parseNodeVersionLine(line); line != "nodeversion:" && m != "" {
 			r.NodeMajor = m
 		}
+	}
+	if r.NodeMajor != "" && NodeOlder(r.NodeMajor, RuntimeNodeMajor) {
+		r.Missing = append(r.Missing, NodeUpgrade)
 	}
 	for _, line := range sections["@@family@@"] {
 		if id, ok := strings.CutPrefix(line, "ID="); ok {
@@ -216,27 +240,6 @@ func SetRegisteredCommand() []string {
 	return []string{"sh", "-c", "touch " + MarkerPath}
 }
 
-// PiRegistryURL is where the runtime stage reads which node major pi's
-// package declares in engines. Tests replace it.
-var PiRegistryURL = "https://registry.npmjs.org/" + url.PathEscape(pipkg.PiPackage) + "/latest"
-
-// ParsePiNodeMajor reads the engines.node constraint out of a registry
-// document and returns its first major ("22" for ">=22.19.0"). The executor
-// re-runs the whole stage on failure, so an error here must say so.
-func ParsePiNodeMajor(doc []byte) (string, error) {
-	engines := struct {
-		Engines map[string]string `json:"engines"`
-	}{}
-	if err := json.Unmarshal(doc, &engines); err != nil {
-		return "", fmt.Errorf("read pi's node engine: %w", err)
-	}
-	constraint, ok := engines.Engines["node"]
-	if !ok || constraint == "" {
-		return "", fmt.Errorf("pi's registry entry names no node engine")
-	}
-	return FirstMajor(constraint)
-}
-
 var majorRe = regexp.MustCompile(`[0-9]+`)
 
 // FirstMajor is the first number in a semver constraint (">=", "^" and
@@ -299,27 +302,6 @@ echo 'Pin-Priority: 600' >> /etc/apt/preferences.d/nodejs
 apt-get update
 apt-get install -y nodejs
 `, major), nil
-}
-
-// PiInstallArgs is the exact argv ADR-0093 runs for pi.
-func PiInstallArgs() []string {
-	return []string{"install", "-g", pipkg.PiPackage + "@latest"}
-}
-
-// UserPiInstallScript installs pi for one account instead of the machine.
-// A global npm install as anyone but root fails against root-owned prefix
-// directories, so the script gives the account its own prefix first; the
-// ~/.profile edit a prefix normally needs is skipped in favor of a symlink
-// into ~/.local/bin, which every login shell already carries — no `$`
-// survives the wsl.exe boundary to write an export line with. Runs as the
-// account (never root); the login-shell probe sees the link.
-func UserPiInstallScript() string {
-	return `set -e
-mkdir -p ~/.npm-global ~/.local/bin
-npm config set prefix ~/.npm-global
-npm install -g ` + pipkg.PiPackage + `@latest
-ln -sf ~/.npm-global/bin/pi ~/.local/bin/pi
-`
 }
 
 // PlacePicodeScript moves a staged binary into ~/.local/bin/picode. inside

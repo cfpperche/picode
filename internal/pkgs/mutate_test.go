@@ -2,7 +2,6 @@ package pkgs
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -226,6 +225,69 @@ esac`)
 	}
 }
 
+// The toggle of an Omp extension is the CLI's own `disabledExtensions` write,
+// asked of the engine before the plugin verbs — which do not know a configured
+// extension. The workspace layer is a file PiCode splices and answers no
+// command at all (the empty answer OpenCode's in-process toggle gives); the
+// user layer is the CLI's own `config set`, run here because a toggle is
+// synchronous, and the line the pane would copy is the one it ran.
+func TestGuestToggleOmpExtensionWritesTheCLIsOwnList(t *testing.T) {
+	ctx := context.Background()
+	stubGuest(t, "omp", `case "$*" in
+  *"config get disabledExtensions"*) printf '%s' '{"key":"disabledExtensions","value":[],"type":"array","description":""}' ;;
+  *"config get extensions"*) printf '%s' '{"key":"extensions","value":["pkgs/one/tool.ts"],"type":"array","description":""}' ;;
+  *) printf '%s' '{"npm":[],"marketplace":[]}' ;;
+esac`)
+
+	// The workspace layer: PiCode writes the settings file itself, so there is
+	// no argv to hand the lane and nothing for a person to copy.
+	ws := t.TempDir()
+	settings := filepath.Join(ws, ".omp", "settings.json")
+	mustWrite(t, settings, `{"extensions":["pkgs/ext/tool.ts"]}`)
+	cmd, err := DriverFor("omp").Toggle(ctx, Query{Vendor: "project", WorkspacePath: ws},
+		Target{Name: "tool", Source: "pkgs/ext/tool.ts", On: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Exe != "" || cmd.Line != "" || len(cmd.Args) != 0 {
+		t.Fatalf("a workspace write has no command to copy: %+v", cmd)
+	}
+	body, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"disabledExtensions"`) || !strings.Contains(string(body), "extension-module:tool") {
+		t.Fatalf("the toggle did not reach the CLI's own list: %s", body)
+	}
+
+	// The user layer: the CLI's own command, in the user's own directory, and
+	// it is run — against the stub on PATH and a temp HOME, never the real one.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cmd, err = DriverFor("omp").Toggle(ctx, Query{Vendor: "user"},
+		Target{Name: "tool", Source: "pkgs/one/tool.ts", On: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"config", "set", "disabledExtensions", `["extension-module:tool"]`}
+	if cmd.Exe != "omp" || cmd.Dir != home || !slices.Equal(cmd.Args, want) {
+		t.Fatalf("command = %+v, want %s %v in %s", cmd, "omp", want, home)
+	}
+	if !strings.Contains(cmd.Line, "config set disabledExtensions") {
+		t.Fatalf("line = %q, want the CLI's own command", cmd.Line)
+	}
+
+	// A plugin row is untouched by any of this: the vendor's own verb, as
+	// before.
+	cmd, err = DriverFor("omp").Toggle(ctx, Query{Vendor: "user"}, Target{Name: "probe@picode-probe-mp", On: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameCommand(t, cmd, engineCommand(t, "omp", clipkgs.VerbDisable, clipkgs.Paths{}, clipkgs.Target{
+		Name: "probe@picode-probe-mp", Scope: "user",
+	}))
+}
+
 // Inspect answers the vendor's own text and the command that produced it — the
 // two things a refusal and a dialog need — and a CLI that declares no
 // inspection refuses in its engine's own words.
@@ -263,15 +325,38 @@ func TestGuestInspectMatchesTheEngine(t *testing.T) {
 func TestGuestMutationRefusalsKeepTheEnginesWords(t *testing.T) {
 	ctx := context.Background()
 
-	// OpenCode removes by rewriting its own config file, and that is not a
-	// command the job lane can carry.
-	_, err := DriverFor("opencode").Remove(ctx, Query{Vendor: "user"}, Target{Name: "a"})
-	_, _, engineErr := clipkgs.Argv("opencode", clipkgs.VerbRemove, clipkgs.Paths{}, clipkgs.Target{Name: "a", Scope: "user"})
-	sameRefusal(t, err, engineErr)
+	// OpenCode removes by rewriting its own config file, so its removal is not
+	// a command the job lane can carry and not a refusal either: the driver
+	// performs the engine's own write and answers the empty command the route
+	// reads as "there is nothing to run". This row used to pin the refusal
+	// (*"this CLI does not expose that operation: opencode remove"*) that the
+	// pane drew as an error under a live button.
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, "opencode"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(home, "opencode", "opencode.json")
+	if err := os.WriteFile(file, []byte(`{"plugin": ["a"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := DriverFor("opencode").Remove(ctx, Query{Vendor: "user"}, Target{Name: "a", Source: "a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Exe != "" || cmd.Line != "" || len(cmd.Args) != 0 {
+		t.Fatalf("a write has no command to hand a lane: %+v", cmd)
+	}
+	if got, err := os.ReadFile(file); err != nil || string(got) != `{"plugin": []}` {
+		t.Fatalf("the engine did not perform the removal: %q (%v)", got, err)
+	}
+	if _, _, err := clipkgs.Argv("opencode", clipkgs.VerbRemove, clipkgs.Paths{}, clipkgs.Target{Name: "a", Scope: "user"}); !errors.Is(err, clipkgs.ErrVerbAbsent) {
+		t.Fatalf("the CLI still exposes no removal command: %v", err)
+	}
 
 	// A CLI with no update verb, and one with no marketplace at all.
 	_, err = DriverFor("agy").Update(ctx, Query{Vendor: "user"}, Target{Name: "a"})
-	_, _, engineErr = clipkgs.Argv("agy", clipkgs.VerbUpdate, clipkgs.Paths{}, clipkgs.Target{Name: "a", Scope: "user"})
+	_, _, engineErr := clipkgs.Argv("agy", clipkgs.VerbUpdate, clipkgs.Paths{}, clipkgs.Target{Name: "a", Scope: "user"})
 	sameRefusal(t, err, engineErr)
 
 	_, err = DriverFor("hermes").Marketplace(ctx, Query{Vendor: "user"}, MarketRequest{Action: "add", Source: "owner/repo"})
@@ -283,10 +368,12 @@ func TestGuestMutationRefusalsKeepTheEnginesWords(t *testing.T) {
 	sameRefusal(t, err, engineRun(t, "codex", clipkgs.VerbDisable, clipkgs.Paths{}, clipkgs.Target{Name: "pl", Scope: "user", On: false}))
 }
 
-// The two answers a mutation adds are derived, not re-invented: the removal's
-// remaining sources marshal to the bytes the one-key map answered, and the
-// vendor's inspection text rides the two keys the pane parses.
-func TestGuestMutationAnswersMatchTheEngineByteForByte(t *testing.T) {
+// The two answers a mutation adds are the driver's, so they carry the engine's
+// own facts: the removal's remaining sources are the vendor's rows, and the
+// inspection is the vendor's own text. The envelopes they travel in are the
+// server's (`packageSources`, `inspectAnswer`), pinned over the real routes in
+// internal/server.
+func TestGuestMutationAnswersCarryTheEnginesFacts(t *testing.T) {
 	stubGuest(t, "grok", grokScript)
 	ws := t.TempDir()
 	ctx := context.Background()
@@ -299,12 +386,10 @@ func TestGuestMutationAnswersMatchTheEngineByteForByte(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sameBytes(t, GuestMarketplaceSources(rows), map[string]any{"marketplaces": engine})
+	sameGuestRows(t, rows, engine)
 
-	// The toggle's answer is the CLI's list after the mutation, mapped the way
-	// slice 2 maps every roster: the driver's report and the engine's report are
-	// the same bytes (the read stamps are microseconds apart and are held
-	// equal, as the read's own test holds them).
+	// The toggle's answer is the CLI's list after the mutation, read the way
+	// every roster is: the driver's rows are the engine's own.
 	stubGuest(t, "grok", grokScript)
 	engineRep, err := clipkgs.List(ctx, "grok", clipkgs.Paths{Cwd: ws}, "user", true)
 	if err != nil {
@@ -314,45 +399,21 @@ func TestGuestMutationAnswersMatchTheEngineByteForByte(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	engineRep.ReadAt = rep.ReadAt
-	sameBytes(t, Guest("grok", rep), GuestViewOf("grok", engineRep))
+	sameGuestRows(t, rep.Rows, engineRep.Rows)
 
-	// Inspect is the vendor's own text under the pane's two keys.
+	// Inspect is the vendor's own text, character for character.
 	out, err := clipkgs.Inspect(ctx, "grok", clipkgs.Paths{Cwd: ws}, clipkgs.Target{Name: "probe", Scope: "user"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	sameBytes(t, GuestInspect("grok", out), map[string]any{"cli": "grok", "output": out})
-}
-
-// The pane parses these two payloads, so they are pinned as bytes.
-func TestGuestMutationViewsAreThePanesPayload(t *testing.T) {
-	b, err := json.Marshal(GuestMarketplaceSources([]Row{
-		{CLI: "grok", ID: "team", Name: "team", Source: "https://example.test/mp", Kind: "marketplace", Scope: Machine, Vendor: "user", Enabled: true, Installed: true, Status: "1.2.3"},
-	}))
+	cmd, got, err := DriverFor("grok").Inspect(ctx, Query{Vendor: "user", WorkspacePath: ws}, Target{Name: "probe"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"marketplaces":[{"id":"team","name":"team","scope":"user","enabled":true,"installed":true,` +
-		`"source":"https://example.test/mp","sourceKind":"marketplace","status":"1.2.3"}]}`
-	if string(b) != want {
-		t.Fatalf("payload = %s\n      want %s", b, want)
+	if got != out {
+		t.Fatalf("inspect = %q, want the engine's %q", got, out)
 	}
-
-	// No sources left is an empty list, never null: the pane's empty state.
-	b, err = json.Marshal(GuestMarketplaceSources(nil))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(b) != `{"marketplaces":[]}` {
-		t.Fatalf("empty payload = %s", b)
-	}
-
-	b, err = json.Marshal(GuestInspect("muse", `{"capabilities":["read"]}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(b) != `{"cli":"muse","output":"{\"capabilities\":[\"read\"]}"}` {
-		t.Fatalf("inspect payload = %s", b)
+	if cmd.Line == "" {
+		t.Fatalf("an inspection carries the line that produced it: %+v", cmd)
 	}
 }

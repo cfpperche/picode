@@ -71,6 +71,19 @@ func wslUNC(linuxPath string) string {
 	return `\\wsl.localhost\` + distro + `\` + strings.ReplaceAll(p, "/", `\`)
 }
 
+// WindowsPath is the path Windows itself uses for a folder inside WSL — a
+// drive path for /mnt/<d>/…, the \\wsl.localhost share otherwise — so the
+// owner can paste it into Explorer or a Windows app. False off WSL.
+func WindowsPath(linuxPath string) (string, bool) {
+	if strings.TrimSpace(linuxPath) == "" || !RunningWSL() {
+		return "", false
+	}
+	if p, ok := WSLToWin(linuxPath); ok {
+		return p, true
+	}
+	return wslUNC(linuxPath), true
+}
+
 // Reveal opens path in the host file manager:
 // WSL → Windows Explorer, macOS → Finder, Linux → xdg-open.
 func Reveal(path string) error {

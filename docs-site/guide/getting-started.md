@@ -1,5 +1,5 @@
 ---
-description: Install PiCode from a GitHub release on Linux or WSL, then create your first agent.
+description: Install PiCode from a GitHub release on Linux or WSL, add the CLIs you use, then create your first agent.
 ---
 
 # Getting started
@@ -13,15 +13,9 @@ Clone the repo only when you are changing PiCode.
 
 **Windows:** [PiCode Desktop](/guide/windows-desktop). **A machine you reach from elsewhere:** [On a server](/guide/remote-server).
 
-## 1. Install Pi and tmux
+## 1. Install tmux
 
-PiCode runs real [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) agents. Install Pi and tmux 3.5+ on this machine:
-
-```bash
-npm install -g @earendil-works/pi-coding-agent
-```
-
-Use your distro's tmux package if it is 3.5 or newer.
+PiCode keeps every agent and terminal alive in tmux, so work survives a closed browser tab. Install tmux 3.5+ from your distro's package. Nothing else is required: the coding-agent CLIs come in step 3.
 
 ## 2. Install PiCode
 
@@ -36,9 +30,20 @@ chmod +x picode-linux-amd64
 
 `install` copies the binary to `~/.local/bin/picode`, writes the systemd user unit, and starts it. Put `~/.local/bin` on your `PATH` if `picode` is not found after this.
 
-## 3. Create an agent
+## 3. Install the CLIs you use
 
-Open `https://localhost:8445`. The sidebar has a tab per kind: **Agents** (agents without a project), **Workspaces** (your project folders — each card holds its agents and terminals, and its buttons create them right there), **Terminals** (loose shells) and **Pins**. Add a workspace, add an agent inside it (or a free agent), then click **Run**. Close the browser tab; the agent keeps running.
+PiCode runs the real CLIs — Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and Omp — and works with whichever of them you install; none is required. Open `https://localhost:8445`, then **Agent CLIs**: the page shows which CLIs are on this machine, offers **Install** for Pi, Codex and Claude Code, and links the vendor's own command for the others. For example:
+
+```bash
+npm install -g @earendil-works/pi-coding-agent   # Pi
+npm install -g @anthropic-ai/claude-code         # Claude Code
+```
+
+Two kinds of thing run in PiCode. An **agent** is a workspace or free instance of one CLI: PiCode owns its launch, follows its activity and collects its questions in the Inbox. A **terminal** is a loose shell. Pi is the one CLI that also has a managed mode with structured chat; every other CLI runs its own TUI in the terminal PiCode gives it. Details: [Agent CLIs](/guide/agent-clis).
+
+## 4. Create an agent
+
+The sidebar has a tab per kind: **Agents** (agents without a project), **Workspaces** (your project folders — each card holds its agents and terminals, and its buttons create them right there), **Terminals** (loose shells) and **Pins**. Add a workspace, add an agent inside it and pick which CLI runs there — or add a free agent from the **Agents** tab, picking its CLI the same way — then click **Run**. Close the browser tab; the agent keeps running.
 
 ![The desktop shell: workspaces and agents in the sidebar, what needs you first, and today's numbers on the right](../img/app-fleet.png)
 

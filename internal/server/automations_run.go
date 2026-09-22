@@ -28,6 +28,7 @@ const (
 	reasonPiMissing   = "pi missing"
 	reasonTargetGone  = "target gone"
 	reasonInTerminal  = "agent in terminal"
+	reasonTermClosed  = "terminal closed"
 	reasonQueued      = "queued"
 	reasonExited      = "process exited"
 	reasonStopped     = "stopped during the run"
@@ -54,9 +55,10 @@ type fireInput struct {
 	Trigger      string
 	Busy         bool // a run of this automation is still running
 	RateHit      bool // max runs per window reached
-	PiMissing    bool
+	PiMissing    bool // `pi` is not on PATH
 	Action       string
 	TargetExists bool         // action=message: the target agent still exists
+	TargetIsPi   bool         // action=message: the target runs Pi (a guest is reached through its launch terminal, ADR-0179)
 	AgentMode    agentRunMode // the agent a start/message would touch
 }
 
@@ -84,9 +86,20 @@ func decideFire(in fireInput) fireDecision {
 		if !in.TargetExists {
 			return fireDecision{Status: store.RunFailed, Reason: reasonTargetGone, Notify: true}
 		}
-		if in.PiMissing && in.AgentMode != modeManaged {
-			// Delivering means running the agent; only an already-running one needs no pi to start.
+		if in.PiMissing && in.TargetIsPi && in.AgentMode != modeManaged {
+			// Delivering to a Pi agent means running pi; only an already-running
+			// one needs no pi to start. A guest agent never needs pi (ADR-0179).
 			return fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}
+		}
+		if !in.TargetIsPi {
+			// A guest agent's terminal IS its process (ADR-0160): an open
+			// terminal is where the door delivers, a closed one has nobody to
+			// read the prompt. Starting a CLI and pasting before its TUI is
+			// ready is not delivery, so a closed terminal skips honestly.
+			if in.AgentMode == modeInteractive {
+				return fireDecision{}
+			}
+			return fireDecision{Status: store.RunSkipped, Reason: reasonTermClosed}
 		}
 		if in.AgentMode == modeInteractive {
 			return fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}
@@ -160,8 +173,9 @@ func (r automationRunner) Fire(a store.Automation, f automate.Firing) (store.Run
 	switch a.Action {
 	case store.AutomationMessage:
 		if a.TargetAgentID != nil {
-			if _, err := deps.Store.GetAgent(*a.TargetAgentID); err == nil {
+			if ag, err := deps.Store.GetAgent(*a.TargetAgentID); err == nil {
 				in.TargetExists = true
+				in.TargetIsPi = ag.IsPi()
 				in.AgentMode = r.mode(ctx, *a.TargetAgentID)
 			}
 		}
@@ -318,9 +332,11 @@ func skipBody(reason string) string {
 	case reasonRateCap:
 		return "This automation reached its runs-per-window limit. Raise the limit or wait for the window to pass."
 	case reasonPiMissing:
-		return "pi is not installed or not on PATH, so no agent could start."
+		return "Pi is not installed or not on PATH, so this Pi agent could not start."
 	case reasonTargetGone:
 		return "The agent this automation messages no longer exists. Pick another agent in the automation's settings."
+	case reasonTermClosed:
+		return "This agent's terminal is closed, so nobody could read the prompt. Open the agent and the next run will go through."
 	case reasonInTerminal:
 		return "The agent is open in a terminal, where messages are not delivered automatically. Close the terminal session and the next run will go through."
 	}

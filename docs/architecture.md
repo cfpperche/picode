@@ -6,8 +6,10 @@
 ## The one-paragraph version
 
 PiCode is a **single Go binary that serves a browser UI** and manages **real
-`pi` processes** on the machine where it runs. Each agent can use one of two
-exclusive channels: a tmux-backed PTY that renders the genuine Pi TUI inside a
+coding-agent CLI processes** — Pi, Claude Code, Codex, Grok, Hermes Agent,
+OpenCode, Muse Code, Antigravity, Omp — on the machine where it runs. None of
+them is a dependency; tmux is the only runtime requirement (ADR-0179). A Pi
+agent can use one of two exclusive channels: a tmux-backed PTY that renders the genuine Pi TUI inside a
 browser terminal, or an RPC bridge (`pi --mode rpc`, JSONL over stdio) that
 feeds the rich UI with structured events. An Inbox reply may borrow the RPC
 channel for one correlated turn while a holder preserves the same tmux pane;
@@ -19,8 +21,9 @@ Agent CLIs (ADR-0069) is the **interactive** stack for installed Pi, Claude
 Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and Omp:
 catalog, launch, tmux, sensors, pins. A workspace *instance* of a launchable
 CLI is an **agent** (`agents.cli`, ADR-0160) — the same class as Pi, with
-only interactive mode until that CLI gets a managed adapter. Structured
-chat, JSON-RPC and Pi packages stay Pi-only (ADR-0091). `Runtime.Start`
+only interactive mode until that CLI gets a managed adapter. Structured chat
+and JSON-RPC stay Pi-only (ADR-0091); packages are one subsystem for every CLI
+([packages.md](architecture/packages.md), ADR-0176). `Runtime.Start`
 (`pi --mode rpc`) refuses a non-Pi agent. Unbound `#/clis/new` terminals
 and project shells stay terminals, not agents. Leftover `managed_clis`
 rows (ADR-0159) migrated onto `agents` (Fatia C) and the table is gone.
@@ -49,7 +52,8 @@ still hot-reloads. `picode update` checks GitHub for a newer release.
 `picode provision` (ADR-0020) converges a machine on all of that at once:
 `[boot] systemd=true` in `/etc/wsl.conf`, lingering so the unit starts
 without a login, a valid certificate, the unit itself, `/api/health` as
-proof, and — for a server (ADR-0050) — `pi` on PATH, Tailscale up, and
+proof, and — for a server (ADR-0050) — which agent CLIs are on PATH (an
+informational step: none is required, ADR-0179), Tailscale up, and
 whether other machines can reach the daemon. `--dry-run` is the doctor.
 `picode install --env KEY=VALUE` keeps the service environment in
 `~/.config/systemd/user/picode.service.d/env.conf`, which deploys and
@@ -69,12 +73,16 @@ registers the logon task. `install` walks a state machine
 (`internal/desktop.NextStage`, derived from observation so any interruption
 resumes): WSL, distro, account, then — since ADR-0098's stages landed — the
 picode binary (the tool's own release, verified) and the runtime (tmux, git,
-curl, Node.js from NodeSource, pi; Ubuntu only), asking first on a distro
-PiCode did not register, and ends with the shell running. `--user <name>`
-aims both at one account (the binary in its `~/.local/bin`, pi in its own npm
-prefix linked there); without it pi is a system-wide root install while the
-binary still lands in the distro's default account, and the observation probe
-runs as the target account so a pi only it can see still converges. The
+curl, Node.js 22 from NodeSource when node or npm is missing or older than
+22; Ubuntu only), asking first on a distro PiCode did not register, and ends
+with the shell running. No agent CLI is installed by the tool (ADR-0179): the
+user adds the ones they use from Agent CLIs after the first login, and that
+Install runs `npm install -g` as the account — so when the global npm prefix
+is root-owned (under `/usr`, NodeSource's or the distro's) the stage sets the
+account's prefix to `~/.local` (`npm config set prefix`, as that account),
+whose `bin` the login shell already carries. An nvm prefix is left alone. `--user <name>` aims the binary at one account (its
+`~/.local/bin`); the observation probe runs as the target account so a binary
+only it can see still converges. The
 launcher waits for the elevated child and reports a failing exit code instead
 of exiting 0; the last error line lands in `%ProgramData%\PiCode
 Desktop\install.log` and the window pauses for Enter on failure. It drives the distro through
@@ -234,7 +242,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [File preview: HTML (ADR-0136)](architecture/file-preview.md) | `docs/architecture/file-preview.md` |
 | [Native CLI settings (ADR-0101, ADR-0163)](architecture/cli-settings.md) | `docs/architecture/cli-settings.md` |
 | [Agent CLI memory (ADR-0163)](architecture/cli-memory.md) | `docs/architecture/cli-memory.md` |
-| [Native CLI packages (ADR-0102)](architecture/cli-packages.md) | `docs/architecture/cli-packages.md` |
+| [Packages (ADR-0102, ADR-0167, ADR-0176)](architecture/packages.md) | `docs/architecture/packages.md` |
 | [Native CLI providers (ADR-0103)](architecture/cli-providers.md) | `docs/architecture/cli-providers.md` |
 | [Credentials (ADR-0165)](architecture/credentials.md) | `docs/architecture/credentials.md` |
 | [CLI terminal launch settings (ADR-0069)](architecture/cli-terminal-launch.md) | `docs/architecture/cli-terminal-launch.md` |
@@ -278,26 +286,28 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 │  ├─ Rich UI (React + Vite + Tailwind — ADR-0008)           │
 │  │   sidebar tabs (agents·workspaces·terminals·pins)      │
 │  │   tasks · diffs · sessions tree · auth                 │
-│  └─ xterm.js terminals (the real Pi TUI, 1:1)              │
+│  └─ xterm.js terminals (each CLI's real TUI, 1:1)          │
 └───────────────┬────────────────────────────────────────────┘
                 │ HTTP /api/*  +  WebSocket /ws/*
 ┌───────────────▼────────────────────────────────────────────┐
 │ picode (single Go binary, UI embedded — `-tags embedui`)   │
 │                                                            │
-│  AgentManager ─── spawn/stop/restart ──► pi processes      │
-│  TerminalBridge ─ tmux sessions ───────► pi (interactive)  │
+│  AgentManager ─── spawn/stop/restart ──► agent processes   │
+│  TerminalBridge ─ tmux sessions ───────► any CLI's TUI     │
+│  Agent CLIs ───── catalog · launch ────► 9 CLIs (ADR-0069) │
 │  RPCBridge ────── JSONL stdio ─────────► pi --mode rpc     │
-│  TaskQueue ────── steer / follow_up ───► RPCBridge         │
-│  Broker ───────── inbox routing ───────► PiCode extension  │
-│  SessionReader ── parse ~/.pi/agent/sessions/*.jsonl       │
+│  TaskQueue ────── steer / follow_up ───► RPCBridge (Pi)    │
+│  Broker ───────── inbox routing ───────► MCP / extension   │
+│  SessionReader ── each CLI's session files (ADR-0079)      │
 │  ChangeFeed ───── events table → SSE /api/events (replay)  │
 │  Automations ──── cron tick / webhook ──► new session      │
 └────────────────────────────────────────────────────────────┘
 ```
 
-## Why dual channel per agent
+## Why dual channel per Pi agent
 
-Revised by ADR-0006: **one live pi process per agent, two exclusive run
+This section is Pi's managed mode; every other CLI has only the tmux
+channel (ADR-0160). Revised by ADR-0006: **one live pi process per agent, two exclusive run
 modes** — interactive (tmux TUI) or managed (rpc + panel). The original
 simultaneous design risked concurrent writers on pi's session files.
 

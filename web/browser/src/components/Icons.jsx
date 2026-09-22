@@ -2,6 +2,7 @@ import {
   Activity,
   ArrowDownToLine,
   ArrowUp,
+  ArrowDown,
   AudioLines,
   Bold,
   Book,
@@ -27,6 +28,8 @@ import {
   ExternalLink,
   File,
   Folder,
+  FolderOpen,
+  GitPullRequest,
   Link2,
   Lock,
   Maximize,
@@ -136,6 +139,10 @@ export const IconPanelRightClose = lucide(PanelRightClose, 16);
 export const IconRemote = lucide(Cloud, 10);
 export const IconFolder = lucide(Folder, 13);
 export const IconFolders = lucide(Folders, 13);
+export const IconFolderOpen = lucide(FolderOpen, 13);
+export const IconPullRequest = lucide(GitPullRequest, 13);
+export const IconMoveUp = lucide(ArrowUp, 13);
+export const IconMoveDown = lucide(ArrowDown, 13);
 export const IconGrid = lucide(LayoutGrid, 13);
 // The Canvas app's tile (ADR-0109 icon map). A 3×3 grid drew the engine
 // ADR-0118 removed, so the glyph is a frame with its guides: a bounded plane

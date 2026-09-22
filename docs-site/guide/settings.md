@@ -1,13 +1,18 @@
 ---
-description: Pi JSON for the selected agent, one layer at a time. Not Preferences.
+description: Each CLI's own settings, edited from Agent CLIs — Pi's JSON one layer at a time. Not Preferences.
 ---
 
 # CLI settings
 
 Two different screens. Do not mix them.
 
-- **Where:** **Agent CLIs**, pick **Pi**, then the **Settings** pane. Composer `/settings` keeps the selected agent in the URL.
-- **Not this:** not Preferences (theme, server port). That is PiCode chrome. This pane is pi JSON. Overview: [Configure](/guide/configure).
+- **Where:** **Agent CLIs**, pick the CLI, then the **Settings** pane (`#/clis/<cli>/settings`). Composer `/settings` opens Pi's pane with the selected agent in the URL.
+- **Not this:** not Preferences (theme, server port). That is PiCode chrome. This pane is the CLI's own configuration. Overview: [Configure](/guide/configure).
+
+Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and
+Omp each get a pane over that CLI's own settings file: the rows its vendor
+documents, the file it writes, and the CLI's own defaults. The rest of this
+page is Pi's editor, which has layers.
 
 | Hash | What | Writes |
 |---|---|---|
@@ -47,6 +52,34 @@ values; agent values override both.
 Workspace writes require the folder in pi's `trust.json`. Untrusted → the
 workspace layer says so and offers **Open agent to trust**; the same write
 returns 409. Run `/trust` in the TUI.
+
+## Model roles (Omp)
+
+Omp routes different jobs to different models, and its Settings pane edits that
+map directly. **Model roles** lists every role the CLI has — DEFAULT, SMOL,
+SLOW, VISION, PLAN, COMMIT, TINY, MEMORY, TASK, ADVISOR, and the five that pick
+a model by kind (IMAGE, WEB, SPEECH, DICTATION, JUDGE) — plus any role you
+invented. A role nobody assigns reads **auto**: Omp picks for it.
+
+Each row has two controls. The **model picker** searches what Omp itself
+reports it can reach in this workspace, and also offers `@another-role` and `*`
+so one role can point at another. The **thinking** select beside it writes the
+`:level` suffix. A role in the quick-switch cycle carries the same `⟳ N` badge
+Omp's own model hub draws, counting the stops of its ctrl+p cycle.
+
+**Quick-switch cycle** is that list, in order. **Fallbacks** below it holds one
+chain per role, model or `provider/*`: when a model fails, Omp tries the next
+entry. An empty chain is how you say *never fall back*. **New role…** and
+**New fallback…** create a row; **Use inherited** removes it from this layer.
+
+The workspace layer is the reason this pane exists: `omp config set` writes the
+global file wherever you run it, so a per-project role can only be set by
+editing `<workspace>/.omp/config.yml`, which is what the **This workspace**
+layer does.
+
+Omp reads its config when it starts. A change here reaches a running Omp
+terminal when that terminal restarts — and every other open Omp terminal reads
+the same global file, so they each pick it up on their own next start.
 
 ## Related pi documentation
 

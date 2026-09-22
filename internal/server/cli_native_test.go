@@ -286,3 +286,118 @@ func TestCLIMemoryAPIRefusesPathsOutsideTheStore(t *testing.T) {
 		}
 	}
 }
+
+// TestCLISettingsAPICarriesTheRoleMatrix: omp's role rows are computed per
+// request from its own catalog plus the files, and a role the pane writes lands
+// in the file the CLI reads — including the workspace layer, which omp's own
+// `config set` cannot reach (measured 2026-09-22: it writes the global file
+// wherever it runs, and `--scope` is not an option).
+func TestCLISettingsAPICarriesTheRoleMatrix(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	ts := newTestServer(t, "cat")
+
+	config := filepath.Join(home, ".omp", "agent", "config.yml")
+	seedFile(t, config, "modelRoles:\n  default: deepseek/deepseek-flash:max\nsymbolPreset: ascii\n")
+
+	status, body := getJSONBody(t, ts, ts.URL+"/api/cli-settings?cli=omp")
+	if status != http.StatusOK {
+		t.Fatalf("GET status %d: %v", status, body)
+	}
+	roles, _ := body["roles"].(map[string]any)
+	if roles == nil {
+		t.Fatal("omp declares a role matrix; the pane needs its prefixes and catalog")
+	}
+	if roles["rolePrefix"] != "modelRoles." || roles["chainPrefix"] != "retry.fallbackChains." {
+		t.Errorf("prefixes = %v / %v", roles["rolePrefix"], roles["chainPrefix"])
+	}
+	if catalog, _ := roles["catalog"].([]any); len(catalog) != 15 {
+		t.Errorf("the vendor has 15 built-in roles, the report carries %d", len(catalog))
+	}
+	fields, _ := body["fields"].([]any)
+	var sawDefault, sawJudge bool
+	for _, raw := range fields {
+		f, _ := raw.(map[string]any)
+		switch f["key"] {
+		case "modelRoles.default":
+			sawDefault = true
+			if f["kind"] != "role" || f["tag"] != "DEFAULT" {
+				t.Errorf("the default row is %#v", f)
+			}
+		case "modelRoles.judge":
+			sawJudge = true
+		}
+	}
+	if !sawDefault || !sawJudge {
+		t.Error("every role the CLI has is a row, assigned or not")
+	}
+	layers, _ := body["layers"].([]any)
+	layer, _ := layers[0].(map[string]any)
+	values, _ := layer["values"].(map[string]any)
+	if values["modelRoles.default"] != "deepseek/deepseek-flash:max" {
+		t.Errorf("values = %#v", values)
+	}
+	revision, _ := layer["revision"].(string)
+
+	res := patchJSON(t, ts, "/api/cli-settings", map[string]any{
+		"cli": "omp", "scope": "user", "revision": revision,
+		"set": map[string]any{
+			"modelRoles.plan":              "anthropic/claude-opus-4-8:high",
+			"retry.fallbackChains.default": []any{"@smol", "openai/gpt-5"},
+		},
+	})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("PATCH status %d: %s", res.StatusCode, thisBody(res))
+	}
+	got, err := os.ReadFile(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"plan: anthropic/claude-opus-4-8:high",
+		"default: [\"@smol\", \"openai/gpt-5\"]",
+		"symbolPreset: ascii",
+	} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("the file is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// A key outside the vendor's own naming rule is refused by name, and the file
+// is left exactly as it was.
+func TestCLISettingsAPIRefusesARoleTheCLIWouldNotAccept(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	ts := newTestServer(t, "cat")
+	config := filepath.Join(home, ".omp", "agent", "config.yml")
+	seedFile(t, config, "symbolPreset: ascii\n")
+
+	for _, key := range []string{"modelRoles.9lives", "retry.fallbackChains.a: b", "modelRoles."} {
+		res := patchJSON(t, ts, "/api/cli-settings", map[string]any{
+			"cli": "omp", "scope": "user",
+			"set": map[string]any{key: "openai/gpt-5"},
+		})
+		if res.StatusCode != http.StatusBadRequest {
+			t.Errorf("%s: want 400, got %d: %s", key, res.StatusCode, thisBody(res))
+		}
+	}
+	got, _ := os.ReadFile(config)
+	if string(got) != "symbolPreset: ascii\n" {
+		t.Errorf("a refused write changed the file:\n%s", got)
+	}
+}
+
+// The model picker asks the CLI, and only a CLI PiCode has measured a way to
+// ask answers at all.
+func TestCLIModelsAPIRefusesCLIsItCannotAsk(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	for _, cli := range []string{"pi", "", "codex", "claude-code"} {
+		status, _ := getJSONBody(t, ts, ts.URL+"/api/cli-models?cli="+cli)
+		if status != http.StatusBadRequest {
+			t.Errorf("cli=%q: want 400, got %d", cli, status)
+		}
+	}
+}

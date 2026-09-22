@@ -196,6 +196,14 @@ func TestEveryBooleanDeclaresItsDefault(t *testing.T) {
 		"hermes/display.show_reasoning":      true,
 		"hermes/memory.memory_enabled":       true,
 		"hermes/memory.user_profile_enabled": true,
+		// omp's four, read out of its own settings schema on 2026-09-22
+		// (18.2.8, `src/config/settings-schema.ts`): `retry.enabled` and
+		// `retry.modelFallback` default true, the two usage-aware switches
+		// default false.
+		"omp/retry.enabled":            true,
+		"omp/retry.modelFallback":      true,
+		"omp/retry.usageAwareFallback": false,
+		"omp/retry.waitForUsageReset":  false,
 	}
 	seen := 0
 	for _, cli := range Supported() {

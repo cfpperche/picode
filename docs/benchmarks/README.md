@@ -28,6 +28,7 @@ are dated notes with receipts. Closed-source claims are marked inference.
 | [Design mode / annotations](2026-09-18-annotation-design-mode.md) | Who ships element annotate → agent: Orca (live docs), Lovable (live docs), bolt.diy (source), ChatGPT Work (owner-only) | The grammar four products converged on, and the PiCode adaptation for v2c: frozen-page picker, capture pack, staged file + path through the prompt door | Live docs + upstream source, 2026-09-18 |
 | [Zed](https://zed.dev) | Rust editor with an ACP-native agent panel | Cross-file **Review Changes** multibuffer, follow-the-agent, tool permissions as a precedence table, Terminal Threads as a first-class kind — and the registry that re-measures ADR-0091's trigger (5/9 of our CLIs now first-party ACP) — study [2026-09-22](2026-09-22-zed.md) | Live zed.dev docs/blog + shipped `default.json` + ACP registry.json, 2026-09-22 |
 | [Computer-use agents](2026-09-16-computer-use.md) | Benchmarks (OSWorld/2.0, WAA, WindowsWorld, WebArena-Verified, ScreenSpot-Pro, OS-Harm), vendor tool contracts (Anthropic/OpenAI/Google/Microsoft), open actuators (Cua, Windows-MCP, Terminator, UFO2), Windows agentic surfaces | The `computer` tool beside `browser`: same vocabulary the vendors converged on, shell as the Rust actuator, tiers × window binding × Ask classes, and where the agent's desktop lives — study [2026-09-16](2026-09-16-computer-use.md) | Official OSWorld results workbook + vendor docs + GitHub/crates.io metadata, fetched 2026-09-16 |
+| [omp helpers placement](2026-09-22-omp-helpers-placement.md) | Where omp-specific helpers live in a multi-CLI host: omp's config surface measured on 18.2.8, thirty products' agent-config UIs, two dozen host platforms' placement patterns; the five gate measurements (§11) | The default door is a declaration behind a CLI-neutral engine ("bundled, not privileged"); slice 1 = the role matrix (ADR-0181) | Local probe of the installed omp + live vendor docs, 2026-09-22 |
 | [2026-09-18 — Embedding Windows apps in a PiCode pane (spike)](2026-09-18-embed-windows-apps.md) | reparenting works for Terminal and Electron, not for WinUI Notepad or Explorer; recommendation: mirror first, capture + input later |
 
 **Adaptation rule** (same as Cursor): borrow a pattern when it improves agent
@@ -40,6 +41,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-22 — omp-specific helpers inside a multi-CLI host: where they live, and what they show](2026-09-22-omp-helpers-placement.md)
 - [2026-09-22 — Zed: the agent panel, and whether ACP’s trigger has fired](2026-09-22-zed.md)
 - [2026-09-20 — Credentials for every agent CLI: one vault, many accounts](2026-09-20-agent-cli-credentials.md)
 - [2026-09-18 — Design mode / annotations: the grammar four products converged on, and what PiCode adapts](2026-09-18-annotation-design-mode.md)

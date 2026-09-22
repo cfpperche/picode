@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/cfpperche/picode/internal/catalog"
 )
 
 // fakePi answers the two pi calls this surface makes: the model table the
@@ -38,6 +40,15 @@ echo "groq llama-4 128k 32k no no"
 
 func TestUsageSummaryIsCacheOnlyAndSaysUnknown(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	// Ambient provider keys are logins too: a PiCode terminal carries the
+	// vault's env, and this suite runs inside one. The catalog reads those
+	// names directly, so scrub every one it knows — "no logins" on this
+	// machine has to mean no logins, not "whatever the shell inherited".
+	for _, names := range catalog.APIKeyEnvVars {
+		for _, name := range names {
+			t.Setenv(name, "")
+		}
+	}
 	pi := fakePi(t, `{"status":"ready","provider":"anthropic","authType":"oauth"}`)
 	ts := newTestServer(t, pi)
 

@@ -1,28 +1,60 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey, directMutation, paneTabs, rowToggle, rowInspect } from "./cliPackages.js";
+import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey, directMutation, laneMutation, anyLaneMutation, paneTabs, rowToggle, rowInspect } from "./cliPackages.js";
 import { cliLocation } from "./cliLaunch.js";
 
-// The transport rule: which mutation is one of PiCode's own calls and which is a
-// job in the CLI's own lane. A wrong answer here runs a vendor's command for a
-// layer the vendor does not own, or reserves a job that can never carry it out.
+// The transport declarations these rows re-table, as a report carries them
+// (`Caps.Lane`): Pi's, a guest's, and the mixed CLI's — OpenCode, whose install
+// is its own `plugin` command and whose removal is a write of its own config
+// file. Every `{ async: true }` row below became GUEST_LANE, every
+// `{ async: false }` row PI_LANE.
+const PI_LANE = { install: false, remove: false, update: false, marketplace: false };
+const GUEST_LANE = { install: true, remove: true, update: true, marketplace: true };
+const MIXED_LANE = { install: true, remove: false, update: false, marketplace: false };
+
+// The transport rule: which mutation is one of PiCode's own calls and which is
+// a verb the CLI's own surface takes. A wrong answer here runs a vendor's
+// command for a layer the vendor does not own, or reserves a job that can never
+// carry it out.
 test("the agent scope is PiCode's own write for every CLI", () => {
-  // A CLI whose mutations are direct calls (Pi's own pipkg) is always direct.
-  assert.equal(directMutation({ async: false }, {}), true);
-  assert.equal(directMutation({ async: false }, { scope: "project" }), true);
-  // A vendor's own layers are its lane's.
-  assert.equal(directMutation({ async: true }, { scope: "user" }), false);
-  assert.equal(directMutation({ async: true }, { scope: "project" }), false);
+  // A CLI whose mutations are all its own calls (Pi's own pipkg, nothing on the
+  // lane) is always direct.
+  assert.equal(directMutation({ lane: PI_LANE }, {}), true);
+  assert.equal(directMutation({ lane: PI_LANE }, { scope: "project" }), true);
+  // A vendor's own layers are the vendor's route — whether the declaration puts
+  // the verb on the lane or, like the mixed CLI's removal, makes it a write.
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "user" }), false);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "project" }), false);
+  assert.equal(directMutation({ lane: MIXED_LANE }, { scope: "user" }), false);
+  assert.equal(directMutation({ lane: MIXED_LANE }, { row: { scope: "workspace" } }), false);
   // The agent layer is PiCode's list on the agent row, so writing it is direct
   // whichever CLI the pane is showing...
-  assert.equal(directMutation({ async: true }, { scope: "agent" }), true);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "agent" }), true);
+  assert.equal(directMutation({ lane: MIXED_LANE }, { scope: "agent" }), true);
   // ...and so is a row that lives there, whatever the pane's own scope is.
-  assert.equal(directMutation({ async: true }, { scope: "agent", row: { scope: "agent" } }), true);
-  assert.equal(directMutation({ async: true }, { scope: "user", row: { scope: "agent" } }), true);
-  assert.equal(directMutation({ async: true }, { row: { scope: "workspace" } }), false);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "agent", row: { scope: "agent" } }), true);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "user", row: { scope: "agent" } }), true);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { row: { scope: "workspace" } }), false);
   // Before a report arrives nothing may be sent to a lane on a guess.
   assert.equal(directMutation(null, { scope: "user" }), true);
   assert.equal(directMutation(undefined, { scope: "project" }), true);
+});
+
+// The per-verb half of that declaration: a mixed CLI answers for each verb on
+// its own, which is what a removal read as PiCode's own write depends on.
+test("the transport declaration is read one verb at a time", () => {
+  assert.equal(laneMutation({ lane: GUEST_LANE }, "remove"), true);
+  assert.equal(laneMutation({ lane: MIXED_LANE }, "install"), true);
+  assert.equal(laneMutation({ lane: MIXED_LANE }, "remove"), false);
+  assert.equal(laneMutation({ lane: PI_LANE }, "install"), false);
+  assert.equal(laneMutation(undefined, "remove"), false);
+  // A verb the lane never carries is false however the declaration is spelled.
+  assert.equal(laneMutation({ lane: GUEST_LANE }, "toggle"), false);
+  // The lane subscription is the aggregate the single `Async` bool answered: a
+  // CLI with any verb on the lane follows its events, and Pi follows none.
+  assert.equal(anyLaneMutation({ lane: MIXED_LANE }), true);
+  assert.equal(anyLaneMutation({ lane: PI_LANE }), false);
+  assert.equal(anyLaneMutation(undefined), false);
 });
 
 // The pair of tabs is offered where there is something to switch to: a report
@@ -177,8 +209,8 @@ test("a read carries the CLI, the workspace, the agent and the scope as a query"
   assert.deepEqual(api.report(), { method: "GET", path: "/api/packages/report?cli=claude-code&workspace=w+%2F%26&vendor=project", body: null });
   assert.equal(api.report({ refresh: true }).path, "/api/packages/report?cli=claude-code&workspace=w+%2F%26&vendor=project&refresh=1");
   assert.deepEqual(api.updates(), { method: "GET", path: "/api/packages/updates?cli=claude-code&workspace=w+%2F%26&vendor=project", body: null });
-  assert.equal(api.available().path, "/api/cli-packages/available?cli=claude-code&workspace=w+%2F%26&scope=project");
-  assert.equal(api.marketplaces().path, "/api/cli-packages/marketplaces?cli=claude-code&workspace=w+%2F%26&scope=project");
+  assert.equal(api.available().path, "/api/packages/available?cli=claude-code&workspace=w+%2F%26&scope=project");
+  assert.equal(api.marketplaces().path, "/api/packages/marketplaces?cli=claude-code&workspace=w+%2F%26&scope=project");
   assert.equal(api.marketplaces().method, "GET");
   assert.equal(api.marketplaces().body, null);
   // The machine scope is the contract default: it stays out of the query and
@@ -186,7 +218,7 @@ test("a read carries the CLI, the workspace, the agent and the scope as a query"
   const machine = packagesApi("grok");
   assert.equal(machine.report().path, "/api/packages/report?cli=grok");
   assert.equal(machine.updates().path, "/api/packages/updates?cli=grok");
-  assert.equal(machine.marketplaces().path, "/api/cli-packages/marketplaces?cli=grok");
+  assert.equal(machine.marketplaces().path, "/api/packages/marketplaces?cli=grok");
   assert.deepEqual(machine.install({ source: "owner/repo" }).body, { cli: "grok", scope: "user", source: "owner/repo" });
 });
 
@@ -201,20 +233,26 @@ test("the agent's own target rides the read, and the gallery is PiCode's own rou
   assert.deepEqual(api.direct.remove({ source: "npm:x", scope: "project" }), { method: "DELETE", path: "/api/packages?source=npm%3Ax&scope=project&workspace=w&agent=a", body: null });
 });
 
-test("a guest mutation names its target and keeps one request key across a retry", () => {
+test("a CLI's own mutation names it on the same paths PiCode's own calls use", () => {
   const api = packagesApi("muse", { workspaceId: "w", scope: "project" });
   assert.deepEqual(api.install({ source: "plugins/demo", requestKey: "k1" }), {
     method: "POST",
-    path: "/api/cli-packages/install",
+    path: "/api/packages",
     body: { cli: "muse", scope: "project", workspace: "w", source: "plugins/demo", requestKey: "k1" },
   });
+  // The removal is the same verb PiCode's own call sends, with the CLI named in
+  // the body instead of the source in the query.
+  assert.equal(api.remove({ name: "demo", source: "plugins/demo", requestKey: "k1" }).method, "DELETE");
+  assert.equal(api.remove({ name: "demo", source: "plugins/demo" }).path, "/api/packages");
   assert.deepEqual(api.remove({ name: "demo", source: "plugins/demo", requestKey: "k1" }).body,
     { cli: "muse", scope: "project", workspace: "w", name: "demo", source: "plugins/demo", requestKey: "k1" });
   assert.deepEqual(api.update({ name: "demo", confirmTerminals: true }).body,
     { cli: "muse", scope: "project", workspace: "w", name: "demo", confirmTerminals: true });
+  assert.equal(api.update({ name: "demo" }).path, "/api/packages/update");
   assert.equal(api.toggle({ name: "demo", source: "plugins/demo" }, false).body.on, false);
   assert.equal(api.toggle({ name: "demo" }, true).body.on, true);
-  assert.deepEqual(api.inspect({ name: "demo" }), { method: "POST", path: "/api/cli-packages/inspect", body: { cli: "muse", target: "demo" } });
+  assert.equal(api.toggle({ name: "demo" }, true).path, "/api/packages/toggle");
+  assert.deepEqual(api.inspect({ name: "demo" }), { method: "POST", path: "/api/packages/inspect", body: { cli: "muse", target: "demo" } });
 });
 
 test("a marketplace action passes the scope as its ref, and never for the machine scope", () => {
@@ -324,33 +362,33 @@ test("the filter's highlights are literal, case-insensitive and keep the text wh
 
 test("installed rows group by where they came from, and one group gets no header", () => {
   const hermes = [
-    { name: "picode-native", sourceKind: "user" },
-    { name: "chronos", sourceKind: "bundled" },
-    { name: "browser-browser-use", sourceKind: "bundled" },
+    { name: "picode-native", kind: "user" },
+    { name: "chronos", kind: "bundled" },
+    { name: "browser-browser-use", kind: "bundled" },
   ];
   const groups = groupInstalledRows(hermes);
   assert.deepEqual(groups.map(g => [g.key, g.rows.length]), [["user", 1], ["bundled", 2]]);
   // A single-kind list is the whole list: no chrome.
-  assert.deepEqual(groupInstalledRows([{ sourceKind: "bundled" }, { sourceKind: "bundled" }]), []);
+  assert.deepEqual(groupInstalledRows([{ kind: "bundled" }, { kind: "bundled" }]), []);
   assert.deepEqual(groupInstalledRows([]), []);
 });
 
 test("the vendor's own provenance words decide the group", () => {
-  assert.equal(sourceGroupKey({ sourceKind: "bundled", managedByPiCode: false }), "bundled");
-  assert.equal(sourceGroupKey({ sourceKind: "synced" }), "synced");
+  assert.equal(sourceGroupKey({ kind: "bundled", managedByPiCode: false }), "bundled");
+  assert.equal(sourceGroupKey({ kind: "synced" }), "synced");
   // Claude Code names a synced plugin's marketplace "synced" as well: the
   // vendor's own word decides, or the whole file was filed under marketplaces.
-  assert.equal(sourceGroupKey({ sourceKind: "synced", marketplace: "synced" }), "synced");
-  assert.equal(sourceGroupKey({ sourceKind: "bundled", marketplace: "hermes" }), "bundled");
-  assert.equal(sourceGroupKey({ sourceKind: "marketplace-user-added" }), "marketplace");
-  assert.equal(sourceGroupKey({ sourceKind: "local-file" }), "local");
-  assert.equal(sourceGroupKey({ sourceKind: "native-local" }), "path");
-  assert.equal(sourceGroupKey({ sourceKind: "import" }), "imported");
-  assert.equal(sourceGroupKey({ sourceKind: "npm" }), "npm");
-  assert.equal(sourceGroupKey({ sourceKind: "git" }), "git");
+  assert.equal(sourceGroupKey({ kind: "synced", marketplace: "synced" }), "synced");
+  assert.equal(sourceGroupKey({ kind: "bundled", marketplace: "hermes" }), "bundled");
+  assert.equal(sourceGroupKey({ kind: "marketplace-user-added" }), "marketplace");
+  assert.equal(sourceGroupKey({ kind: "local-file" }), "local");
+  assert.equal(sourceGroupKey({ kind: "native-local" }), "path");
+  assert.equal(sourceGroupKey({ kind: "import" }), "imported");
+  assert.equal(sourceGroupKey({ kind: "npm" }), "npm");
+  assert.equal(sourceGroupKey({ kind: "git" }), "git");
   // PiCode's own integration is findable without knowing the vendor's word.
-  assert.equal(sourceGroupKey({ sourceKind: "user", managedByPiCode: true }), "picode");
+  assert.equal(sourceGroupKey({ kind: "user", managedByPiCode: true }), "picode");
   // A vendor that said nothing falls back on what the row shows.
-  assert.equal(sourceGroupKey({ source: "x", installPath: "/p" }), "path");
+  assert.equal(sourceGroupKey({ source: "x", installedPath: "/p" }), "path");
   assert.equal(sourceGroupKey({}), "other");
 });

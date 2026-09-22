@@ -315,16 +315,32 @@ func ompExtensions(ctx context.Context, p Paths) ([]Row, string, error) {
 	return rows, "", nil
 }
 
-// Removal is one entry's removal as a driver needs it: the vendor command that
-// performs it, and — where the CLI has no verb at all — the fact that the
-// engine has already performed it itself. InProcess is that fact: the workspace
-// layer is a file PiCode writes, so Dir, Args and Line are empty and the caller
-// hands nothing to a lane.
-type Removal struct {
+// Mutation is one entry's mutation as a driver needs it: the vendor command
+// that performs it, and — where the CLI has no verb at all — the fact that the
+// engine has written the CLI's own file itself. InProcess is that fact: the
+// workspace settings file is PiCode's write, so Dir, Args and Line are empty
+// and the caller has nothing to run and nothing to hand a lane.
+//
+// A lane's verb (OmpExtensionRemove) leaves the command for the caller to run;
+// a synchronous one (OmpExtensionToggle) has already run it, because a toggle
+// answers the CLI's fresh list and the write is a local change.
+type Mutation struct {
 	InProcess bool
 	Dir       string
 	Args      []string
 	Line      string
+}
+
+// ompExtensionEntry names the layer's entry a pane target is about: the source
+// or the name as written, or the CLI's own name when that is what the target
+// carries. ok is false when the layer does not name it.
+func ompExtensionEntry(entries []string, source, name string) (string, bool) {
+	for _, e := range entries {
+		if e == source || e == name || ompExtensionName(e) == name {
+			return e, true
+		}
+	}
+	return "", false
 }
 
 // OmpExtensionRemove removes one entry of Omp's own `extensions` list: from the
@@ -332,31 +348,23 @@ type Removal struct {
 // layer through the CLI's own command otherwise. ok is false when neither layer
 // names the target, which is the driver's signal that this is an ordinary
 // plugin.
-func OmpExtensionRemove(ctx context.Context, p Paths, t Target) (Removal, bool, error) {
+func OmpExtensionRemove(ctx context.Context, p Paths, t Target) (Mutation, bool, error) {
 	source, name := clean(t.Source), clean(t.Name)
 	if source == "" && name == "" {
-		return Removal{}, false, nil
-	}
-	names := func(entries []string) (string, bool) {
-		for _, e := range entries {
-			if e == source || e == name || ompExtensionName(e) == name {
-				return e, true
-			}
-		}
-		return "", false
+		return Mutation{}, false, nil
 	}
 
 	file := ompProjectSettings(p)
 	project, disabled, err := ompProjectExtensions(p)
 	if err != nil {
-		return Removal{}, true, err
+		return Mutation{}, true, err
 	}
 	if file != "" {
-		if hit, ok := names(project); ok {
+		if hit, ok := ompExtensionEntry(project, source, name); ok {
 			if err := ompRemoveProjectEntry(file, hit, disabled); err != nil {
-				return Removal{InProcess: true}, true, err
+				return Mutation{InProcess: true}, true, err
 			}
-			return Removal{InProcess: true}, true, nil
+			return Mutation{InProcess: true}, true, nil
 		}
 	}
 
@@ -366,11 +374,11 @@ func OmpExtensionRemove(ctx context.Context, p Paths, t Target) (Removal, bool, 
 	}
 	user, _, err := ompUserExtensions(ctx, p, dir)
 	if err != nil {
-		return Removal{}, true, err
+		return Mutation{}, true, err
 	}
-	hit, ok := names(user)
+	hit, ok := ompExtensionEntry(user, source, name)
 	if !ok {
-		return Removal{}, false, nil
+		return Mutation{}, false, nil
 	}
 	rest := make([]string, 0, len(user))
 	for _, e := range user {
@@ -380,10 +388,114 @@ func OmpExtensionRemove(ctx context.Context, p Paths, t Target) (Removal, bool, 
 	}
 	body, err := json.Marshal(rest)
 	if err != nil {
-		return Removal{}, true, err
+		return Mutation{}, true, err
 	}
 	args := []string{"config", "set", "extensions", string(body)}
-	return Removal{Dir: dir, Args: args, Line: shellLine(dir, binOmp, args)}, true, nil
+	return Mutation{Dir: dir, Args: args, Line: shellLine(dir, binOmp, args)}, true, nil
+}
+
+// OmpExtensionToggle flips one entry of Omp's own `extensions` list between
+// enabled and disabled, which is the `disabledExtensions` array the read
+// already parses: the CLI's plugin verbs do not know a configured extension
+// (measured 2026-09-21 on 18.2.8: `omp plugin disable <entry>` answers *"not
+// found in runtime config"*), and nothing else in its verb set turns one off.
+//
+// The workspace layer is spliced by PiCode — the CLI's own id into that file's
+// array, or out of it — and the user layer goes through the CLI's own
+// `omp config set disabledExtensions`, which this runs: a toggle is a
+// synchronous call that answers the fresh list, not a lane's job. ok is false
+// when neither layer names the target, which is the driver's signal that this
+// is an ordinary plugin.
+func OmpExtensionToggle(ctx context.Context, p Paths, t Target) (Mutation, bool, error) {
+	source, name := clean(t.Source), clean(t.Name)
+	if source == "" && name == "" {
+		return Mutation{}, false, nil
+	}
+
+	file := ompProjectSettings(p)
+	project, disabled, err := ompProjectExtensions(p)
+	if err != nil {
+		return Mutation{}, true, err
+	}
+	if file != "" {
+		if hit, ok := ompExtensionEntry(project, source, name); ok {
+			if err := ompToggleProjectEntry(file, hit, disabled, t.On); err != nil {
+				return Mutation{InProcess: true}, true, err
+			}
+			return Mutation{InProcess: true}, true, nil
+		}
+	}
+
+	dir := p.Cwd
+	if dir == "" {
+		dir = p.home()
+	}
+	// Both halves of the user layer come from the CLI's own answer for this
+	// directory, exactly as the read asks for them: the array the entry lives
+	// in, and the disabled list this rewrite is about.
+	user, userDisabled, err := ompUserExtensions(ctx, p, dir)
+	if err != nil {
+		return Mutation{}, true, err
+	}
+	hit, ok := ompExtensionEntry(user, source, name)
+	if !ok {
+		return Mutation{}, false, nil
+	}
+	id := ompExtensionDisabledID(hit)
+	next := make([]string, 0, len(userDisabled)+1)
+	for _, d := range userDisabled {
+		if strings.TrimSpace(d) != id {
+			next = append(next, d)
+		}
+	}
+	if !t.On {
+		next = append(next, id)
+	}
+	body, err := json.Marshal(next)
+	if err != nil {
+		return Mutation{}, true, err
+	}
+	args := []string{"config", "set", "disabledExtensions", string(body)}
+	line := shellLine(dir, binOmp, args)
+	// `omp config set` writes the user file wherever it runs, which is why the
+	// directory is the user's and not the project's.
+	if _, err := runVendor(ctx, binOmp, dir, args...); err != nil {
+		return Mutation{Dir: dir, Args: args, Line: line}, true, err
+	}
+	Invalidate(omp.cli)
+	return Mutation{Dir: dir, Args: args, Line: line}, true, nil
+}
+
+// ompToggleProjectEntry writes one entry's disabled state into the workspace
+// settings file: the CLI's own id into `disabledExtensions` when the row is
+// being turned off, and out of it when the row is being turned on. Every byte
+// outside that array survives, and the result is re-parsed and compared before
+// the write. A file that already says what the row asks for is left untouched —
+// disabling twice must not write the id twice, and enabling an enabled entry
+// has nothing to cut.
+func ompToggleProjectEntry(file, entry string, disabled []string, on bool) error {
+	if ompExtensionDisabled(disabled, entry) == !on {
+		return nil
+	}
+	b, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	id := ompExtensionDisabledID(entry)
+	var next []byte
+	if on {
+		if next, err = spliceArrayElement(b, "disabledExtensions", id, "disabled list"); err != nil {
+			if errors.Is(err, errNoElement) {
+				// The read said the id is there and the splice cannot see it as
+				// written: refuse rather than claim the row moved.
+				return fmt.Errorf("%w: %s does not carry %s as written", ErrStale, file, id)
+			}
+			return err
+		}
+	} else if next, err = insertArrayElement(b, "disabledExtensions", id, "disabled list"); err != nil {
+		return err
+	}
+	return writeAtomic(file, next)
 }
 
 // ompRemoveProjectEntry takes one entry out of the workspace settings file: the

@@ -1,0 +1,740 @@
+[
+ {
+  "ctx": "Global",
+  "id": "app:interrupt",
+  "default": "Ctrl+C",
+  "desc": "Cancel current operation"
+ },
+ {
+  "ctx": "Global",
+  "id": "app:exit",
+  "default": "Ctrl+D",
+  "desc": "Exit Claude Code. Press twice within 800ms to confirm"
+ },
+ {
+  "ctx": "Global",
+  "id": "app:redraw",
+  "default": "(unbound)",
+  "desc": "Force terminal redraw"
+ },
+ {
+  "ctx": "Global",
+  "id": "app:toggleTodos",
+  "default": "Ctrl+T",
+  "desc": "Toggle visibility of Claude\u2019s to-do checklist. This is not the /tasks background-task view"
+ },
+ {
+  "ctx": "Global",
+  "id": "app:toggleTranscript",
+  "default": "Ctrl+O",
+  "desc": "Toggle verbose transcript"
+ },
+ {
+  "ctx": null,
+  "id": "history:search",
+  "default": "Ctrl+R",
+  "desc": "Open history search"
+ },
+ {
+  "ctx": null,
+  "id": "history:previous",
+  "default": "Up",
+  "desc": "Previous history item"
+ },
+ {
+  "ctx": null,
+  "id": "history:next",
+  "default": "Down",
+  "desc": "Next history item"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:cancel",
+  "default": "Escape",
+  "desc": "Cancel current input"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:clearInput",
+  "default": "Ctrl+L",
+  "desc": "Force a full screen redraw, preserving input and conversation. In fullscreen rendering , also clear the screen"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:clearScreen",
+  "default": "Cmd+K",
+  "desc": "Same as chat:clearInput . See Clear the conversation for how Cmd+K behaves on iTerm2 and Terminal.app"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:killAgents",
+  "default": "Ctrl+X Ctrl+K",
+  "desc": "Stop all running background subagents in this session and turn off artifact auto-replies for the rest of it"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:cycleMode",
+  "default": "Shift+Tab*",
+  "desc": "Cycle permission modes"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:modelPicker",
+  "default": "Meta+P",
+  "desc": "Open model picker"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:fastMode",
+  "default": "Meta+O",
+  "desc": "Toggle fast mode"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:thinkingToggle",
+  "default": "Meta+T",
+  "desc": "Toggle extended thinking"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:submit",
+  "default": "Enter",
+  "desc": "Submit message"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:queueSubmit",
+  "default": "Ctrl+X Enter",
+  "desc": "Submit the message, marked to wait its turn: while Claude is working, Claude Code queues it and never interrupts the turn. Unlike chat:submit , it submits the draft even while an autocomplete suggestion is highlighted. Requires v2.1.247 or later"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:sendNow",
+  "default": "Ctrl+Enter, Ctrl+X Ctrl+S",
+  "desc": "Interrupt the running turn so your queued messages , and your draft with them, go out right away. When nothing is running, it submits the draft, and in shell mode it queues the command without interrupting. Terminals that don\u2019t report extended keys deliver Ctrl+Enter as plain Enter , so Ctrl+X Ctrl+S is the binding that works in any terminal. Requires v2.1.275 or later"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:newline",
+  "default": "Ctrl+J",
+  "desc": "Insert a newline without submitting"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:undo",
+  "default": "Ctrl+_, Ctrl+Shift+-",
+  "desc": "Undo last action"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:externalEditor",
+  "default": "Ctrl+G, Ctrl+X Ctrl+E",
+  "desc": "Open in external editor. The agent view dispatch input follows this action\u2019s single-keystroke bindings too"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:stash",
+  "default": "Ctrl+S",
+  "desc": "Stash current prompt"
+ },
+ {
+  "ctx": "Chat",
+  "id": "chat:imagePaste",
+  "default": "Ctrl+V (Alt+V on Windows and WSL)",
+  "desc": "Paste image from clipboard. On WSL, both shortcuts are bound by default"
+ },
+ {
+  "ctx": "Autocomplete",
+  "id": "autocomplete:accept",
+  "default": "Tab",
+  "desc": "Accept suggestion"
+ },
+ {
+  "ctx": "Autocomplete",
+  "id": "autocomplete:dismiss",
+  "default": "Escape",
+  "desc": "Dismiss menu"
+ },
+ {
+  "ctx": "Autocomplete",
+  "id": "autocomplete:previous",
+  "default": "Up",
+  "desc": "Previous suggestion"
+ },
+ {
+  "ctx": "Autocomplete",
+  "id": "autocomplete:next",
+  "default": "Down",
+  "desc": "Next suggestion"
+ },
+ {
+  "ctx": "Confirmation",
+  "id": "confirm:yes",
+  "default": "Y, Enter",
+  "desc": "Confirm action"
+ },
+ {
+  "ctx": "Confirmation",
+  "id": "confirm:no",
+  "default": "N, Escape",
+  "desc": "Decline action"
+ },
+ {
+  "ctx": "Confirmation",
+  "id": "confirm:previous",
+  "default": "Up",
+  "desc": "Previous option"
+ },
+ {
+  "ctx": "Confirmation",
+  "id": "confirm:next",
+  "default": "Down",
+  "desc": "Next option"
+ },
+ {
+  "ctx": "Confirmation",
+  "id": "confirm:nextField",
+  "default": "Tab",
+  "desc": "Next field"
+ },
+ {
+  "ctx": "Confirmation",
+  "id": "confirm:previousField",
+  "default": "(unbound)",
+  "desc": "Previous field"
+ },
+ {
+  "ctx": "Confirmation",
+  "id": "confirm:toggle",
+  "default": "Space",
+  "desc": "Toggle selection"
+ },
+ {
+  "ctx": "Confirmation",
+  "id": "confirm:cycleMode",
+  "default": "Shift+Tab*",
+  "desc": "Cycle permission modes. On a file permission prompt, closes an open comment field ; with no field open, selects the option that allows the action for the rest of the session, when the prompt offers that option"
+ },
+ {
+  "ctx": "Confirmation",
+  "id": "permission:toggleDebug",
+  "default": "(unbound)",
+  "desc": "Toggle permission debug info. The previous default of Ctrl+D was removed in v2.1.146 because it shadowed app:exit"
+ },
+ {
+  "ctx": "Transcript",
+  "id": "transcript:toggleShowAll",
+  "default": "Ctrl+E",
+  "desc": "Toggle show all content"
+ },
+ {
+  "ctx": "Transcript",
+  "id": "transcript:exit",
+  "default": "q, Ctrl+C, Escape",
+  "desc": "Exit transcript view"
+ },
+ {
+  "ctx": "HistorySearch",
+  "id": "historySearch:next",
+  "default": "Ctrl+R",
+  "desc": "Next match"
+ },
+ {
+  "ctx": "HistorySearch",
+  "id": "historySearch:accept",
+  "default": "Escape, Tab",
+  "desc": "Accept selection"
+ },
+ {
+  "ctx": "HistorySearch",
+  "id": "historySearch:cancel",
+  "default": "Ctrl+C",
+  "desc": "Cancel search"
+ },
+ {
+  "ctx": "HistorySearch",
+  "id": "historySearch:execute",
+  "default": "Enter",
+  "desc": "Execute selected command"
+ },
+ {
+  "ctx": "HistorySearch",
+  "id": "historySearch:cycleScope",
+  "default": "Ctrl+S",
+  "desc": "Cycle scope: session, project, everywhere"
+ },
+ {
+  "ctx": "Task",
+  "id": "task:background",
+  "default": "Ctrl+B, Ctrl+X Ctrl+B",
+  "desc": "Background current task. The Ctrl+X Ctrl+B chord avoids the tmux prefix conflict"
+ },
+ {
+  "ctx": "ThemePicker",
+  "id": "theme:toggleSyntaxHighlighting",
+  "default": "Ctrl+T",
+  "desc": "Toggle syntax highlighting"
+ },
+ {
+  "ctx": "Help",
+  "id": "help:dismiss",
+  "default": "Escape",
+  "desc": "Close help menu"
+ },
+ {
+  "ctx": "Tabs",
+  "id": "tabs:next",
+  "default": "Tab, Right",
+  "desc": "Next tab"
+ },
+ {
+  "ctx": "Tabs",
+  "id": "tabs:previous",
+  "default": "Shift+Tab, Left",
+  "desc": "Previous tab"
+ },
+ {
+  "ctx": "Attachments",
+  "id": "attachments:next",
+  "default": "Right",
+  "desc": "Next attachment"
+ },
+ {
+  "ctx": "Attachments",
+  "id": "attachments:previous",
+  "default": "Left",
+  "desc": "Previous attachment"
+ },
+ {
+  "ctx": "Attachments",
+  "id": "attachments:remove",
+  "default": "Backspace, Delete",
+  "desc": "Remove selected attachment"
+ },
+ {
+  "ctx": "Attachments",
+  "id": "attachments:exit",
+  "default": "Down, Escape",
+  "desc": "Exit attachment navigation"
+ },
+ {
+  "ctx": "Footer",
+  "id": "footer:next",
+  "default": "Right",
+  "desc": "Next footer item"
+ },
+ {
+  "ctx": "Footer",
+  "id": "footer:previous",
+  "default": "Left",
+  "desc": "Previous footer item"
+ },
+ {
+  "ctx": "Footer",
+  "id": "footer:up",
+  "default": "Up",
+  "desc": "Navigate up in footer (deselects at top)"
+ },
+ {
+  "ctx": "Footer",
+  "id": "footer:down",
+  "default": "Down",
+  "desc": "Navigate down in footer"
+ },
+ {
+  "ctx": "Footer",
+  "id": "footer:openSelected",
+  "default": "Enter",
+  "desc": "Open selected footer item"
+ },
+ {
+  "ctx": "Footer",
+  "id": "footer:clearSelection",
+  "default": "Escape",
+  "desc": "Clear footer selection"
+ },
+ {
+  "ctx": "Footer",
+  "id": "footer:dismiss",
+  "default": "Backspace, Delete",
+  "desc": "Dismiss the selected artifact link from the footer; the published artifact itself is unaffected. On other footer rows, these keys have no effect. Requires v2.1.217 or later"
+ },
+ {
+  "ctx": "MessageSelector",
+  "id": "messageSelector:up",
+  "default": "Up, K, Ctrl+P",
+  "desc": "Move up in list"
+ },
+ {
+  "ctx": "MessageSelector",
+  "id": "messageSelector:down",
+  "default": "Down, J, Ctrl+N",
+  "desc": "Move down in list"
+ },
+ {
+  "ctx": "MessageSelector",
+  "id": "messageSelector:top",
+  "default": "Ctrl+Up, Shift+Up, Meta+Up, Shift+K",
+  "desc": "Jump to top"
+ },
+ {
+  "ctx": "MessageSelector",
+  "id": "messageSelector:bottom",
+  "default": "Ctrl+Down, Shift+Down, Meta+Down, Shift+J",
+  "desc": "Jump to bottom"
+ },
+ {
+  "ctx": "MessageSelector",
+  "id": "messageSelector:select",
+  "default": "Enter",
+  "desc": "Select message"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "diff:dismiss",
+  "default": "Escape",
+  "desc": "Close diff viewer; from the detail view, returns to the file list instead"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "diff:previousSource",
+  "default": "Left",
+  "desc": "Previous diff source"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "diff:nextSource",
+  "default": "Right",
+  "desc": "Next diff source"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "diff:previousFile",
+  "default": "Up, K",
+  "desc": "Previous file in the file list; scroll up one line in the detail view"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "diff:nextFile",
+  "default": "Down, J",
+  "desc": "Next file in the file list; scroll down one line in the detail view"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "diff:viewDetails",
+  "default": "Enter",
+  "desc": "View diff details"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "diff:back",
+  "default": "(unbound)",
+  "desc": "Go back in diff viewer. Escape performs the back action via diff:dismiss . The previous default of Left in the detail view was removed in v2.1.203"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "scroll:pageUp",
+  "default": "PageUp",
+  "desc": "Scroll up half a viewport"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "scroll:pageDown",
+  "default": "PageDown",
+  "desc": "Scroll down half a viewport"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "scroll:fullPageUp",
+  "default": "Shift+Space, B",
+  "desc": "Scroll up a full viewport"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "scroll:fullPageDown",
+  "default": "Space",
+  "desc": "Scroll down a full viewport"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "scroll:top",
+  "default": "G, Home",
+  "desc": "Jump to the top"
+ },
+ {
+  "ctx": "DiffDialog",
+  "id": "scroll:bottom",
+  "default": "Shift+G, End",
+  "desc": "Jump to the bottom"
+ },
+ {
+  "ctx": "DiffPanel",
+  "id": "app:toggleReplTab",
+  "default": "(unbound)",
+  "desc": "Open or close the diff panel, the same as running /diff"
+ },
+ {
+  "ctx": "DiffPanel",
+  "id": "app:cycleDiffBase",
+  "default": "Ctrl+X B",
+  "desc": "Cycle the panel\u2019s comparison base: this session, uncommitted, then branch"
+ },
+ {
+  "ctx": "DiffPanel",
+  "id": "app:diffFileListUp",
+  "default": "Ctrl+Up, Meta+Up",
+  "desc": "Scroll the panel\u2019s file list up when it overflows"
+ },
+ {
+  "ctx": "DiffPanel",
+  "id": "app:diffFileListDown",
+  "default": "Ctrl+Down, Meta+Down",
+  "desc": "Scroll the panel\u2019s file list down when it overflows"
+ },
+ {
+  "ctx": "DiffPanel",
+  "id": "app:toggleDiffNoiseFilter",
+  "default": "(unbound)",
+  "desc": "Show or hide test and generated files in the panel"
+ },
+ {
+  "ctx": "DiffPanel",
+  "id": "app:toggleDiffPreSession",
+  "default": "(unbound)",
+  "desc": "Expand or collapse the changes from before this session"
+ },
+ {
+  "ctx": "ModelPicker",
+  "id": "modelPicker:decreaseEffort",
+  "default": "Left",
+  "desc": "Decrease effort level"
+ },
+ {
+  "ctx": "ModelPicker",
+  "id": "modelPicker:increaseEffort",
+  "default": "Right",
+  "desc": "Increase effort level"
+ },
+ {
+  "ctx": "ModelPicker",
+  "id": "modelPicker:thisSessionOnly",
+  "default": "s",
+  "desc": "Apply highlighted model to this session only"
+ },
+ {
+  "ctx": "EffortSlider",
+  "id": "effortSlider:thisSessionOnly",
+  "default": "s",
+  "desc": "Apply the focused effort level to this session only. Requires v2.1.257 or later"
+ },
+ {
+  "ctx": "Select",
+  "id": "select:next",
+  "default": "Down, J, Ctrl+N",
+  "desc": "Next option"
+ },
+ {
+  "ctx": "Select",
+  "id": "select:previous",
+  "default": "Up, K, Ctrl+P",
+  "desc": "Previous option"
+ },
+ {
+  "ctx": "Select",
+  "id": "select:pageUp",
+  "default": "PageUp",
+  "desc": "Move up one page of options"
+ },
+ {
+  "ctx": "Select",
+  "id": "select:pageDown",
+  "default": "PageDown",
+  "desc": "Move down one page of options"
+ },
+ {
+  "ctx": "Select",
+  "id": "select:first",
+  "default": "Home",
+  "desc": "First option"
+ },
+ {
+  "ctx": "Select",
+  "id": "select:last",
+  "default": "End",
+  "desc": "Last option"
+ },
+ {
+  "ctx": "Select",
+  "id": "select:accept",
+  "default": "Enter",
+  "desc": "Accept selection"
+ },
+ {
+  "ctx": "Select",
+  "id": "select:cancel",
+  "default": "Escape",
+  "desc": "Cancel selection"
+ },
+ {
+  "ctx": "Plugin",
+  "id": "plugin:toggle",
+  "default": "Space",
+  "desc": "Toggle plugin selection"
+ },
+ {
+  "ctx": "Plugin",
+  "id": "plugin:install",
+  "default": "I",
+  "desc": "Install selected plugins"
+ },
+ {
+  "ctx": "Plugin",
+  "id": "plugin:favorite",
+  "default": "F",
+  "desc": "Favorite the selected plugin so it sorts near the top of the Installed tab"
+ },
+ {
+  "ctx": "Settings",
+  "id": "settings:search",
+  "default": "/",
+  "desc": "Enter search mode"
+ },
+ {
+  "ctx": "Settings",
+  "id": "settings:retry",
+  "default": "R",
+  "desc": "Retry loading usage data on error"
+ },
+ {
+  "ctx": "Settings",
+  "id": "select:accept",
+  "default": "Enter, Space",
+  "desc": "Change the selected setting or open its submenu"
+ },
+ {
+  "ctx": "Settings",
+  "id": "confirm:no",
+  "default": "Escape",
+  "desc": "Close the panel. Changes are already saved"
+ },
+ {
+  "ctx": "Agents",
+  "id": "agents:switchView",
+  "default": "Ctrl+S",
+  "desc": "Switch session grouping between state and directory"
+ },
+ {
+  "ctx": "Agents",
+  "id": "agents:togglePin",
+  "default": "Ctrl+T",
+  "desc": "Pin or unpin the selected session"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:lineUp",
+  "default": "wheelup",
+  "desc": "Scroll up one line. Mouse wheel scrolling triggers this action"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:lineDown",
+  "default": "wheeldown",
+  "desc": "Scroll down one line. Mouse wheel scrolling triggers this action"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:pageUp",
+  "default": "PageUp",
+  "desc": "Scroll up half the viewport height"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:pageDown",
+  "default": "PageDown",
+  "desc": "Scroll down half the viewport height"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:top",
+  "default": "Ctrl+Home",
+  "desc": "Jump to the start of the conversation"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:bottom",
+  "default": "Ctrl+End",
+  "desc": "Jump to the latest message and re-enable auto-follow"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:halfPageUp",
+  "default": "(unbound)",
+  "desc": "Scroll up half the viewport height. Same behavior as scroll:pageUp , provided for vi-style rebinds"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:halfPageDown",
+  "default": "(unbound)",
+  "desc": "Scroll down half the viewport height. Same behavior as scroll:pageDown , provided for vi-style rebinds"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:fullPageUp",
+  "default": "(unbound)",
+  "desc": "Scroll up the full viewport height"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "scroll:fullPageDown",
+  "default": "(unbound)",
+  "desc": "Scroll down the full viewport height"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "selection:copy",
+  "default": "Ctrl+Shift+C / Cmd+C",
+  "desc": "Copy the selected text to the clipboard"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "selection:clear",
+  "default": "(unbound)",
+  "desc": "Clear the active text selection. Requires v2.1.234 or later"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "selection:extendLeft",
+  "default": "Shift+Left",
+  "desc": "Extend the active selection one column left"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "selection:extendRight",
+  "default": "Shift+Right",
+  "desc": "Extend the active selection one column right"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "selection:extendUp",
+  "default": "Shift+Up",
+  "desc": "Extend the active selection one row up. Scrolls the viewport when the selection reaches the top edge"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "selection:extendDown",
+  "default": "Shift+Down",
+  "desc": "Extend the active selection one row down. Scrolls the viewport when the selection reaches the bottom edge"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "selection:extendLineStart",
+  "default": "Shift+Home",
+  "desc": "Extend the active selection to the start of the line"
+ },
+ {
+  "ctx": "Scroll",
+  "id": "selection:extendLineEnd",
+  "default": "Shift+End",
+  "desc": "Extend the active selection to the end of the line"
+ }
+]

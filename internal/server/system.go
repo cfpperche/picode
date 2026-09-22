@@ -1,21 +1,20 @@
 package server
 
 import (
-	"context"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/cfpperche/picode/internal/catalog"
-	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/share"
 )
 
-// systemReport drives the UI's setup guidance (ADR-0003: helpful
-// dependency UX instead of hard failures).
+// systemReport drives the System page: host and network facts plus the
+// infrastructure PiCode itself depends on. tmux is the one hard requirement;
+// mkcert and tailscale are optional. No agent CLI is probed here — which
+// CLIs are present, and their versions, is `GET /api/clis` (ADR-0179).
 type systemReport struct {
 	Tmux struct {
 		Installed bool `json:"installed"`
@@ -25,12 +24,6 @@ type systemReport struct {
 		Version            string `json:"version,omitempty"`
 		ExtendedKeysFormat string `json:"extendedKeysFormat,omitempty"`
 	} `json:"tmux"`
-	Pi struct {
-		Installed bool   `json:"installed"`
-		Version   string `json:"version,omitempty"`
-		Latest    string `json:"latest,omitempty"`
-		Outdated  bool   `json:"updateAvailable"`
-	} `json:"pi"`
 	Mkcert struct {
 		Installed bool `json:"installed"`
 	} `json:"mkcert"`
@@ -76,20 +69,7 @@ func handleSystem(deps Deps) http.HandlerFunc {
 			}
 		} else {
 			rep.Warnings = append(rep.Warnings,
-				"tmux is not installed — agents need tmux 3.5+ to keep running after you close the browser")
-		}
-
-		if _, err := exec.LookPath(deps.AgentCmd); err == nil {
-			rep.Pi.Installed = true
-			if out, err := exec.Command(deps.AgentCmd, "--version").Output(); err == nil {
-				rep.Pi.Version = strings.TrimSpace(string(out))
-			}
-			info := pipkg.PiUpdateCheck(r.Context(), rep.Pi.Version)
-			rep.Pi.Latest = info.Latest
-			rep.Pi.Outdated = info.Outdated
-		} else {
-			rep.Warnings = append(rep.Warnings,
-				"pi is not installed — install it with: npm install -g @earendil-works/pi-coding-agent")
+				"tmux is not installed — agents and terminals need tmux 3.5+ to keep running after you close the browser")
 		}
 
 		if _, err := exec.LookPath("mkcert"); err == nil {
@@ -163,30 +143,6 @@ func loadCatalog(deps Deps) (catalog.Report, error) {
 	attachLlamaModels(&rep)
 	attachProviderRefs(deps, &rep)
 	return rep, nil
-}
-
-// handlePiSelfUpdate runs `pi update --self` (the button in System).
-// Background context: the install must survive a client disconnect.
-func handlePiSelfUpdate(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-		defer cancel()
-		out, err := pipkg.UpdatePiSelf(ctx, deps.AgentCmd)
-		if err != nil {
-			msg := strings.TrimSpace(out + "\n" + err.Error())
-			writeErr(w, http.StatusBadRequest, msg)
-			return
-		}
-		pipkg.ResetPiUpdateCache()
-		version := ""
-		if v, verr := exec.Command(deps.AgentCmd, "--version").Output(); verr == nil {
-			version = strings.TrimSpace(string(v))
-		}
-		if len(out) > 4000 {
-			out = out[len(out)-4000:]
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "version": version, "output": strings.TrimSpace(out)})
-	}
 }
 
 // attachProviderRefs fills how many agents and automations name each
