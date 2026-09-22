@@ -159,7 +159,7 @@ type ccFile struct {
 
 // ccTranscripts lists every transcript under root: each project's
 // <session>.jsonl, and the subagent transcripts Claude Code files beside
-// them as <session>/subagents/agent-*.jsonl. Reading only the top level
+// them under <session>/subagents/. Reading only the top level
 // dropped 254 subagent files — 1.48B tokens across 34 sessions — from a
 // 30-day window on this machine (2026-09-22). A subagent names its
 // parent's sessionId, so it folds into that session rather than counting
@@ -178,19 +178,18 @@ func ccTranscripts(root string) []ccFile {
 		for _, e := range ents {
 			if e.IsDir() {
 				if descend {
-					sub := filepath.Join(dir, e.Name(), "subagents")
-					subs, err := os.ReadDir(sub)
-					if err != nil {
-						continue
-					}
-					for _, s := range subs {
-						if s.IsDir() || filepath.Ext(s.Name()) != ".jsonl" {
-							continue
+					// Workflow agents nest one step further, under
+					// subagents/workflows/wf_*/ (31 files, 9M tokens in
+					// the same window), so the subagents tree is walked.
+					_ = filepath.WalkDir(filepath.Join(dir, e.Name(), "subagents"), func(p string, d os.DirEntry, err error) error {
+						if err != nil || d.IsDir() || filepath.Ext(p) != ".jsonl" {
+							return nil
 						}
-						if info, err := s.Info(); err == nil {
-							out = append(out, ccFile{filepath.Join(sub, s.Name()), info})
+						if info, err := d.Info(); err == nil {
+							out = append(out, ccFile{p, info})
 						}
-					}
+						return nil
+					})
 				}
 				continue
 			}
@@ -282,8 +281,8 @@ func ccParse(path string) *parsed {
 			// Claude Code writes one record per content block of an API
 			// response, and every one of them repeats the response's full
 			// usage. Summed, they counted 12.64B tokens where 6.53B were
-			// billed (30 days, 2026-09-22). The first record carries the
-			// usage; later ones only add their blocks' tools and results.
+			// billed (30 days, 2026-09-22). One record per response keeps
+			// the usage; the others add only their blocks' tools and results.
 			// The key is ccusage's: message id plus request id.
 			if k := ccDedupeKey(raw); k != "" {
 				if i, dup := seen[k]; dup {
@@ -496,7 +495,15 @@ func ccDedupeKey(raw map[string]any) string {
 
 // absorb folds a repeated record of the same response into m: its content
 // blocks are new, its usage is not.
+//
+// Usage is not always identical across the records: the output count can
+// grow on a later one (2,262 of the groups in 30 days; keeping the first
+// lost 12% of output tokens). The largest output is the response's final
+// usage, so the record carrying it wins.
 func (m *ccMsg) absorb(o ccMsg) {
+	if o.tokens.Output > m.tokens.Output {
+		m.tokens, m.units = o.tokens, o.units
+	}
 	m.tools = append(m.tools, o.tools...)
 	m.results += o.results
 	m.errs += o.errs

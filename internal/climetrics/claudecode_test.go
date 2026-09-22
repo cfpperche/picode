@@ -398,3 +398,34 @@ func TestClaudeCodeReadsSubagentTranscripts(t *testing.T) {
 		t.Fatal("fingerprint ignored a subagent transcript")
 	}
 }
+
+// The output count can grow on a later record of the same response; the
+// largest is the response's final usage.
+func TestClaudeCodeKeepsTheFinalUsageOfARepeatedResponse(t *testing.T) {
+	root := withClaudeRoot(t)
+	early := block(day(1), "a", nil)
+	late := block(day(1), "a", []any{toolUse("Bash")})
+	late["message"].(map[string]any)["usage"].(map[string]any)["output_tokens"] = 180
+	writeTranscript(t, root, "-repo", "s1.jsonl", []map[string]any{early, late})
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Tokens.Output != 180 || w.Stats.Tokens.Input != 400 {
+		t.Fatalf("tokens = %+v, want 400 in / 180 out", w.Stats.Tokens)
+	}
+}
+
+func TestClaudeCodeReadsWorkflowAgentTranscripts(t *testing.T) {
+	root := withClaudeRoot(t)
+	a := assistant(day(1), "opus", 30, 3, 0, nil)
+	a["sessionId"] = "s1"
+	writeTranscript(t, root, "-repo/s1/subagents/workflows/wf_1", "agent-y.jsonl", []map[string]any{a})
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Tokens.Input != 30 {
+		t.Fatalf("input = %d, want the workflow agent's 30", w.Stats.Tokens.Input)
+	}
+}

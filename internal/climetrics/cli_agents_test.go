@@ -235,7 +235,6 @@ func TestCodexCachedInputIsNotCountedTwice(t *testing.T) {
 }
 
 func TestCodexForkDropsTheCopiedHistory(t *testing.T) {
-	root := withCodexRoot(t)
 	prompt := func(ts string) map[string]any {
 		return map[string]any{"timestamp": ts, "type": "response_item",
 			"payload": map[string]any{"type": "message", "role": "user"}}
@@ -244,40 +243,52 @@ func TestCodexForkDropsTheCopiedHistory(t *testing.T) {
 		return map[string]any{"timestamp": ts, "type": "response_item",
 			"payload": map[string]any{"type": "custom_tool_call", "name": "exec"}}
 	}
-	for i, src := range []map[string]any{
-		{"forked_from_id": "parent"},
-		{"source": map[string]any{"subagent": map[string]any{"thread_spawn": map[string]any{"parent_thread_id": "parent"}}}},
-	} {
-		meta := map[string]any{"id": "child", "cwd": "/repo"}
-		for k, v := range src {
-			meta[k] = v
-		}
-		writeRollout(t, root, "2026-09-06", []map[string]any{
-			{"timestamp": at(0), "type": "session_meta", "payload": meta},
-			// The ancestor's meta, repeated: it must not rename the fork.
-			{"timestamp": at(1), "type": "session_meta", "payload": map[string]any{"id": "parent", "cwd": "/elsewhere"}},
-			{"timestamp": at(2), "type": "turn_context", "payload": map[string]any{"model": "gpt-5.6"}},
-			// The copied burst: parent's prompt, tool and turn.
-			prompt(at(3)), call(at(10)), codexTurn(at(20), 5000, 500),
-			// The child's own work, a real turn later.
-			prompt(at(6000)), call(at(7000)), codexTurn(at(9000), 100, 10),
+	cases := []struct {
+		name                   string
+		meta                   map[string]any
+		wantIn, wantOut        int64
+		wantPrompts, wantCalls int
+	}{
+		// A fork: the burst after its meta is the parent's, already counted.
+		{"fork", map[string]any{"forked_from_id": "parent"}, 100, 10, 1, 1},
+		// A spawned subagent that is no fork starts empty: its first lines,
+		// its own task prompt among them, are its own.
+		{"spawn", map[string]any{"source": map[string]any{"subagent": map[string]any{"thread_spawn": map[string]any{"parent_thread_id": "parent"}}}}, 5100, 510, 2, 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := withCodexRoot(t)
+			meta := map[string]any{"id": "child", "cwd": "/repo"}
+			for k, v := range tc.meta {
+				meta[k] = v
+			}
+			writeRollout(t, root, "2026-09-06", []map[string]any{
+				{"timestamp": at(0), "type": "session_meta", "payload": meta},
+				// The ancestor's meta, repeated: it must not rename the child.
+				{"timestamp": at(1), "type": "session_meta", "payload": map[string]any{"id": "parent", "cwd": "/elsewhere"}},
+				{"timestamp": at(2), "type": "turn_context", "payload": map[string]any{"model": "gpt-5.6"}},
+				// Within a second of the meta.
+				prompt(at(3)), call(at(10)), codexTurn(at(20), 5000, 500),
+				// A real turn later.
+				prompt(at(6000)), call(at(7000)), codexTurn(at(9000), 100, 10),
+			})
+			w, err := CodexMeter{}.Meter(req(7))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if w.Stats.Tokens.Input != tc.wantIn || w.Stats.Tokens.Output != tc.wantOut {
+				t.Fatalf("tokens = %+v, want %d/%d", w.Stats.Tokens, tc.wantIn, tc.wantOut)
+			}
+			if w.Stats.Turns.User != tc.wantPrompts {
+				t.Fatalf("prompts = %d, want %d", w.Stats.Turns.User, tc.wantPrompts)
+			}
+			if len(w.Stats.Tools) != 1 || w.Stats.Tools[0].Calls != tc.wantCalls {
+				t.Fatalf("tools = %+v, want %d exec calls", w.Stats.Tools, tc.wantCalls)
+			}
+			if len(w.Stats.TopSessions) != 1 || w.Stats.TopSessions[0].Path != "child" {
+				t.Fatalf("sessions = %+v, want the child's own id", w.Stats.TopSessions)
+			}
 		})
-		w, err := CodexMeter{}.Meter(req(7))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if w.Stats.Tokens.Input != 100 || w.Stats.Tokens.Output != 10 {
-			t.Fatalf("case %d: tokens = %+v, want only the child's 100/10", i, w.Stats.Tokens)
-		}
-		if w.Stats.Turns.User != 1 {
-			t.Fatalf("case %d: prompts = %d, want 1", i, w.Stats.Turns.User)
-		}
-		if len(w.Stats.Tools) != 1 || w.Stats.Tools[0].Calls != 1 {
-			t.Fatalf("case %d: tools = %+v, want one exec call", i, w.Stats.Tools)
-		}
-		if len(w.Stats.TopSessions) != 1 || w.Stats.TopSessions[0].Path != "child" {
-			t.Fatalf("case %d: sessions = %+v, want the fork's own id", i, w.Stats.TopSessions)
-		}
 	}
 }
 
@@ -736,5 +747,30 @@ func TestGrokReadsUsageFromTheUpdateStream(t *testing.T) {
 	// Folded onto the event turn that ended at the same instant.
 	if w.Stats.Turns.Assistant != 1 {
 		t.Fatalf("turns = %+v, want one", w.Stats.Turns)
+	}
+}
+
+func TestGrokForkSkipsTheUsageItCopiedFromItsParent(t *testing.T) {
+	home := withGrokRoot(t)
+	sess := filepath.Join(home, "sessions", "%2Frepo", "g1")
+	end, _ := time.Parse(time.RFC3339Nano, grokStamp(10))
+	forked := end.Add(-time.Minute)
+	grokWrite(t, sess, "summary.json", `{"info":{"id":"g1","cwd":"/repo"},"current_model_id":"grok-4.6",`+
+		`"parent_session_id":"g0","forked_at":"`+forked.Format(time.RFC3339Nano)+`"}`)
+	grokWrite(t, sess, "events.jsonl", grokTurnEvents())
+	grokWrite(t, sess, "updates.jsonl",
+		// The parent's turn, copied in with the parent's own clock.
+		grokUpdate("parent-turn", forked.Add(-time.Hour).UnixMilli(), "grok-4.6", 9000, 900, 0, 9_000_000_000)+
+			grokUpdate("own-turn", end.UnixMilli(), "grok-4.6", 1000, 100, 0, 1_000_000_000))
+
+	w, err := GrokMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Tokens.Input != 1000 || !approx(w.Stats.Current.Cost, 0.10) {
+		t.Fatalf("tokens = %+v cost = %v, want only the fork's own turn", w.Stats.Tokens, w.Stats.Current.Cost)
+	}
+	if w.Stats.Turns.Assistant != 1 {
+		t.Fatalf("turns = %+v, want the copied turn gone", w.Stats.Turns)
 	}
 }

@@ -210,6 +210,7 @@ func grokSessionParse(dir string) *parsed {
 	out := &parsed{key: filepath.Base(dir), byPresence: true}
 	cwd := grokDirCwd(dir)
 	title, model := "", ""
+	var forkedAt time.Time
 	if sum := grokSummary(filepath.Join(dir, "summary.json")); sum != nil {
 		if sum.ID != "" {
 			out.key = sum.ID
@@ -217,12 +218,26 @@ func grokSessionParse(dir string) *parsed {
 		if sum.Cwd != "" {
 			cwd = sum.Cwd
 		}
-		title, model = sum.Title, sum.Model
+		title, model, forkedAt = sum.Title, sum.Model, sum.ForkedAt
 	}
 
 	usage := grokUpdateTurns(dir)
 	if len(usage) == 0 {
 		usage = grokUsageTurns(dir)
+	}
+	// A forked session (a subagent resume, a branch) starts with its
+	// parent's usage copied in, with the parent's own timestamps. Those
+	// turns were billed once, in the parent's directory: counting them here
+	// charged $38 twice across 18 turns in 30 days (2026-09-22). Nothing a
+	// fork did itself ends before the fork existed.
+	if !forkedAt.IsZero() {
+		kept := usage[:0]
+		for _, t := range usage {
+			if t.end.After(forkedAt) {
+				kept = append(kept, t)
+			}
+		}
+		usage = kept
 	}
 	for _, t := range grokMergeTurns(grokEventTurns(dir), usage, model) {
 		out.timing.APIMs += t.apiMs
@@ -254,10 +269,11 @@ const grokCostTicksPerUSD = 1e10
 // grokSessionInfo is the part of summary.json this meter reads. The file
 // also carries the title Grok shows in its own session list.
 type grokSessionInfo struct {
-	ID    string
-	Cwd   string
-	Model string
-	Title string
+	ID       string
+	Cwd      string
+	Model    string
+	Title    string
+	ForkedAt time.Time // zero unless the session was forked from another
 }
 
 func grokSummary(path string) *grokSessionInfo {
@@ -270,13 +286,15 @@ func grokSummary(path string) *grokSessionInfo {
 			ID  string `json:"id"`
 			Cwd string `json:"cwd"`
 		} `json:"info"`
-		Summary string `json:"session_summary"`
-		Model   string `json:"current_model_id"`
+		Summary  string `json:"session_summary"`
+		Model    string `json:"current_model_id"`
+		ForkedAt string `json:"forked_at"`
 	}
 	if json.Unmarshal(raw, &doc) != nil {
 		return nil
 	}
-	return &grokSessionInfo{ID: doc.Info.ID, Cwd: doc.Info.Cwd, Model: doc.Model, Title: doc.Summary}
+	forked, _ := time.Parse(time.RFC3339Nano, doc.ForkedAt)
+	return &grokSessionInfo{ID: doc.Info.ID, Cwd: doc.Info.Cwd, Model: doc.Model, Title: doc.Summary, ForkedAt: forked}
 }
 
 // grokTurn is one turn as the two files describe it: the timeline from

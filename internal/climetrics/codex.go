@@ -172,11 +172,10 @@ type codexLine struct {
 	Payload   struct {
 		Type string `json:"type"`
 		// session_meta
-		ID       string          `json:"id"`
-		Cwd      string          `json:"cwd"`
-		Provider string          `json:"model_provider"`
-		ForkedOf string          `json:"forked_from_id"`
-		Source   json.RawMessage `json:"source"`
+		ID       string `json:"id"`
+		Cwd      string `json:"cwd"`
+		Provider string `json:"model_provider"`
+		ForkedOf string `json:"forked_from_id"`
 		// turn_context
 		Model string `json:"model"`
 		// response_item
@@ -221,7 +220,7 @@ func codexParse(path string) *parsed {
 	cwd, provider, model, id := "", "", "", ""
 	var pendingTools []string
 	sawMeta := false
-	// A forked or subagent rollout opens with its parent's history copied
+	// A forked rollout opens with its parent's history copied
 	// in, every line re-stamped to the fork instant in one burst (gaps of
 	// 0-40ms); the child's own first line lands after a real turn. While
 	// copying is true, lines within codexForkGap of the previous one are
@@ -262,7 +261,11 @@ func codexParse(path string) *parsed {
 			}
 			sawMeta = true
 			cwd, provider, id = p.Cwd, p.Provider, p.ID
-			if p.ForkedOf != "" || codexSpawned(p.Source) {
+			// Only a fork copies history. A spawned subagent that is not
+			// one (thread_spawn with no forked_from_id) starts empty, and
+			// its first lines — its own task prompt among them — land
+			// within the same second.
+			if p.ForkedOf != "" {
 				copying, copyAt = true, at
 			}
 			continue
@@ -372,23 +375,6 @@ func codexInjected(meta *struct {
 
 // codexForkGap splits a fork's copied history from its own first line.
 const codexForkGap = time.Second
-
-// codexSpawned says whether a session_meta source names a parent thread —
-// Codex's subagent shape, {"subagent":{"thread_spawn":{"parent_thread_id"}}}.
-// A plain source is a string ("cli", "vscode") and decodes to nothing here.
-func codexSpawned(raw json.RawMessage) bool {
-	var src struct {
-		Subagent struct {
-			Spawn struct {
-				Parent string `json:"parent_thread_id"`
-			} `json:"thread_spawn"`
-		} `json:"subagent"`
-	}
-	if len(raw) == 0 || raw[0] != '{' || json.Unmarshal(raw, &src) != nil {
-		return false
-	}
-	return src.Subagent.Spawn.Parent != ""
-}
 
 func codexUsageSig(n ...int64) string {
 	var b strings.Builder

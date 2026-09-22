@@ -96,16 +96,19 @@ same rules:
 
 | CLI | What repeats | The rule |
 |---|---|---|
-| Claude Code | one record per content block of a response, each carrying the response's whole `usage` (12.64B tokens summed vs 6.53B billed over 30 days) | the first record per `message.id:requestId` carries the usage; later ones add only their tools and results |
-| Claude Code | subagents write `<session>/subagents/agent-*.jsonl`, one level below where the meter used to look (1.48B tokens across 34 sessions unread) | read them; they name the parent's `sessionId` and fold into it |
-| Codex | a fork or subagent rollout opens with its parent's history copied in, re-stamped in one burst (49 of 98 rollouts were forks); an unchanged `token_count` is re-emitted on stream boundaries; `input_tokens` includes the cached portion | lines less than 1s apart after a forked `session_meta` are the parent's; only the first `session_meta` names the session; a repeated `last_token_usage` is dropped; uncached input is `input − cached − cache write` |
-| Grok | `inputTokens` includes the cached portion | same subtraction; usage comes from `updates.jsonl` `turn_completed` (one per `prompt_id`), which 53 sessions had and `usage.json` did not |
+| Claude Code | one record per content block of a response, each carrying the response's usage (12.64B tokens summed vs 6.53B billed over 30 days); the output count can grow on a later record | one message per `message.id:requestId`, carrying the usage with the largest output; the other records add only their tools and results |
+| Claude Code | subagents write `<session>/subagents/**/agent-*.jsonl` (workflow agents one level deeper), below where the meter used to look (1.5B tokens unread) | walk the subagents tree; the files name the parent's `sessionId` and fold into it |
+| Codex | a fork rollout (`forked_from_id`) opens with its parent's history copied in, re-stamped in one burst; an unchanged `token_count` is re-emitted on stream boundaries; `input_tokens` includes the cached portion | lines less than 1s apart after a fork's `session_meta` are the parent's (a spawned subagent that is not a fork copies nothing, and keeps them); only the first `session_meta` names the session; a repeated `last_token_usage` is dropped; uncached input is `input − cached − cache write` |
+| Grok | a forked session (`forked_at` in `summary.json`) copies its parent's `turn_completed` usage with the parent's timestamps (18 turns, $38 in 30 days); `inputTokens` includes the cached portion | usage comes from `updates.jsonl` `turn_completed` (one per `prompt_id`; 53 sessions had it and no `usage.json`), turns ending before `forked_at` are dropped, and cached is subtracted from input |
 
-Together they took Claude Code from 12.6B to 8.0B tokens and Codex from
-2.8B to 1.4B in a 30-day window, and Grok's priced spend from $273 to $328.
+Together they took Claude Code from 12.6B to 8.1B tokens and Codex from
+2.8B to 1.4B in a 30-day window, and Grok's priced spend from $273 to $290.
 Claude Code's *cost* did not move: it is the session snapshot spread by
 token share, so duplicated tokens inflated the denominator and the
-numerator alike.
+numerator alike. One side effect to know: subagent transcripts carry no
+snapshot, so their entries cost nothing and the parent's snapshot is spread
+over the parent's tokens alone — the session total stays exact, while its
+split by day and by model follows the parent's messages.
 
 ## Why the cuts happen once
 
