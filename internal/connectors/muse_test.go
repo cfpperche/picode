@@ -15,7 +15,7 @@ import (
 const museGolden = `{
   "schema_version": 1,
   "theme": "muse-dark",
-  "mcp_servers": {
+  "mcpServers": {
     "keep": {
       "transport": "stdio",
       "command": "npx",
@@ -66,9 +66,9 @@ func TestMuseGoldenRoundTrip(t *testing.T) {
 	if raw["schema_version"] != float64(1) || raw["theme"] != "muse-dark" {
 		t.Fatalf("document keys not preserved: %v", raw)
 	}
-	keep, _ := raw["mcp_servers"].(map[string]any)["keep"].(map[string]any)
+	keep, _ := raw["mcpServers"].(map[string]any)["keep"].(map[string]any)
 	if keep == nil {
-		t.Fatalf("keep entry lost: %v", raw["mcp_servers"])
+		t.Fatalf("keep entry lost: %v", raw["mcpServers"])
 	}
 	if keep["mode"] != "optional" || keep["timeout"] != float64(30) {
 		t.Fatalf("unknown entry keys not preserved: %v", keep)
@@ -80,7 +80,7 @@ func TestMuseGoldenRoundTrip(t *testing.T) {
 	if env["TOKEN"] != "${KEEP_TOKEN}" {
 		t.Fatalf("placeholder not verbatim: %v", keep)
 	}
-	docs, _ := raw["mcp_servers"].(map[string]any)["docs"].(map[string]any)
+	docs, _ := raw["mcpServers"].(map[string]any)["docs"].(map[string]any)
 	if docs == nil || docs["transport"] != "streamable_http" || docs["url"] != "https://mcp.deepwiki.com/mcp" {
 		t.Fatalf("docs = %v", docs)
 	}
@@ -114,7 +114,7 @@ func TestMuseGoldenRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ = readJSONFile(path)
-	docs, _ = raw["mcp_servers"].(map[string]any)["docs"].(map[string]any)
+	docs, _ = raw["mcpServers"].(map[string]any)["docs"].(map[string]any)
 	if docs["transport"] != "stdio" || docs["url"] != nil {
 		t.Fatalf("transport switch did not clean the other side: %v", docs)
 	}
@@ -124,10 +124,10 @@ func TestMuseGoldenRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ = readJSONFile(path)
-	if _, still := raw["mcp_servers"].(map[string]any)["docs"]; still {
+	if _, still := raw["mcpServers"].(map[string]any)["docs"]; still {
 		t.Fatal("docs survived Remove")
 	}
-	if _, has := raw["mcp_servers"].(map[string]any)["keep"]; !has {
+	if _, has := raw["mcpServers"].(map[string]any)["keep"]; !has {
 		t.Fatal("keep lost by Remove")
 	}
 	if raw["schema_version"] == nil || raw["theme"] == nil {
@@ -143,7 +143,7 @@ func TestMuseToggleFlipsEnabledInPlace(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := readJSONFile(path)
-	keep, _ := raw["mcp_servers"].(map[string]any)["keep"].(map[string]any)
+	keep, _ := raw["mcpServers"].(map[string]any)["keep"].(map[string]any)
 	if keep["enabled"] != false || keep["mode"] != "optional" || keep["timeout"] != float64(30) {
 		t.Fatalf("toggle off: %v", keep)
 	}
@@ -180,7 +180,7 @@ func TestMuseWorksWithoutBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	docs, _ := raw["mcp_servers"].(map[string]any)["docs"].(map[string]any)
+	docs, _ := raw["mcpServers"].(map[string]any)["docs"].(map[string]any)
 	if docs["transport"] != "stdio" || docs["command"] != "npx" {
 		t.Fatalf("docs = %v", docs)
 	}
@@ -297,7 +297,7 @@ func TestMuseWriteKeepsSchemaVersion(t *testing.T) {
 
 	// An existing file that predates the key gains it on the next write,
 	// and an existing value is never overwritten.
-	p, path := seedMuse(t, `{"mcp_servers":{"docs":{"transport":"stdio","command":"npx"}}}`)
+	p, path := seedMuse(t, `{"mcpServers":{"docs":{"transport":"stdio","command":"npx"}}}`)
 	if err := (Muse{}).Toggle(p, "user", "docs", true); err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +313,7 @@ func TestMuseWriteKeepsSchemaVersion(t *testing.T) {
 		t.Fatalf("remove did not add schema_version: %v", raw)
 	}
 
-	p, path = seedMuse(t, `{"schema_version": 7, "mcp_servers":{"docs":{"transport":"stdio","command":"npx"}}}`)
+	p, path = seedMuse(t, `{"schema_version": 7, "mcpServers":{"docs":{"transport":"stdio","command":"npx"}}}`)
 	if err := (Muse{}).Toggle(p, "user", "docs", true); err != nil {
 		t.Fatal(err)
 	}

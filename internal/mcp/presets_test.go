@@ -1,6 +1,10 @@
 package mcp
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/cfpperche/picode/internal/mcptool"
+)
 
 // Presets render as one-click catalog cards; every entry must be directly
 // addable (a remote URL or a runnable command) or the card would create a
@@ -21,6 +25,24 @@ func TestPresetsAreComplete(t *testing.T) {
 	}
 	if !seen["gmail"] {
 		t.Fatal("gmail preset missing from catalog")
+	}
+}
+
+// Every family the daemon serves needs a card: a family the catalog carries
+// and the cards omit is reachable only through hand-written configuration —
+// delivery was in that state until 2026-09-21.
+func TestEveryToolFamilyHasACard(t *testing.T) {
+	cards := map[string]bool{}
+	for _, p := range ToolPresets() {
+		cards[p.ID] = true
+	}
+	for _, name := range mcptool.FamilyNames() {
+		if !cards[ToolPresetPrefix+name] {
+			t.Fatalf("%s%s has no connector card", ToolPresetPrefix, name)
+		}
+	}
+	if len(cards) != len(mcptool.FamilyNames()) {
+		t.Fatalf("cards = %d, families = %d", len(cards), len(mcptool.FamilyNames()))
 	}
 }
 

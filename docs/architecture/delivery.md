@@ -16,7 +16,9 @@ between agents is how the tool arrives, not who they are:
 - `picode mcp delivery`, injected as the family `picode-delivery` when the
   agent's CLI takes MCP servers at launch — Claude Code, Codex, OpenCode
   (`internal/server/cli_tools.go`, ADR-0154) — or reached through that CLI's own
-  Connectors scope (ADR-0150);
+  Connectors scope (ADR-0150). The launch writes the identity the server
+  resolves the principal from into that CLI's own server config where the CLI
+  does not pass its environment on ([picode-mcp](picode-mcp.md));
 - the `delivery` tool from `packages/pi-delivery` when the agent's CLI is Pi
   (Pi packages stay Pi-only, ADR-0091), which derives a mutation's retry key
   from the session, the action and the payload so a repeated call replays.

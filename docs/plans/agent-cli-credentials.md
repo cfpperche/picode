@@ -395,9 +395,10 @@ at `<DataDir>/credfiles/<cli>-<unix>.bak`.
 
 Still open after ADR-0166:
 
-- **Harvest** (read a refreshed token back into the vault) — not started; the
-  vault copy goes stale after the CLI renews it, and re-importing is the manual
-  workaround.
+- ~~**Harvest**~~ — done 2026-09-21 (feat/token-harvest): a roster read pulls
+  a renewed OAuth token from the CLI's own file into the row it belongs to,
+  matched by the stable refresh token and never guessed (usage and Verify keep
+  working without a re-import).
 - **Env-var injection at launch** (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`,
   `{PROVIDER}_API_KEY`) — the declarations carry the names; not wired to the
   launcher yet, and it does not touch HOME.
