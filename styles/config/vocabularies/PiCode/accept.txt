@@ -51,6 +51,7 @@ automations
 workspaces
 whois
 symlinked
+hardlinked
 cpus
 clis
 adrs
@@ -81,6 +82,12 @@ summarizer
 gmail
 Gmail
 untracked
+worktree
+worktrees
+gitignored
+handoff
+subagent
+auth
 fullscreen
 scrollback
 Homebrew
@@ -106,6 +113,7 @@ oh-my-pi
 excalidraw
 figma
 whatsapp
+paseo
 
 # generic technical English the base dictionary lacks
 dev
