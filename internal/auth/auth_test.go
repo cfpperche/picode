@@ -120,6 +120,19 @@ func TestDecisionTable(t *testing.T) {
 		{"ws same origin", call{method: "GET", path: "/ws/agent", origin: "http://localhost:8445", cookie: secret, upgrade: true}, 200, "browser"},
 		{"events with foreign origin", call{method: "GET", path: "/api/events", origin: "https://evil.example", cookie: secret}, 403, ""},
 		{"curl POST without origin", call{method: "POST", path: "/api/inbox", bearer: tok}, 200, "install"},
+
+		// Pairing: the one door reachable before you are paired. A
+		// submission from another tab is refused, and nothing else about it
+		// changes — reading the page is free, a script sends no Origin, and
+		// an unknown Host still gets through, because refusing the address
+		// someone is pairing *from* would lock them out of the only page
+		// that lets them in.
+		{"pair form from PiCode's own page", call{method: "POST", path: "/pair", origin: "http://localhost:8445"}, 200, ""},
+		{"pair form from another site", call{method: "POST", path: "/pair", origin: "https://evil.example"}, 403, ""},
+		{"pair form cross-site fetch metadata", call{method: "POST", path: "/pair", fetchSite: "cross-site"}, 403, ""},
+		{"pair from a script sends no origin", call{method: "POST", path: "/pair"}, 200, ""},
+		{"pair page is readable from anywhere", call{method: "GET", path: "/pair?code=x", origin: "https://evil.example"}, 200, ""},
+		{"pair still works from an unknown host", call{method: "POST", path: "/pair", host: "192.168.1.50:8445"}, 200, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

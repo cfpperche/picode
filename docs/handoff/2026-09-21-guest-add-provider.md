@@ -7,5 +7,5 @@ vendor OAuth never passes through PiCode); Check now files the account. Server t
 Files: internal/server/{credentials.go,credentials_pi_test.go}, web/{browser,mobile}/CliCredentials.jsx,
 docs (cli-providers.md, guide, fragment).
 Verified: commit d5b9a4c7, ci-scoped green (fmt, vet, hooks, go[4], test-js, build, docs).
-Not done / debts: none. Merge: fast-forward ready.
+Not done / debts: none. Merge: done — landed at `e0bd79ab` and serving in `0.4.0+ac671b8`.
 visual-review: PASS (3 stills: bar label, dialog with guided button + help line, strip after click).

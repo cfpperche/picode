@@ -1,5 +1,5 @@
 //go:build ignore
-//
+
 // The shell variant adds 128 and 256 and orders the ladder LARGEST FIRST:
 // the taskbar and Tauri's runtime icon decode take the first image of the
 // file, and a 16px first entry was rendering blurry and inverted at taskbar

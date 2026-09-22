@@ -344,6 +344,7 @@ func denied(w http.ResponseWriter, code int, msg string) {
 
 // Wrap is the middleware. Decision table (each row tested):
 //
+//	POST /pair with a foreign Origin             → 403 origin
 //	/api/health GET, /pair, /fire POST          → pass, no principal needed
 //	not /api or /ws (the UI)                     → pass
 //	Host not allowed                             → 403 unknown host
@@ -354,6 +355,22 @@ func denied(w http.ResponseWriter, code int, msg string) {
 //	otherwise                                    → 401 pairing required
 func (s *Service) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Pairing is the door you use when you cannot get in yet, so it
+		// stays outside guarded(): the Host check belongs to routes you
+		// reach *after* pairing, and applying it here would refuse the very
+		// address someone is trying to pair a new device from — locked out
+		// of the one page that exists to let you in.
+		//
+		// Submitting a code is still a submission, though, and a page open
+		// in another tab must not be able to post codes at this daemon. The
+		// cross-site check alone covers that, and it cannot lock anyone out:
+		// a browser posting the form from PiCode's own page sends a
+		// matching Origin, and a script or `picode pair` sends none, which
+		// stays allowed.
+		if r.URL.Path == "/pair" && mutating(r) && !s.originAllowed(r) {
+			denied(w, http.StatusForbidden, "cross-site request refused")
+			return
+		}
 		if !guarded(r) {
 			next.ServeHTTP(w, r)
 			return
