@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -61,6 +62,24 @@ func engineRun(t *testing.T, cli string, verb clipkgs.Verb, p clipkgs.Paths, tar
 	return err
 }
 
+// requireCLIBinary skips when the vendor binary a case needs is not
+// installed.
+//
+// Almost every row here is pure argv construction and needs nothing on
+// PATH. Omp's removal is the exception: it asks the engine whether the
+// target is one of its `extensions`, and the engine answers by running
+// `omp config get`. With omp installed — which it is on the machine this
+// was written on — the row passes; on a runner it failed with
+// `exec: "omp": executable file not found in $PATH`, which is a fact
+// about the runner and not about the lane. Reproduce either state by
+// putting omp on or off PATH.
+func requireCLIBinary(t *testing.T, cli string) {
+	t.Helper()
+	if _, err := exec.LookPath(clipkgs.Bin(cli)); err != nil {
+		t.Skipf("%s is not installed: %v", clipkgs.Bin(cli), err)
+	}
+}
+
 // The lane's verbs build the command the engine built: the argv the job lane
 // spawns, the directory it runs in and the line the pane copies. They never run
 // it, which is why the same table covers every CLI (ADR-0176 slice 2b).
@@ -75,6 +94,9 @@ func TestGuestLaneCommandsMatchTheEngineByteForByte(t *testing.T) {
 		verb   clipkgs.Verb
 		target Target
 		call   func(Driver, Query, Target) (Command, error)
+		// needsBin: this row reaches the vendor binary, so it is skipped
+		// where that binary is not installed.
+		needsBin bool
 	}{
 		{
 			name: "claude code installs into its local layer", cli: "claude-code", scope: "local",
@@ -87,7 +109,8 @@ func TestGuestLaneCommandsMatchTheEngineByteForByte(t *testing.T) {
 			call: func(d Driver, q Query, t Target) (Command, error) { return d.Install(ctx, q, t) },
 		},
 		{
-			name: "omp removes a project plugin", cli: "omp", scope: "project",
+			// The one row that reaches the vendor binary; see requireCLIBinary.
+			name: "omp removes a project plugin", cli: "omp", scope: "project", needsBin: true,
 			verb: clipkgs.VerbRemove, target: Target{Name: "ext", Source: "ext"},
 			call: func(d Driver, q Query, t Target) (Command, error) { return d.Remove(ctx, q, t) },
 		},
@@ -109,6 +132,9 @@ func TestGuestLaneCommandsMatchTheEngineByteForByte(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.needsBin {
+				requireCLIBinary(t, tc.cli)
+			}
 			q := Query{Vendor: tc.scope, WorkspacePath: ws}
 			got, err := tc.call(DriverFor(tc.cli), q, tc.target)
 			if err != nil {
