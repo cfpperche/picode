@@ -341,6 +341,7 @@ export default function App({ shellChrome = false } = {}) {
 
   const [terminals, setTerminals] = useState([]);
   const [clis, setClis] = useState([]);
+  const [clisState, setClisState] = useState("loading"); // loading | ok | error
   const clisRef = useRef([]);
   clisRef.current = clis;
   const [termHandoff, setTermHandoff] = useState(null);
@@ -818,6 +819,10 @@ export default function App({ shellChrome = false } = {}) {
 
   useEffect(() => {
     (async () => {
+      // The CLI catalog starts with the boot, not after the Pi model catalog:
+      // System and the Automations banner read it (ADR-0179).
+      const clisBoot = api("/api/clis");
+      clisBoot.then(() => setClisState("ok"), () => setClisState("error"));
       try {
         const [sys, ver] = await Promise.all([api("/api/system"), api("/api/version")]);
         setSystem(sys);
@@ -828,7 +833,7 @@ export default function App({ shellChrome = false } = {}) {
       } catch { /* offline */ }
       try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
       try {
-        const cliCatalog = await api("/api/clis");
+        const cliCatalog = await clisBoot;
         setClis(cliCatalog.clis || []);
       } catch { /* Continue in… stays hidden until this lands */ }
       try {
@@ -1063,7 +1068,7 @@ export default function App({ shellChrome = false } = {}) {
   }, [webapps, webappsLoaded, tabs, tabsReady]);
   useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("cli."))) {
-      api("/api/clis").then((d) => setClis(d.clis || [])).catch(() => {});
+      api("/api/clis").then((d) => { setClis(d.clis || []); setClisState("ok"); }).catch(() => setClisState((s) => (s === "ok" ? s : "error")));
     }
   }), []);
   useEffect(() => subscribeFeed((ev) => {
@@ -4274,13 +4279,13 @@ export default function App({ shellChrome = false } = {}) {
           themeMode={themeMode}
           onTheme={setTheme}
         />
-        <System hidden={route !== "system"} version={version} system={system} clis={clis} />
+        <System hidden={route !== "system"} version={version} system={system} clis={clis} clisState={clisState} />
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
         <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
         <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
-        <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} />
+        <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} clisLoaded={clisState === "ok"} />
         <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}

@@ -53,7 +53,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   async function onSubmit(e) {
     e.preventDefault();
     const parsed = free
-      ? parseForm(freeAgentPickSchema, { cli: cliId, name, path })
+      ? parseForm(freeAgentPickSchema, { cli: cliId, name: name.trim() || (selected && selected.name) || "", path })
       : parseForm(managedPrincipalSchema, { cli: cliId, name });
     if (!parsed.ok) { setError(parsed.error); return; }
     if (!free && (!workspace || !workspace.id)) { setError("Pick a workspace first."); return; }

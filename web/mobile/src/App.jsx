@@ -74,6 +74,7 @@ export default function MobileApp() {
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [catalog, setCatalog] = useState(null);
   const [clis, setClis] = useState([]);
+  const [clisState, setClisState] = useState("loading"); // loading | ok | error
   const [termHandoff, setTermHandoff] = useState(null);
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
@@ -145,6 +146,16 @@ export default function MobileApp() {
   async function loadCatalog() {
     try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
   }
+  // The CLI catalog loads with the boot and follows the feed like desktop
+  // does: an install or uninstall in Agent CLIs reaches System and the
+  // Automations banner without a reload (ADR-0179).
+  const loadClis = useCallback(() => api("/api/clis")
+    .then((d) => { setClis(d.clis || []); setClisState("ok"); })
+    .catch(() => setClisState((s) => (s === "ok" ? s : "error"))), []);
+  useEffect(() => { loadClis(); }, [loadClis]);
+  useEffect(() => subscribeFeed((ev) => {
+    if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("cli."))) loadClis();
+  }), [loadClis]);
   useEffect(() => {
     (async () => {
       try {
@@ -155,10 +166,6 @@ export default function MobileApp() {
         setReleaseBuild(!!ver.release);
       } catch { /* offline */ }
       await loadCatalog();
-      try {
-        const d = await api("/api/clis");
-        setClis(d.clis || []);
-      } catch { /* Agent CLIs catalog is optional for Work */ }
     })();
   }, []);
 
@@ -630,7 +637,7 @@ export default function MobileApp() {
     );
   } else if (route.screen === "more") {
     body = (
-      <More fleetReady={loaded} legacyAgentId={lastAgentId} section={route.section} apps={apps} catalog={catalog} clis={clis} system={system} version={version} themeMode={themeMode} workspaces={workspaces} freeAgents={freeAgents}
+      <More fleetReady={loaded} legacyAgentId={lastAgentId} section={route.section} apps={apps} catalog={catalog} clis={clis} clisState={clisState} system={system} version={version} themeMode={themeMode} workspaces={workspaces} freeAgents={freeAgents}
         onAgentConfig={patchAgent}
         onTheme={(m) => { persistTheme(m); setThemeMode(m); }} last={last} onRefreshCatalog={loadCatalog} onCatalogChange={setCatalog}
         onShare={() => setShareOpen(true)} onWhatsNew={openWhatsNew} whatsNewUnread={whatsNewUnread} onBack={() => goBack(route)} />

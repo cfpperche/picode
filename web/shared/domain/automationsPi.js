@@ -16,7 +16,7 @@ export function agentCliIndex(workspaces, freeAgents) {
 }
 
 export function automationNeedsPi(a, cliOf) {
-  if (!a) return false;
+  if (!a || a.enabled === false) return false; // a disabled one never runs
   if (a.action !== "message") return true;
   return (cliOf.get(a.targetAgentId) || "pi") === "pi";
 }

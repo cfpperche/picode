@@ -29,6 +29,11 @@ test("a message to a Pi, legacy or unknown agent needs Pi", () => {
   assert.equal(automationsBlockedByPi(noPi, [{ action: "message", targetAgentId: "gone" }], workspaces, free), true);
 });
 
+test("a disabled automation never blocks", () => {
+  assert.equal(automationsBlockedByPi(noPi, [{ action: "start", enabled: false }], workspaces, free), false);
+  assert.equal(automationsBlockedByPi(noPi, [{ action: "start", enabled: false }, { action: "start", enabled: true }], workspaces, free), true);
+});
+
 test("no automations, or no catalog yet, never blocks", () => {
   assert.equal(automationsBlockedByPi(noPi, [], workspaces, free), false);
   assert.equal(automationsBlockedByPi([], [{ action: "start" }], workspaces, free), false);
