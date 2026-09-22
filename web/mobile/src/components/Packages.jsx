@@ -4,7 +4,7 @@ import { api, humanizeError } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import {
   packagesApi, packagesNotes, packagesSurface, paneWords, behindFor,
-  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation, paneTabs, cliPackagesHash,
+  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation, paneTabs, rowToggle, rowInspect, cliPackagesHash,
 } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { pkgName } from "@picode/shared/domain/pkgName.js";
@@ -889,7 +889,7 @@ function VendorBody({
           </div>
           <Problem entry={rowError[keyOf(row)]} />
           <div className="gpkg-card-foot">
-            {caps.toggle ? (
+            {rowToggle(caps, row) ? (
               <button type="button" className="btn btn-sm" disabled={guard} onClick={() => onToggle(row, !row.enabled)}>
                 {verbFor(row) === "toggle" ? busy.label : row.enabled ? "Disable" : "Enable"}
               </button>
@@ -897,7 +897,7 @@ function VendorBody({
             {behindFor(behind, row) ? (
               <button type="button" className="btn btn-sm" disabled={guard} title={"Update to " + behindFor(behind, row).latest} onClick={() => onUpdate(row)}>{verbFor(row) === "update" ? busy.label : "Update"}</button>
             ) : null}
-            {caps.inspect ? (
+            {rowInspect(caps, row) ? (
               <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => onInspect(row)}>{verbFor(row) === "inspect" ? busy.label : "Inspect"}</button>
             ) : null}
             {caps.remove ? (

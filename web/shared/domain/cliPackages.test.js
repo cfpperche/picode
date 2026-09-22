@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey, directMutation, paneTabs } from "./cliPackages.js";
+import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey, directMutation, paneTabs, rowToggle, rowInspect } from "./cliPackages.js";
 import { cliLocation } from "./cliLaunch.js";
 
 // The transport rule: which mutation is one of PiCode's own calls and which is a
@@ -35,6 +35,21 @@ test("the marketplace tab is offered only where a catalog exists for that layer"
   assert.equal(paneTabs({ catalog: "vendor" }, "project"), true);
   assert.equal(paneTabs({ catalog: "vendor" }, "agent"), false);
   assert.equal(paneTabs({ catalog: "gallery" }, "agent"), true);
+});
+
+// The on/off and inspection controls belong to the CLI's own verbs, and a row in
+// PiCode's own agent list is one those commands do not know.
+test("the vendor's row controls are offered only where its own verbs can act", () => {
+  assert.equal(rowToggle({ toggle: true }, { scope: "user" }), true);
+  assert.equal(rowToggle({ toggle: true }, { scope: "workspace" }), true);
+  assert.equal(rowToggle({ toggle: true }, { scope: "agent" }), false);
+  assert.equal(rowToggle({ toggle: false }, { scope: "user" }), false);
+  assert.equal(rowToggle(null, { scope: "user" }), false);
+  assert.equal(rowToggle({ toggle: true }, null), true);
+  assert.equal(rowInspect({ inspect: true }, { scope: "user" }), true);
+  assert.equal(rowInspect({ inspect: true }, { scope: "agent" }), false);
+  assert.equal(rowInspect({ inspect: false }, { scope: "workspace" }), false);
+  assert.equal(rowInspect(null, null), false);
 });
 
 test("canonical links round-trip CLI, package, scope and explicit context", () => {

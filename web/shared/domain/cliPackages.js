@@ -155,6 +155,25 @@ export function directMutation(caps, { scope = "user", row = null } = {}) {
   return (row ? row.scope : scope) === "agent";
 }
 
+// vendorKnowsRow says the two controls the *vendor* owns — its on/off verb and
+// its inspection — may be offered for this row. A row in the agent layer is
+// PiCode's own entry, not the vendor's plugin: the CLI learns about it at
+// launch, so its own commands do not know the name, and PiCode's list has no
+// disabled state to write. Both controls are therefore absent rather than dead
+// (ADR-0176 slice 4), exactly as they are for Pi, whose rows carry neither.
+// Remove and Update are PiCode's own calls for that layer, and stay.
+function vendorKnowsRow(row) {
+  return !(row && row.scope === "agent");
+}
+
+export function rowToggle(caps, row) {
+  return !!(caps && caps.toggle) && vendorKnowsRow(row);
+}
+
+export function rowInspect(caps, row) {
+  return !!(caps && caps.inspect) && vendorKnowsRow(row);
+}
+
 // paneTabs says whether the Installed/Marketplace pair is offered. A report with
 // no catalog holds one list and has nothing to switch to; and a vendor's catalog
 // does not exist for the agent layer — that list is PiCode's own on the agent
