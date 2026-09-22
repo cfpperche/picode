@@ -16,12 +16,14 @@ PiCode imports what their store holds (Native readers). Omp is the gap:
 
 ## Next
 
-- [ ] Upstream omp: publish a non-TUI login entrypoint (`omp login
-      <provider>` or equivalent over the auth-broker). PiCode side is then a
-      per-provider `Login` declaration in `internal/clicreds` — the same
-      pattern as `codex login`. Blocked on upstream, not on PiCode.
+- [x] Browser flow from the pane for omp's five oauth providers — done via
+      ADR-0178: PiCode drives the vendor client ids it already had in
+      `internal/oauth`, the credential lands in the vault, and omp reads it
+      through its declared env names (`ompCredentialEnv` bridge at spawn).
 - [ ] PiCode reads `agent.db` (a Native reader like codex/grok's) so native
       `/login` results import + display. ADR required first: security model
       + persistence (reading another tool's credential store; schema is
-      omp-internal and versioned).
-- Refused path: PiCode performing the vendor OAuth itself (ADR-0168).
+      omp-internal and versioned). Still open — complementary to ADR-0178,
+      which covers the PiCode-driven flow only.
+- Upstream non-TUI entrypoint: no longer needed for the vault path; still
+  the cleanest shape if omp wants its own one-shot login command.

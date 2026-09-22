@@ -64,12 +64,19 @@ that one line instead of a Verify control that could not answer.
 hash back to the pane. Every server error lands in the form that caused it —
 a toast would leave the sheet looking fine.
 
-**Sign in (ADR-0168).** The pane starts the CLI's *own* login: `POST
+**Sign in (ADR-0168, extended by ADR-0178).** The pane starts the CLI's *own* login: `POST
 /api/credentials/signin` creates a terminal running that CLI's login argv
 (`codex login`, `grok login`, `muse login`, `opencode auth login`, `hermes auth
 add`; the CLIs whose login lives in their TUI get no arguments and a hint
-naming the command inside it — `/login`). PiCode performs no vendor OAuth and
-presents no other product's client id. The roster carries
+naming the command inside it — `/login`). For that terminal path PiCode
+performs no vendor OAuth and presents no other product's client id. The
+exception is the Add-provider dialog's **Guided sign-in** for a provider the
+OAuth engine supports (`oauth.Supports`: anthropic, openai-codex,
+github-copilot, kimi-coding, xai): there PiCode opens the vendor's authorize
+page in a tab with the CLI's own public client id — the same handshake pi's
+TUI runs (`internal/oauth`) — captures the loopback/device callback, and
+lands the credential in the vault; for omp it travels back by env at spawn
+(ADR-0178). The roster carries
 `signin: {available, hint}` so the button exists only where it is honest, and
 the pane shows the hint plus **Check now** — one click that runs the import and
 files the result. A sign-in whose credential the store cannot name (Claude
