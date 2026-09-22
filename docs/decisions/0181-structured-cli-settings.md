@@ -1,6 +1,6 @@
 # ADR-0181: A settings row may be a role or an ordered list, and its path may come from the vendor
 
-- **Status**: proposed (the owner approved slice 1 of `docs/benchmarks/2026-09-22-omp-helpers-placement.md` §10; this records the boundary it crosses)
+- **Status**: accepted (owner, 2026-09-22, after slice 1 shipped)
 - **Date**: 2026-09-22
 - **Boundary**: persistence — the settings writer gains two value shapes it never wrote (a scalar at a path the vendor's catalog supplies, and an ordered list of strings), and the set of keys PiCode may write into a CLI's own file stops being a fixed declaration.
 - **Amends**: [ADR-0163](0163-cli-native-config-and-memory.md), whose decision says "Fields are scalars only, which is what makes the writer safe". **Extends**: [ADR-0174](0174-guest-keymaps.md) (the list primitives and the `FlatMap.Path` idea it introduced). **Unchanged**: [ADR-0099](0099-package-configuration-gui.md) §5 — no generic JSON box, and a key nobody declares is still never written.
