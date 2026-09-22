@@ -82,6 +82,13 @@
 
 ## Notes
 
+- **A `CI gate` failure whose output says `GO: cancelled` is not a failure.**
+  A push to `main` cancels the run in progress (observed 2026-09-22 22:10: the
+  gate read `failure` only because `GO` read `cancelled`, and the very next
+  push had already started a fresh run). Read the *newest* run for the tree
+  before diagnosing. And `gh run watch … | tail` reports `tail`'s status, not
+  the run's — redirect and read `$?`, or a green-looking `exit=0` will cover
+  two real failures.
 - Hook edits cannot be exercised from a worktree (it runs the root's hooks); a refused commit needs `git -c core.hooksPath=$PWD/.githooks commit`.
 - `make ci` failed once (2026-09-12) after Go packages ok, passed on the identical tree — cause unknown; `var/ci-last.log` keeps it diagnosable (retries hide it).
 - A branch that edited `docs/handoff.md` pre-ADR-0123 hits one `modify/delete` conflict: resolve with `git rm -f docs/handoff.md` (the hook refuses it staged, on purpose).
