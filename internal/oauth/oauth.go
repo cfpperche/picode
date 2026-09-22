@@ -68,6 +68,9 @@ type result struct {
 	err error
 }
 
+// loopbackTimeout is how long a browser sign-in's callback listens.
+var loopbackTimeout = 15 * time.Minute
+
 var (
 	mu       sync.Mutex
 	cur      *pending
@@ -152,6 +155,17 @@ func StartSink(provider, returnTo string, sink Sink) (authorizeURL, userCode str
 	p := &pending{provider: provider, verifier: verifier, state: state, returnTo: returnTo, sink: sink, ln: ln, done: make(chan result, 1)}
 	cur = p
 	go serve(p, path, redirect, clientID)
+	// A browser sign-in nobody finishes must not hold its callback port (and
+	// block every later login with "already in progress") until the daemon
+	// restarts — the device flows already give up after the same limit.
+	time.AfterFunc(loopbackTimeout, func() {
+		mu.Lock()
+		still := cur == p
+		mu.Unlock()
+		if still {
+			p.finish(fmt.Errorf("oauth: sign-in timed out"))
+		}
+	})
 
 	q := url.Values{}
 	if provider == "anthropic" {

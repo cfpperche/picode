@@ -9,3 +9,9 @@
 
 - `POST /api/clis/{cli}/terminals`. Starting a CLI goes through
   `POST /api/agents` or `POST /api/workspaces/{id}/agents` with `overrides`.
+
+### Fixed
+
+- A browser sign-in (Anthropic, OpenAI Codex) left unfinished no longer
+  blocks every later sign-in with "already in progress" until PiCode
+  restarts: it gives up after 15 minutes, like the device-code sign-ins.
