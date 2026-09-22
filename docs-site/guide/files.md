@@ -47,6 +47,14 @@ original folder to save an existing draft there, or discard it before moving on.
 
 **Reveal** opens the folder in the file manager on the machine running PiCode.
 
+The **…** menu on a workspace card has the same way out without opening the
+File Tree: **Show in Explorer** (**Show in file manager** outside WSL), and
+**Copy path**, which under WSL offers both the Linux and the Windows path. A
+repository with a GitHub, GitLab, Bitbucket or Azure DevOps remote also gets
+**Open on GitHub** (or the host's name), and on any branch other than the default one, its pull
+request: **Open pull request #N** when one exists, **Create pull request**
+otherwise.
+
 ## The Inspector
 
 The desktop keeps a rail on the right of the conversation or terminal. It

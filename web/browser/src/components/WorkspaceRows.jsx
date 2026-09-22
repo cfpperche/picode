@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconGit, IconMode, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconGit, IconMode, IconMoveDown, IconMoveUp, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
@@ -15,9 +15,9 @@ import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMe
 import { agentSubtitle } from "@picode/shared/domain/managedPrincipal.js";
 import { termRowMenu } from "../lib/termRowMenu.js";
 
-export function RowMenu({ label, children }) {
+export function RowMenu({ label, children, onOpenChange }) {
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root onOpenChange={onOpenChange}>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
@@ -138,8 +138,8 @@ export function OrderMoves({ up, down }) {
   if (!up && !down) return null;
   return (
     <>
-      {up ? <RowMenuItem onSelect={up}>Move up</RowMenuItem> : null}
-      {down ? <RowMenuItem onSelect={down}>Move down</RowMenuItem> : null}
+      {up ? <RowMenuItem onSelect={up}><IconMoveUp size={13} /> Move up</RowMenuItem> : null}
+      {down ? <RowMenuItem onSelect={down}><IconMoveDown size={13} /> Move down</RowMenuItem> : null}
       <RowMenuSep />
     </>
   );

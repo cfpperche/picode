@@ -24,6 +24,7 @@ add-ons
 npm
 node\.js
 github
+Bitbucket
 oauth
 json
 yaml
