@@ -7,19 +7,18 @@ the current step, the disclosure the full list, the way `pi-checklist` serves pi
 registered and nothing is gated; uninstall removes both extension files.
 Verified: decision-table test runs the generated template under node against a recording daemon
 (omp_checklist_test.go); wrapper shape and uninstall pinned in cli_wrapper_test.go. Scoped CI green
-— TestUsageSummaryIsCacheOnlyAndSaysUnknown failed on every session here because the catalog reads
-provider keys from the env a PiCode terminal carries; the test now scrubs catalog.APIKeyEnvVars
-(proven root cause, fix committed). Repeated `-e` on omp 18.2.8 probed live: two flags parse and
-both extensions load. Live on production: omp terminal checklist-mirror-2ef6f2 (workspace
-picode-5fd7eb, ~/picode) loaded the extension from user-scope ~/.omp/agent/settings.json and mirrored
-todo init/start/done into GET /api/terminals/checklist-mirror-2ef6f2/checklist (status mapping and
-sessionId correct). Blind spot: the live run used the settings entry, not the wrapper's own -e.
+— the usage-summary test now scrubs catalog.APIKeyEnvVars (ambient terminal env broke it everywhere).
+Repeated `-e` on omp 18.2.8 probed live. Live on production (workspace picode-5fd7eb, ~/picode): omp
+terminals loaded the extension from Omp's user layer and mirrored todo init/start/done into the
+terminal checklist route (status mapping and sessionId correct); re-verified after the entry moved
+to the canonical store (`omp config set extensions`, visible in the Packages pane under Global).
+Blind spot: the live runs used the user-layer entry, not the wrapper's own -e.
 visual-review: n/a (server-side injection; the checklist UI already exists)
 Merge: fast-forward ready.
 
 ## Next up
 
-- After this lands AND deploys, remove the omp-checklist validation entry from ~/.omp/agent/settings.json — the `-e` copy would then double-POST.
+- After this lands AND deploys, remove the omp-checklist entry from Omp's user layer — Agent CLIs ▸ Omp ▸ Packages ▸ Remove, or `omp config set extensions '[]'` — the `-e` copy would then double-POST.
 
 ## Debts
 
