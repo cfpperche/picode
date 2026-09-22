@@ -360,9 +360,11 @@ the latter is a TOML type error, and the vendor's generated schema says so. The
 declaration is `FlatMap.Path` and nothing else: same engine, same document
 primitives, one table per context.
 
-Its catalog is 146 actions in 12 contexts, read out of the vendor's artifacts at
-the tag the installed build pins (`codex-cli 0.155.1`): the runtime inventory in
-`tui/src/keymap/bindings.rs`, the labels in the generated `config.schema.json`,
+Its catalog is 149 keys in 12 contexts, read out of the vendor's artifacts at
+the tag the installed build pins (`codex-cli 0.155.1`): the generated `config.schema.json`
+(the key list and the labels — the schema, not the runtime inventory, because the
+inventory omits three `global.*` fallback keys the struct accepts and an unknown
+key makes codex refuse the file at start, observed live),
 the chords in `built_in_defaults()` plus `vim_search.rs`. A row's ID is
 `<context>.<action>` — the vendor's own path minus its `tui.keymap` prefix —
 because the bare name is not unique (`move_left` lives in the editor *and* in

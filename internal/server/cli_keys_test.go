@@ -249,7 +249,7 @@ func TestCLIKeysServesAndWritesANestedGuestMap(t *testing.T) {
 	if first["state"] != "shipped" || first["keymap"] != "nested" || first["file"] != path {
 		t.Fatalf("the envelope is not codex's: %v", first)
 	}
-	if rows, _ := first["actions"].([]any); len(rows) != 146 {
+	if rows, _ := first["actions"].([]any); len(rows) != 149 {
 		t.Fatalf("the catalog did not survive the envelope: %d rows", len(rows))
 	}
 	if ctxs, _ := first["contexts"].([]any); len(ctxs) != 12 {

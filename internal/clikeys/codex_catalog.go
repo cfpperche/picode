@@ -1,7 +1,7 @@
 package clikeys
 
-// The Codex key map's catalog (docs/plans/keyboard-pane.md, P3): every action its
-// runtime inventory declares, in the context the file puts it in, with the
+// The Codex key map's catalog (docs/plans/keyboard-pane.md, P3): every key the
+// CLI's own config struct accepts, in the context the file puts it in, with the
 // description the vendor's generated schema carries and the chords it binds out
 // of the box.
 //
@@ -9,29 +9,37 @@ package clikeys
 // pins — codex-cli 0.155.1, installed as @openai/codex -> @openai/codex-linux-x64
 // 0.155.1, x86_64-unknown-linux-musl:
 //
-//   - the inventory: codex-rs/tui/src/keymap/bindings.rs, define_runtime_action_bindings!
-//     (146 actions in 12 contexts — the inventory lists `chat` twice, once for
-//     the voice surface, which shares the config name `chat`);
-//   - the labels: codex-rs/core/config.schema.json, the vendor's generated schema
-//     for TuiKeymap, whose per-context properties carry the description of every
-//     action;
+//   - the id list and the labels: codex-rs/core/config.schema.json, the vendor's
+//     generated schema for TuiKeymap (149 keys in 12 contexts). The schema,
+//     not the runtime inventory, is the source here because the two differ: the
+//     inventory omits the three `global.*` fallback slots the struct accepts, and
+//     an unknown action in this table makes codex refuse the whole file at start
+//     (observed live: `unknown field nosuchaction, expected one of …`), so the
+//     pane must expose every key the struct accepts;
 //   - the defaults: codex-rs/tui/src/keymap.rs, built_in_defaults(), plus codex-rs/tui/src/keymap/vim_search.rs for
 //     the four search actions.
 //
-// ID is `<context>.<action>` — the vendor's own path minus its `tui.keymap`
-// prefix — because the bare action name is not unique: `move_left` exists in the
-// editor and in vim_normal, and the pane addresses every row by one key. Group is
-// the config context, which is also the table the row lives in, so the pane's
-// headings and the TOML a user reads agree. Chords are rendered in the file's
-// spelling (`ctrl-t`, `page-down`, `esc`), not in PiCode's: a chord here is a
-// string the user writes, and the pane formats it for display from the CLI's own
-// vocabulary (ADR-0174).
+// Group is the config context the key lives in — the same name the file's own
+// table uses, so the pane's headings and the TOML a user reads agree; the order is the runtime
 //
-// Defaults nil means the action ships unbound, which is a real answer: the
-// vendor's table says so with an empty binding list. No label below is invented —
-// each is the vendor's sentence for that action. One built-in chord is missing on
-// purpose: `vim_normal.enter_insert` also binds Insert, and the vendor's own key
-// vocabulary has no word for that key, so the row lists what a user can write.
+//	inventory's (what `/keymap` exposes), with any key the inventory omits
+//	joining its context's group at the end. ID is
+//
+// `<context>.<action>`: the bare name is not unique (`move_left` exists in the
+// editor and in vim_normal). Chords are rendered in the file's spelling
+// (`ctrl-t`, `page-down`, `esc`), not in PiCode's: a chord here is a string the
+// user writes, and the pane formats it for display from the CLI's own vocabulary
+// (ADR-0174).
+//
+// Defaults nil means the key ships with no binding of its own. Three of those are
+// not "unused": `global.submit`, `global.queue` and `global.toggle_shortcuts` are
+// the global fallbacks the resolver reads for the composer's slots when those are
+// unset (built_in_defaults() zeroes them whenever the composer's own key is set),
+// and codex's own keymap editor writes the composer's binding into them. The pane
+// shows them unset until a user sets one, which is what the file says. One
+// built-in chord is missing on purpose: `vim_normal.enter_insert` also binds
+// Insert, and the vendor's key vocabulary has no word for that key, so the row
+// lists what a user can write.
 var CodexCatalog = []Action{
 	// global
 	{ID: "global.open_agents", Group: "global", Label: "Open the shared agent-session overview.", Defaults: nil},
@@ -43,6 +51,9 @@ var CodexCatalog = []Action{
 	{ID: "global.toggle_fast_mode", Group: "global", Label: "Toggle Fast mode.", Defaults: nil},
 	{ID: "global.toggle_raw_output", Group: "global", Label: "Toggle raw scrollback mode for copy-friendly transcript selection.", Defaults: []string{"alt-r"}},
 	{ID: "global.toggle_side_conversation", Group: "global", Label: "Switch between a side conversation and its parent without closing either.", Defaults: []string{"ctrl-/"}},
+	{ID: "global.queue", Group: "global", Label: "Queue the current composer draft while a task is running.", Defaults: nil},
+	{ID: "global.submit", Group: "global", Label: "Submit the current composer draft.", Defaults: nil},
+	{ID: "global.toggle_shortcuts", Group: "global", Label: "Toggle the composer shortcut overlay.", Defaults: nil},
 	// chat
 	{ID: "chat.interrupt_turn", Group: "chat", Label: "Interrupt the active turn.", Defaults: []string{"esc"}},
 	{ID: "chat.decrease_reasoning_effort", Group: "chat", Label: "Decrease the active reasoning effort.", Defaults: []string{"alt-,", "shift-down"}},

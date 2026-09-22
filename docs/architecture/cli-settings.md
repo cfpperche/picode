@@ -317,7 +317,7 @@ per action: the plan's `[tui.keymap.<context>.<action>]` would be a TOML type
 error, corrected against the vendor's schema). `FlatMap.Path` is the whole
 difference, and the file is the one the Settings tab already edits — both panes
 touch different keys of it through the same document primitives, so each save
-re-reads what the other left. Its catalog is 146 actions in 12 contexts, read out
+re-reads what the other left. Its catalog is 149 keys in 12 contexts, read out
 of the vendor's artifacts at the tag the installed build pins (the runtime
 inventory in `tui/src/keymap/bindings.rs`, the labels in its generated
 `config.schema.json`, the chords in `built_in_defaults()`), and a row's ID is
