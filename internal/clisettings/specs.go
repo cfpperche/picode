@@ -220,7 +220,7 @@ var catalog = []spec{
 		// fifteen and is not declared here.
 		roles: ompRoles,
 		fields: []Field{
-			{Key: "modelRoleStorage", Label: "Omp's own picker saves to", Kind: KindSelect, Group: groupRoles, Fallback: "Global", Options: opts(
+			{Key: "modelRoleStorage", Pane: "models", Label: "Omp's own picker saves to", Kind: KindSelect, Group: groupRoles, Fallback: "Global", Options: opts(
 				[2]string{"global", "Global"},
 				[2]string{"project", "This workspace"},
 			), Help: "Where a role you pick inside Omp is saved. This pane always writes the layer you are editing."},
@@ -234,21 +234,21 @@ var catalog = []spec{
 				[2]string{"max", "Max"},
 				[2]string{"auto", "Auto"},
 			), Help: "Reasoning depth for models that support it. Auto lets Omp pick per turn."},
-			{Key: "retry.enabled", Label: "Retry after a provider error", Kind: KindBool, Group: groupFallbacks, Fallback: "On", DefaultOn: true},
-			{Key: "retry.maxRetries", Label: "Retry attempts", Kind: KindNumber, Group: groupFallbacks, Fallback: "10", Help: "How many times one request is retried before the chain below is used."},
-			{Key: "retry.modelFallback", Label: "Fall back to another model", Kind: KindBool, Group: groupFallbacks, Fallback: "On", DefaultOn: true, Help: "Off leaves the chains below unused."},
-			{Key: "retry.fallbackRevertPolicy", Label: "Return to the first model", Kind: KindSelect, Group: groupFallbacks, Fallback: "After its wait time", Options: opts(
+			{Key: "retry.enabled", Pane: "models", Label: "Retry after a provider error", Kind: KindBool, Group: groupFallbacks, Fallback: "On", DefaultOn: true},
+			{Key: "retry.maxRetries", Pane: "models", Label: "Retry attempts", Kind: KindNumber, Group: groupFallbacks, Fallback: "10", Help: "How many times one request is retried before the chain below is used."},
+			{Key: "retry.modelFallback", Pane: "models", Label: "Fall back to another model", Kind: KindBool, Group: groupFallbacks, Fallback: "On", DefaultOn: true, Help: "Off leaves the chains below unused."},
+			{Key: "retry.fallbackRevertPolicy", Pane: "models", Label: "Return to the first model", Kind: KindSelect, Group: groupFallbacks, Fallback: "After its wait time", Options: opts(
 				[2]string{"cooldown-expiry", "After its wait time"},
 				[2]string{"never", "Never, until the session ends"},
 			)},
-			{Key: "retry.usageAwareFallback", Label: "Switch before the plan limit", Kind: KindBool, Group: groupFallbacks, Fallback: "Off", Help: "Reads the plan's remaining allowance and switches early."},
-			{Key: "retry.usageReservePct", Label: "Reserve margin (%)", Kind: KindNumber, Group: groupFallbacks, Fallback: "10", Help: "Below this much allowance left, the model counts as near its limit."},
-			{Key: "retry.usageReservePolicy", Label: "Inside the margin", Kind: KindSelect, Group: groupFallbacks, Fallback: "Ask", Options: opts(
+			{Key: "retry.usageAwareFallback", Pane: "models", Label: "Switch before the plan limit", Kind: KindBool, Group: groupFallbacks, Fallback: "Off", Help: "Reads the plan's remaining allowance and switches early."},
+			{Key: "retry.usageReservePct", Pane: "models", Label: "Reserve margin (%)", Kind: KindNumber, Group: groupFallbacks, Fallback: "10", Help: "Below this much allowance left, the model counts as near its limit."},
+			{Key: "retry.usageReservePolicy", Pane: "models", Label: "Inside the margin", Kind: KindSelect, Group: groupFallbacks, Fallback: "Ask", Options: opts(
 				[2]string{"confirm", "Ask"},
 				[2]string{"auto", "Switch without asking"},
 				[2]string{"fail-closed", "Stop the turn"},
 			)},
-			{Key: "retry.waitForUsageReset", Label: "Wait for the allowance to reset", Kind: KindBool, Group: groupFallbacks, Fallback: "Off", Help: "Sleeps until the window resets instead of failing."},
+			{Key: "retry.waitForUsageReset", Pane: "models", Label: "Wait for the allowance to reset", Kind: KindBool, Group: groupFallbacks, Fallback: "Off", Help: "Sleeps until the window resets instead of failing."},
 			// The Models pane's two keys (ADR-0181 list kind). Both are arrays,
 			// so a project layer that sets one *replaces* the global list
 			// rather than extending it (omp's own docs/settings.md: "the most
