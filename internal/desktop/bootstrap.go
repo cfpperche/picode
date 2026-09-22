@@ -41,7 +41,7 @@ type MachineState struct {
 	DefaultUser string
 	// TargetUser is the account the runtime stages install for: the
 	// explicit --user flag when set, the default account otherwise. The
-	// probe runs as this account so a pi only it can see still converges.
+	// probe runs as this account so a binary only it can see still converges.
 	TargetUser string
 	// PicodeVersion is the picode inside the picked distro ("" when
 	// missing); WantPicode is the release install-picode converges on (""
@@ -293,7 +293,7 @@ func Describe(stage Stage, distro string) string {
 	case StageInstallPicode:
 		return "install the picode binary inside the distribution"
 	case StageInstallRuntime:
-		return "install tmux, git, node and pi inside the distribution"
+		return "install tmux, git, curl, node and npm inside the distribution"
 	default:
 		return "set PiCode up inside the distribution"
 	}
