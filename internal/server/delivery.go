@@ -104,10 +104,10 @@ func handleDeliveryTool(deps Deps) http.HandlerFunc {
 		}
 		if req.Action == "capabilities" {
 			writeJSON(w, 200, map[string]any{"schemaVersion": 1, "principal": principal, "identityScope": "launch",
-				"actions": []string{"register", "update", "request-review", "withdraw-review", "request-integration", "withdraw-integration", "show", "list"},
+				"actions":          []string{"register", "update", "request-review", "withdraw-review", "request-integration", "withdraw-integration", "show", "list"},
 				"integrationQueue": true, "deployment": false,
-				"queueActions":  []string{"request-integration", "withdraw-integration"},
-				"ownerActions":  []string{"order", "authorize", "start", "finish", "fail"},
+				"queueActions":     []string{"request-integration", "withdraw-integration"},
+				"ownerActions":     []string{"order", "authorize", "start", "finish", "fail"},
 				"queueEligibility": "an entry is bound to the delivery's reviewed revision and target; the owner authorizes it and PiCode runs it once the project declares how integration runs"})
 			return
 		}
