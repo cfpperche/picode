@@ -45,6 +45,7 @@ import (
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/install"
 	"github.com/cfpperche/picode/internal/llamaservice"
+	"github.com/cfpperche/picode/internal/mcptool"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/proclock"
 	"github.com/cfpperche/picode/internal/push"
@@ -168,7 +169,8 @@ Usage:
     --json          progress and outcome as JSON lines (picode-desktop clean reads it)
   picode pair                 print a one-time link to pair another device
   picode token [rotate]       print the install token path, or rotate it
-  picode mcp <family…>        serve PiCode's tools to an agent CLI over MCP on stdio (computer, browser)
+  picode mcp <family…>        serve PiCode's tools to an agent CLI over MCP on stdio (` +
+		strings.Join(mcptool.FamilyNames(), ", ") + `)
   picode install [--env K=V]  copy to ~/.local/bin and start on Linux login (systemd --user)
     --env KEY=VALUE   service environment (repeatable), e.g. --env PICODE_DATA=/srv/picode;
                       written to ~/.config/systemd/user/picode.service.d/env.conf

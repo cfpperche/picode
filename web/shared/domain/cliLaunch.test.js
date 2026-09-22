@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cliLocation, cliPaneHash, cliPaneSetupContext, cliCapabilities, cliPanes, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
+import { cliLocation, cliPaneHash, cliPaneSetupContext, cliCapabilities, cliPanes, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged, PICODE_TOOL_FAMILIES } from "./cliLaunch.js";
 import { cliLaunchSchema, parseForm } from "../contracts/schemas.js";
 
 test("CLI manager parses launch routes", () => {
@@ -183,4 +183,16 @@ test("launch tools ride the draft, the config and the overrides", () => {
   assert.equal(parseForm(cliLaunchSchema, { ...launchDraft(base), tools: ["Computer Use"] }).ok, false);
   assert.equal(parseForm(cliLaunchSchema, { ...launchDraft(base), tools: ["computer"] }).ok, true);
   assert.deepEqual(parseForm(cliLaunchSchema, launchDraft(legacy)).value.tools, []);
+});
+
+// ADR-0154: the form is what a person can switch on, so a family the daemon
+// serves but the form omits is reachable only by hand — which is how
+// delivery (ADR-0171) shipped. TestToolFamiliesMatchTheForm holds the Go
+// side of this list, in order.
+test("the PiCode tools form offers every family the daemon serves", () => {
+  assert.deepEqual(PICODE_TOOL_FAMILIES.map((f) => f.id), ["computer", "browser", "inbox", "checklist", "delivery"]);
+  const ids = PICODE_TOOL_FAMILIES.map((f) => f.id);
+  const parsed = parseForm(cliLaunchSchema, { ...launchDraft(defaultLaunchConfig(false)), tools: ids });
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.value.tools, ids);
 });

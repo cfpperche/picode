@@ -60,6 +60,12 @@ Model roles: install `packages/pi-roles` — an extension, not core — so a ses
 
 Inbox tools: install `packages/pi-inbox` — an extension, not core — so a plain terminal `pi` can file notifications and blocking questions into the Inbox app. Guide: [Inbox tools for pi](/guide/inbox-tools).
 
+Delivery: install `packages/pi-delivery` — an extension, not core — so a pi agent
+declares a change and asks the human for review in the project's **Git ▸
+Delivery** view without shelling out. Agent CLIs opened with the **Delivery**
+switch under their **PiCode tools** receive the same tool over MCP. Guide:
+[Follow changes in Delivery](/guide/delivery).
+
 Compact earlier: install `packages/pi-compact` — an extension, not core —
 so long sessions summarize at 100k tokens or half the window, with a cheap
 model, instead of waiting for the edge. Dormant until a config file exists.
