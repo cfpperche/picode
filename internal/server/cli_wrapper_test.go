@@ -137,12 +137,10 @@ func TestWrapperInstallShape(t *testing.T) {
 			}
 		}
 		if name == "omp" {
-			// The extensions ride only session runs; the wrapper must name
-			// both injected files and keep maintenance runs extension-free.
-			for _, want := range []string{"omp-terminal-state.ts", "omp-checklist.ts"} {
-				if !strings.Contains(body, want) {
-					t.Errorf("omp wrapper lacks %s", want)
-				}
+			// The extension rides only session runs; the wrapper must name
+			// the injected file and keep maintenance runs extension-free.
+			if !strings.Contains(body, "omp-terminal-state.ts") {
+				t.Error("omp wrapper lacks the terminal-state extension")
 			}
 			ext, err := os.ReadFile(filepath.Join(dataDir, "intercept", "omp-terminal-state.ts"))
 			if err != nil {
@@ -168,15 +166,15 @@ func TestWrapperInstallShape(t *testing.T) {
 	}
 }
 
-// Uninstalling omp removes the wrapper and both extensions — the mirror file
-// must not outlive the toggle that injected it.
+// Uninstalling omp removes the wrapper and the terminal-state extension —
+// the omp case was missing from uninstallIntercept and errored "unknown CLI".
 func TestInterceptOmpUninstallRemovesExtensions(t *testing.T) {
 	agyTestHome(t)
 	dataDir := t.TempDir()
 	if err := installIntercept(dataDir, "omp"); err != nil {
 		t.Fatal(err)
 	}
-	for _, f := range []string{wrapperPath(dataDir, "omp"), ompTerminalStateExtensionFile(dataDir), ompChecklistExtensionFile(dataDir)} {
+	for _, f := range []string{wrapperPath(dataDir, "omp"), ompTerminalStateExtensionFile(dataDir)} {
 		if _, err := os.Stat(f); err != nil {
 			t.Fatalf("install left %s: %v", f, err)
 		}
@@ -184,7 +182,7 @@ func TestInterceptOmpUninstallRemovesExtensions(t *testing.T) {
 	if err := uninstallIntercept(dataDir, "omp"); err != nil {
 		t.Fatal(err)
 	}
-	for _, f := range []string{wrapperPath(dataDir, "omp"), ompTerminalStateExtensionFile(dataDir), ompChecklistExtensionFile(dataDir)} {
+	for _, f := range []string{wrapperPath(dataDir, "omp"), ompTerminalStateExtensionFile(dataDir)} {
 		if _, err := os.Stat(f); !os.IsNotExist(err) {
 			t.Fatalf("uninstall left %s behind: %v", f, err)
 		}

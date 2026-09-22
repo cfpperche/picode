@@ -1,0 +1,24 @@
+{
+  "name": "omp-checklist",
+  "version": "0.1.0",
+  "description": "Opt-in checklist mirror for omp: watches omp's native todo tool and mirrors its committed phases to PiCode, so the sidebar shows the current step (ADR-0055). No new tool, nothing gated.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["omp-plugin", "omp", "pi-package", "pi", "picode"],
+  "files": [
+    "extensions",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "omp": {
+    "extensions": ["./extensions/checklist.ts"]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/omp-checklist"
+  }
+}
