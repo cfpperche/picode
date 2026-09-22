@@ -175,6 +175,7 @@ type codexLine struct {
 		ID       string `json:"id"`
 		Cwd      string `json:"cwd"`
 		Provider string `json:"model_provider"`
+		ForkedOf string `json:"forked_from_id"`
 		// turn_context
 		Model string `json:"model"`
 		// response_item
@@ -218,6 +219,18 @@ func codexParse(path string) *parsed {
 
 	cwd, provider, model, id := "", "", "", ""
 	var pendingTools []string
+	sawMeta := false
+	// A forked rollout opens with its parent's history copied
+	// in, every line re-stamped to the fork instant in one burst (gaps of
+	// 0-40ms); the child's own first line lands after a real turn. While
+	// copying is true, lines within codexForkGap of the previous one are
+	// the parent's, already counted from the parent's own file — counted
+	// again they doubled Codex's tokens on this machine, where 49 of 98
+	// rollouts in 30 days were forks (2026-09-22). ccusage and t3code use
+	// the same one-second split.
+	copying := false
+	var copyAt time.Time
+	lastUsage := ""
 	add := func(e cliEntry) {
 		out.ents = append(out.ents, e)
 		out.units += e.toks.Input + e.toks.Output + e.toks.CacheRead + e.toks.CacheWrite
@@ -239,17 +252,35 @@ func codexParse(path string) *parsed {
 			continue
 		}
 		p := l.Payload
+		if l.Type == "session_meta" {
+			// Only the first meta is this file's own session; a fork
+			// repeats its ancestors' metas right after it, and letting
+			// them through reassigned the fork to an ancestor's id.
+			if sawMeta {
+				continue
+			}
+			sawMeta = true
+			cwd, provider, id = p.Cwd, p.Provider, p.ID
+			// Only a fork copies history. A spawned subagent that is not
+			// one (thread_spawn with no forked_from_id) starts empty, and
+			// its first lines — its own task prompt among them — land
+			// within the same second.
+			if p.ForkedOf != "" {
+				copying, copyAt = true, at
+			}
+			continue
+		}
+		if copying {
+			if at.Sub(copyAt) < codexForkGap {
+				copyAt = at
+				if l.Type == "turn_context" && p.Model != "" {
+					model = p.Model
+				}
+				continue
+			}
+			copying = false
+		}
 		switch l.Type {
-		case "session_meta":
-			if p.Cwd != "" {
-				cwd = p.Cwd
-			}
-			if p.Provider != "" {
-				provider = p.Provider
-			}
-			if p.ID != "" {
-				id = p.ID
-			}
 		case "turn_context":
 			if p.Cwd != "" {
 				cwd = p.Cwd
@@ -260,7 +291,7 @@ func codexParse(path string) *parsed {
 		case "response_item":
 			// A function call is the tool; its output is the same call's
 			// other half and is not counted twice.
-			if p.Type == "function_call" && p.Name != "" {
+			if (p.Type == "function_call" || p.Type == "custom_tool_call") && p.Name != "" {
 				pendingTools = append(pendingTools, p.Name)
 			}
 			// A user-role response_item is a prompt only when Codex does not
@@ -285,6 +316,13 @@ func codexParse(path string) *parsed {
 					continue
 				}
 				u := p.Info.Last
+				// Codex re-emits an unchanged token_count on some stream
+				// boundaries; summing the repeat double counts the turn.
+				if sig := codexUsageSig(u.Input, u.Cached, u.CacheWr, u.Output, u.Reasoning); sig == lastUsage {
+					continue
+				} else {
+					lastUsage = sig
+				}
 				// last_token_usage is the turn that just finished — the one
 				// windowable token figure Codex writes. The cumulative
 				// total beside it would double-count on every line.
@@ -292,7 +330,9 @@ func codexParse(path string) *parsed {
 					at: at, key: codexKey(path, id), cwd: cwd,
 					role: "assistant", model: model, prov: provider,
 					toks: session.TokenTotals{
-						Input:      u.Input,
+						// input_tokens includes the cached portion, which
+						// CacheRead already carries.
+						Input:      max(0, u.Input-u.Cached-u.CacheWr),
 						Output:     u.Output,
 						CacheRead:  u.Cached,
 						CacheWrite: u.CacheWr,
@@ -331,6 +371,18 @@ func codexInjected(meta *struct {
 		}
 	}
 	return false
+}
+
+// codexForkGap splits a fork's copied history from its own first line.
+const codexForkGap = time.Second
+
+func codexUsageSig(n ...int64) string {
+	var b strings.Builder
+	for _, v := range n {
+		b.WriteString(strconv.FormatInt(v, 10))
+		b.WriteByte(',')
+	}
+	return b.String()
 }
 
 func codexKey(path, id string) string {

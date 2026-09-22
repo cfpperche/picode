@@ -5,7 +5,12 @@ description: Send the Chrome tab you are looking at to a PiCode agent you alread
 # Chrome extension
 
 Send the tab you are looking at to a PiCode agent — URL, title, selected
-text, optional screenshot. The agent is the one you already created.
+text, optional screenshot. The agent is the one you already created, of any
+CLI. A Pi agent gets it as a chat turn (and starts if it was stopped); an
+agent of another CLI — Claude Code, Codex, … — gets the link and your message
+pasted at its prompt while its terminal is open. Screenshots and **Act on
+this page** need a Pi agent, and a CLI sitting on a login or menu screen is
+refused instead of pasted into.
 
 - **Where:** load `ext/` in Chrome (`chrome://extensions`, Developer mode, Load unpacked), then `picode extension-install`.
 - **Not this:** not a second chat, and not the [work browser](/guide/browser-tool) the agent uses for its own work.

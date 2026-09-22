@@ -4,6 +4,9 @@
 
 `ext/` is a sideload MV3 extension: side panel + context menu send the
 current tab (URL, title, selection, optional JPEG) to an existing agent.
+A Pi agent receives it as a managed RPC turn; a guest agent (ADR-0160) through
+`doorDeliverUnattended` into its launch terminal — text only, no start, and an
+unrecognized composer is refused (ADR-0179).
 It is not an App (ADR-0036) and not a pi package (ADR-0010). Transport is
 Chrome native messaging to the same product binary (`picode` on
 Linux/macOS; `picode-desktop` on Windows/WSL), which re-reads

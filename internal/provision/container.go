@@ -14,8 +14,9 @@ import (
 // user namespace, dropped capabilities and cgroup limits around their
 // daemon. Firecracker/VMs are the next tier, not this one.
 
-// MachinesDir is where nspawn keeps root filesystems.
-const MachinesDir = "/var/lib/machines"
+// MachinesDir is where nspawn keeps root filesystems (a var so tests can
+// point it at a temporary directory).
+var MachinesDir = "/var/lib/machines"
 
 // RootfsFor is a member's container root.
 func RootfsFor(user string) string { return filepath.Join(MachinesDir, "picode-"+user) }
@@ -56,6 +57,9 @@ func containerToolsStep() Step {
 	}
 }
 
+// memberNpmrc is NodeSource npm's global config inside the member root.
+const memberNpmrc = "usr/etc/npmrc"
+
 // rootfsStep builds the member's root once: a minimal Debian/Ubuntu of
 // the host's release, plus tmux, git, Node.js and npm for the CLIs the
 // member installs from Agent CLIs. Minutes and network the first
@@ -73,6 +77,9 @@ func rootfsStep() Step {
 				}
 				return needsFix("no root at %s — debootstrap %s", root, hostSuite())
 			}
+			if _, err := os.Stat(filepath.Join(root, memberNpmrc)); err != nil {
+				return needsFix("%s has the distro's Node.js; Agent CLIs needs Node %s and a per-member npm prefix", root, install.NodeMajor)
+			}
 			return ok("%s", root)
 		},
 		Fix: func(env Env) error {
@@ -81,13 +88,32 @@ func rootfsStep() Step {
 				return err
 			}
 			if _, err := os.Stat(filepath.Join(root, "bin")); err != nil {
-				if err := run("debootstrap", "--variant=minbase", "--include=ca-certificates,curl,git,tmux,nodejs,npm,procps", hostSuite(), root); err != nil {
+				if err := run("debootstrap", "--variant=minbase", "--include=ca-certificates,curl,git,tmux,gnupg,procps", hostSuite(), root); err != nil {
 					return fmt.Errorf("debootstrap: %w", err)
 				}
 			}
 			// No agent CLI is installed here (ADR-0179): the member installs
-			// the ones they use from Agent CLIs, and node/npm are in the image
-			// for that. The account inside mirrors the host's.
+			// the ones they use from Agent CLIs, which runs `npm install -g` as
+			// the member. So the image carries NodeSource's Node (the distro's
+			// is 12 or 18, and Pi needs >=22.19) and a global npmrc that points
+			// every account's prefix at its own ~/.local — inside the container
+			// only, so the member's host ~/.npmrc (an nvm setup, say) is never
+			// touched. An image built before this converges here too.
+			script, err := install.NodeSourceScript(install.NodeMajor)
+			if err != nil {
+				return err
+			}
+			if err := run("systemd-nspawn", "--quiet", "--directory="+root, "--", "sh", "-c", script); err != nil {
+				return fmt.Errorf("node %s in the container: %w", install.NodeMajor, err)
+			}
+			npmrc := filepath.Join(root, memberNpmrc)
+			if err := os.MkdirAll(filepath.Dir(npmrc), 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(npmrc, []byte("prefix=${HOME}/.local\n"), 0o644); err != nil {
+				return err
+			}
+			// The account inside mirrors the host's.
 			u, err := lookupAccount(env.User)
 			if err != nil {
 				return err

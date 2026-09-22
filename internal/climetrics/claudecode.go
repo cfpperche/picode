@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,10 +40,27 @@ type ClaudeCodeMeter struct{}
 func (ClaudeCodeMeter) CLI() string   { return "claude-code" }
 func (ClaudeCodeMeter) Label() string { return "Claude Code" }
 
-// Fingerprint reuses pi's sweep: ~/.claude/projects nests transcripts one
-// directory deep, the same shape session.Fingerprint already walks.
+// Fingerprint sweeps the same files Meter reads — subagent transcripts
+// included, since a running subagent appends to its own file while the
+// parent's stays still, and a sweep one level deep would serve the stale
+// window from cache until the parent next wrote.
 func (ClaudeCodeMeter) Fingerprint() string {
-	return session.Fingerprint(clisession.ClaudeProjectsRoot())
+	root := clisession.ClaudeProjectsRoot()
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		return "0:0:0"
+	} else if err != nil {
+		return ""
+	}
+	var n int
+	var size, newest int64
+	for _, f := range ccTranscripts(root) {
+		n++
+		size += f.info.Size()
+		if m := f.info.ModTime().UnixNano(); m > newest {
+			newest = m
+		}
+	}
+	return itoa(n) + ":" + strconv.FormatInt(size, 10) + ":" + strconv.FormatInt(newest, 10)
 }
 
 func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
@@ -56,31 +74,18 @@ func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 	pricedBy := map[string]bool{}
 	underBy := map[string]bool{} // the snapshot itself admits a model it could not price
 
-	for _, dir := range ccProjectDirs(root) {
-		ents, err := os.ReadDir(dir)
-		if err != nil {
+	for _, f := range ccTranscripts(root) {
+		// A file untouched since before the widened window cannot hold
+		// an in-window message; the same cheap pre-filter pi's scan uses.
+		if !req.PriorFrom.IsZero() && f.info.ModTime().Before(req.PriorFrom) {
 			continue
 		}
-		for _, e := range ents {
-			if e.IsDir() || filepath.Ext(e.Name()) != ".jsonl" {
-				continue
-			}
-			info, err := e.Info()
-			if err != nil {
-				continue
-			}
-			// A file untouched since before the widened window cannot hold
-			// an in-window message; the same cheap pre-filter pi's scan uses.
-			if !req.PriorFrom.IsZero() && info.ModTime().Before(req.PriorFrom) {
-				continue
-			}
-			p := cachedParse(filepath.Join(dir, e.Name()), ccParse)
-			if !replay(p, acc, req) {
-				continue
-			}
-			pricedBy[p.key] = pricedBy[p.key] || p.priced
-			underBy[p.key] = underBy[p.key] || p.underpriced
+		p := cachedParse(f.path, ccParse)
+		if !replay(p, acc, req) {
+			continue
 		}
+		pricedBy[p.key] = pricedBy[p.key] || p.priced
+		underBy[p.key] = underBy[p.key] || p.underpriced
 	}
 	priced, unpriced, under := 0, 0, 0
 	for key := range acc.files {
@@ -146,15 +151,59 @@ func ccCoverage(m ClaudeCodeMeter, b Billing, priced, unpriced, under int, acc *
 	return CoverageRow{CLI: m.CLI(), Label: m.Label(), Billing: b, Signals: sig, Note: note}
 }
 
-func ccProjectDirs(root string) []string {
-	ents, err := os.ReadDir(root)
+// ccFile is one transcript Meter reads.
+type ccFile struct {
+	path string
+	info os.FileInfo
+}
+
+// ccTranscripts lists every transcript under root: each project's
+// <session>.jsonl, and the subagent transcripts Claude Code files beside
+// them under <session>/subagents/. Reading only the top level
+// dropped 254 subagent files — 1.48B tokens across 34 sessions — from a
+// 30-day window on this machine (2026-09-22). A subagent names its
+// parent's sessionId, so it folds into that session rather than counting
+// as one of its own.
+func ccTranscripts(root string) []ccFile {
+	projects, err := os.ReadDir(root)
 	if err != nil {
 		return nil
 	}
-	out := make([]string, 0, len(ents))
-	for _, e := range ents {
-		if e.IsDir() {
-			out = append(out, filepath.Join(root, e.Name()))
+	var out []ccFile
+	add := func(dir string, descend bool) {
+		ents, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range ents {
+			if e.IsDir() {
+				if descend {
+					// Workflow agents nest one step further, under
+					// subagents/workflows/wf_*/ (31 files, 9M tokens in
+					// the same window), so the subagents tree is walked.
+					_ = filepath.WalkDir(filepath.Join(dir, e.Name(), "subagents"), func(p string, d os.DirEntry, err error) error {
+						if err != nil || d.IsDir() || filepath.Ext(p) != ".jsonl" {
+							return nil
+						}
+						if info, err := d.Info(); err == nil {
+							out = append(out, ccFile{p, info})
+						}
+						return nil
+					})
+				}
+				continue
+			}
+			if filepath.Ext(e.Name()) != ".jsonl" {
+				continue
+			}
+			if info, err := e.Info(); err == nil {
+				out = append(out, ccFile{filepath.Join(dir, e.Name()), info})
+			}
+		}
+	}
+	for _, p := range projects {
+		if p.IsDir() {
+			add(filepath.Join(root, p.Name()), true)
 		}
 	}
 	return out
@@ -197,6 +246,7 @@ func ccParse(path string) *parsed {
 
 	var msgs []ccMsg
 	var st ccState
+	seen := map[string]int{} // dedupe key -> index in msgs
 	cwd, name, sid := "", "", ""
 
 	sc := bufio.NewScanner(f)
@@ -224,9 +274,24 @@ func ccParse(path string) *parsed {
 		case "cost-state":
 			readCostState(raw, &st)
 		case "user", "assistant":
-			if m, ok := ccMessage(raw); ok {
-				msgs = append(msgs, m)
+			m, ok := ccMessage(raw)
+			if !ok {
+				continue
 			}
+			// Claude Code writes one record per content block of an API
+			// response, and every one of them repeats the response's full
+			// usage. Summed, they counted 12.64B tokens where 6.53B were
+			// billed (30 days, 2026-09-22). One record per response keeps
+			// the usage; the others add only their blocks' tools and results.
+			// The key is ccusage's: message id plus request id.
+			if k := ccDedupeKey(raw); k != "" {
+				if i, dup := seen[k]; dup {
+					msgs[i].absorb(m)
+					continue
+				}
+				seen[k] = len(msgs)
+			}
+			msgs = append(msgs, m)
 		}
 	}
 	if cwd == "" {
@@ -411,6 +476,40 @@ func ccMessage(raw map[string]any) (ccMsg, bool) {
 		}
 	}
 	return out, true
+}
+
+// ccDedupeKey identifies the API response an assistant record belongs to,
+// or "" when the record names neither half and cannot be matched.
+func ccDedupeKey(raw map[string]any) string {
+	if raw["type"] != "assistant" {
+		return ""
+	}
+	m, _ := raw["message"].(map[string]any)
+	id, _ := m["id"].(string)
+	req, _ := raw["requestId"].(string)
+	if id == "" && req == "" {
+		return ""
+	}
+	return id + ":" + req
+}
+
+// absorb folds a repeated record of the same response into m: its content
+// blocks are new, its usage is not.
+//
+// Usage is not always identical across the records: the output count can
+// grow on a later one (2,262 of the groups in 30 days; keeping the first
+// lost 12% of output tokens). The largest output is the response's final
+// usage, so the record carrying it wins.
+func (m *ccMsg) absorb(o ccMsg) {
+	if o.tokens.Output > m.tokens.Output {
+		m.tokens, m.units = o.tokens, o.units
+	}
+	m.tools = append(m.tools, o.tools...)
+	m.results += o.results
+	m.errs += o.errs
+	if o.stop != "" {
+		m.stop = o.stop
+	}
 }
 
 func num(v any) float64 {

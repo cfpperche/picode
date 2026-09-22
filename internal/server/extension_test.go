@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -194,5 +195,37 @@ func TestExtensionSendDecisionHTTP(t *testing.T) {
 	})
 	if res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("chrome = %d", res.StatusCode)
+	}
+}
+
+// A guest (non-Pi) agent receives a tab through its terminal's unattended
+// door (ADR-0179), never managed start: screenshots and the act loop are
+// Pi's, a missing terminal is named, and nothing is started.
+func TestExtensionSendToGuestAgent(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
+	var wk workspaceView
+	if err := json.NewDecoder(res.Body).Decode(&wk); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	ag := decodeAgent(t, postJSON(t, ts, "/api/workspaces/"+wk.ID+"/agents", map[string]string{"cli": "claude-code", "name": "Claude"}))
+	cases := []struct {
+		name string
+		body map[string]any
+		want int
+	}{
+		{"screenshot is Pi's", map[string]any{"agentId": ag.ID, "message": "hi", "image": map[string]any{"data": "aGk=", "mimeType": "image/png"}}, http.StatusBadRequest},
+		{"act is Pi's", map[string]any{"agentId": ag.ID, "message": "hi", "act": true, "tab": map[string]any{"url": "https://example.com"}}, http.StatusBadRequest},
+		{"closed terminal is refused", map[string]any{"agentId": ag.ID, "message": "hi", "tab": map[string]any{"url": "https://example.com"}}, http.StatusConflict},
+	}
+	for _, c := range cases {
+		r := postJSON(t, ts, "/api/extension/send", c.body)
+		if r.StatusCode != c.want {
+			b, _ := io.ReadAll(r.Body)
+			t.Errorf("%s: %d %s, want %d", c.name, r.StatusCode, b, c.want)
+		}
+		r.Body.Close()
 	}
 }

@@ -3,6 +3,7 @@ package climetrics
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -182,8 +183,8 @@ func TestCodexUsesTheTurnNotTheRunningTotal(t *testing.T) {
 	writeRollout(t, root, "2026-09-06", []map[string]any{
 		{"timestamp": day(1), "type": "session_meta", "payload": map[string]any{"id": "s1", "cwd": "/repo"}},
 		codexTurn(day(1), 100, 10),
-		codexTurn(day(1), 100, 10),
-		codexTurn(day(1), 100, 10),
+		codexTurn(day(1), 100, 11),
+		codexTurn(day(1), 100, 12),
 	})
 	w, err := CodexMeter{}.Meter(req(7))
 	if err != nil {
@@ -191,6 +192,103 @@ func TestCodexUsesTheTurnNotTheRunningTotal(t *testing.T) {
 	}
 	if w.Stats.Tokens.Input != 300 {
 		t.Fatalf("input = %d, want 300 (three turns of 100)", w.Stats.Tokens.Input)
+	}
+}
+
+// at is an RFC3339Nano instant ms milliseconds after day(1).
+func at(ms int) string {
+	return fixtureNow.AddDate(0, 0, -1).Add(time.Duration(ms) * time.Millisecond).Format(time.RFC3339Nano)
+}
+
+func TestCodexSkipsARepeatedTokenCount(t *testing.T) {
+	root := withCodexRoot(t)
+	writeRollout(t, root, "2026-09-06", []map[string]any{
+		{"timestamp": day(1), "type": "session_meta", "payload": map[string]any{"id": "s1", "cwd": "/repo"}},
+		{"timestamp": day(1), "type": "turn_context", "payload": map[string]any{"model": "gpt-5.6"}},
+		codexTurn(day(1), 100, 10),
+		codexTurn(day(1), 100, 10), // re-emitted on a stream boundary
+	})
+	w, err := CodexMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Tokens.Input != 100 {
+		t.Fatalf("input = %d, want 100 (the repeat is one turn)", w.Stats.Tokens.Input)
+	}
+}
+
+func TestCodexCachedInputIsNotCountedTwice(t *testing.T) {
+	root := withCodexRoot(t)
+	turn := codexTurn(day(1), 1000, 10)
+	turn["payload"].(map[string]any)["info"].(map[string]any)["last_token_usage"].(map[string]any)["cached_input_tokens"] = 900
+	writeRollout(t, root, "2026-09-06", []map[string]any{
+		{"timestamp": day(1), "type": "session_meta", "payload": map[string]any{"id": "s1", "cwd": "/repo"}},
+		turn,
+	})
+	w, err := CodexMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Tokens.Input != 100 || w.Stats.Tokens.CacheRead != 900 {
+		t.Fatalf("tokens = %+v, want 100 uncached + 900 cached", w.Stats.Tokens)
+	}
+}
+
+func TestCodexForkDropsTheCopiedHistory(t *testing.T) {
+	prompt := func(ts string) map[string]any {
+		return map[string]any{"timestamp": ts, "type": "response_item",
+			"payload": map[string]any{"type": "message", "role": "user"}}
+	}
+	call := func(ts string) map[string]any {
+		return map[string]any{"timestamp": ts, "type": "response_item",
+			"payload": map[string]any{"type": "custom_tool_call", "name": "exec"}}
+	}
+	cases := []struct {
+		name                   string
+		meta                   map[string]any
+		wantIn, wantOut        int64
+		wantPrompts, wantCalls int
+	}{
+		// A fork: the burst after its meta is the parent's, already counted.
+		{"fork", map[string]any{"forked_from_id": "parent"}, 100, 10, 1, 1},
+		// A spawned subagent that is no fork starts empty: its first lines,
+		// its own task prompt among them, are its own.
+		{"spawn", map[string]any{"source": map[string]any{"subagent": map[string]any{"thread_spawn": map[string]any{"parent_thread_id": "parent"}}}}, 5100, 510, 2, 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := withCodexRoot(t)
+			meta := map[string]any{"id": "child", "cwd": "/repo"}
+			for k, v := range tc.meta {
+				meta[k] = v
+			}
+			writeRollout(t, root, "2026-09-06", []map[string]any{
+				{"timestamp": at(0), "type": "session_meta", "payload": meta},
+				// The ancestor's meta, repeated: it must not rename the child.
+				{"timestamp": at(1), "type": "session_meta", "payload": map[string]any{"id": "parent", "cwd": "/elsewhere"}},
+				{"timestamp": at(2), "type": "turn_context", "payload": map[string]any{"model": "gpt-5.6"}},
+				// Within a second of the meta.
+				prompt(at(3)), call(at(10)), codexTurn(at(20), 5000, 500),
+				// A real turn later.
+				prompt(at(6000)), call(at(7000)), codexTurn(at(9000), 100, 10),
+			})
+			w, err := CodexMeter{}.Meter(req(7))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if w.Stats.Tokens.Input != tc.wantIn || w.Stats.Tokens.Output != tc.wantOut {
+				t.Fatalf("tokens = %+v, want %d/%d", w.Stats.Tokens, tc.wantIn, tc.wantOut)
+			}
+			if w.Stats.Turns.User != tc.wantPrompts {
+				t.Fatalf("prompts = %d, want %d", w.Stats.Turns.User, tc.wantPrompts)
+			}
+			if len(w.Stats.Tools) != 1 || w.Stats.Tools[0].Calls != tc.wantCalls {
+				t.Fatalf("tools = %+v, want %d exec calls", w.Stats.Tools, tc.wantCalls)
+			}
+			if len(w.Stats.TopSessions) != 1 || w.Stats.TopSessions[0].Path != "child" {
+				t.Fatalf("sessions = %+v, want the child's own id", w.Stats.TopSessions)
+			}
+		})
 	}
 }
 
@@ -431,7 +529,7 @@ func grokUsage(endStamp string) string {
 		`"session":{"primaryModelId":"grok-4.6"},` +
 		`"turns":[{"turnNumber":1,"endedAt":"` + endStamp + `",` +
 		`"inputTokens":1000,"outputTokens":250,"cachedReadTokens":500,` +
-		`"cacheCreationTokens":0,"reasoningTokens":50,"totalTokens":1800,` +
+		`"cacheCreationTokens":0,"reasoningTokens":50,"totalTokens":1250,` +
 		`"modelCalls":2,"costUsdTicks":1000000000,"primaryModelId":"grok-4.6"}]}`
 }
 
@@ -457,7 +555,9 @@ func TestGrokReadsPromptsTurnsToolsAndUsage(t *testing.T) {
 	if w.Stats.Turns.Assistant != 1 || w.Stats.Turns.User != 1 {
 		t.Fatalf("turns = %+v, want one assistant and one user", w.Stats.Turns)
 	}
-	if got := w.Stats.Tokens; got.Input != 1000 || got.Output != 250 || got.CacheRead != 500 || got.Reasoning != 50 {
+	// Grok's inputTokens includes the 500 cached (its totalTokens is
+	// input + output), so 500 of the 1000 are uncached.
+	if got := w.Stats.Tokens; got.Input != 500 || got.Output != 250 || got.CacheRead != 500 || got.Reasoning != 50 {
 		t.Fatalf("tokens = %+v", got)
 	}
 	if !approx(w.Stats.Current.Cost, 0.10) {
@@ -607,3 +707,70 @@ func TestAbsentCLIStillGetsARow(t *testing.T) {
 // trimmed trailing zeros and turned 1788696000 into 1788696 — a 1970
 // timestamp that silently emptied the window.
 func ftoa(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
+
+// grokUpdate is one turn_completed line of updates.jsonl, the shape Grok
+// writes on this machine (2026-09-22).
+func grokUpdate(prompt string, atMs int64, model string, in, out, cached, ticks int64) string {
+	u := fmt.Sprintf(`"inputTokens":%d,"outputTokens":%d,"cachedReadTokens":%d,"cacheCreationTokens":0,"reasoningTokens":0,"costUsdTicks":%d`, in, out, cached, ticks)
+	return `{"timestamp":` + strconv.FormatInt(atMs/1000, 10) + `,"method":"_x.ai/session/update","params":{"sessionId":"g1",` +
+		`"update":{"sessionUpdate":"turn_completed","prompt_id":"` + prompt + `","usage":{` + u +
+		`,"modelUsage":{"` + model + `":{` + u + `}}}},"_meta":{"agentTimestampMs":` + strconv.FormatInt(atMs, 10) + `}}}` + "\n"
+}
+
+func TestGrokReadsUsageFromTheUpdateStream(t *testing.T) {
+	home := withGrokRoot(t)
+	sess := filepath.Join(home, "sessions", "%2Frepo", "g1")
+	grokWrite(t, sess, "summary.json", grokSummaryJSON)
+	grokWrite(t, sess, "events.jsonl", grokTurnEvents())
+	end, _ := time.Parse(time.RFC3339Nano, grokStamp(10))
+	ms := end.UnixMilli()
+	grokWrite(t, sess, "updates.jsonl",
+		`{"method":"_x.ai/session/update","params":{"update":{"sessionUpdate":"agent_message_chunk"}}}`+"\n"+
+			grokUpdate("p1", ms, "grok-4.7-build", 1000, 100, 400, 2_000_000_000)+
+			grokUpdate("p1", ms, "grok-4.7-build", 1000, 100, 400, 2_000_000_000)) // written twice
+	// usage.json disagrees; the update stream wins when both exist.
+	grokWrite(t, sess, "usage.json", grokUsage(grokStamp(10)))
+
+	w, err := GrokMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := w.Stats.Tokens; got.Input != 600 || got.Output != 100 || got.CacheRead != 400 {
+		t.Fatalf("tokens = %+v, want 600 uncached / 100 out / 400 cached, once", got)
+	}
+	if !approx(w.Stats.Current.Cost, 0.20) {
+		t.Fatalf("cost = %v, want 0.20", w.Stats.Current.Cost)
+	}
+	if len(w.Stats.ByModel) != 1 || w.Stats.ByModel[0].Model != "grok-4.7-build" {
+		t.Fatalf("byModel = %+v", w.Stats.ByModel)
+	}
+	// Folded onto the event turn that ended at the same instant.
+	if w.Stats.Turns.Assistant != 1 {
+		t.Fatalf("turns = %+v, want one", w.Stats.Turns)
+	}
+}
+
+func TestGrokForkSkipsTheUsageItCopiedFromItsParent(t *testing.T) {
+	home := withGrokRoot(t)
+	sess := filepath.Join(home, "sessions", "%2Frepo", "g1")
+	end, _ := time.Parse(time.RFC3339Nano, grokStamp(10))
+	forked := end.Add(-time.Minute)
+	grokWrite(t, sess, "summary.json", `{"info":{"id":"g1","cwd":"/repo"},"current_model_id":"grok-4.6",`+
+		`"parent_session_id":"g0","forked_at":"`+forked.Format(time.RFC3339Nano)+`"}`)
+	grokWrite(t, sess, "events.jsonl", grokTurnEvents())
+	grokWrite(t, sess, "updates.jsonl",
+		// The parent's turn, copied in with the parent's own clock.
+		grokUpdate("parent-turn", forked.Add(-time.Hour).UnixMilli(), "grok-4.6", 9000, 900, 0, 9_000_000_000)+
+			grokUpdate("own-turn", end.UnixMilli(), "grok-4.6", 1000, 100, 0, 1_000_000_000))
+
+	w, err := GrokMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Tokens.Input != 1000 || !approx(w.Stats.Current.Cost, 0.10) {
+		t.Fatalf("tokens = %+v cost = %v, want only the fork's own turn", w.Stats.Tokens, w.Stats.Current.Cost)
+	}
+	if w.Stats.Turns.Assistant != 1 {
+		t.Fatalf("turns = %+v, want the copied turn gone", w.Stats.Turns)
+	}
+}
