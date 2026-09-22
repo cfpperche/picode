@@ -1,6 +1,6 @@
 package server
 
-// omp's browser OAuth (ADR-0176): the signin route starts the engine for a
+// omp's browser OAuth (ADR-0178): the signin route starts the engine for a
 // provider it can sign in, the vault sink lands the minted credential as a
 // row, and the launch bridge turns the vault's newest row per provider into
 // the env names omp's declaration declares — never clobbering the user's.

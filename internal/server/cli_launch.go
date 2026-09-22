@@ -968,7 +968,7 @@ func recordCLILaunchAttempt(deps Deps, id string, err error) {
 
 // ompCredentialEnv turns the vault's newest non-paused credential per
 // provider into the env names omp's own declaration declares — the one
-// channel a guest whose store PiCode cannot write has (ADR-0176). A provider
+// channel a guest whose store PiCode cannot write has (ADR-0178). A provider
 // the user already envs in their launch config is skipped, never clobbered.
 func ompCredentialEnv(file *credentials.File, have map[string]string) [][2]string {
 	if file == nil {
@@ -1120,7 +1120,7 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 				c.Args = append(c.Args, flags...)
 			}
 		}
-		// Vault credentials travel by env (ADR-0176): the env names are the
+		// Vault credentials travel by env (ADR-0178): the env names are the
 		// ones omp's own declaration declares, and env is the lowest channel
 		// in omp's resolution chain — a native /login outranks an injected
 		// token, and a user-configured env entry outranks us both.

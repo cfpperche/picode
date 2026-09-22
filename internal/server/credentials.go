@@ -659,7 +659,7 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "Unknown CLI.")
 			return
 		}
-		// An omp provider the OAuth engine can sign in (ADR-0176) runs the
+		// An omp provider the OAuth engine can sign in (ADR-0178) runs the
 		// browser flow from here — the authorize page opens in a tab, the
 		// loopback/device callback returns to PiCode, and the minted
 		// credential lands in the vault, from which omp reads it through its
@@ -730,7 +730,7 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 
 // ompVaultSink lands a minted OAuth credential in the vault as the
 // provider's own row — the same shape the pi flow writes to auth.json
-// (ADR-0176). Origin "vault"; the roster shows it like any other account.
+// (ADR-0178). Origin "vault"; the roster shows it like any other account.
 func ompVaultSink(provider string, cred map[string]any) error {
 	raw, err := json.Marshal(cred)
 	if err != nil {
