@@ -7,7 +7,8 @@ D0 surface contract: docs/plans/delivery-flow-design.md
 
 ## Next
 
-- ADR-0182: the store, the owner's doors, the agent's door and the runner landed. Next: the lane in the Delivery view (a named blocker per waiting entry), then the runner's own receipts (it records the operation on the entry today, not yet in the product's receipt format).
+- ADR-0186 (accepted 2026-09-22) redirects the engine: integration is performed by the project's provider when it has one — PiCode enqueues through the provider's own merge queue and observes it — and the runner landed in D3 becomes the declared `local` fallback. Next, in order: the declaration's `mode` (provider/local, workspace → machine), the provider path (enqueue + observe + `order` refused with its reason), then the lane in the Delivery view in merge-queue vocabulary.
+- ADR-0182's store, doors and runner stay as they are; what changes is which mode is the engine.
 - Debts for the runner: declared commands run through `/bin/sh`, so Windows is untested; a run has no per-run budget beyond 30 minutes per command.
 
 ## Debts
