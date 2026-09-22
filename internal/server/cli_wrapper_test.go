@@ -137,10 +137,12 @@ func TestWrapperInstallShape(t *testing.T) {
 			}
 		}
 		if name == "omp" {
-			// The extension rides only session runs; the wrapper must name
-			// the injected file and keep maintenance runs extension-free.
-			if !strings.Contains(body, "omp-terminal-state.ts") {
-				t.Error("omp wrapper lacks the terminal-state extension")
+			// The extensions ride only session runs; the wrapper must name
+			// both injected files and keep maintenance runs extension-free.
+			for _, want := range []string{"omp-terminal-state.ts", "omp-checklist.ts"} {
+				if !strings.Contains(body, want) {
+					t.Errorf("omp wrapper lacks %s", want)
+				}
 			}
 			ext, err := os.ReadFile(filepath.Join(dataDir, "intercept", "omp-terminal-state.ts"))
 			if err != nil {
@@ -162,6 +164,29 @@ func TestWrapperInstallShape(t *testing.T) {
 			if strings.Contains(string(ext), "agent_settled") || strings.Contains(string(ext), "ui_prompt_start") {
 				t.Error("omp extension listens to pi events omp never fires")
 			}
+		}
+	}
+}
+
+// Uninstalling omp removes the wrapper and both extensions — the mirror file
+// must not outlive the toggle that injected it.
+func TestInterceptOmpUninstallRemovesExtensions(t *testing.T) {
+	agyTestHome(t)
+	dataDir := t.TempDir()
+	if err := installIntercept(dataDir, "omp"); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{wrapperPath(dataDir, "omp"), ompTerminalStateExtensionFile(dataDir), ompChecklistExtensionFile(dataDir)} {
+		if _, err := os.Stat(f); err != nil {
+			t.Fatalf("install left %s: %v", f, err)
+		}
+	}
+	if err := uninstallIntercept(dataDir, "omp"); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{wrapperPath(dataDir, "omp"), ompTerminalStateExtensionFile(dataDir), ompChecklistExtensionFile(dataDir)} {
+		if _, err := os.Stat(f); !os.IsNotExist(err) {
+			t.Fatalf("uninstall left %s behind: %v", f, err)
 		}
 	}
 }

@@ -47,9 +47,9 @@ export function menuGroups(query) {
     if (tools) tools.rows.unshift(row);
     else groups.unshift({ title: "Tools", rows: [row] });
   }
-  if (query.trim() && matchesListSearch(query, "Pi settings", "model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["settings", "Pi settings", "Model, thinking, tools and keys"]] });
-  if (query.trim() && matchesListSearch(query, "Packages", "skills extensions updates")) groups.unshift({ title: "Agent CLIs", rows: [["packages", "Packages", "Pi skills, extensions and updates"]] });
-  if (query.trim() && matchesListSearch(query, "Providers", "accounts keys usage login")) groups.unshift({ title: "Agent CLIs", rows: [["providers", "Providers", "Pi accounts, keys and usage"]] });
+  if (query.trim() && matchesListSearch(query, "CLI settings", "pi model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["settings", "CLI settings", "The selected agent's CLI configuration"]] });
+  if (query.trim() && matchesListSearch(query, "Packages", "skills extensions updates")) groups.unshift({ title: "Agent CLIs", rows: [["packages", "Packages", "Skills, extensions and updates"]] });
+  if (query.trim() && matchesListSearch(query, "Providers", "accounts keys usage login")) groups.unshift({ title: "Agent CLIs", rows: [["providers", "Providers", "Accounts, keys and usage"]] });
   if (query.trim() && matchesListSearch(query, "Connectors", "MCP servers tools")) groups.unshift({ title: "Agent CLIs", rows: [["connectors", "Connectors", "MCP servers and tools"]] });
   return groups;
 }

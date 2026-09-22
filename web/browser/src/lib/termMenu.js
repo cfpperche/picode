@@ -92,7 +92,7 @@ export function buildTermMenu(ctx = {}) {
   // Ctrl+click already opens it.
   const send = [];
   if (promptDoor) {
-    if (selection) send.push({ id: "ask", label: "Ask " + (cliLabel || "Pi") + " about this", icon: "ask" });
+    if (selection) send.push({ id: "ask", label: "Ask " + (cliLabel || "the agent") + " about this", icon: "ask" });
     send.push({ id: "attach", label: "Attach files…", icon: "clip" });
     send.push({ id: "snippet", label: "Send to terminal…", icon: "file" });
   }

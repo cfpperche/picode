@@ -57,7 +57,7 @@ type Deps struct {
 	Store        *store.Store
 	Tmux         *tmux.Manager
 	Runtime      *rpc.Runtime
-	AgentCmd     string // command spawned per workspace ("pi" — ADR-0003)
+	AgentCmd     string // the pi command for managed Pi agents; no other CLI depends on it (ADR-0179)
 
 	// Usage is the vendor-call client (quota listings, account identity).
 	// Nil means usage.Default; tests point it at a local server so no test

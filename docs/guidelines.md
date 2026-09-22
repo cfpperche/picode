@@ -53,19 +53,23 @@ not the generator — study
   and 127.0.0.1. `make docs` is in `make ci`; do not rely on the Pages
   workflow as the first gate.
 
-## Related pi documentation (when applicable)
+## Related vendor documentation (when applicable)
 
-If a public heading documents something that exists in pi (slash command,
-`settings.json`, session JSONL, trust, packages, RPC):
+If a public heading documents something a CLI already owns — a slash
+command, its settings file, its session format, trust, packages, RPC — for
+Pi or for any of the other eight CLIs:
 
-1. Link the **canonical pi doc** in
+1. Link that CLI's **canonical doc** (Pi:
    [earendil-works/pi](https://github.com/earendil-works/pi)
-   (`packages/coding-agent/docs/…`).
+   `packages/coding-agent/docs/…`; Claude Code, Codex, Grok, Hermes Agent,
+   OpenCode, Muse Code, Antigravity, Omp: the vendor docs the CLI catalog
+   links, `internal/clilaunch/config.go`).
 2. State **compatibility** in a table: same / PiCode-changed / TUI-only.
-3. Do **not** paste pi docs. Summarize the delta; send readers to pi
-   for the rest.
+3. Do **not** paste vendor docs. Summarize the delta; send readers to the
+   vendor for the rest.
 4. If parity is broken, say so and link the upstream issue
    (example: `/tree` click is fork until `navigate_tree`,
    [pi#8645](https://github.com/earendil-works/pi/issues/8645)).
 
-A PiCode-only heading skips this section.
+A heading that covers several CLIs names each one's canonical page, not
+only Pi's. A PiCode-only heading skips this section.

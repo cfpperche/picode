@@ -672,8 +672,6 @@ func handleAgentOpen(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusNotFound, "agent not found")
 			case errors.Is(err, errAgentTUIInFlight):
 				writeErr(w, http.StatusConflict, runInFlightMsg)
-			case errors.Is(err, errAgentCmdMissing):
-				writeErr(w, http.StatusServiceUnavailable, errAgentCmdMissing.Error())
 			default:
 				writeErr(w, http.StatusInternalServerError, err.Error())
 			}
@@ -689,8 +687,6 @@ func handleAgentOpen(deps Deps) http.HandlerFunc {
 }
 
 var errAgentTUIInFlight = errors.New(runInFlightMsg)
-
-var errAgentCmdMissing = errors.New("pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
 
 // openAgentTUI starts (or confirms) the agent's interactive pi TUI in
 // tmux. Used by the HTTP handler above. restart deliberately replaces an

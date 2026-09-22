@@ -16,39 +16,46 @@ Owning that lifecycle — from the very first "New Agent" click — is the moat.
 
 Every GUI convenience must have a terminal escape hatch:
 
-- The embedded terminal is the **real Pi TUI**, not a reimplementation.
-- Anything configurable in the GUI is inspectable as Pi config files.
-- If PiCode disappeared tomorrow, agents keep running in tmux + Pi sessions.
+- The embedded terminal is the **real TUI** of whichever CLI the agent runs
+  (Pi, Claude Code, Codex, …), not a reimplementation.
+- Anything configurable in the GUI is inspectable as that CLI's own config
+  files.
+- If PiCode disappeared tomorrow, agents keep running in tmux and each CLI
+  keeps its own sessions.
 
 A GUI that becomes a bottleneck between the user and their agent has failed.
 We measure ourselves against the fear we're removing — never adding new
 "walled garden" fear back.
 
-## 3. Simplicity (inherited from Pi)
+## 3. Simplicity
 
 - One binary. One command. Browser opens. Working.
 - Standard library first; dependencies are decisions, not conveniences.
 - Fewer concepts, honestly named. If a setting needs a manual to explain,
   it's a design bug.
 
-## 4. Modularity (inherited from Pi)
+## 4. Modularity
 
-Every PiCode capability maps onto Pi primitives users already know:
+Every PiCode capability maps onto primitives the CLI's users already know,
+and PiCode never replaces them:
 
-| PiCode feature | Pi primitive underneath |
+| PiCode feature | What sits underneath |
 |---|---|
-| Agent config | `.pi/settings.json`, extensions, skills |
-| Tasks & steering | `steer` / `follow_up` semantics |
-| Auth wizard | `/login` OAuth flows |
-| Session tree | session JSONL (tree via `id`/`parentId`) |
-| Inter-agent chat | extension tools → HTTP API |
+| Agent config | each CLI's own settings, extensions and skills files |
+| Providers | the CLI's own auth; one vault feeds them (ADR-0165) |
+| Sessions | each CLI's own session files; handoff translates between them (ADR-0088) |
+| Tasks & steering (Pi managed mode) | pi's `steer` / `follow_up` semantics |
+| Inter-agent chat | the `picode-communication` MCP server → HTTP API, for every CLI |
 
-We extend Pi's ecosystem; we never fork it.
+We extend each CLI's ecosystem; we never fork one. Pi is where PiCode
+started and the one CLI with a managed mode today; it is not a dependency
+(ADR-0179).
 
 ## 5. Agents first
 
-PiCode is developed **by** Pi agents as much as **for** Pi users. The repo is
-a Pi-native workspace: `AGENTS.md` is the operating contract, skills encode
+PiCode is developed **by** coding agents — Pi, Claude Code, Omp and the
+others — as much as **for** their users. The repo is an agent-native
+workspace: `AGENTS.md` is the operating contract, skills encode
 quality gates, `docs/handoff/open/` carries state across sessions (the board
 `docs/handoff.md` is a generated view of it, ADR-0123), and ADRs keep
 decisions honest. If our own agents can't thrive here, the product is a lie.
