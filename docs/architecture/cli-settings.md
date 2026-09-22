@@ -310,6 +310,32 @@ reload. A row whose value is not a string or a list of strings is reported as
 unreadable and left alone, and `Reset all` removes only the rows the catalog
 knows.
 
+**A nested map, and a vocabulary that is not the pane's** (P3, 2026-09-21):
+Codex's map is the same engine with a different declaration — one table per
+context, every row at `[tui.keymap.<context>]` as `action = "chord"` (not a table
+per action: the plan's `[tui.keymap.<context>.<action>]` would be a TOML type
+error, corrected against the vendor's schema). `FlatMap.Path` is the whole
+difference, and the file is the one the Settings tab already edits — both panes
+touch different keys of it through the same document primitives, so each save
+re-reads what the other left. Its catalog is 146 actions in 12 contexts, read out
+of the vendor's artifacts at the tag the installed build pins (the runtime
+inventory in `tui/src/keymap/bindings.rs`, the labels in its generated
+`config.schema.json`, the chords in `built_in_defaults()`), and a row's ID is
+`<context>.<action>` because the bare name is not unique: `move_left` exists in
+the editor and in `vim_normal`, and the pane addresses each row by one key.
+
+Codex's file is also the first whose *syntax* differs from the pane's: it writes
+`ctrl-alt-m` where the pane captures `ctrl+alt+m`, and it validates its whole
+keymap when it starts — a chord in the wrong spelling is a CLI that does not
+start. So a declaration can carry `Normalize`, which renders a captured chord
+into the file's own vocabulary (`pageup` → `page-up`, `-` → `minus`, `escape` →
+`esc`, `f1`..`f24`) and **refuses the rest by name** (`super+m`: "codex has no
+"super" modifier"); a chord already written the file's way is checked and kept.
+The pane does the same on the way out: `formatChord(chord, vocab)` keeps the
+CLI's separator in the display rather than translating one vocabulary into
+another, and `reservedChordOf(chord, vocab)` recognises codex's spelling when
+deciding whether the browser would eat a chord.
+
 Two things the pane deliberately does not claim:
 
 - **A shared key is not a conflict.** 52 of pi's 90 actions share a chord with

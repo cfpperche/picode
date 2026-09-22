@@ -46,7 +46,12 @@
    name shares the line with the keycaps and may wrap; the row's actions stay
    in their own column because a phone has no hover to reveal them. */
 #m-app .m-more-page .key-row {
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  /* The keycap track takes min-content as its floor, not 0: `minmax(0, 1fr)`
+     lets the track collapse under the chips, and `.key-keys { min-width: 0 }`
+     (app.css) erases what would otherwise keep it honest — with a long label
+     (codex's are sentences) the chips then drew over the label's tail
+     (measured 2026-09-21: a 3.4px track holding a 75px chip). */
+  grid-template-columns: minmax(0, 1fr) minmax(min-content, max-content) auto;
   grid-template-areas: "name keys actions" "note note note";
   column-gap: 8px; row-gap: 2px; min-height: 44px; padding: 4px 0 4px 8px;
 }

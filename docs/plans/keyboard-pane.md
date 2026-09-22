@@ -351,8 +351,55 @@ unknown action refused by name, a stale revision refused with 409, reset leaving
 unknown keys and comments alone, and an unreadable row reported rather than
 swallowed.
 
-P3 is next (Codex's nested TOML and Antigravity's flat JSON), and it now has an
-engine to declare into rather than to write.
+## P3 (Codex) shipped (2026-09-21, `feat/codex-agy-keymap`)
+
+Codex's key map is editable, and the plan's own row about it was wrong in one
+place: the shape is `[tui.keymap.<context>]` with `action = "chord"` **rows inside
+the context's table**, not a `[tui.keymap.<context>.<action>]` table per action —
+the latter is a TOML type error, and the vendor's generated schema says so. The
+declaration is `FlatMap.Path` and nothing else: same engine, same document
+primitives, one table per context.
+
+Its catalog is 146 actions in 12 contexts, read out of the vendor's artifacts at
+the tag the installed build pins (`codex-cli 0.155.1`): the runtime inventory in
+`tui/src/keymap/bindings.rs`, the labels in the generated `config.schema.json`,
+the chords in `built_in_defaults()` plus `vim_search.rs`. A row's ID is
+`<context>.<action>` — the vendor's own path minus its `tui.keymap` prefix —
+because the bare name is not unique (`move_left` lives in the editor *and* in
+`vim_normal`), which the catalog's own test caught on the first run.
+
+Two things this slice added to the engine, both because Codex demanded them:
+
+- **A vocabulary that is not the pane's.** Codex writes `ctrl-alt-m` where the
+  pane captures `ctrl+alt+m`, and it validates its whole keymap at startup: a
+  chord in the wrong spelling is a CLI that does not start. `FlatMap.Normalize`
+  renders a captured chord into the file's own vocabulary (`pageup` → `page-up`,
+  `-` → `minus`, `escape` → `esc`, `f1`..`f24`) and refuses the rest by name
+  (`super+m`); a chord already in the file's spelling is checked and kept. The
+  pane mirrors it for display (`formatChord(chord, vocab)`) and for the
+  browser-reserved warning (`reservedChordOf`).
+- **A multi-line TOML value is refused by name.** `tomlValueSpan` is line-based,
+  so an array the user broke across lines has a one-line span: the splice is
+  attempted in memory, undone, and reported as "written over several lines …
+  edit it there" rather than reaching the CLI as a broken file. The YAML block
+  case keeps working through the remove-and-reinsert path.
+
+Verified: the engine's own tests (create the context table, keep other tables and
+the settings keys intact, join an existing table, reset takes the emptied table,
+the chord rendering and its refusals), the endpoint test (146 rows + 12 contexts
+through the envelope, a write landing as `ctrl-alt-m` in the TOML, a named
+refusal for `super+m`), and `qa-cli-settings.mjs`, whose guest block now loops
+over Omp and Codex and proves each one's captured chord reaches its own file in
+its own spelling.
+
+**Antigravity is the other half of this row and is not shipped.** Its research is
+done and its shape fits the engine as it stands (36 ids, `id -> [chord]`, one
+override file, `[]` disables a default, removing a row returns to the vendor's
+default — read 2026-09-21); what it still needs is its pickup measured and its
+catalog's labels settled, because the vendor publishes two documentation
+generations and only `/docs/cli/using` + `/docs/cli/vim-editor-mode` match the
+installed build (`/docs/cli/reference` has drifted to renamed ids). That is the
+next slice: `docs/handoff/open/agent-clis-native.md` carries the measurement plan.
 Everything it needs was measured before the first line of the adapter, so the
 next session starts with no unknowns — and the first measurement corrected this
 plan (see below).

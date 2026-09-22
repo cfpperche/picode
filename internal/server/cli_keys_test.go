@@ -219,6 +219,79 @@ func mustRead(t *testing.T, path string) []byte {
 	return b
 }
 
+// A nested map (codex) is served through the same envelope: rows addressed by
+// `context.action`, a write that renders the pane's captured chord into the
+// file's own vocabulary, and the settings key beside it left alone.
+func TestCLIKeysServesAndWritesANestedGuestMap(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, ".codex", "config.toml")
+	if err := os.WriteFile(path, []byte("model = \"gpt-5\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ts := newTestServer(t, "cat")
+	get := func() map[string]any {
+		res, err := ts.Client().Get(ts.URL + "/api/cli-keys?cli=codex")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		var out map[string]any
+		if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	first := get()
+	if first["state"] != "shipped" || first["keymap"] != "nested" || first["file"] != path {
+		t.Fatalf("the envelope is not codex's: %v", first)
+	}
+	if rows, _ := first["actions"].([]any); len(rows) != 146 {
+		t.Fatalf("the catalog did not survive the envelope: %d rows", len(rows))
+	}
+	if ctxs, _ := first["contexts"].([]any); len(ctxs) != 12 {
+		t.Fatalf("the contexts did not survive: %d", len(ctxs))
+	}
+	body, _ := json.Marshal(map[string]any{"cli": "codex", "action": "composer.submit", "keys": []string{"ctrl+alt+m"}})
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/cli-keys", bytes.NewReader(body))
+	res, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("PUT %d", res.StatusCode)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(raw, []byte("[tui.keymap.composer]")) || !bytes.Contains(raw, []byte(`submit = ["ctrl-alt-m"]`)) {
+		t.Fatalf("the row did not land in codex's own spelling:\n%s", raw)
+	}
+	if !bytes.Contains(raw, []byte(`model = "gpt-5"`)) {
+		t.Fatalf("the settings key did not survive:\n%s", raw)
+	}
+	// A chord codex cannot express is refused, and the file is untouched.
+	bad, _ := json.Marshal(map[string]any{"cli": "codex", "action": "composer.submit", "keys": []string{"super+m"}})
+	req, _ = http.NewRequest(http.MethodPut, ts.URL+"/api/cli-keys", bytes.NewReader(bad))
+	res, err = ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var e struct {
+		Error string `json:"error"`
+	}
+	json.NewDecoder(res.Body).Decode(&e)
+	res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest || !bytes.Contains([]byte(e.Error), []byte("super")) {
+		t.Fatalf("a chord codex cannot express must be refused by name: %d %q", res.StatusCode, e.Error)
+	}
+}
+
 // A CLI whose editor has not shipped answers with its state and nothing else,
 // and a write to it is refused by name — never silently ignored.
 func TestCLIKeysRefusesWhatPiCodeCannotWrite(t *testing.T) {

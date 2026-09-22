@@ -2310,6 +2310,12 @@ img.ws-face.term-cli-face {
    belongs to — the void the owner photographed (2026-09-21). The note fills
    the space between the keycaps and the row's own actions, which is where the
    air was; a row with no note leaves one gap, before its actions. */
+/* Two columns, not the desktop grid's four: at 330px of pane a 9rem label, an
+   8rem note *track* (which reserves its width even on a row that has no note),
+   the keycaps and the actions cannot all fit, and the keycap cell was squeezed
+   to 3px with its chip drawing over the label's tail — measured 2026-09-21 on
+   codex's longer labels (visual review). The label and its keycaps share the
+   first line; a note takes the line under them, full width. */
 .key-pane .key-row {
   display: grid;
   grid-template-columns: minmax(9rem, 18rem) minmax(0, auto) minmax(8rem, 1fr) auto;

@@ -18,7 +18,11 @@ import (
 // splice, the atomic write, the revision check and the refusals are the ones
 // that package already guarantees — not a second implementation of them.
 
-// FlatMap is one CLI's flat key map, declared.
+// FlatMap is one CLI's own key map, declared: its file, its catalog, and where
+// in the file each row lives. A flat map (`action: chord`) addresses each row by
+// its own id; a nested one (`[tui.keymap.<context>.<action>]`) addresses it by a
+// path, and Path is how the two differ — the rest of the engine, and every
+// guarantee under it, is the same.
 type FlatMap struct {
 	CLI     string
 	Catalog []Action
@@ -29,6 +33,24 @@ type FlatMap struct {
 	// Platform is the CLI's own platform vocabulary, for the rows that bind
 	// differently elsewhere.
 	Platform string
+	// Path is where a row lives in the file. Nil means the flat default: the
+	// action id itself, dots and all, as one key.
+	Path func(Action) []string
+	// Normalize turns a chord the pane captured into the string this CLI's own
+	// parser accepts, or refuses it by name. Nil means they are the same thing
+	// (pi and omp join with `+`, which is what the pane produces). A write never
+	// reaches the file in a spelling the CLI would reject: codex refuses to
+	// start on a keymap it cannot parse, so a wrong chord there is not a
+	// cosmetic problem (ADR-0174).
+	Normalize func(chord string) (string, error)
+}
+
+// path is where a row lives, with the flat default applied.
+func (f FlatMap) path(a Action) []string {
+	if f.Path == nil {
+		return []string{a.ID}
+	}
+	return f.Path(a)
 }
 
 // Map is one flat key map as the pane renders it.
@@ -54,7 +76,7 @@ func FlatFor(id string) (FlatMap, bool) {
 	return f, ok
 }
 
-var flatDeclarations = map[string]FlatMap{"omp": OmpFlat}
+var flatDeclarations = map[string]FlatMap{"omp": OmpFlat, "codex": CodexMap}
 
 // ReadFlat reads a declaration's file. A file that is not there is a map with
 // no values, not an error: the CLI is running on its own defaults and the first
@@ -70,7 +92,7 @@ func ReadFlat(f FlatMap) (Map, error) {
 	}
 	out := Map{File: path, Exists: doc.Exists(), Revision: doc.Revision(), Values: map[string][]string{}}
 	for _, a := range f.Catalog {
-		values, found, err := doc.Strings(a.ID)
+		values, found, err := doc.Strings(f.path(a)...)
 		if err != nil {
 			out.Unreadable = append(out.Unreadable, a.ID)
 			continue
@@ -87,7 +109,8 @@ func ReadFlat(f FlatMap) (Map, error) {
 // CLIs unbind; reset true removes the key, and the revision the editor was built
 // from is checked before anything is written.
 func WriteFlat(f FlatMap, action string, keys []string, reset bool, revision string) error {
-	if !f.declares(action) {
+	a, declared := f.row(action)
+	if !declared {
 		return fmt.Errorf("%s is not an action %s declares", action, f.CLI)
 	}
 	path, format, err := f.File()
@@ -99,9 +122,12 @@ func WriteFlat(f FlatMap, action string, keys []string, reset bool, revision str
 		return err
 	}
 	if reset {
-		err = doc.RemoveKey(action)
+		err = doc.Remove(f.path(a)...)
 	} else {
-		err = doc.SetStrings(action, keys)
+		if keys, err = f.normalize(keys); err != nil {
+			return err
+		}
+		err = doc.SetStrings(f.path(a), keys)
 	}
 	if err != nil {
 		return err
@@ -123,11 +149,15 @@ func ResetFlat(f FlatMap, revision string) error {
 	}
 	changed := false
 	for _, a := range f.Catalog {
-		if _, found, err := doc.Strings(a.ID); err != nil || !found {
+		// The declaration's own path: a nested map's row is not at its id
+		// (`global.open_agents` lives in `[tui.keymap.global]`), and asking for
+		// the id alone found nothing, so Reset all left the row in place
+		// (2026-09-21).
+		if _, found, err := doc.Strings(f.path(a)...); err != nil || !found {
 			// A row PiCode does not understand is not PiCode's to remove.
 			continue
 		}
-		if err := doc.RemoveKey(a.ID); err != nil {
+		if err := doc.Remove(f.path(a)...); err != nil {
 			return err
 		}
 		changed = true
@@ -138,14 +168,30 @@ func ResetFlat(f FlatMap, revision string) error {
 	return doc.Save(revision)
 }
 
-// declares reports whether the catalog knows an action id.
-func (f FlatMap) declares(action string) bool {
+// normalize renders the caller's chords in the file's own syntax.
+func (f FlatMap) normalize(keys []string) ([]string, error) {
+	if f.Normalize == nil {
+		return keys, nil
+	}
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		chord, err := f.Normalize(k)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, chord)
+	}
+	return out, nil
+}
+
+// row is the catalog row for an action id.
+func (f FlatMap) row(action string) (Action, bool) {
 	for _, a := range f.Catalog {
 		if a.ID == action {
-			return true
+			return a, true
 		}
 	}
-	return false
+	return Action{}, false
 }
 
 // OmpFlat declares Omp's key map: one machine-level file the CLI reads, with a

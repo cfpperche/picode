@@ -98,3 +98,23 @@
   `span.notice-text`" pass in the same run. Row (1) is still red and still
   reproduced: the run stopped at the same blocked-project-layer `ready()`. Row
   (2) lives in `qa-cli-settings-recovery.mjs`, not re-measured here.
+
+- **Antigravity's key map is researched and not declared** (P3, 2026-09-21).
+  Measured: `~/.gemini/antigravity-cli/keybindings.json`, 36 ids in 10
+  namespaces, `id -> [chord]`, one *override* layer — the vendor documents
+  per-action fallback and "delete the file to restore defaults", so removing a
+  row returns to the built-in default rather than leaving a hole, and `[]`
+  disables a default. No checksum or signature: a byte-preserving splice is safe,
+  and the CLI never rewrites the file itself (mtime old while sessions ran).
+  Two open points, both cheap: (a) **the pickup is unmeasured** — there is no
+  `/reload` and the docs only say settings load at startup, but the binary has a
+  `file_watcher.go`, so the honest sentence ("restart it") needs the experiment:
+  remap `cli.cycle_mode` from `shift+tab` to `ctrl+n` in a live `agy` session
+  (tmux + a trust prompt) and press both keys — the footer's mode chip says which
+  one the session is still honouring. **Restore the file from a backup
+  afterwards** (the first attempt at this left the user's file rewritten and had
+  to be restored byte-for-byte); (b) **the labels**: the vendor publishes two
+  documentation generations — `/docs/cli/using` and `/docs/cli/vim-editor-mode`
+  match the installed build row-for-row, `/docs/cli/reference` has drifted to
+  renamed ids (`prompt.*`) — so the catalog comes from the first two, or the rows
+  are labelled from their ids.

@@ -23,5 +23,6 @@ record is swept). It no longer stacks orphan sessions per click — thirteen
 
 ## Next up
 
-- Offer the name before the import writes, so an unnamed second login cannot
-  eat the first.
+- ~~Offer the name before the import writes~~ — paid the same day by
+  feat/name-before-write (`preview: true` on the import route; the pane asks
+  before writing).
