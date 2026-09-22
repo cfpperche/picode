@@ -285,16 +285,17 @@ func TestRunInstallRuntimeInstallsNodeAtTheCIMajor(t *testing.T) {
 	}
 }
 
-// A node already present, whatever its major, is left alone: PiCode does
-// not need it, and the CLIs the user installs later say what they need.
-func TestRunInstallRuntimeLeavesAnOldNodeAlone(t *testing.T) {
-	stub := &diskStub{replies: [][]byte{nil, nil, nil, []byte(probeClean)}}
-	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "18", "ubuntu", true), "", "", false, nil)
+// An older node is upgraded (Pi, installed later from Agent CLIs, needs
+// >=22.19), and the account's npm prefix moves to ~/.local with it.
+func TestRunInstallRuntimeUpgradesAnOldNode(t *testing.T) {
+	stub := &diskStub{replies: [][]byte{nil, nil, nil, nil, []byte(probeClean)}}
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{desktop.NodeUpgrade}, "18", "ubuntu", true), "", "", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if joined := strings.Join(callStrings(stub.calls), "\n"); strings.Contains(joined, "nodesource") {
-		t.Errorf("node 18 was replaced:\n%s", joined)
+	joined := strings.Join(callStrings(stub.calls), "\n")
+	if !strings.Contains(joined, "node_22.x") || !strings.Contains(joined, "npm config set prefix ~/.local") {
+		t.Errorf("no node 22 upgrade or no user prefix:\n%s", joined)
 	}
 }
 
@@ -355,5 +356,40 @@ func TestRunInstallRuntimeUserModeInstallsNoCLI(t *testing.T) {
 		if strings.Contains(c, "npm install") {
 			t.Fatalf("a CLI was installed by the runtime stage: %s", c)
 		}
+	}
+}
+
+// A fresh NodeSource npm has a root-owned /usr prefix: the stage sets the
+// target account's prefix, as that account, so Agent CLIs' Install (npm
+// install -g as the account) does not hit EACCES (2026-09-22 review).
+func TestRunInstallRuntimeSetsTheUserPrefixWithNode(t *testing.T) {
+	stub := &diskStub{replies: [][]byte{nil, nil, nil, nil, []byte(probeClean)}}
+	if err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"node", "npm"}, "", "ubuntu", true), "", "", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	var sawPrefix bool
+	for _, c := range callStrings(stub.calls) {
+		if strings.Contains(c, "npm config set prefix ~/.local") {
+			sawPrefix = true
+			if !strings.Contains(c, "-u goat") {
+				t.Errorf("prefix set as the wrong account: %s", c)
+			}
+		}
+	}
+	if !sawPrefix {
+		t.Fatal("no user prefix after a NodeSource install")
+	}
+}
+
+// Only the prefix is missing (distro npm under /usr): no apt, no node, and
+// not refused on a non-Ubuntu family — setting a prefix needs no package.
+func TestRunInstallRuntimePrefixOnly(t *testing.T) {
+	stub := &diskStub{replies: [][]byte{nil, nil, []byte(probeClean)}}
+	if err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{desktop.NpmUserPrefix}, "22", "debian", true), "", "", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(callStrings(stub.calls), "\n")
+	if strings.Contains(joined, "apt-get install -y tmux") || strings.Contains(joined, "nodesource") || !strings.Contains(joined, "npm config set prefix ~/.local") {
+		t.Errorf("prefix-only stage ran the wrong steps:\n%s", joined)
 	}
 }
