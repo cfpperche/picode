@@ -103,9 +103,9 @@ export function rejectUnauthorizedFor(url: string): boolean {
 }
 
 /**
- * The launch identity PiCode stamps on the process: a managed agent's id,
- * or the terminal a pi runs in (ADR-0089). Both are the launch, never a
- * credential the tool carries.
+ * The launch identity PiCode stamps on the process (ADR-0160 Fatia E): the
+ * agent's id when its terminal is bound to one, the terminal's id otherwise.
+ * Both are the launch, never a credential the tool carries.
  */
 export function identityFrom(env: Record<string, string | undefined>): Identity {
 	return { agent: (env.PICODE_AGENT_ID || "").trim(), term: (env.PICODE_TERM_ID || "").trim() };

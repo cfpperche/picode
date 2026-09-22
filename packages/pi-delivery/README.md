@@ -12,9 +12,9 @@ in, asks the human for review, or reads what is already declared.
   target branch; the answer carries the delivery `id` and `version` every
   later call needs.
 - **The repository is the launch.** PiCode derives it from the folder the
-  agent was started in, and the identity from `PICODE_AGENT_ID` (managed
-  agent) or `PICODE_TERM_ID` (a pi in a PiCode terminal). Neither can be
-  chosen by the model, and no vendor credential is involved.
+  agent was started in, and the identity from `PICODE_AGENT_ID` (the agent,
+  whatever its CLI) or `PICODE_TERM_ID` (a terminal that is not an agent).
+  Neither can be chosen by the model, and no vendor credential is involved.
 - **Declarations only.** A review request is an agent's statement that the
   human should look — never an approval, a passed check, a merge, a queue
   or a deploy. Queues and execution are not implemented, and the daemon

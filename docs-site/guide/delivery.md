@@ -31,14 +31,15 @@ An agent can register a proposed change and ask for review using
 `picode delivery`. The record names the branch, exact commit and target branch.
 A review request does not mean someone approved the change or that checks passed.
 
-The same contract has three faces, all posting to the daemon with the identity
-of the launch — none of them carries a credential of its own:
+Every agent declares through the same contract, and the identity is the agent's,
+taken from the launch — none of these carries a credential of its own. How the
+tool arrives depends on the agent's CLI:
 
-| Face | Who uses it |
+| How | Which agents |
 |---|---|
-| `picode delivery <action>` | Any agent with a shell in a PiCode terminal |
-| the `delivery` tool | A Pi agent with `packages/pi-delivery` installed (Agent CLIs ▸ Packages) |
-| the `delivery` MCP tool | An agent CLI launched with **Delivery** switched on under its **PiCode tools**, or pointed at `picode mcp delivery` in its own configuration |
+| `picode delivery <action>` in its terminal | Any agent with a shell |
+| the `delivery` tool, from `packages/pi-delivery` | An agent whose CLI is Pi (install it from Agent CLIs ▸ Packages) |
+| the `delivery` MCP tool, `picode mcp delivery` | An agent whose CLI takes MCP servers at launch — Claude Code, Codex, OpenCode — switched on under **PiCode tools**, or pointed at the server in that CLI's own configuration |
 
 Open the agent through PiCode's **Agent CLIs**, in the project's Git repository.
 The command requires an updated PiCode binary and daemon, and the identity

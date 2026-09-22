@@ -6,16 +6,27 @@ posts to `internal/server/delivery.go`. The existing daemon auth gate applies.
 This is same-user launch attribution, not a sandbox or native-session credential.
 
 Three faces reach that one route, and every one of them offers the same actions
-and parameters: the `picode delivery` command in a PiCode terminal, the MCP
-family `picode mcp delivery` (a switch in a guest CLI's launch settings —
-`internal/server/cli_tools.go` injects `picode-delivery` the way it injects the
-other families, ADR-0154), and `packages/pi-delivery` for a Pi agent, which
-derives a mutation's retry key from the session, the action and the payload so a
-repeated call replays. `internal/mcptool/delivery_test.go` holds the pi package
-against the MCP schema, and `internal/server/cli_tools_test.go` holds the launch
-form's list (`PICODE_TOOL_FAMILIES`) against `mcptool.FamilyNames()` — before
-that, delivery was in the catalog while the form offered only four families, so
-it was reachable by a guest CLI only through hand-written configuration.
+and parameters. The principal is the **agent** (ADR-0160): a workspace instance
+of any launchable CLI is an agent, `launchIdentityEnv` puts `PICODE_AGENT_ID`
+into the terminal it runs in, and `grant.FromIDs` resolves agent-wins — a bare
+`PICODE_TERM_ID` names only a terminal that is not an agent. What differs
+between agents is how the tool arrives, not who they are:
+
+- `picode delivery <action>`, in the agent's terminal;
+- `picode mcp delivery`, injected as the family `picode-delivery` when the
+  agent's CLI takes MCP servers at launch — Claude Code, Codex, OpenCode
+  (`internal/server/cli_tools.go`, ADR-0154) — or reached through that CLI's own
+  Connectors scope (ADR-0150);
+- the `delivery` tool from `packages/pi-delivery` when the agent's CLI is Pi
+  (Pi packages stay Pi-only, ADR-0091), which derives a mutation's retry key
+  from the session, the action and the payload so a repeated call replays.
+
+`internal/mcptool/delivery_test.go` holds the pi package against the MCP schema,
+and `internal/server/cli_tools_test.go` holds the form's list
+(`PICODE_TOOL_FAMILIES`) against `mcptool.FamilyNames()`. The catalog carried
+delivery from ADR-0171 while the form offered four families, so a person could
+not switch it on for an agent whose launch settings had been customized; a
+launch that never touched them already received every family.
 
 The daemon resolves the registered agent's launch folder (or terminal's stored
 folder), then `gitgraph.Key` identifies the shared repository across worktrees.

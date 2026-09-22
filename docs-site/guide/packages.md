@@ -60,10 +60,11 @@ Model roles: install `packages/pi-roles` — an extension, not core — so a ses
 
 Inbox tools: install `packages/pi-inbox` — an extension, not core — so a plain terminal `pi` can file notifications and blocking questions into the Inbox app. Guide: [Inbox tools for pi](/guide/inbox-tools).
 
-Delivery: install `packages/pi-delivery` — an extension, not core — so a pi agent
-declares a change and asks the human for review in the project's **Git ▸
-Delivery** view without shelling out. Agent CLIs opened with the **Delivery**
-switch under their **PiCode tools** receive the same tool over MCP. Guide:
+Delivery: install `packages/pi-delivery` — an extension, not core — so an agent
+whose CLI is Pi declares a change and asks the human for review in the project's
+**Git ▸ Delivery** view without shelling out. An agent whose CLI takes MCP servers
+at launch (Claude Code, Codex, OpenCode) receives the same tool when **Delivery**
+is switched on under its **PiCode tools**. Guide:
 [Follow changes in Delivery](/guide/delivery).
 
 Compact earlier: install `packages/pi-compact` — an extension, not core —

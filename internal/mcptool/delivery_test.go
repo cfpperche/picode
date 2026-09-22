@@ -68,9 +68,10 @@ func TestDeliveryMCPContract(t *testing.T) {
 }
 
 // TestDeliveryPiPackageMatchesFamily is the seam between the two faces of one
-// contract (ADR-0171): the pi package a Pi agent loads and the MCP family a
-// guest CLI is launched with must offer the same actions and parameters.
-// computer_test.go holds the same seam for its package.
+// contract (ADR-0171): the package an agent whose CLI is Pi loads and the MCP
+// family an agent whose CLI takes MCP servers at launch receives must offer the
+// same actions and parameters. computer_test.go holds the same seam for its
+// package.
 func TestDeliveryPiPackageMatchesFamily(t *testing.T) {
 	schema := deliveryFamily.Tools(&Caller{})[0].InputSchema
 	props, _ := schema["properties"].(map[string]any)
