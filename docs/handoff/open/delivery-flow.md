@@ -7,6 +7,7 @@ D0 surface contract: docs/plans/delivery-flow-design.md
 
 ## Next
 
+- ADR-0182 (the integration queue) waits for the owner's approval; the D3 slice starts on it and nothing else in this topic is blocked on a decision.
 
 ## Debts
 
