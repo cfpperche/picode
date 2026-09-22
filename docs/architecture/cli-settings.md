@@ -321,6 +321,21 @@ Twenty rows carry the vendor's own descriptions from the two doc pages that matc
 the installed build; the other sixteen are labelled from their id, which those
 pages leave unnamed.
 
+**OpenCode joins it** (2026-09-21): a flat `keybinds` object one level down in
+the CLI's user `tui.json` — the same engine, `FlatMap` paths again. Three
+vendor-specific facts live in its declaration and tests: the file is
+`tui.json`/`tui.jsonc` (a `.jsonc` sibling wins; the main `opencode.json` is
+never written, because the CLI's own startup migration moves legacy keybinds
+into a `tui.json` behind PiCode's back); an action disabled by the vendor's
+literal `"none"` reads as unbound rather than as a chord named none; and the
+scope is the user file only — a project `tui.json` deep-merges over the user's
+rows and wins, which the pane's file line states. Its pickup is restart, from
+the loader's own code: the config is snapshotted once when the TUI starts (the
+SIGUSR2 reload RPC refreshes only the server's `opencode.json` cache). The
+catalog is 162 actions from the loader's own Definitions table at the installed
+tag; the leader-key configuration and the vendor's object-form paste binding are
+deliberately absent, each noted in the catalog header.
+
 **A nested map, and a vocabulary that is not the pane's** (P3, 2026-09-21):
 Codex's map is the same engine with a different declaration — one table per
 context, every row at `[tui.keymap.<context>]` as `action = "chord"` (not a table

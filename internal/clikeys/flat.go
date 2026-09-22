@@ -76,7 +76,7 @@ func FlatFor(id string) (FlatMap, bool) {
 	return f, ok
 }
 
-var flatDeclarations = map[string]FlatMap{"omp": OmpFlat, "codex": CodexMap, "agy": AgyMap}
+var flatDeclarations = map[string]FlatMap{"omp": OmpFlat, "codex": CodexMap, "agy": AgyMap, "opencode": OpenCodeMap}
 
 // ReadFlat reads a declaration's file. A file that is not there is a map with
 // no values, not an error: the CLI is running on its own defaults and the first
