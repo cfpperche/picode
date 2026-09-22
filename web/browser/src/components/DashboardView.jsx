@@ -439,7 +439,7 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
               <div className="dash-section-label">Limits</div>
               {firstLoad ? <Skel /> : (
                 <>
-                  <LimitBars limits={stats.limits} />
+                  <LimitBars limits={stats.limits} plans={stats.plans} />
                   {limitsNote ? <p className="dash-note">{limitsNote}</p> : null}
                 </>
               )}

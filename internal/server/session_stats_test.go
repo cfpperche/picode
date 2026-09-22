@@ -14,6 +14,7 @@ import (
 	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/usage"
 )
 
 func TestNormalizeRange(t *testing.T) {
@@ -393,5 +394,44 @@ func TestHandleSessionStatsIgnoresRetiredScopeParam(t *testing.T) {
 	without := call("range=all")
 	if with != 0.5 || without != 0.5 {
 		t.Fatalf("scope=picode = %v, no scope = %v, want both 0.5", with, without)
+	}
+}
+
+// The Limits card reads plan windows from the usage cache the Providers
+// roster fills: every cached row, a failed one included, and nothing the
+// cache never saw — a stats poll must not reach a vendor (ADR-0031).
+func TestHandleSessionStatsServesCachedPlans(t *testing.T) {
+	withTestSessionRoot(t)
+	pct := 75.0
+	usage.Remember("xai", "acct-ok", usage.Report{
+		Provider: "xai", AccountLabel: "Grok", Status: "ok", Plan: "SuperGrok",
+		Windows: []usage.Window{{ID: "week", Label: "This week", UsedPercent: &pct}},
+		FetchedAt: time.Now().UTC().Format(time.RFC3339),
+	}, time.Now())
+	usage.Remember("anthropic", "acct-expired", usage.Report{
+		Provider: "anthropic", Status: "auth_required", Error: "sign in again",
+	}, time.Now())
+	t.Cleanup(func() {
+		usage.Forget("xai", "acct-ok")
+		usage.Forget("anthropic", "acct-expired")
+	})
+
+	r := httptest.NewRequest(http.MethodGet, "/api/sessions/stats?range=7d", nil)
+	w := httptest.NewRecorder()
+	handleSessionStats(Deps{})(w, r)
+	var got sessionStatsView
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	byAcct := map[string]usage.Entry{}
+	for _, e := range got.Plans {
+		byAcct[e.AccountID] = e
+	}
+	ok, expired := byAcct["acct-ok"], byAcct["acct-expired"]
+	if ok.Status != "ok" || ok.Plan != "SuperGrok" || ok.Label != "Grok" || len(ok.Windows) != 1 || *ok.Windows[0].UsedPercent != 75 {
+		t.Fatalf("ok plan = %+v", ok)
+	}
+	if expired.Status != "auth_required" || expired.Provider != "anthropic" {
+		t.Fatalf("expired plan = %+v, want the failure kept", expired)
 	}
 }
