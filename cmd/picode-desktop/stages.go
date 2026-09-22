@@ -11,7 +11,6 @@ import (
 
 	"github.com/cfpperche/picode/internal/desktop"
 	"github.com/cfpperche/picode/internal/install"
-	"github.com/cfpperche/picode/internal/pipkg"
 )
 
 // install-picode and install-runtime executors (ADR-0098): the work behind
@@ -148,8 +147,9 @@ func picodeVersionOf(out []byte) string {
 	return ""
 }
 
-// runInstallRuntime converges the distro on tmux, git, curl, node, npm and
-// pi. Ubuntu only: any other family gets the missing list and stops. On a
+// runInstallRuntime converges the distro on tmux, git, curl, node and npm —
+// never on an agent CLI (ADR-0179: the user installs those from Agent CLIs).
+// Ubuntu only: any other family gets the missing list and stops. On a
 // distro this program did not register, anything that would change asks
 // first (yes skips the question); a stage with nothing to do never asks.
 func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag string, yes bool, stdin io.Reader) error {
@@ -161,12 +161,8 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag 
 	if err != nil {
 		return err
 	}
-	// Root is the default: an explicit non-root --user is what moves the
-	// pi install into one account. An explicit --user root is root spelled
-	// out, not user mode.
-	userMode := userFlag != "" && userFlag != "root"
 	if len(state.Missing) == 0 {
-		fmt.Printf("  ok     tmux, git, curl, node, npm and pi are already in %s\n", picked.Name)
+		fmt.Printf("  ok     tmux, git, curl, node and npm are already in %s\n", picked.Name)
 		return nil
 	}
 	if state.Family != "ubuntu" {
@@ -178,19 +174,10 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag 
 	for _, t := range state.Missing {
 		missing[t] = true
 	}
+	// Node comes from NodeSource at the CI major only when node or npm is
+	// missing; a node already present, whatever its major, is left alone.
 	needNode := missing["node"] || missing["npm"]
-	needPi := missing["pi"]
-	nodeMajor := ""
-	if needNode || needPi {
-		major, err := piNodeMajor()
-		if err != nil {
-			return fmt.Errorf("ask npm which node pi needs: %w (re-run to retry)", err)
-		}
-		nodeMajor = major
-		if needPi && desktop.NodeOlder(state.NodeMajor, major) && state.NodeMajor != "" {
-			needNode = true
-		}
-	}
+	nodeMajor := desktop.RuntimeNodeMajor
 	var base []string
 	for _, p := range desktop.BasePackages {
 		if missing[p] {
@@ -208,15 +195,7 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag 
 		if needNode {
 			actions = append(actions, "nodejs "+nodeMajor+" from the NodeSource repository")
 		}
-		piLine := "npm install -g " + pipkg.PiPackage + "@latest"
-		asLine := "Run as root inside %s:"
-		if needPi && userMode {
-			actions = append(actions, piLine+" as "+user)
-			asLine = "Run inside %s (apt and node as root, pi as " + user + "):"
-		} else if needPi {
-			actions = append(actions, piLine)
-		}
-		ok, err := confirm(stdin, fmt.Sprintf("%s is your distro, not one PiCode created.\n"+asLine+"\n  %s\nProceed?", picked.Name, picked.Name, strings.Join(actions, "\n  ")))
+		ok, err := confirm(stdin, fmt.Sprintf("%s is your distro, not one PiCode created.\nRun as root inside %s:\n  %s\nProceed?", picked.Name, picked.Name, strings.Join(actions, "\n  ")))
 		if err != nil {
 			return fmt.Errorf("confirm the runtime install: %w (or re-run with --yes)", err)
 		}
@@ -254,31 +233,6 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag 
 		}
 		fmt.Printf("  ok     nodejs %s installed\n", nodeMajor)
 	}
-	if needPi {
-		// As root, like internal/provision/container.go: a NodeSource npm
-		// owns /usr/lib/node_modules to root, so the owner's argv from
-		// ADR-0098 fails there with EACCES — and /usr/bin lands on every
-		// PATH the daemon resolves pi through. Trade-off, flagged for the
-		// owner: in-UI pi updates run as the owner and will need their own
-		// answer for a root-owned install.
-		if !userMode {
-			if err := asRoot(append([]string{"npm"}, desktop.PiInstallArgs()...)...); err != nil {
-				return fmt.Errorf("npm install -g %s: %w", pipkg.PiPackage, err)
-			}
-			fmt.Printf("  ok     %s installed\n", pipkg.PiPackage)
-		} else {
-			// Per account: its own npm prefix plus a link into the
-			// ~/.local/bin the login shell carries, so no profile edit.
-			asUser := func(command ...string) error {
-				return a.runner.Run(desktop.WSLExe, desktop.WSLArgs(picked.Name, user, command...)...)
-			}
-			if err := asUser("sh", "-c", desktop.UserPiInstallScript()); err != nil {
-				return fmt.Errorf("npm install -g %s as %s: %w", pipkg.PiPackage, user, err)
-			}
-			fmt.Printf("  ok     %s installed for %s\n", pipkg.PiPackage, user)
-		}
-	}
-
 	out, err := a.runner.Output(desktop.WSLExe, desktop.WSLArgs(picked.Name, user, desktop.ProbeArgs()...)...)
 	if err != nil {
 		return fmt.Errorf("verify the runtime: %w", err)
@@ -287,15 +241,6 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag 
 		return fmt.Errorf("still missing after install: %s", strings.Join(still, ", "))
 	}
 	return nil
-}
-
-// piNodeMajor asks the npm registry which node major pi's package declares.
-func piNodeMajor() (string, error) {
-	doc, err := install.Fetch(desktop.PiRegistryURL)
-	if err != nil {
-		return "", err
-	}
-	return desktop.ParsePiNodeMajor(doc)
 }
 
 func familyName(family string) string {

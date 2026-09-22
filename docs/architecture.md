@@ -52,7 +52,8 @@ still hot-reloads. `picode update` checks GitHub for a newer release.
 `picode provision` (ADR-0020) converges a machine on all of that at once:
 `[boot] systemd=true` in `/etc/wsl.conf`, lingering so the unit starts
 without a login, a valid certificate, the unit itself, `/api/health` as
-proof, and — for a server (ADR-0050) — `pi` on PATH, Tailscale up, and
+proof, and — for a server (ADR-0050) — which agent CLIs are on PATH (an
+informational step: none is required, ADR-0179), Tailscale up, and
 whether other machines can reach the daemon. `--dry-run` is the doctor.
 `picode install --env KEY=VALUE` keeps the service environment in
 `~/.config/systemd/user/picode.service.d/env.conf`, which deploys and
@@ -72,12 +73,13 @@ registers the logon task. `install` walks a state machine
 (`internal/desktop.NextStage`, derived from observation so any interruption
 resumes): WSL, distro, account, then — since ADR-0098's stages landed — the
 picode binary (the tool's own release, verified) and the runtime (tmux, git,
-curl, Node.js from NodeSource, pi; Ubuntu only), asking first on a distro
-PiCode did not register, and ends with the shell running. `--user <name>`
-aims both at one account (the binary in its `~/.local/bin`, pi in its own npm
-prefix linked there); without it pi is a system-wide root install while the
-binary still lands in the distro's default account, and the observation probe
-runs as the target account so a pi only it can see still converges. The
+curl, Node.js 22 from NodeSource when node or npm is missing — a node already
+present is left alone; Ubuntu only), asking first on a distro PiCode did not
+register, and ends with the shell running. No agent CLI is installed by the
+tool (ADR-0179): the user adds the ones they use from Agent CLIs after the
+first login. `--user <name>` aims the binary at one account (its
+`~/.local/bin`); the observation probe runs as the target account so a binary
+only it can see still converges. The
 launcher waits for the elevated child and reports a failing exit code instead
 of exiting 0; the last error line lands in `%ProgramData%\PiCode
 Desktop\install.log` and the window pauses for Enter on failure. It drives the distro through

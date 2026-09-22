@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/install"
 	"github.com/cfpperche/picode/internal/tlsutil"
 )
@@ -34,7 +35,7 @@ var lookPath = exec.LookPath
 // logout before the unit is worth enabling, and the service has to be up
 // before health can mean anything.
 func Steps() []Step {
-	return []Step{wslConfStep(), systemdStep(), lingerStep(), certStep(), serviceStep(), healthStep(), piStep(), tailnetStep(), tailnetCertStep(), reachStep()}
+	return []Step{wslConfStep(), systemdStep(), lingerStep(), certStep(), serviceStep(), healthStep(), clisStep(), tailnetStep(), tailnetCertStep(), reachStep()}
 }
 
 // tailnetCertStep keeps the Tailscale-issued leaf for this node's name
@@ -97,21 +98,28 @@ func magicDNSName() string {
 	return strings.TrimSuffix(strings.TrimSpace(st.Self.DNSName), ".")
 }
 
-// piStep: agents are `pi` processes the unit spawns, so the binary has to
-// be on the PATH the unit captured. No fix — installing pi is npm's job
-// and the owner's choice of prefix (ADR-0003).
-func piStep() Step {
+// clisStep reports which agent CLIs the unit's PATH can see. Informational:
+// no CLI is required to run PiCode (ADR-0179), and installing one is the
+// user's job — from Agent CLIs after the first login, or with the vendor's
+// command. It never blocks convergence and has no fix.
+func clisStep() Step {
 	return Step{
-		ID:    "pi",
-		Title: "pi is on PATH",
+		ID:    "clis",
+		Title: "agent CLIs on PATH",
 		Scope: ScopeUser,
 		Check: func(env Env) State {
-			if _, err := lookPath("pi"); err == nil {
-				return ok("found")
+			var found []string
+			for _, c := range clilaunch.Catalog() {
+				if _, err := lookPath(c.Command); err == nil {
+					found = append(found, c.Name)
+				}
 			}
-			return blocked("pi not found — `npm install -g @earendil-works/pi-coding-agent`, then `picode deploy` so the unit sees it")
+			if len(found) == 0 {
+				return ok("none yet — install one from Agent CLIs after the first login")
+			}
+			return ok("found: %s", strings.Join(found, ", "))
 		},
-		Fix: func(Env) error { return fmt.Errorf("install pi with npm, then picode deploy") },
+		Fix: func(Env) error { return nil },
 	}
 }
 

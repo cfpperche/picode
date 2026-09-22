@@ -193,18 +193,6 @@ ID=ubuntu
 adopted
 `
 
-// piRegistry serves {"engines":{"node":...}} and replaces the seam.
-func piRegistry(t *testing.T, engines string) {
-	t.Helper()
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `{"engines":{"node":%q}}`, engines)
-	}))
-	t.Cleanup(ts.Close)
-	oldURL, oldC := desktop.PiRegistryURL, install.HTTPClient
-	desktop.PiRegistryURL, install.HTTPClient = ts.URL, ts.Client()
-	t.Cleanup(func() { desktop.PiRegistryURL, install.HTTPClient = oldURL, oldC })
-}
-
 func runtimeState(missing []string, nodeMajor, family string, registered bool) desktop.MachineState {
 	return desktop.MachineState{
 		Distros: []desktop.Distro{testUbuntu}, DefaultUser: "goat", TargetUser: "goat",
@@ -235,29 +223,29 @@ func TestRunInstallRuntimeNonUbuntuStops(t *testing.T) {
 }
 
 func TestRunInstallRuntimeRegisteredNeedsNoAsking(t *testing.T) {
-	piRegistry(t, ">=22.19.0")
 	stub := &diskStub{
-		replies: [][]byte{nil, nil, nil, nil, []byte(probeClean)},
-		errs:    []error{nil, nil, errors.New("mkcert absent"), nil, nil},
+		replies: [][]byte{nil, nil, nil, []byte(probeClean)},
+		errs:    []error{nil, nil, errors.New("mkcert absent"), nil},
 	}
 	// nil stdin: registered distros must never consult it.
-	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux", "pi"}, "22", "ubuntu", true), "", "", false, nil)
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", true), "", "", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	joined := strings.Join(callStrings(stub.calls), "\n")
-	for _, want := range []string{"apt-get update", "apt-get install -y tmux", "npm install -g @earendil-works/pi-coding-agent@latest"} {
+	for _, want := range []string{"apt-get update", "apt-get install -y tmux"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("calls lack %q:\n%s", want, joined)
 		}
 	}
-	if strings.Contains(joined, "nodesource") {
-		t.Errorf("node 22 must not reinstall:\n%s", joined)
+	for _, never := range []string{"nodesource", "npm install", "pi-coding-agent"} {
+		if strings.Contains(joined, never) {
+			t.Errorf("node 22 must not reinstall and no CLI is installed here (ADR-0179):\n%s", joined)
+		}
 	}
 }
 
 func TestRunInstallRuntimeAdoptedAsks(t *testing.T) {
-	piRegistry(t, ">=22.19.0")
 	stub := &diskStub{}
 	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", false), "", "", false, strings.NewReader("n\n"))
 	if err == nil || !strings.Contains(err.Error(), "--yes") {
@@ -277,9 +265,8 @@ func TestRunInstallRuntimeAdoptedEOFRefuses(t *testing.T) {
 }
 
 func TestRunInstallRuntimeYesSkipsTheQuestion(t *testing.T) {
-	piRegistry(t, ">=22.19.0")
-	stub := &diskStub{replies: [][]byte{nil, nil, nil, nil, []byte(probeClean)}}
-	if err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux", "pi"}, "22", "ubuntu", false), "", "", true, nil); err != nil {
+	stub := &diskStub{replies: [][]byte{nil, nil, nil, []byte(probeClean)}}
+	if err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", false), "", "", true, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(stub.calls) == 0 {
@@ -287,20 +274,31 @@ func TestRunInstallRuntimeYesSkipsTheQuestion(t *testing.T) {
 	}
 }
 
-func TestRunInstallRuntimeUpgradesOldNode(t *testing.T) {
-	piRegistry(t, ">=22.19.0")
-	stub := &diskStub{replies: [][]byte{nil, nil, nil, nil, nil, []byte(probeClean)}}
-	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"pi"}, "18", "ubuntu", true), "", "", false, nil)
+func TestRunInstallRuntimeInstallsNodeAtTheCIMajor(t *testing.T) {
+	stub := &diskStub{replies: [][]byte{nil, nil, nil, []byte(probeClean)}}
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"node", "npm"}, "", "ubuntu", true), "", "", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if joined := strings.Join(callStrings(stub.calls), "\n"); !strings.Contains(joined, "node_22.x") {
-		t.Errorf("no nodejs 22 upgrade:\n%s", joined)
+		t.Errorf("no nodejs 22 install:\n%s", joined)
+	}
+}
+
+// A node already present, whatever its major, is left alone: PiCode does
+// not need it, and the CLIs the user installs later say what they need.
+func TestRunInstallRuntimeLeavesAnOldNodeAlone(t *testing.T) {
+	stub := &diskStub{replies: [][]byte{nil, nil, nil, []byte(probeClean)}}
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "18", "ubuntu", true), "", "", false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined := strings.Join(callStrings(stub.calls), "\n"); strings.Contains(joined, "nodesource") {
+		t.Errorf("node 18 was replaced:\n%s", joined)
 	}
 }
 
 func TestRunInstallRuntimeReportsLeftovers(t *testing.T) {
-	piRegistry(t, ">=22.19.0")
 	stillMissing := "@@tools@@\nmissing:tmux\nv22.1.0\n"
 	stub := &diskStub{replies: [][]byte{nil, nil, nil, []byte(stillMissing)}}
 	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", true), "", "", false, nil)
@@ -315,37 +313,6 @@ func callStrings(calls [][]string) []string {
 		out = append(out, strings.Join(c, " "))
 	}
 	return out
-}
-
-func TestRunInstallRuntimeUserModeInstallsPiAsTheUser(t *testing.T) {
-	piRegistry(t, ">=22.19.0")
-	stub := &diskStub{replies: [][]byte{[]byte("1000\n"), nil, nil, []byte(probeClean)}}
-	st := runtimeState([]string{"pi"}, "22", "ubuntu", true)
-	st.TargetUser = "cfpp"
-	if err := runInstallRuntime(&app{runner: stub}, st, "", "cfpp", false, nil); err != nil {
-		t.Fatal(err)
-	}
-	var sawUserPi, sawRootNpm bool
-	for _, c := range callStrings(stub.calls) {
-		if strings.Contains(c, "npm install -g") {
-			if strings.Contains(c, "-u cfpp") {
-				sawUserPi = true
-			}
-			if strings.Contains(c, "-u root") {
-				sawRootNpm = true
-			}
-		}
-	}
-	if !sawUserPi {
-		t.Errorf("no user-mode pi install:\n%s", strings.Join(callStrings(stub.calls), "\n"))
-	}
-	if sawRootNpm {
-		t.Errorf("pi installed as root despite --user:\n%s", strings.Join(callStrings(stub.calls), "\n"))
-	}
-	last := strings.Join(stub.calls[len(stub.calls)-1], " ")
-	if !strings.Contains(last, "-u cfpp") {
-		t.Errorf("verify probe did not run as the user: %q", last)
-	}
 }
 
 func TestRunInstallRuntimeUnknownUserStops(t *testing.T) {
@@ -371,5 +338,22 @@ func TestRunInstallPicodeUnknownUserStops(t *testing.T) {
 	}
 	if len(stub.calls) != 1 {
 		t.Errorf("%d calls, want only the account check", len(stub.calls))
+	}
+}
+
+// --user still names the account the probe runs as, but the runtime stage
+// installs no CLI for it any more (ADR-0179): every call is root's apt/node
+// work or the probe as the user, never an npm install as either.
+func TestRunInstallRuntimeUserModeInstallsNoCLI(t *testing.T) {
+	stub := &diskStub{replies: [][]byte{[]byte("1000\n"), nil, nil, nil, []byte(probeClean)}}
+	st := runtimeState([]string{"tmux"}, "22", "ubuntu", true)
+	st.TargetUser = "cfpp"
+	if err := runInstallRuntime(&app{runner: stub}, st, "", "cfpp", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range callStrings(stub.calls) {
+		if strings.Contains(c, "npm install") {
+			t.Fatalf("a CLI was installed by the runtime stage: %s", c)
+		}
 	}
 }

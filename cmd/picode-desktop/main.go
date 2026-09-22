@@ -44,7 +44,7 @@ func main() {
 
 	fs := flag.NewFlagSet("picode-desktop", flag.ExitOnError)
 	distro := fs.String("distro", "", "WSL distribution (default: the only WSL 2 one, else the default)")
-	user := fs.String("user", "", "Linux account to provision (default: the distro's own; with install: also owns the picode binary and, unless root, the pi install)")
+	user := fs.String("user", "", "Linux account to provision (default: the distro's own; with install: also owns the picode binary)")
 	// Kept parsing so a pre-migration logon task fails with the retired
 	// message below instead of an unknown-flag dump.
 	tray := fs.Bool("tray", false, "retired with the Go tray (ADR-0142)")

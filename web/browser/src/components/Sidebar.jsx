@@ -229,7 +229,7 @@ export default function Sidebar({
         </div>
         <div className="side-scroll">
         {sortedFreeAgents.length === 0 ? (
-          <p className="side-empty pins-empty">No free agents yet. <button type="button" className="side-empty-act" onClick={() => onNewFree()}>New agent</button></p>
+          <p className="side-empty pins-empty">No agents yet. <button type="button" className="side-empty-act" onClick={() => onNewFree()}>New agent</button></p>
         ) : (
           <SortableList ids={sortedFreeAgents.map((a) => a.id)} onReorder={(ids, activeId) => commitOrder("agents", FREE_WS, sortedFreeAgents.map((a) => a.id), ids, activeId, (id) => displayAgentName(sortedFreeAgents.find((a) => a.id === id), null))}>
             <ul className="ws-list">{sortedFreeAgents.map((ag) => agentRow(ag, null, sortedFreeAgents.map((a) => a.id), "agents", FREE_WS))}</ul>

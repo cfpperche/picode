@@ -73,7 +73,7 @@ sudo picode provision --user alice --shared --container
 ```
 
 Alice gets a root filesystem of her own (a minimal image of the box's
-release with `pi`, `tmux`, `git`), her home bound in, a private user
+release with `tmux`, `git`, Node.js and npm — she installs the agent CLIs she uses from Agent CLIs), her home bound in, a private user
 namespace, no capabilities to speak of, and limits (2 CPUs, 4 GB, 512
 tasks). She cannot see the host's `/etc`, other homes or the host's
 CLI settings. What she still shares: the kernel and the network stack.

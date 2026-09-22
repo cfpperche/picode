@@ -84,10 +84,9 @@ func rootfsStep() Step {
 					return fmt.Errorf("debootstrap: %w", err)
 				}
 			}
-			// pi inside the container; the account inside mirrors the host's.
-			if err := run("systemd-nspawn", "--quiet", "--directory="+root, "--", "npm", "install", "-g", "@earendil-works/pi-coding-agent"); err != nil {
-				return fmt.Errorf("pi in the container: %w", err)
-			}
+			// No agent CLI is installed here (ADR-0179): the member installs
+			// the ones they use from Agent CLIs, and node/npm are in the image
+			// for that. The account inside mirrors the host's.
 			u, err := lookupAccount(env.User)
 			if err != nil {
 				return err
