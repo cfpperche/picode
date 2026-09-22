@@ -457,3 +457,58 @@ func TestAdoptNamesTheLiveRowInsteadOfDuplicatingIt(t *testing.T) {
 		t.Fatalf("fresh adopt = %+v (%v)", fresh, err)
 	}
 }
+
+// Harvest: a vendor renewal (same refresh, newer access pair) flows into the
+// row it belongs to. A different refresh is a different login and the vault
+// never guesses; an access-only login (no refresh) is left alone.
+func TestHarvestRenewsTheMatchedRow(t *testing.T) {
+	s := New(t.TempDir())
+	if _, err := s.Import("anthropic",
+		json.RawMessage(`{"type":"oauth","access":"access-old","refresh":"refresh-stable","expires":1000}`),
+		"", "imported:claude-code", ""); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Harvest("anthropic",
+		json.RawMessage(`{"type":"oauth","access":"access-new","refresh":"refresh-stable","expires":2000}`)) {
+		t.Fatal("a renewal with the same refresh token was not harvested")
+	}
+	row, ok, err := s.Row("anthropic", "6e306c515177")
+	if err != nil || !ok {
+		t.Fatalf("row after harvest: ok=%v err=%v", ok, err)
+	}
+	var got struct {
+		Access  string `json:"access"`
+		Refresh string `json:"refresh"`
+		Expires int64  `json:"expires"`
+	}
+	if err := json.Unmarshal(row.Cred, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Access != "access-new" || got.Refresh != "refresh-stable" || got.Expires != 2000 {
+		t.Fatalf("renewed row = %v", got)
+	}
+
+	// A different refresh is a different login: never harvested, never
+	// guessed.
+	if s.Harvest("anthropic",
+		json.RawMessage(`{"type":"oauth","access":"access-stranger","refresh":"refresh-stranger","expires":3000}`)) {
+		t.Fatal("a stranger login must not overwrite a row")
+	}
+	// An access-only login (Muse) has nothing stable to match: no harvest.
+	if s.Harvest("anthropic", json.RawMessage(`{"type":"oauth","access":"access-muse","expires":4000}`)) {
+		t.Fatal("an access-only login must not be harvested")
+	}
+	row2, ok, _ := s.Row("anthropic", "6e306c515177")
+	if !ok {
+		t.Fatal("the harvested row vanished")
+	}
+	var saved struct {
+		Access string `json:"access"`
+	}
+	if err := json.Unmarshal(row2.Cred, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.Access != "access-new" {
+		t.Fatalf("stray writes during refused harvests: %q", saved.Access)
+	}
+}

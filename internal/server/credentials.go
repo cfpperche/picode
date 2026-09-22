@@ -146,7 +146,7 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			out["custom"] = map[string]any{"available": true, "href": "#/clis/pi/providers/custom"}
 		} else {
 			sources = declarationSources(spec)
-			out["add"] = map[string]any{"kind": "key", "label": "Add API key"}
+			out["add"] = map[string]any{"kind": "key", "label": "Add provider"}
 			// omp keeps provider definitions of its own in models.yml (the
 			// owner's amendment to ADR-0169): the same custom door pi has,
 			// with the definitions riding this roster as rows below.
@@ -245,12 +245,19 @@ func providerViews(spec clicreds.Spec, sources []rosterSource) []providerView {
 		if path := clicreds.CredentialPath(spec.CLI, s.ID); path != "" {
 			existing, _ = os.ReadFile(path)
 		}
-		rows := accountsFor(s.ID)
 		// The CLI's own store, read once: what it holds decides which row is
 		// in use and whether Use could write each row. "Detected" is the
 		// store having a login at all; "live" is that login already being one
 		// of the rows below.
 		login, detected := clicreds.DetectProvider(spec.CLI, s.ID)
+		if detected && login.Kind == "oauth" {
+			// The vendor may have renewed this login since the vault saw it:
+			// pull the renewal in before the rows are read, so the row and
+			// the file agree again (no write to the CLI's own file happens
+			// here — that is Use, ADR-0166).
+			credentials.Default().Harvest(s.ID, login.Cred)
+		}
+		rows := accountsFor(s.ID)
 		liveID := ""
 		if detected {
 			liveID = liveRowID(s.ID, rows, login)
