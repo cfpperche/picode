@@ -87,10 +87,13 @@ a stale approval can never ride along inside the row.
 
 The owner's doors are `POST /api/{workspaces|agents|terminals}/{id}/delivery/queue`
 (act as `store.OwnerActor`; the store refuses `order` and `authorize` for anyone
-else) and `GET|PUT /api/delivery/integration`, the **declaration** of how a
+else) and `GET|PUT|DELETE /api/delivery/integration`, the **declaration** of how a
 project integrates — `ffOnly` plus up to eight single-line commands, written per
 workspace with the machine as the fallback layer and a built-in default
-(`ffOnly`, no checks) when neither declares. The Delivery read carries both: its
+(`ffOnly`, no checks) when neither declares. A PUT with `expectedVersion`
+answers 409 when the layer moved since it was read; DELETE drops a
+*workspace's* layer (it must name one) so it inherits again; removing the
+workspace drops it too. The owner edits it in the workspace card's Settings…. The Delivery read carries both: its
 payload gains `queue` and the already-resolved `integration`, so a surface never
 has to repeat the fallback. The agent's half rides the delivery tool contract: `request-integration` asks for
 a place for the launch's **own** delivery, naming the revision and target the

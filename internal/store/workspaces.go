@@ -133,6 +133,45 @@ func (s *Store) GetWorkspace(id string) (Workspace, error) {
 	return w, nil
 }
 
+// RenameWorkspace changes the name the sidebar shows; the folder stays where
+// it is. The free workspace has no name to change.
+func (s *Store) RenameWorkspace(id, name string) (Workspace, error) {
+	name = stringsTrimSpace(name)
+	if name == "" {
+		return Workspace{}, fmt.Errorf("store: name is required")
+	}
+	if len(name) > 120 {
+		return Workspace{}, fmt.Errorf("store: name is too long")
+	}
+	if id == FreeWorkspaceID {
+		return Workspace{}, ErrNotFound
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return Workspace{}, err
+	}
+	defer s.rollback(tx)
+	res, err := tx.Exec(`UPDATE workspaces SET name = ? WHERE id = ?`, name, id)
+	if err != nil {
+		return Workspace{}, fmt.Errorf("store: rename workspace: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return Workspace{}, ErrNotFound
+	}
+	var w Workspace
+	if err := tx.QueryRow(`SELECT id, name, path, created_at FROM workspaces WHERE id = ?`, id).
+		Scan(&w.ID, &w.Name, &w.Path, &w.CreatedAt); err != nil {
+		return Workspace{}, err
+	}
+	if err := s.AppendEventTx(tx, "workspace.updated", nil, &w.ID, w); err != nil {
+		return Workspace{}, err
+	}
+	if err := s.commit(tx); err != nil {
+		return Workspace{}, err
+	}
+	return w, nil
+}
+
 // RemoveWorkspace deletes a workspace, (via cascade) its agents, tasks and
 // events, and its terminals with their settings overrides — the terminals
 // table has no FK (ADR-0026), so that cascade is spelled out here. The
@@ -149,6 +188,11 @@ func (s *Store) RemoveWorkspace(id string) (removed bool, err error) {
 	}
 	if _, err := tx.Exec(`DELETE FROM terminals WHERE workspace_id = ?`, id); err != nil {
 		return false, fmt.Errorf("store: remove workspace terminals: %w", err)
+	}
+	// Its integration declaration (ADR-0182) is keyed by the id with no FK;
+	// left behind it would outlive the workspace it describes.
+	if _, err := tx.Exec(`DELETE FROM delivery_integration WHERE scope = ?`, id); err != nil {
+		return false, fmt.Errorf("store: remove workspace integration: %w", err)
 	}
 	res, err := tx.Exec(`DELETE FROM workspaces WHERE id = ?`, id)
 	if err != nil {

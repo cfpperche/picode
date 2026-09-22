@@ -96,6 +96,11 @@ function applyFleetRaw(state, ev) {
       if (!d.id || workspaces.some((w) => w.id === d.id)) return state;
       return { ...state, workspaces: [...workspaces, { ...d, agents: [], managedClis: [] }] };
     }
+    case "workspace.updated": {
+      // A rename (the Settings dialog): the card's name, nothing else.
+      if (!d.id || !workspaces.some((w) => w.id === d.id)) return null;
+      return { ...state, workspaces: workspaces.map((w) => (w.id === d.id ? { ...w, name: d.name } : w)) };
+    }
     case "workspace.reordered": {
       const next = orderByIds(workspaces, d.ids);
       return next ? { ...state, workspaces: next } : null;

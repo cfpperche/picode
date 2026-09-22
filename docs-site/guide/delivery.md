@@ -49,6 +49,12 @@ integration. An agent can also ask for a place in the project’s integration qu
 nothing runs by itself yet: the queue’s own view and the executor are still to
 come, and deployment execution is not available.
 
+How a project lands work is set in **Settings…** on the workspace card's **…**
+menu, under **Landing work**: follow **this machine's** rules, or give the
+workspace its own — fast-forward only or any merge, and up to eight checks
+(one command per line, such as `make ci`) that must pass first. The rules are
+recorded for the queue; nothing runs them yet.
+
 ## Register and request review
 
 Run these commands in the agent's PiCode terminal. Replace the branch and title

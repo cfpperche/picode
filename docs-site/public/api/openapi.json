@@ -4891,6 +4891,30 @@
       }
     },
     "/api/delivery/integration": {
+      "delete": {
+        "operationId": "deleteApiDeliveryIntegration",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "delivery"
+        ]
+      },
       "get": {
         "operationId": "getApiDeliveryIntegration",
         "parameters": null,
@@ -10531,6 +10555,39 @@
     "/api/workspaces/{id}": {
       "delete": {
         "operationId": "deleteApiWorkspaces",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      },
+      "patch": {
+        "operationId": "patchApiWorkspaces",
         "parameters": [
           {
             "in": "path",

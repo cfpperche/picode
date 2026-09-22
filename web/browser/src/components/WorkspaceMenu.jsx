@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
 import { workspaceRowMenu, wantsPullRequest } from "@picode/shared/domain/workspaceRowMenu.js";
-import { IconChevronRight, IconCommunication, IconCopy, IconExternal, IconFolder, IconFolderOpen, IconGit, IconMoveDown, IconMoveUp, IconPullRequest, IconSession, IconX } from "./Icons.jsx";
+import { IconChevronRight, IconCommunication, IconCopy, IconExternal, IconFolder, IconFolderOpen, IconGit, IconMoveDown, IconMoveUp, IconPullRequest, IconSession, IconSettings, IconX } from "./Icons.jsx";
 import { RowMenu, RowMenuItem, RowMenuSep } from "./WorkspaceRows.jsx";
+import WorkspaceSettings from "./WorkspaceSettings.jsx";
 import { toast, toastError } from "../lib/toast.js";
 
 const ICONS = {
@@ -15,6 +16,7 @@ const ICONS = {
   remote: <IconExternal size={13} />,
   pr: <IconPullRequest size={13} />,
   "copy-path": <IconCopy size={13} />,
+  settings: <IconSettings size={13} />,
   "move-up": <IconMoveUp size={13} />,
   "move-down": <IconMoveDown size={13} />,
   remove: <IconX size={13} />,
@@ -48,6 +50,12 @@ async function copyText(value) {
 export default function WorkspaceMenu({ ws, hasAgents, onMoveUp, onMoveDown, onFileTree, onGitGraph, onSessions, onRemove }) {
   const branch = (ws.git && ws.git.branch) || "";
   const [pr, setPr] = useState({ branch: null, page: undefined });
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Set by the Settings item: the closing menu must not hand focus back to
+  // its trigger, or on the phone sheet (which never focuses a field) focus
+  // stays behind the sheet and Escape closes the drawer under it too.
+  const toSettings = useRef(false);
+  const triggerRef = useRef(null);
 
   function onOpenChange(open) {
     if (!open || !wantsPullRequest(ws)) return;
@@ -79,6 +87,7 @@ export default function WorkspaceMenu({ ws, hasAgents, onMoveUp, onMoveDown, onF
       case "sessions": onSessions && onSessions(ws.id); break;
       case "reveal": void reveal(); break;
       case "copy-path": void copy(r.value, "Path"); break;
+      case "settings": toSettings.current = true; setSettingsOpen(true); break;
       case "move-up": onMoveUp && onMoveUp(); break;
       case "move-down": onMoveDown && onMoveDown(); break;
       case "remove": onRemove(ws); break;
@@ -94,7 +103,8 @@ export default function WorkspaceMenu({ ws, hasAgents, onMoveUp, onMoveDown, onF
   });
 
   return (
-    <RowMenu label={ws.name} onOpenChange={onOpenChange}>
+    <>
+    <RowMenu label={ws.name} triggerRef={triggerRef} onOpenChange={onOpenChange} onCloseAutoFocus={(e) => { if (toSettings.current) { e.preventDefault(); toSettings.current = false; } }}>
       {rows.map((r, i) => {
         if (r.sep) return <RowMenuSep key={"sep" + i} />;
         if (r.sub) return (
@@ -126,5 +136,7 @@ export default function WorkspaceMenu({ ws, hasAgents, onMoveUp, onMoveDown, onF
         );
       })}
     </RowMenu>
+    <WorkspaceSettings ws={ws} open={settingsOpen} onClose={() => setSettingsOpen(false)} returnFocus={() => triggerRef.current?.focus()} />
+    </>
   );
 }

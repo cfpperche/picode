@@ -51,6 +51,7 @@ func registerDeliveryQueueRoutes(mux Registrar, deps Deps) {
 	}
 	mux.HandleFunc("GET /api/delivery/integration", handleGetIntegrationSettings(deps))
 	mux.HandleFunc("PUT /api/delivery/integration", handlePutIntegrationSettings(deps))
+	mux.HandleFunc("DELETE /api/delivery/integration", handleDeleteIntegrationSettings(deps))
 }
 
 // deliveryQueueRead is the Delivery read with the queue layered on (ADR-0182):
@@ -169,10 +170,36 @@ func handlePutIntegrationSettings(deps Deps) http.HandlerFunc {
 			return
 		}
 		settings, err := deps.Store.PutIntegrationSettings(scope, m)
+		if errors.Is(err, store.ErrIntegrationConflict) {
+			writeErr(w, 409, "These settings changed since you opened them. Reopen to see the current ones.")
+			return
+		}
 		if err != nil {
 			writeErr(w, 500, err.Error())
 			return
 		}
 		writeJSON(w, 200, map[string]any{"schemaVersion": 1, "settings": settings})
+	}
+}
+
+// handleDeleteIntegrationSettings drops a workspace's own declaration so it
+// inherits the machine's again. It names a workspace: the machine layer is
+// written, never deleted through here, so no request can wipe the fallback.
+func handleDeleteIntegrationSettings(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		scope := r.URL.Query().Get("workspace")
+		if scope == "" {
+			writeErr(w, 400, "name the workspace whose declaration to drop")
+			return
+		}
+		if _, err := deps.Store.GetWorkspace(scope); err != nil {
+			writeErr(w, 404, "workspace not found")
+			return
+		}
+		if err := deps.Store.DeleteIntegrationSettings(scope); err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

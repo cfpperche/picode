@@ -5380,6 +5380,58 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   .gg-file-chev { transition: none; }
 }
 
+/* Workspace settings — the card menu's Settings… The integration part is one
+   choice (follow the machine / this workspace only) rather than layers; the
+   segment mirrors .termset-seg so the two settings dialogs read alike. */
+.dlg-wsset { width: min(500px, calc(100vw - 32px)); max-height: min(84vh, 760px); overflow: auto; }
+.wsset-path { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.wsset-fields { border: 0; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
+.wsset-field { display: flex; flex-direction: column; gap: 6px; }
+.wsset-field .dlg-input { margin-top: 0; }
+.wsset-label { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.wsset-sublabel { font-size: 12px; color: var(--text-secondary); }
+.wsset-help { margin: 3px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+.wsset-effect { margin: 9px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+.wsset-muted { color: var(--text-secondary); }
+.wsset-state { margin: 10px 0 0; font-size: 12px; color: var(--danger); display: flex; align-items: center; gap: 8px; }
+.wsset-skel { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.wsset-seg {
+  display: flex; width: fit-content; max-width: 100%; margin-top: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl); overflow: hidden;
+}
+.wsset-seg-opt { display: flex; position: relative; }
+.wsset-seg-opt input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.wsset-seg-face {
+  display: inline-flex; align-items: center; height: var(--ctl-h);
+  padding: 0 14px; box-sizing: border-box; border-right: 1px solid var(--border);
+  background: var(--bg-base); color: var(--text-secondary);
+  font-size: 12px; white-space: nowrap; cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+.wsset-seg-opt:last-child .wsset-seg-face { border-right: 0; }
+.wsset-seg-opt:hover .wsset-seg-face { background: var(--bg-hover); color: var(--text-primary); }
+.wsset-seg-opt input:checked + .wsset-seg-face { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.wsset-seg-opt input:focus-visible + .wsset-seg-face { outline: 2px solid var(--accent); outline-offset: -2px; }
+.wsset-own { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.wsset-choice input { accent-color: var(--accent); }
+.wsset-checks { display: flex; flex-direction: column; gap: 6px; }
+.wsset-empty { margin: 0; font-size: 12px; color: var(--text-secondary); }
+.wsset-check-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.wsset-check { display: flex; align-items: center; gap: 6px; }
+.wsset-check-input { margin-top: 0; flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; }
+.wsset-check-remove { width: var(--ctl-h); height: var(--ctl-h); }
+.wsset-add { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.wsset-error { margin: 10px 0 0; }
+.wsset-field .form-error { margin: 0; }
+.wsset-field .dlg-input[aria-invalid="true"] { border-color: var(--danger); }
+/* Anchored from the top on desktop: the section grows as checks are added,
+   and a centred dialog would slide its title up with every row. */
+@media (min-width: 720px) {
+  .dlg.dlg-wsset { top: 12vh; transform: translate(-50%, 0); }
+}
+.wsset-link-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-top: 14px; border-top: 1px solid var(--border); }
+
 /* Terminal settings — behaviour that belongs to the terminal, global or for
    one of them (ADR-0024). Separate from Preferences → Terminal, which is
    appearance and belongs to the browser. */

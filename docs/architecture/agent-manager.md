@@ -135,7 +135,15 @@ HTTP API (Go 1.22 method patterns):
   PiCode (Communication, Files, Git graph, Sessions), out of it (Show in
   Explorer / file manager through `POST /api/workspaces/{id}/reveal`, Open
   on <host>, the branch's pull request, Copy path — Linux and Windows under
-  WSL), order moves, then Remove. The pull-request row asks
+  WSL), Settings…, order moves, then Remove. Settings… is
+  `components/WorkspaceSettings.jsx`: the name (`PATCH /api/workspaces/{id}`
+  → `store.RenameWorkspace`, event `workspace.updated`, patched in place by
+  `applyFleet`) and the integration declaration (ADR-0182) as one choice —
+  follow the machine, or this workspace's own. Save follows the decision
+  table in `@picode/shared/domain/workspaceSettings.js`: back to the machine
+  is `DELETE /api/delivery/integration?workspace=` (the machine layer is never
+  deleted there), a change is a PUT carrying `expectedVersion`, and a stale
+  one answers 409. Removing a workspace drops its declaration. The pull-request row asks
   `GET /api/workspaces/{id}/pr` (gh, cached a minute) only when the menu
   opens on a GitHub branch other than the default; with no PR or no gh it
   links the host's new-request page, and never offers one for the default

@@ -175,3 +175,40 @@ func TestDeliveryIntegrationDeclaration(t *testing.T) {
 		t.Fatalf("unknown workspace = %d", code)
 	}
 }
+
+// The Settings dialog's doors: a stale save conflicts, "use the machine's"
+// drops the workspace layer, and the machine layer cannot be deleted here.
+func TestIntegrationDeclarationConflictAndInherit(t *testing.T) {
+	ts, st := newInboxServer(t)
+	ws, err := st.AddWorkspace("w", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := "/api/delivery/integration?workspace=" + ws.ID
+	if code, out := queueRequest(t, ts, "PUT", q, `{"ffOnly":true,"checks":["make ci"]}`); code != 200 {
+		t.Fatalf("first save = %d %v", code, out)
+	}
+	if code, _ := queueRequest(t, ts, "PUT", q, `{"ffOnly":false,"expectedVersion":1}`); code != 200 {
+		t.Fatalf("save at the read version = %d", code)
+	}
+	if code, _ := queueRequest(t, ts, "PUT", q, `{"ffOnly":true,"expectedVersion":1}`); code != 409 {
+		t.Fatalf("stale save = %d, want 409", code)
+	}
+	if code, _ := queueRequest(t, ts, "DELETE", q, ""); code != 204 {
+		t.Fatalf("inherit = %d, want 204", code)
+	}
+	if _, out := queueRequest(t, ts, "GET", q, ""); out["declared"] != false {
+		t.Fatalf("after inherit = %v", out)
+	}
+	for _, c := range []struct {
+		path string
+		code int
+	}{
+		{"/api/delivery/integration", 400},
+		{"/api/delivery/integration?workspace=nope", 404},
+	} {
+		if code, _ := queueRequest(t, ts, "DELETE", c.path, ""); code != c.code {
+			t.Errorf("DELETE %s = %d, want %d", c.path, code, c.code)
+		}
+	}
+}
