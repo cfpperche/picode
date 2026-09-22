@@ -83,7 +83,7 @@ func (e *Engine) Restore(dest, id string, currentSchema int) error {
 			}
 		}
 	}
-	return nil
+	return restoreCLIs(snap.Path)
 }
 
 // swapTree restores one directory without ever destroying the live one

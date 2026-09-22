@@ -41,3 +41,21 @@ PiCode writes **inspectable snapshot directories** under
 - **Copy `picode.db` while open**: rejected — WAL makes a mute backup.
 - **Syncthing the live `~/.picode`**: rejected — syncs a mid-write WAL.
 - **restic in V1**: rejected — extra binary and UX; right for remote V2.
+
+## Amendment 2026-09-22 — every agent CLI's files (ADR-0179)
+
+A snapshot now carries the other agent CLIs' own files under `clis/<cli>/`,
+with the same three switches as Pi: each CLI's machine settings file always,
+its declared login file only with secrets (0600), and its file-based session
+directory only with sessions (Claude Code, Codex, Grok, Omp, Muse Code).
+Paths come from each CLI's declarations (`clisettings.UserFiles`,
+`clicreds.CredentialFiles`, `clisession.FileSessionRoots`), never from a
+hard-coded list here. Session stores kept in SQLite (OpenCode, Hermes Agent,
+Antigravity) are not copied: a file copy of a live database is the mute
+backup this ADR rejected for `picode.db`. Restore puts each part back under
+`$HOME` with the same swap helpers as Pi's. Cost stated: the first snapshot
+with sessions on can be gigabytes (measured on the owner's machine: ~4.6 GB
+for Claude Code, Codex and Grok); later ones hard-link unchanged files.
+Security stated: with secrets on, a snapshot now holds other vendors' tokens
+in the clear (as it already held Pi's `auth.json`); the vault's key still
+stays behind.

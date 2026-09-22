@@ -186,3 +186,23 @@ func codexIDFromName(path string) string {
 func codexInjected(text string) bool {
 	return strings.HasPrefix(text, "# ") || strings.HasPrefix(text, "<")
 }
+
+// FileSessionRoots names the session directories of the CLIs that keep their
+// conversations as plain files, keyed by CLI id — what a backup can copy
+// safely while the CLI runs. Stores kept in SQLite (OpenCode, Hermes Agent,
+// Antigravity) are left out: a file copy of a live database is not a backup.
+func FileSessionRoots() map[string]string {
+	out := map[string]string{}
+	for cli, root := range map[string]string{
+		"claude-code": ClaudeProjectsRoot(),
+		"codex":       CodexSessionsRoot(),
+		"grok":        GrokSessionsRoot(),
+		"omp":         OmpSessionsRoot(),
+		"muse":        MuseSessionsRoot(),
+	} {
+		if root != "" {
+			out[cli] = root
+		}
+	}
+	return out
+}
