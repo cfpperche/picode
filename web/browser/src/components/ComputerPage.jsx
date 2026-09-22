@@ -214,8 +214,8 @@ export default function ComputerPage({ hidden, onCreateAgent }) {
               shownGrants.map((row) => (
                 <Item
                   key={keyOf(row)}
-                  title={<><span>{row.name}</span> <WsTag id={row.workspaceId} name={row.workspaceId ? (wsNames[row.workspaceId] || null) : null} /> <span className="devs-tag devs-tag-off">{row.kind === "terminal" ? "terminal" : "managed"}</span></>}
-                  desc={row.kind === "terminal" ? "A CLI running in a PiCode terminal" : "Managed agent"}
+                  title={<><span>{row.name}</span> <WsTag id={row.workspaceId} name={row.workspaceId ? (wsNames[row.workspaceId] || null) : null} /> <span className="devs-tag devs-tag-off">managed</span></>}
+                  desc="Managed agent"
                 >
                   <SwitchCtl
                     checked={row.enabled}

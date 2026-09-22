@@ -864,7 +864,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
         <section className="set-group">
           <h2 className="set-grouph">Agent permissions</h2>
-          <p className="set-groupdesc">Which agents and terminals may drive the built-in browser, and on what terms.</p>
+          <p className="set-groupdesc">Which agents may drive the built-in browser, and on what terms.</p>
           {rows !== null && rows.length > 0 ? (
             <div className="set-toolbar" role="search">
               <input
@@ -1473,7 +1473,7 @@ function GrantRow({ row, onRaw, flash, wsName }) {
           {row.name}
           {row.saved ? <span className="devs-tag">custom</span> : <span className="devs-tag devs-tag-off">default</span>}
           <WsTag id={row.workspaceId} name={wsName} />
-          <span className="devs-tag devs-tag-off">{row.kind === "terminal" ? "terminal" : "managed"}</span>
+          <span className="devs-tag devs-tag-off">managed</span>
         </span>
         <span className="set-item-d">Drives the browser beside its session. Raw protocol is separate, and needs Developer mode.</span>
       </div>
