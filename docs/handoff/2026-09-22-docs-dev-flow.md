@@ -9,9 +9,4 @@ Adversarial review (independent subagent): PASS; three defects fixed — `make l
 the code-and-docs row overstated ci-scoped/close (the close-summary flags and pre-commit hook enforce it), and a raw-HTML h3 skipped a heading level.
 visual-review: PASS — dark 1440, light 1440, dark 360 read from `var/screenshots/devflow-*.webp` (not committed): no horizontal overflow at 360px,
 nothing clipped, arrows `aria-hidden`, AA contrast in both themes. Blind spot: Chromium at three widths only, never Firefox or Safari.
-Not done / debts: the six phase headings are raw HTML — see Debts.
-Merge: one commit `docs: add the development flow page`; merge `main`, rerun `make close`, fast-forward from the root.
-
-## Debts
-
-- `docs-site/guide/dev-flow.md`: the six phase headings are raw HTML, so VitePress's "On this page" outline and heading anchors omit them — owner `docs/handoff/open/docs-site.md` (not written yet).
+Merge: one commit `docs: add the development flow page`; merged and green on `main` (42e04f08); outline debt moved to `docs/handoff/open/docs-audit.md`.
