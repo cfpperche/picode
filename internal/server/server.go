@@ -256,7 +256,6 @@ func registerAll(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/health", handleHealth)
 	mux.HandleFunc("GET /api/version", handleVersion)
 	mux.HandleFunc("GET /api/system", handleSystem(deps))
-	mux.HandleFunc("POST /api/system/pi-update", handlePiSelfUpdate(deps))
 	mux.HandleFunc("GET /api/catalog", handleCatalog(deps))
 	mux.HandleFunc("GET /api/share", handleShare(deps))
 	registerMCPRoutes(mux, deps)

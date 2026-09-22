@@ -17,6 +17,9 @@ import (
 
 const npmRegistry = "https://registry.npmjs.org"
 
+// PiPackage is the npm package behind the `pi` command.
+const PiPackage = "@earendil-works/pi-coding-agent"
+
 var registryHTTP = &http.Client{Timeout: 8 * time.Second}
 
 // Available is one installed package that is behind.
