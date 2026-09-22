@@ -39,10 +39,13 @@ const PROVIDER_NAMES = Object.freeze({
   fireworks: "Fireworks AI",
 });
 
-export function providerName(id) {
+// name is the CLI's own name for a provider its catalog lists (Omp's roster
+// carries one per row): it answers where the vocabulary is silent, before the
+// bare id.
+export function providerName(id, name) {
   const key = String(id || "").trim();
   if (!key) return "";
-  return PROVIDER_NAMES[key] || PROVIDER_NAMES[key.toLowerCase()] || key;
+  return PROVIDER_NAMES[key] || PROVIDER_NAMES[key.toLowerCase()] || String(name || "").trim() || key;
 }
 
 // The two shapes a vault row can hold, in the words the plan settled on: an

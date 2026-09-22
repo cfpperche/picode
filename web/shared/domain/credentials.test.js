@@ -24,6 +24,10 @@ test("every vault provider the guest CLIs declare has a name a person reads", ()
   for (const [id, name] of Object.entries(names)) assert.equal(providerName(id), name, id);
   // An id we have no name for stays itself, and an empty id names nothing.
   assert.equal(providerName("some-new-gateway"), "some-new-gateway");
+  // The CLI's own name answers where the vocabulary is silent, never over it.
+  assert.equal(providerName("sakana", "Sakana AI"), "Sakana AI");
+  assert.equal(providerName("anthropic", "Anthropic (Claude Pro/Max)"), "Anthropic");
+  assert.equal(providerName("some-new-gateway", "  "), "some-new-gateway");
   assert.equal(providerName(""), "");
   assert.equal(providerName(null), "");
 });

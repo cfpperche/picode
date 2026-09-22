@@ -48,7 +48,10 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 
 // providerView is one provider the CLI can use, with the vault rows it holds.
 type providerView struct {
-	ID    string            `json:"id"`
+	ID string `json:"id"`
+	// Name is the CLI's own name for a provider its catalog lists and the
+	// pane's vocabulary may not know (Omp's rules.json); empty otherwise.
+	Name  string            `json:"name,omitempty"`
 	Kinds []string          `json:"kinds"`
 	Env   map[string]string `json:"env,omitempty"`
 	Note  string            `json:"note,omitempty"`
@@ -107,6 +110,7 @@ type nativeView struct {
 // definitions) or a guest CLI's clicreds declaration.
 type rosterSource struct {
 	ID          string
+	Name        string
 	Kinds       []string
 	Env         map[string]string
 	Note        string
@@ -203,7 +207,7 @@ func declarationSources(spec clicreds.Spec) []rosterSource {
 	out := make([]rosterSource, 0, len(spec.Providers))
 	for _, p := range spec.Providers {
 		s := rosterSource{
-			ID: p.Provider, Kinds: p.Kinds, Env: p.Env, Note: p.Note, Native: p.Native,
+			ID: p.Provider, Name: p.Name, Kinds: p.Kinds, Env: p.Env, Note: p.Note, Native: p.Native,
 			SingleOAuth: p.Native != nil && !clicreds.IdentityBearing(p.Native.Format),
 		}
 		if probeFor(p.Provider) != nil {
@@ -279,7 +283,7 @@ func providerViews(spec clicreds.Spec, sources []rosterSource) []providerView {
 			views = append(views, view)
 		}
 		view := providerView{
-			ID: s.ID, Kinds: s.Kinds, Env: s.Env, Note: s.Note, Custom: s.Custom,
+			ID: s.ID, Name: s.Name, Kinds: s.Kinds, Env: s.Env, Note: s.Note, Custom: s.Custom,
 			Verify: s.Verify, Accounts: views, SingleOAuth: s.SingleOAuth,
 		}
 		if s.Native != nil && detected {
