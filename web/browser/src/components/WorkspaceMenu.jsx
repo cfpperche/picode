@@ -2,12 +2,12 @@ import { useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
 import { workspaceRowMenu, wantsPullRequest } from "@picode/shared/domain/workspaceRowMenu.js";
-import { IconChevronRight, IconCopy, IconExternal, IconFolder, IconFolderOpen, IconGit, IconMoveDown, IconMoveUp, IconPullRequest, IconSession, IconX } from "./Icons.jsx";
+import { IconChevronRight, IconCommunication, IconCopy, IconExternal, IconFolder, IconFolderOpen, IconGit, IconMoveDown, IconMoveUp, IconPullRequest, IconSession, IconX } from "./Icons.jsx";
 import { RowMenu, RowMenuItem, RowMenuSep } from "./WorkspaceRows.jsx";
 import { toast, toastError } from "../lib/toast.js";
 
 const ICONS = {
-  communication: <IconSession size={13} />,
+  communication: <IconCommunication size={13} />,
   files: <IconFolder size={13} />,
   "git-graph": <IconGit size={13} />,
   sessions: <IconSession size={13} />,
