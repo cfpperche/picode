@@ -30,8 +30,9 @@ func (piDriver) Scopes() []ScopeRow {
 // pipkg, carries the config descriptors (ADR-0119), keeps PiCode's npm gallery
 // as its catalog — whose rows do name the spec an install takes — and has the
 // agent row's "only this agent's packages" switch. Its mutations are direct
-// calls that answer the new list, so Async is false and a pane shows the
-// transcript PiCode ran instead of the lane's job.
+// calls that answer the new list, so every field of `Caps.Lane` is false — no
+// mutation of Pi's is reserved as a job — and a pane shows the transcript
+// PiCode ran instead of the lane's job.
 func (piDriver) Caps() Caps {
 	return Caps{List: true, Available: true, Install: true, Remove: true, Update: true, Config: true, CatalogInstall: true, IsolatedSwitch: true}
 }

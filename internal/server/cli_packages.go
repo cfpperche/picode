@@ -335,10 +335,11 @@ func handleCLIPackageJob(deps Deps, action string) http.HandlerFunc {
 		}
 		if cmd.Exe == "" {
 			// A command with no argv is a mutation the driver performs itself —
-			// a CLI whose removal is a write of its own file (Omp's workspace
-			// `extensions` entry) has nothing to hand the lane, and the write
-			// has already happened. The answer is the CLI's fresh list, the way
-			// a synchronous mutation always answers (ADR-0048).
+			// OpenCode's removal, which is a splice of its own opencode.json,
+			// and Omp's workspace `extensions` entry — so there is nothing to
+			// hand the lane and the write has already happened. The answer is
+			// the CLI's fresh list, the way a synchronous mutation always
+			// answers (ADR-0048).
 			publishPackageChange(deps, v.CLI, action)
 			read := guestQuery(v.Scope, paths.Cwd)
 			read.Fresh = true

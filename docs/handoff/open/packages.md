@@ -127,17 +127,41 @@
   `TestGuestToggleOmpExtensionWritesTheCLIsOwnList` and
   `TestCLIPackagesOmpExtensionToggle`.
 
-- [ ] **OpenCode's removal is unreachable from the pane.** Its declaration says
-  `Remove: true`, because OpenCode's plugin list is its own config array and
-  `clipkgs.Run` writes it in process — but every removal goes to the durable job
-  lane, which runs an argv, and OpenCode's removal has none. So
-  `POST /api/cli-packages/remove` answers 400 *"this CLI does not expose that
-  operation: opencode remove"* while the pane draws the button (`Caps.Remove`
-  is true), and no route removes an OpenCode plugin. Measured 2026-09-21
-  (`feat/packages-mut`, slice 2b: the driver answers the lane's verbs with the
-  engine's own refusal, byte-identical to the handlers it replaced). Closes when
-  a mutation can be an in-process write on the lane, or OpenCode's removal moves
-  to the synchronous path its toggle already uses.
+- [x] **OpenCode's removal is unreachable from the pane.** Paid 2026-09-22
+  (`feat/packages-opencode`): the transport declaration became one fact per verb
+  (`Caps.Lane Transport` in `internal/pkgs/pkgs.go`) instead of the single
+  `Async` bool, which could only have described one half of a mixed CLI. A verb
+  the CLI reaches with its own command is the lane's (`clipkgs.Commands`); a
+  verb whose only path is PiCode's edit of the CLI's config file is a write, and
+  the driver performs it (`clipkgs.Writes`, asked of the engine before the
+  vendor's verbs). OpenCode declares `lane {install:true, remove:false,
+  update:false, marketplace:false}`: its install is `opencode plugin <module>`,
+  its removal the splice of its own `opencode.json` that `opencode.go` already
+  wrote (comments and every other byte survive, the result re-parsed and
+  compared, the atomic write keeping the file's own mode). The driver performs
+  that write in process and answers the empty line it ran, so
+  `POST /api/cli-packages/remove` answers the CLI's fresh list with 200 where it
+  answered 400 *"this CLI does not expose that operation: opencode remove"*
+  while `Caps.Remove` was true; a module the CLI's own configs do not name is
+  still refused by name (`ErrStale`, 409) with nothing written. The pane reads
+  the per-verb declaration (`laneMutation(caps, "remove")`,
+  `web/shared/domain/cliPackages.js`) and takes the flow Pi's direct mutations
+  take — the transcript while the write runs, then the CLI's fresh list read
+  back — so the state a removal draws is a transcript where the 400 was drawn as
+  a row error. Measured 2026-09-22 on the branch: `GET
+  /api/packages/report?cli=opencode&vendor=user` answers that `lane` object;
+  removing `opencode-wakatime` from a two-module config left
+  `{"plugin": ["opencode-notify"], "model": …, // the module list}` intact and
+  answered the one-row fresh list; and a scratch instance drew the removal
+  transcript (card read). Tests: `TestOpenCodeRemoveThroughTheEngine` (three
+  cases; the expected file is built from the original's bytes around the removed
+  element), `TestOpenCodeRemoveThroughTheEngineRefusesAModuleNoConfigNames`,
+  `TestTheTransportDeclarationIsPerVerb`,
+  `TestGuestRemoveOpenCodeWritesTheFileItReads`,
+  `TestCLIPackagesOpenCodeRemoveIsPiCodeOwnWrite`; re-tabled rows:
+  `TestGuestMutationRefusalsKeepTheEnginesWords` (the OpenCode removal row) and
+  the `directMutation` rows in `cliPackages.test.js`, plus the new
+  `the transport declaration is read one verb at a time`.
 
 - [ ] **The `/api/cli-packages*` family is an alias for one release
   (ADR-0176).** The guest routes answer from `pkgs.DriverFor(cli)` and are

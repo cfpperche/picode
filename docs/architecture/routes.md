@@ -285,10 +285,12 @@ release: the same engine mapped back to the bytes the guest
 pane has always parsed, with its old refusals by name (`cli=pi`,
 `scope=agent`). A guest's install, removal, update and marketplace fetch reserve
 a durable job in the ADR-0087 lane (202 + job row, idempotent by request key,
-refused while that CLI's terminals are running); its toggle, inspect and
+refused while that CLI's terminals are running) wherever its driver's `Caps.Lane`
+declares that verb; its toggle, inspect and
 marketplace removal answer directly; and a mutation the CLI exposes only as a
 write of its own config file (OpenCode's removal, Omp's workspace `extensions`
-entry) runs in process and answers the fresh list. The agent layer is PiCode's
+entry) has no argv to reserve, so it runs in process and answers the fresh list —
+the declaration is one fact per verb for exactly that reason. The agent layer is PiCode's
 store (`agents.packages`, `packagesIsolated`), reached through the report's
 `agent`/`vendor` parameters and applied at the CLI's next launch.
 

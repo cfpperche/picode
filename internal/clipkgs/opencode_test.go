@@ -240,6 +240,92 @@ func TestOpenCodeRemoveRefusesAModuleNoFileNames(t *testing.T) {
 	}
 }
 
+// TestOpenCodeRemoveThroughTheEngine: the removal the driver performs is `Run`
+// with this writer, and it answers no line at all — there is no command to hand
+// a lane or a person. Each case's expected file is built from the original's own
+// bytes around the element that left, so the comparison is the whole file minus
+// that element and its separator: a config PiCode did not author comes back with
+// one module fewer and nothing else touched.
+func TestOpenCodeRemoveThroughTheEngine(t *testing.T) {
+	cases := []struct {
+		name   string
+		body   string
+		module string
+		leaves string // the element and the separator its position needs
+	}{
+		{
+			"a middle element takes its comma",
+			"{\n  // the module list\n  \"plugin\": [\"a\", \"b\", \"c\"],\n  \"model\": \"x\"\n}\n",
+			"b", `"b", `,
+		},
+		{
+			"a last element takes the comma before it",
+			"{\"plugin\": [\"a\", \"b\"]}", "b", `, "b"`,
+		},
+		{
+			"the only element leaves an empty list",
+			"{\"plugin\": [\"a\"], \"model\": \"x\"}", "a", `"a"`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("XDG_CONFIG_HOME", dir)
+			cfg := filepath.Join(dir, "opencode")
+			if err := os.MkdirAll(cfg, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			file := filepath.Join(cfg, "opencode.json")
+			if err := os.WriteFile(file, []byte(tc.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			line, err := Run(context.Background(), "opencode", VerbRemove, Paths{}, Target{Name: tc.module, Scope: "user"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if line != "" {
+				t.Fatalf("a write has no line to run: %q", line)
+			}
+			at := strings.Index(tc.body, tc.leaves)
+			if at < 0 {
+				t.Fatalf("%q does not hold %q", tc.body, tc.leaves)
+			}
+			want := tc.body[:at] + tc.body[at+len(tc.leaves):]
+			got, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != want {
+				t.Fatalf("file = %q, want the original with only the removed element gone: %q", got, want)
+			}
+		})
+	}
+}
+
+// A module the CLI's own config does not name is refused by name, and a refused
+// removal writes nothing: the pane shows which module and what the file says,
+// never a silent success.
+func TestOpenCodeRemoveThroughTheEngineRefusesAModuleNoConfigNames(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	cfg := filepath.Join(dir, "opencode")
+	if err := os.MkdirAll(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(cfg, "opencode.json")
+	body := `{"plugin": ["a"]}`
+	if err := os.WriteFile(file, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Run(context.Background(), "opencode", VerbRemove, Paths{}, Target{Name: "zzz", Scope: "user"})
+	if !errors.Is(err, ErrStale) || !strings.Contains(err.Error(), "zzz") {
+		t.Fatalf("err = %v, want ErrStale naming the module", err)
+	}
+	if got, err := os.ReadFile(file); err != nil || string(got) != body {
+		t.Fatalf("a refused removal wrote the file: %q (%v)", got, err)
+	}
+}
+
 // TestPackageNameAndVersion pins the spec parsing the pane's columns depend on.
 func TestPackageNameAndVersion(t *testing.T) {
 	cases := []struct{ spec, name, version string }{
