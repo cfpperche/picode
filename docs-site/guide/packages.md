@@ -5,8 +5,10 @@ description: Extras for Pi and for the other agent CLIs, installed by each CLI's
 # Packages
 
 Extras for Pi (search, tools, themes) and, on each of the other agent CLIs'
-pages, that CLI's own plugins. They run with **full access** — only install
-what you review.
+pages, that CLI's own plugins. One pane serves every CLI: it asks the CLI's own
+engine what that CLI can do and draws only that, so a control appears where the
+CLI has the command behind it and one sentence takes its place where it does
+not. Packages run with **full access** — only install what you review.
 
 - **Where:** select an agent, then **Agent CLIs → Packages**, or **Packages** on that agent's ⋯ menu.
 - **Not this:** not MCP servers (that is [Connectors](/guide/mcp) after the adapter) and not API keys ([Providers](/guide/providers)).
@@ -23,11 +25,16 @@ an agent selected, only **Global** is offered.
 | This workspace | Every agent in this folder | `pi install -l` |
 | This agent | Only that agent, every session | PiCode remembers it and starts pi with `-e` |
 
-This agent is PiCode-only. pi has no per-agent install. Restart the agent after adding or removing.
+This agent is PiCode-only. pi has no per-agent install. PiCode keeps those
+entries and passes them to the CLI at its next start; the scope is offered for
+Pi and for Omp, whose own launch can carry them. Restart the agent after adding
+or removing.
 
 If a package on this machine or in this folder is behind, that row shows **Update**. The desktop sidebar's Agent CLIs icon marks when any are. Nothing updates until you click. Git and pinned versions stay as they are.
 
-**Only this agent's packages** (checkbox): skip machine and folder packages. The agent starts with its own list, or none. Also skips skills/themes discovered from those places. Restart to apply.
+**Only this agent's packages** (checkbox; Pi and Omp): skip machine and
+folder packages. The agent starts with its own list, or none. Also skips
+skills/themes discovered from those places. Restart to apply.
 
 | | pi TUI | PiCode |
 |---|---|---|
@@ -79,11 +86,11 @@ one the agent touched last. Guide: [Diff panel for pi](/guide/diff-panel).
 ## Other agent CLIs
 
 On Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity
-and Omp, **Packages** manages that CLI's own plugins. PiCode does not keep a
-list of its own: it asks the CLI, and the CLI's answer is what you see. So
-the pane only ever offers what that CLI can do — where a CLI has no way to
-turn a plugin off, or no plugin marketplace at all, the pane says so in one
-line instead of showing a control that would do nothing.
+and Omp, **Packages** manages that CLI's own plugins. PiCode keeps no list of
+its own beyond the per-agent layer above: it asks the CLI, and the CLI's answer
+is what you see. So the pane only ever offers what that CLI can do — where a
+CLI has no way to turn a plugin off, or no plugin marketplace at all, the pane
+says so in one line instead of showing a control that would do nothing.
 
 | CLI | Installed list | Install / Remove | Turn on / off | Marketplace |
 |---|---|---|---|---|
@@ -91,14 +98,27 @@ line instead of showing a control that would do nothing.
 | Codex | yes | yes | no — install or remove are its only plugin commands | yes |
 | Grok | yes | yes | yes | yes |
 | Hermes Agent | yes | yes | yes | its curated catalog |
-| OpenCode | yes | yes | remove to turn off | none — plugins are npm modules named in `opencode.json` |
+| OpenCode | yes | yes | off removes the module from your config | none — plugins are npm modules named in `opencode.json` |
 | Muse Code | yes | yes | yes | yes |
 | Antigravity | yes, read from its own text output | yes | yes | linked from its own command |
 | Omp | yes | yes | yes | sources only |
 
-Scopes follow each CLI: most install for the machine, Claude Code, OpenCode,
-Muse Code and Omp also for the workspace, and **no** CLI has a per-agent
-plugin list (that one is Pi's alone).
+Scopes follow each CLI: most install for the machine; Claude Code, OpenCode,
+Muse Code and Omp also for the workspace, and Claude Code adds an uncommitted
+`local` layer beside it. A per-agent plugin list exists only where the CLI's
+launch can be handed one: **This agent** is offered for Pi and Omp, whose
+entries PiCode stores and passes on with `-e` at the next start. No other CLI
+has a way to receive one.
+
+Where a CLI has an update command of its own, the pane compares its list with
+the CLI's own catalog when you open it, and **Update** appears only on the rows
+that catalog says are behind. A catalog PiCode cannot read leaves every row
+unmarked with the reason, never "everything is up to date".
+
+**Marketplace** is the same tab on every pane, and what it holds follows the
+CLI: Pi's is the pi.dev gallery, a vendor's is that CLI's own catalog, and where
+the CLI lets you manage marketplace sources the tab lists them too, with
+**Add source** beside per-source **Update** and **Remove**.
 
 Installing or removing runs in the background, so you can close the page. It
 refuses while that CLI has a terminal open, because a plugin only loads the
@@ -115,9 +135,14 @@ changes, comments and the rest of the file stay as they were. And a pane that
 cannot read a CLI's list shows the CLI's own error rather than an empty list,
 so "nothing installed" always means nothing is installed.
 
+**Configure** is Pi's: a vendor plugin ships no description of its settings, so
+its card offers neither **Configure** nor **Describe config…**, and an address
+that asks for one says so instead of opening a page.
+
 ## Package links
 
-The global view lives at `#/clis/pi/packages`. Links opened from an agent
+Each CLI has its own pane at `#/clis/<cli>/packages` — Pi's is the global view
+at `#/clis/pi/packages`. Links opened from an agent
 retain that agent and its workspace through reloads. Old `#/packages` links
 redirect to the new view. Missing targets show a recovery action.
 

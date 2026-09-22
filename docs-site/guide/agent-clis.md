@@ -28,18 +28,21 @@ launch preview instead of starting a broken terminal.
 
 Every CLI's pane carries the same tabs — Launch, Terminals, Sessions,
 Providers, Settings, Keyboard, Packages and Connectors. The tabs a CLI has no
-native editors for (today everything but Pi) say so: *in development — coming
-soon*. They are placeholders, not a promise about a specific release.
+native editor for say so: *in development — coming soon*. They are
+placeholders, not a promise about a specific release.
 
 - **Where:** last icon in the desktop sidebar header, `Ctrl+K`, or **More** on a phone (`#/clis`).
-- **Not this:** a CLI terminal is not a managed Pi agent. Structured chat, packages and automations still use Pi.
+- **Not this:** a CLI terminal is not a managed Pi agent. Structured chat and automations still use Pi.
 
 ## Native packages
 
-The **Packages** pane on a CLI manages Pi packages. The catalog lists the CLIs
+The **Packages** pane on a CLI manages that CLI's own plugins — Pi's packages
+for Pi, the vendor's plugins for the other eight. The catalog lists the CLIs
 with an implemented package integration; terminal support alone does not add
 package management. Open Packages from an agent to retain its workspace and
-agent target. See [Packages](/guide/packages) for installation and configuration.
+agent target. Pi and Omp also carry PiCode's own per-agent layer, whose entries
+the CLI receives at its next start. See [Packages](/guide/packages) for
+installation and configuration.
 
 ## Open a terminal
 

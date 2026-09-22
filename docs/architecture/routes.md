@@ -143,7 +143,7 @@ remain `#/term/<id>`. Changing a view never starts a second writer.
 | `#/clis/<cli>/providers` | Native providers pane | Pi: catalog + signed-in state; Sign in; search; **custom provider definitions** (ADR-0129); **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break. `#/clis/<cli>/providers/new` opens Add provider; `#/clis/<cli>/providers/custom[/<id>]` opens the Custom provider page (new / Edit). Old `#/clis/providers*` and `#/providers*` rewrite here. Non-Pi CLIs stay blocked (ADR-0103). |
 | `#/clis/<cli>/connectors` | Pi MCP connectors | adapter manager on the selected CLI: list / add / toggle / remove / **Use from…**. `#/integrations`, `#/integrations/connectors` and `#/mcps` rewrite here. |
 | `#/integrations/webhooks` | Webhooks (ADR-0075) | signed durable event delivery, tests, pause, removal and secret rotation. PiCode surface, not a CLI pane. |
-| `#/clis/<cli>/packages` | Native CLI packages (Pi and the eight guest CLIs, ADR-0167) | Pi: machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010) with **Configure** → `#/clis/<cli>/packages/config/<pkg>`. Guests: the CLI's own scopes, plugin verbs and marketplace, never an agent scope; a verb the CLI lacks reads as one line instead of a control. Old `#/clis/packages/pi*` rewrite. |
+| `#/clis/<cli>/packages` | Packages — one pane for Pi and the eight guest CLIs (ADR-0167, ADR-0176) | the CLI's own report decides what is drawn: Pi keeps machine / workspace (`pi install`) / this agent (`-e` on start) with **Configure** → `#/clis/<cli>/packages/config/<pkg>`; a guest reads its own scopes, plugin verbs and marketplace from the same pane, and a verb the CLI lacks reads as one line instead of a control. `pi` and `omp` are the two CLIs that declare an agent layer — PiCode stores those entries and the CLI's launch passes them on as `-e`. Old `#/clis/packages/pi*` rewrite. |
 | `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line (every rule), 30-day runs sparkline, last run, Run now; `#/automations/new` editor (a list of schedules, each presets → cron + label + switch in the browser's zone; webhook, limits); `#/automations/<id>` detail + runs table naming the rule that fired. Polled every 15 s while visible. |
 | `#/snippets` | Snippets (ADR-0130) | host library of reusable prompts and commands. List + search + star/archive; `#/snippets/new` and `#/snippets/<id>` editor. Composer `/snip:` and palette **Send snippet** expand into the focused managed agent; terminal menus **Send to terminal…** (CLI panes) and **Run command…** (shells, one confirm that shows the exact command). |
 | `#/devices` | Devices (ADR-0043 + ADR-0049) | one surface for identity and liveness: paired sessions (Forget, Forget offline in one confirmed click, Pair a device with QR/link) with an online dot from the presence ping, which carries the session it came from; unpaired-but-online entries appear only in mode `off`. Access rules and the install token are in Preferences → Server. Auto-minted loopback browser sessions are ephemeral: the housekeeping sweep revokes a row once no authenticated request has refreshed it for 10 minutes, so closed headless-QA browsers leave without a manual Forget (ADR-0049 amendment 2026-09-06). |
@@ -269,6 +269,28 @@ If the authorize URL's `redirect_uri` is not localhost, Sign in fails immediatel
 Success HTML is PiCode's (logo + return to `#/mcps`). Add or On on an OAuth server
 starts Sign in immediately. Tokens live in the OS keyring, keyed by server name on
 this machine — not per agent. No native MCP.
+
+Packages is one engine and one pane per CLI (ADR-0176; the model, the drivers
+and the vendor facts are in `docs/architecture/packages.md`). The unified read
+is `GET /api/packages/report?cli=&scope=&vendor=&workspace=&agent=&refresh=1`:
+the CLI's own driver answers its scopes, capabilities, catalog, notes and rows,
+and `cli` absent or `pi` means Pi. `GET /api/packages/updates?cli=&vendor=` is
+the badge read for every CLI, while `GET /api/packages` and its
+`POST`/`POST update`/`DELETE` mutations stay Pi's own surface, in Pi's JSON,
+answered by `pipkg` — which is also where `/api/packages/gallery`,
+`/api/packages/config` and `/api/packages/describe` live. The
+**`/api/cli-packages*` family** (list, available, marketplaces, updates;
+install, remove, update, toggle, marketplace, inspect) is the alias for one
+release: the same engine mapped back to the bytes the guest
+pane has always parsed, with its old refusals by name (`cli=pi`,
+`scope=agent`). A guest's install, removal, update and marketplace fetch reserve
+a durable job in the ADR-0087 lane (202 + job row, idempotent by request key,
+refused while that CLI's terminals are running); its toggle, inspect and
+marketplace removal answer directly; and a mutation the CLI exposes only as a
+write of its own config file (OpenCode's removal, Omp's workspace `extensions`
+entry) runs in process and answers the fresh list. The agent layer is PiCode's
+store (`agents.packages`, `packagesIsolated`), reached through the report's
+`agent`/`vendor` parameters and applied at the CLI's next launch.
 
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`), bucketed by pi

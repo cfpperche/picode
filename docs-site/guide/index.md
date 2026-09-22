@@ -12,7 +12,7 @@ Each page says what the capability is and where to click. First run is
 | Page | What it is |
 |---|---|
 | [Agent CLIs](/guide/agent-clis) | Terminals, session history, and moving a conversation between CLIs |
-| [Packages](/guide/packages) | Extras for Pi (search, tools, themes) — full access, review before install |
+| [Packages](/guide/packages) | Extras for Pi (search, tools, themes) and each CLI's own plugins — full access, review before install |
 | [MCP](/guide/mcp) | Connectors. Pi does not speak MCP; PiCode writes the adapter files |
 | [Gmail](/guide/mcp-gmail) | Read, draft and send mail. Credentials stay outside PiCode |
 | [DeepWiki](/guide/mcp-deepwiki) | Public GitHub documentation. No account |
