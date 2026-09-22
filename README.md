@@ -5,7 +5,7 @@
 <h1 align="center">PiCode</h1>
 
 <p align="center">
-  <strong>Run and supervise real Pi coding agents from your browser.</strong><br>
+  <strong>Run and supervise your coding agents from your browser — whichever CLI each one runs.</strong><br>
   Create agents, connect them to projects, watch their work and step in when
   they need you — from a desktop or a phone.
 </p>
@@ -33,20 +33,23 @@
 
 ## Why PiCode
 
-Pi is a focused coding harness with a great terminal experience. A terminal is
-also a hard place to supervise several long-running agents across projects,
-especially when the person directing them does not live in a shell.
+Coding-agent CLIs — Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode,
+Muse Code, Antigravity, Omp — each give a great terminal experience. A
+terminal is also a hard place to supervise several long-running agents across
+projects, especially when the person directing them does not live in a shell.
 
 PiCode adds the orchestration layer: one browser workspace for creating,
-configuring and steering a fleet of Pi agents. It does not replace Pi. Every
-agent is a real `pi` process, and the genuine Pi TUI remains one tab away.
+configuring and steering a fleet of agents, whichever CLI each one runs. It
+does not replace the CLIs: every agent is the real CLI process, and its
+genuine TUI remains one tab away.
 
-PiCode is growing toward a multi-CLI ADE. Today, managed agents remain Pi;
-Claude Code, Codex, Grok, Hermes Agent, OpenCode and manual Pi sessions run in managed terminals.
-Muse Code and Antigravity are onboarding: they open a terminal of their own,
-with no session list, no activity state and no launch settings yet.
-The Agent CLIs central manager controls their launches and, where integrated,
-activity reporting, without turning those terminals into Pi agents.
+PiCode works with whichever of those CLIs you install; none is required, and
+tmux is the only runtime dependency (ADR-0179). An agent is a workspace or
+free instance of any of them (ADR-0160). Pi is the one CLI that also has a
+managed mode — structured chat and a composer over its own RPC (ADR-0091);
+the others run their TUI in a PiCode terminal until they get a managed
+adapter. **Agent CLIs** is the central manager for installs, launches,
+sessions, providers, settings, packages and activity reporting.
 
 **The browser is a door, not a cage.**
 
@@ -55,13 +58,13 @@ activity reporting, without turning those terminals into Pi agents.
 | Capability | What it gives you |
 |---|---|
 | Agent fleet | Create free agents or attach several agents to a workspace, each with its own model, provider and working directory. |
-| Chat and terminal | Use a structured conversation view or switch to the real Pi TUI running in a tmux-backed browser terminal. |
+| Chat and terminal | Use the CLI's own TUI in a tmux-backed browser terminal; Pi agents also get a structured conversation view. |
 | Project tools | Browse and edit files, inspect diffs and Git history, manage sessions, and open persistent project terminals. |
 | Agent CLIs | Configure installed CLI executables, arguments, environment, PATH and activity reporting; open, stop or restart individual terminals. |
 | Human inbox | Collect questions, approvals and finished work in one place; reply without hunting for the right agent tab. |
 | Automations | Start fresh agent runs on a schedule or webhook, with templates, limits and run history. |
 | Desktop and phone | Supervise the same fleet through the desktop UI or the installable mobile PWA, with pairing and push notifications. |
-| Pi ecosystem | Manage providers, packages, MCP adapters and settings while keeping Pi's native files authoritative. |
+| CLI ecosystems | Manage providers, packages, connectors and settings for every CLI while keeping each CLI's native files authoritative. |
 
 PiCode is designed for solo developers running a few agents, terminal-averse
 users who still want direct control, and teams hosting agents on a machine they
@@ -73,35 +76,34 @@ PiCode is deliberately a thin layer over the tools and files you already own.
 
 | Concern | Source of truth |
 |---|---|
-| Agent runtime | Your installed `pi` binary |
-| Conversations | Pi session JSONL files under `~/.pi/agent/sessions/` |
-| Credentials and configuration | Pi's own auth, settings, package and extension files |
+| Agent runtime | The CLIs you installed (`pi`, `claude`, `codex`, …); none is required |
+| Conversations | Each CLI's own session files (Pi's under `~/.pi/agent/sessions/`) |
+| Credentials and configuration | Each CLI's own auth, settings, package and extension files |
 | Interactive processes | tmux sessions that survive browser and daemon restarts |
 | Orchestration | PiCode's local SQLite database under `~/.picode/` |
 
-If PiCode is not running, your Pi sessions and configuration are still regular
-Pi data. See the [architecture](docs/architecture.md) for the full trust and
-persistence model.
+If PiCode is not running, your sessions and configuration are still each
+CLI's regular data. See the [architecture](docs/architecture.md) for the
+full trust and persistence model.
 
 ## Quick start
 
 The supported install is a GitHub release on Linux or WSL. Follow
 [Getting started](https://cfpperche.github.io/picode/guide/getting-started):
-install Pi and tmux, download `picode-linux-amd64`, run `picode install`,
-open `https://localhost:8445`. Windows uses
-[PiCode Desktop](https://cfpperche.github.io/picode/guide/windows-desktop).
+install tmux, download `picode-linux-amd64`, run `picode install`, open
+`https://localhost:8445`, then add the CLIs you use from **Agent CLIs**.
+Windows uses [PiCode Desktop](https://cfpperche.github.io/picode/guide/windows-desktop).
 A machine you reach from elsewhere uses
 [On a server](https://cfpperche.github.io/picode/guide/remote-server).
 
 ### From source
 
 To change PiCode, not to run it. Needs [Go 1.26+](https://go.dev),
-[Node.js 22](https://nodejs.org) (the version used by CI),
-[Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), and
-tmux 3.5+.
+[Node.js 22](https://nodejs.org) (the version used by CI) and tmux 3.5+.
+The agent CLIs you want to run are installed afterwards, from **Agent CLIs**
+in the app or with the vendor's command.
 
 ```bash
-npm install -g @earendil-works/pi-coding-agent
 git clone https://github.com/cfpperche/picode.git
 cd picode
 make build
@@ -140,12 +142,13 @@ Desktop browser / mobile PWA
 │       tmux-backed PTY          JSONL RPC bridge     │
 └─────────────┼─────────────────────────┼─────────────┘
               ▼                         ▼
-        real Pi TUI                pi --mode rpc
-              └──────── Pi sessions and config ───────┘
+   CLI TUIs (pi, claude, codex…)   pi --mode rpc (Pi only)
+              └──── each CLI's own sessions and config ────┘
 ```
 
-An agent uses one live channel at a time, so the TUI and RPC view never write
-the same session concurrently. The browser can disconnect without owning the
+A Pi agent uses one live channel at a time, so the TUI and RPC view never
+write the same session concurrently; every other CLI runs its own TUI in the
+terminal PiCode gives it. The browser can disconnect without owning the
 agent process. Details and trade-offs live in
 [docs/architecture.md](docs/architecture.md) and the
 [architecture decision records](docs/decisions/).
@@ -166,7 +169,7 @@ agent process. Details and trade-offs live in
 
 ## Contributing
 
-Humans and Pi agents work under the same repository contract. Read
+Humans and coding agents work under the same repository contract. Read
 [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before making a
 change. Pull requests keep code, tests, documentation, changelog and handoff in
 sync.

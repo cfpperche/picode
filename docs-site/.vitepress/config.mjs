@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 
 export default defineConfig({
   title: "PiCode",
-  description: "Browser-based Agent Development Environment for Pi coding agents",
+  description: "Browser-based Agent Development Environment for coding-agent CLIs",
   base: "/picode/",
   cleanUrls: true,
   lastUpdated: true,

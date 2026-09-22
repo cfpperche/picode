@@ -6,7 +6,7 @@ description: Build PiCode from this repository when you are changing it.
 
 This is how you change PiCode. To run it, use [Getting started](/guide/getting-started).
 
-Needs [Go 1.26+](https://go.dev), [Node.js 22](https://nodejs.org) (the version used by CI), [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), and tmux 3.5+.
+Needs [Go 1.26+](https://go.dev), [Node.js 22](https://nodejs.org) (the version used by CI) and tmux 3.5+. The agent CLIs you want to run are installed afterwards — from **Agent CLIs** in the app, or with the vendor's command; none is required.
 
 ```bash
 git clone https://github.com/cfpperche/picode.git

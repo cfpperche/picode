@@ -1,23 +1,28 @@
-# AGENTS.md — Operating contract for Pi agents in this repository
+# AGENTS.md — Operating contract for coding agents in this repository
 
-> This file is loaded automatically by Pi at session start.
+> Every agent CLI that reads `AGENTS.md` loads this file at session start.
 > It is the **source of truth for how agents operate here**. Humans follow
 > the same rules via [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## What PiCode is
 
-PiCode is a browser-based Agent Development Environment (ADE) for Pi coding
-agents. One Go binary serves a rich web UI that lets users **create, configure
-and orchestrate Pi agents** across multiple workspaces — including people who
+PiCode is a browser-based Agent Development Environment (ADE) for coding-agent
+CLIs. One Go binary serves a rich web UI that lets users **create, configure
+and orchestrate agents** across multiple workspaces — including people who
 avoid terminals entirely. The moat: **users control their agents from the
 moment of creation**. Read [README.md](README.md) before substantial work;
 [docs/architecture.md](docs/architecture.md) is an index; the subsystem
 files under `docs/architecture/` are what the table below names.
 
-The direction is a multi-CLI ADE. For the current v1, managed agents remain
-Pi; Agent CLIs manages terminal launches for Pi, Claude Code, Codex, Grok,
-Hermes Agent, OpenCode, Muse Code, Antigravity and Omp (ADR-0069). Other CLI protocols, packages and first-class agent support are
-future work, not capabilities to infer from a terminal integration.
+An **agent** is a workspace or free instance of any launchable CLI — Pi,
+Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity or
+Omp (ADR-0160, ADR-0179). Only Pi has a **managed** mode (`pi --mode rpc`:
+structured chat, composer, Pi's Packages and Settings panes — ADR-0091); every
+other CLI runs its own TUI in a PiCode terminal. **Pi is one CLI among nine,
+never a dependency**: PiCode installs, provisions and runs with none of them
+present, and tmux is the only runtime requirement. Copy or code that presents
+Pi as required, or PiCode as "for Pi", is a defect. Managed mode for the other
+CLIs is future work, not a capability to infer from a terminal integration.
 
 ## What to read for which change (ADR-0086)
 

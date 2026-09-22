@@ -162,9 +162,12 @@ for (const [section, rel, label] of CURATED) {
 const lines = [
   "# PiCode",
   "",
-  "> PiCode is a browser-based Agent Development Environment (ADE) for Pi coding",
-  "> agents: one Go daemon serves a web UI to create, configure and orchestrate",
-  "> agents across workspaces — designed for people who avoid terminals.",
+  "> PiCode is a browser-based Agent Development Environment (ADE) for coding-agent",
+  "> CLIs — Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code,",
+  "> Antigravity, Omp: one Go daemon serves a web UI to create, configure and",
+  "> orchestrate agents across workspaces — designed for people who avoid",
+  "> terminals. No CLI is required to install PiCode; tmux is the only runtime",
+  "> dependency.",
   "",
 ];
 for (const [section, items] of docSections) {
