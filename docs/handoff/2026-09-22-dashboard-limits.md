@@ -13,4 +13,4 @@ Merge: fast-forward ready.
 
 ## Next up
 
-- Live check after a deploy: production's Limits card should show Codex 5h, xAI weekly, Z.ai 5h/7d and an Anthropic "sign in again" line (the production usage cache held exactly these on 2026-09-22).
+- Live check after a deploy: production's Limits card should show Codex 5h, xAI weekly, Z.ai 5h/7d and an Anthropic "sign in again" line (the production usage cache held exactly these on 2026-09-22). **Done 2026-09-22:** deployed as 0.5.0+386f07c; the owner confirmed the dashboard live.

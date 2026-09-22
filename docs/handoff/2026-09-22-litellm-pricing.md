@@ -13,7 +13,7 @@ Merge: fast-forward ready. Not deployed.
 
 ## Next up
 
-- After deploy, check the live dashboard: the Codex row shows "~$" estimated, the Spend line shows the estimate, and the coverage matrix shows "~".
+- After deploy, check the live dashboard: the Codex row shows "~$" estimated, the Spend line shows the estimate, and the coverage matrix shows "~". **Done 2026-09-22:** deployed as 0.5.0+386f07c; the owner confirmed the dashboard live.
 
 ## Debts
 
