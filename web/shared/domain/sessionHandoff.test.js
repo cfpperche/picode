@@ -150,7 +150,7 @@ test("terminalHandoffMenu nests the landing choice for a CLI that is also an age
   const pi = handoffMenuSub(pinned, clis, "pi");
   assert.equal(pi.label, "Pi…");
   assert.deepEqual(pi.sub.map((s) => s.id), ["handoff:pi:agent", "handoff:pi:terminal"]);
-  assert.deepEqual(pi.sub.map((s) => s.label), ["Pi agent · in the app", "Pi CLI · in a terminal"]);
+  assert.deepEqual(pi.sub.map((s) => s.label), ["Pi agent · chat", "Pi agent · terminal"]);
   assert.equal(pi.sub[0].target.landing, "agent");
   assert.equal(pi.sub[0].disabled, false); // the agent needs no installed CLI
   assert.equal(pi.sub[1].target.landing, "terminal");

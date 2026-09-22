@@ -27,9 +27,22 @@ Workspace agents backed by Omp get one additional native boundary: the launcher
 appends `--session-dir <data-dir>/omp-sessions/<agent-id>` and creates that
 directory with private permissions. The directory is durable across terminal
 generations and contains Omp transcripts only; Omp's normal authentication and
-configuration home is unchanged. Standalone Omp terminals have no agent owner,
-so they retain Omp's default session directory. This is the only non-Pi
+configuration home is unchanged. An agent whose launch arguments already name
+a conversation or folder (`--resume`, `--session-dir` — a resumed session or a
+handoff, whose file is in Omp's default directory) keeps them instead, and so
+do standalone Omp terminals, which have no agent owner. This is the only non-Pi
 per-agent `/resume` isolation currently enabled.
+
+**One door (ADR-0184).** Every user-facing launch creates an agent:
+`POST /api/agents` and `POST /api/workspaces/{id}/agents` take `overrides`
+(the launch overrides of a profile, a resumed session's arguments), checked
+before any row exists, and bind a launch terminal (`newLaunchAgent`). A Pi
+agent created with overrides is the interactive shape: its terminal runs `pi`,
+and `--session` moves onto the agent's `SessionPath` (reserved on a Pi agent's
+launch). The cross-CLI handoff uses `createCLIAgent`, which also starts the
+terminal. `web/shared/client/launchAgent.js` is the client door for both apps.
+`POST /api/clis/{cli}/terminals` remains only until its test fixtures move
+(`docs/plans/one-cli-door.md`, slice 3).
 
 Each launch writes a private generation under `cli-launch/<terminal>/run-*`.
 Integration uses the existing CLI adapter with the resolved executable pinned
@@ -167,7 +180,7 @@ error text is shown for genuine failures.
 
 **Catalog capabilities** (`surface`): Muse Code (`muse`) and Antigravity
 (`agy`) carry `surface: terminal` — PATH detection, `POST …/check`
-(`--version`), `POST …/terminals` (New terminal runs the CLI with its own
+(`--version`), New agent (an agent whose terminal runs the CLI with its own
 defaults) and `POST …/update-check` against the vendor's channel JSON —
 Muse Code's release channel and Antigravity's per-platform release manifest
 (`manifests/<os>_<arch>[_musl].json`, the same file its installer reads; only

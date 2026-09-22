@@ -108,7 +108,7 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
         <Dialog.Content className="dlg dlg-handoff" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">Continue in {target.name}</Dialog.Title>
           <Dialog.Description className="dlg-body">
-            {sourceName} session {handoffSessionLabel(session)} continues {opensAgent ? "as a " + target.name + " agent in this app" : "in " + target.name + ", in a new terminal"}, in the same folder.
+            {sourceName} session {handoffSessionLabel(session)} continues {opensAgent ? "as a " + target.name + " agent in this app" : "as a new " + target.name + " agent in its terminal"}, in the same folder.
           </Dialog.Description>
 
           {runError ? <p className="handoff-error" role="alert">{runError}</p> : null}
@@ -139,11 +139,11 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
               <div className="handoff-choices">
                 <label className="handoff-choice" title="A stopped agent in this app; it needs no installed CLI.">
                   <input type="radio" name="handoff-landing" value="agent" checked={form.landing === "agent"} onChange={() => setForm((f) => ({ ...f, landing: "agent" }))} />
-                  <span><strong>{target.name} agent · in the app</strong><small>The conversation opens as a stopped {target.name} agent here, not in a terminal.</small></span>
+                  <span><strong>{target.name} agent · chat</strong><small>The conversation opens as a stopped {target.name} agent in chat.</small></span>
                 </label>
                 <label className="handoff-choice" title={target.installed ? "A terminal running the " + target.name + " CLI." : target.name + " is not installed."}>
                   <input type="radio" name="handoff-landing" value="terminal" checked={form.landing === "terminal"} disabled={!target.installed} onChange={() => setForm((f) => ({ ...f, landing: "terminal" }))} />
-                  <span><strong>{target.name} CLI · in a terminal</strong><small>{target.installed ? "A new terminal starts " + target.name + " on this conversation." : target.name + " is not installed."}</small></span>
+                  <span><strong>{target.name} agent · terminal</strong><small>{target.installed ? "A new " + target.name + " agent starts its CLI on this conversation." : target.name + " is not installed."}</small></span>
                 </label>
               </div>
             </fieldset>

@@ -4360,7 +4360,7 @@ export default function App({ shellChrome = false } = {}) {
               const ws = workspacesRef.current.find((w) => w.id === a.wsId);
               if (ws && ws.id !== "ws_free") { setCliPrincipalWs(ws); return; }
             }
-            location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : "");
+            setCliPrincipalWs({ free: true }); // ADR-0184: a launch is an agent
             return;
           }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }

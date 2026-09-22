@@ -44,11 +44,18 @@ agent target. Pi and Omp also carry PiCode's own per-agent layer, whose entries
 the CLI receives at its next start. See [Packages](/guide/packages) for
 installation and configuration.
 
-## Open a terminal
+## Start an agent
 
 1. Choose a CLI and select **Check setup** to verify its executable.
-2. Select **New terminal**, give it a name and choose a workspace or folder.
-3. Select **Open terminal**. Use the CLI's own interface and login flow.
+2. Select **New agent**, give it a name and choose a workspace or folder
+   (a free agent with no folder gets a private one).
+3. Select **Create agent**. It starts at once in its terminal; use the
+   CLI's own interface there.
+
+Every CLI you start from PiCode is an agent: it appears in the sidebar and
+the fleet, and permissions, Inbox and automations address it by name.
+**New agent** here is the same door as New → Agent in a workspace, with the
+launch settings and profiles of this page on top.
 
 PiCode installs a missing CLI only through npm: **Install** appears for Pi,
 Claude Code, Codex, OpenCode and Omp when the CLI is missing and npm is
@@ -184,8 +191,8 @@ Native model, permission and session settings are not part of this preview.
 ## Find a session
 
 Open a CLI and choose **Sessions**. The list is that CLI's on-disk sessions,
-grouped by folder. Search by name, preview or folder. **Open in terminal**
-starts that CLI again in the session's folder; the exact arguments come from
+grouped by folder. Search by name, preview or folder. **Resume as agent**
+starts that CLI again as an agent in the session's folder; the exact arguments come from
 the CLI itself (for example `claude --resume`, `hermes --resume`,
 `opencode --session`).
 
@@ -205,14 +212,14 @@ and Agent CLIs → Terminals) and on the pane's right-click menu, as
 comes from what each CLI can actually do, so it changes with the source
 you picked and with what is installed.
 
-The original terminal stays where it is. Continue opens the other CLI in
-a new terminal — or, for Pi, as a stopped agent in this app. If that CLI
+The original terminal stays where it is. Continue opens the other CLI as
+a new agent in its terminal — or, for Pi, as a stopped agent in chat. If that CLI
 is still writing, you confirm before the newest turns are left behind.
 
 Pi is both a CLI and the platform's managed agent, so its menu entry has
-a second level: **Pi agent · in the app** opens the conversation as a
-stopped Pi agent here (it needs no installed CLI), and **Pi CLI · in a
-terminal** opens a terminal on it. The dialog shows a **Where** section
+a second level: **Pi agent · chat** opens the conversation as a
+stopped Pi agent in chat (it needs no installed CLI), and **Pi agent ·
+terminal** starts a Pi agent whose terminal runs the CLI on it. The dialog shows a **Where** section
 for Pi, so you can change your mind before continuing.
 
 This copies the conversation into the other CLI. A memory tool that
@@ -398,7 +405,7 @@ for the opening words and the exact time). Nothing resumes automatically after a
 still opens a fresh conversation. **Restart terminal** on a live Agent CLI
 is the attended path — it reopens the pinned conversation (ADR-0158). Terminals
 stopped before this feature shipped have no pin; their conversations stay
-reachable in that CLI's Sessions pane via "Open in terminal", and their
+reachable in that CLI's Sessions pane via "Resume as agent", and their
 surface says *no session to resume* instead of offering a button it cannot
 honor. If the last launch failed, the surface says that too — fix the
 executable, folder or integration files, then Resume again.

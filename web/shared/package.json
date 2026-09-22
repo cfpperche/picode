@@ -14,6 +14,7 @@
     "./client/feed.js": "./client/feed.js",
     "./client/githubRepos.js": "./client/githubRepos.js",
     "./client/install.js": "./client/install.js",
+    "./client/launchAgent.js": "./client/launchAgent.js",
     "./client/modelLoad.js": "./client/modelLoad.js",
     "./client/push.js": "./client/push.js",
     "./client/preview.js": "./client/preview.js",

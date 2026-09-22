@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
+import { createLaunchAgent } from "@picode/shared/client/launchAgent.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { handoffTargets, landingLabel, lineageBadges } from "@picode/shared/domain/sessionHandoff.js";
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
@@ -157,9 +158,9 @@ function CliRow({ s, cliName, busy, onOpenTerminal, targets, onHandoff, cliNames
           className="btn btn-ghost btn-sm"
           onClick={() => onOpenTerminal(s)}
           disabled={busy}
-          title={"Launch a " + cliName + " terminal in this session's folder with " + (s.resumeArgs || []).join(" ")}
+          title={"Start a " + cliName + " agent in this session's folder with " + (s.resumeArgs || []).join(" ")}
         >
-          Open in terminal
+          Resume as agent
         </button>
         <HandoffMenu s={s} targets={targets} busy={busy} onHandoff={onHandoff} />
       </div>
@@ -314,24 +315,22 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
     }
   }
 
-  // Non-Pi resume: a CLI terminal born in the session's folder, launched
-  // with the server-verified resume arguments for that session. Launch
-  // argument overrides replace the CLI defaults for this one terminal.
+  // Non-Pi resume (ADR-0184): an agent in the session's workspace (free
+  // when it has none) whose terminal starts in the session's folder with
+  // the server-verified resume arguments for that session.
   async function onOpenTerminal(s) {
     setBusy(true);
     try {
-      const t = await api("/api/clis/" + encodeURIComponent(cli) + "/terminals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: cliName + " · " + (s.name || s.id).slice(0, 40),
-          cwd: s.cwd,
-          workspaceId: s.workspaceId || "",
-          overrides: { args: s.resumeArgs || [] },
-        }),
+      const { terminalId, launchError } = await createLaunchAgent({
+        cli,
+        name: cliName + " · " + (s.name || s.id).slice(0, 40),
+        workspaceId: s.workspaceId || "",
+        folder: s.cwd,
+        overrides: { args: s.resumeArgs || [] },
       });
-      if (t && t.launchError) toastError(new Error(t.launchError));
-      else { toast.ok(cliName + " opening in this session's folder."); location.hash = termHash(t.id); }
+      if (launchError) toastError(new Error(launchError));
+      else toast.ok(cliName + " resuming as an agent.");
+      if (terminalId) location.hash = termHash(terminalId);
       await load();
     } catch (e) {
       toastError(e);
@@ -395,7 +394,7 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
       ) : filtered.length === 0 ? (
         <div className="cli-notice" role="status">
           <span>{query ? "No matching sessions" : "No " + cliName + " sessions yet"}</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => query ? setQuery("") : (onNewTerminal ? onNewTerminal() : (location.hash = "#/clis/new/" + encodeURIComponent(cli)))}>{query ? "Clear search" : "New terminal"}</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => query ? setQuery("") : (onNewTerminal ? onNewTerminal() : (location.hash = "#/clis/new/" + encodeURIComponent(cli)))}>{query ? "Clear search" : "New agent"}</button>
         </div>
       ) : (
         groups.map((g) => (

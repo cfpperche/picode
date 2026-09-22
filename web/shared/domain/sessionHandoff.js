@@ -47,7 +47,7 @@ export function handoffTargets(clis, sourceCli) {
 
 // landingLabel names a landing in the menus and the dialog.
 export function landingLabel(target, landing) {
-  return landing === "agent" ? target.name + " agent · in the app" : target.name + " CLI · in a terminal";
+  return landing === "agent" ? target.name + " agent · chat" : target.name + " agent · terminal";
 }
 
 const DROP_LABELS = {

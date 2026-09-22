@@ -98,7 +98,7 @@ func handleAddWorkspacePrincipal(deps Deps) http.HandlerFunc {
 			return
 		}
 		if terminalID == "" {
-			bound, err := attachAgentTerminal(deps, wk.ID, wk.Path, agent)
+			bound, err := attachAgentTerminal(deps, wk.ID, wk.Path, agent, clilaunch.Overrides{})
 			if err != nil {
 				_ = deps.Store.DeleteAgent(agent.ID)
 				writeErr(w, storeStatus(err), err.Error())
