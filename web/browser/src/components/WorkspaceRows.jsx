@@ -15,11 +15,12 @@ import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMe
 import { agentSubtitle } from "@picode/shared/domain/managedPrincipal.js";
 import { termRowMenu } from "../lib/termRowMenu.js";
 
-export function RowMenu({ label, children, onOpenChange }) {
+export function RowMenu({ label, children, onOpenChange, onCloseAutoFocus, triggerRef }) {
   return (
     <DropdownMenu.Root onOpenChange={onOpenChange}>
       <DropdownMenu.Trigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           className="ws-row-menu-trigger"
           aria-label={"Actions for " + label}
@@ -30,7 +31,7 @@ export function RowMenu({ label, children, onOpenChange }) {
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="ws-row-menu" side="bottom" align="end" sideOffset={4} collisionPadding={8}>
+        <DropdownMenu.Content className="ws-row-menu" side="bottom" align="end" sideOffset={4} collisionPadding={8} onCloseAutoFocus={onCloseAutoFocus}>
           {children}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

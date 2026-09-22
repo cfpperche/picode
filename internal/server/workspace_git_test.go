@@ -146,3 +146,28 @@ func TestWorkspaceListCarriesTheRemotePage(t *testing.T) {
 		t.Fatalf("remotes = %v, want only hosted on GitHub without its credentials", got)
 	}
 }
+
+func TestRenameWorkspaceRoute(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "old", "path": t.TempDir()})
+	var wk struct {
+		ID string `json:"id"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&wk)
+	res.Body.Close()
+	for _, c := range []struct {
+		id, body string
+		code     int
+	}{
+		{wk.ID, `{"name":"New"}`, http.StatusOK},
+		{wk.ID, `{"name":"  "}`, http.StatusBadRequest},
+		{wk.ID, `{"name":"x","path":"/etc"}`, http.StatusBadRequest},
+		{"nope", `{"name":"x"}`, http.StatusNotFound},
+	} {
+		r := postJSONMethod(t, ts, http.MethodPatch, "/api/workspaces/"+c.id, json.RawMessage(c.body))
+		r.Body.Close()
+		if r.StatusCode != c.code {
+			t.Errorf("PATCH %s %s = %d, want %d", c.id, c.body, r.StatusCode, c.code)
+		}
+	}
+}

@@ -3683,7 +3683,10 @@ export default function App({ shellChrome = false } = {}) {
         <span>PiCode</span>
       </header>
       <div id="desktop-navigation" inert={narrow && !navigationOpen} onKeyDown={event => {
-        if (event.key === "Escape") {
+        // Only Escape pressed inside the drawer itself: a dialog or menu the
+        // sidebar opens lives in a portal, and React still bubbles its keys
+        // here — one Escape closed both the dialog and the drawer under it.
+        if (event.key === "Escape" && event.currentTarget.contains(event.target)) {
           setNavigationOpen(false);
           document.querySelector('[aria-controls="desktop-navigation"]')?.focus();
         }

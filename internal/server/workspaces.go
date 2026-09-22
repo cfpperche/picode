@@ -68,6 +68,7 @@ func registerWorkspaceRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/workspaces", handleAdd(deps))
 	registerSidebarOrderRoutes(mux, deps)
 	mux.HandleFunc("DELETE /api/workspaces/{id}", handleRemove(deps))
+	mux.HandleFunc("PATCH /api/workspaces/{id}", handleRenameWorkspace(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/cleanup", handleWorkspaceCleanup(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/favicon", handleWorkspaceFavicon(deps))
 	mux.HandleFunc("POST /api/workspaces/{id}/open", handleOpen(deps))
@@ -410,5 +411,32 @@ func handleListTasks(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, tasks)
+	}
+}
+
+// handleRenameWorkspace changes the name on the card (the Settings dialog's
+// General section). Only the name: the folder is the workspace's identity.
+func handleRenameWorkspace(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Name string `json:"name"`
+		}
+		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		ws, err := deps.Store.RenameWorkspace(r.PathValue("id"), req.Name)
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			writeErr(w, http.StatusNotFound, "workspace not found")
+		case err != nil && strings.Contains(err.Error(), "name is"):
+			writeErr(w, http.StatusBadRequest, strings.TrimPrefix(err.Error(), "store: "))
+		case err != nil:
+			writeErr(w, http.StatusInternalServerError, err.Error())
+		default:
+			writeJSON(w, http.StatusOK, ws)
+		}
 	}
 }

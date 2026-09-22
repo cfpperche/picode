@@ -70,3 +70,31 @@ func TestIntegrationSettingsShape(t *testing.T) {
 		})
 	}
 }
+
+// The settings dialog is the first human writer: two tabs saving over each
+// other must conflict, and "use the machine's" must drop the layer.
+func TestIntegrationSettingsVersionAndInherit(t *testing.T) {
+	s := openTest(t)
+	first, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{FFOnly: true, ExpectedVersion: 0})
+	if err != nil || first.Version != 1 {
+		t.Fatalf("first = %+v (%v)", first, err)
+	}
+	if _, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{FFOnly: false, ExpectedVersion: 1}); err != nil {
+		t.Fatalf("write at the read version = %v", err)
+	}
+	if _, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{FFOnly: true, ExpectedVersion: 1}); err != ErrIntegrationConflict {
+		t.Fatalf("stale write = %v, want ErrIntegrationConflict", err)
+	}
+	if err := s.DeleteIntegrationSettings("ws1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := s.IntegrationSettingsFor("ws1"); ok {
+		t.Fatal("the layer survived its delete")
+	}
+	if eff, _ := s.EffectiveIntegrationSettings("ws1"); eff.FromScope != "default" {
+		t.Fatalf("after delete = %+v, want the built-in default", eff)
+	}
+	if err := s.DeleteIntegrationSettings("ws1"); err != nil {
+		t.Fatalf("deleting an absent layer = %v, want nil", err)
+	}
+}

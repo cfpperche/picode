@@ -671,3 +671,17 @@ export const browserGrantSchema = z.object({
     "Use bare hosts like example.com or *.example.com — no scheme, no path.",
   ),
 });
+
+// Workspace settings (the card menu's Settings…): the name on the card, and
+// the project's integration declaration (ADR-0182) — mirrors the store's
+// limits: at most eight checks, each one line of at most 300 bytes. Blank
+// rows are the form's, not the declaration's: they are dropped before this.
+export const workspaceSettingsSchema = z.object({
+  name: required("Name").max(120, "Use up to 120 characters for the name."),
+  ffOnly: z.boolean(),
+  checks: z.array(
+    z.string().trim().min(1, "A check cannot be empty.")
+      .refine((c) => new TextEncoder().encode(c).length <= 300, "Keep each check under 300 characters.")
+      .refine((c) => !/[\r\n]/.test(c), "Each check is one line."),
+  ).max(8, "Use up to eight checks."),
+});

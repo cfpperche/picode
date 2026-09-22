@@ -24,6 +24,9 @@ type IntegrationSettings struct {
 	FromScope string   `json:"fromScope,omitempty"` // the layer the effective value came from
 }
 
+// ErrIntegrationConflict: the declaration changed since the writer read it.
+var ErrIntegrationConflict = errors.New("integration settings changed since they were read")
+
 // MachineIntegrationScope is the scope key of the machine default. Every other
 // key is a workspace id.
 const MachineIntegrationScope = ""
@@ -109,15 +112,21 @@ func (s *Store) PutIntegrationSettings(scope string, m IntegrationSettingsMutati
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return IntegrationSettings{}, err
 	}
+	current := 0
 	if err == nil {
-		var current IntegrationSettings
-		if uerr := json.Unmarshal([]byte(raw), &current); uerr != nil {
+		var cur IntegrationSettings
+		if uerr := json.Unmarshal([]byte(raw), &cur); uerr != nil {
 			return IntegrationSettings{}, uerr
 		}
-		next.Version = current.Version + 1
-	} else {
-		next.Version = 1
+		current = cur.Version
 	}
+	// expectedVersion is the version the writer read (0 = "none declared"
+	// only when it says so; omitted means the writer does not care). Two
+	// settings tabs saving over each other get a conflict, not a silent loss.
+	if m.ExpectedVersion > 0 && m.ExpectedVersion != current {
+		return IntegrationSettings{}, ErrIntegrationConflict
+	}
+	next.Version = current + 1
 	body, _ := json.Marshal(next)
 	if _, err = tx.Exec(`INSERT INTO delivery_integration(scope,body) VALUES(?,?)
 		ON CONFLICT(scope) DO UPDATE SET body=excluded.body`, scope, string(body)); err != nil {
@@ -130,4 +139,28 @@ func (s *Store) PutIntegrationSettings(scope string, m IntegrationSettingsMutati
 		return IntegrationSettings{}, err
 	}
 	return next, nil
+}
+
+// DeleteIntegrationSettings drops a scope's own declaration, so the workspace
+// inherits the machine's again (or the machine the built-in default). Absent
+// is not an error: the caller asked for "inherit", and it now does.
+func (s *Store) DeleteIntegrationSettings(scope string) error {
+	s.deliveryMu.Lock()
+	defer s.deliveryMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer s.rollback(tx)
+	res, err := tx.Exec(`DELETE FROM delivery_integration WHERE scope=?`, scope)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return s.commit(tx)
+	}
+	if err := s.AppendEventTx(tx, "delivery.changed", nil, nil, map[string]any{"integration": scope, "removed": true}); err != nil {
+		return err
+	}
+	return s.commit(tx)
 }
