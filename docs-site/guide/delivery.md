@@ -45,15 +45,17 @@ Open the agent through PiCode's **Agent CLIs**, in the project's Git repository.
 The command requires an updated PiCode binary and daemon, and the identity
 inherited from that launch. Open the project’s **Git → Delivery** view on desktop or mobile to follow
 integration. An agent can also ask for a place in the project’s integration queue
-(for its own delivery, at the revision and target that delivery declares), but
-nothing runs by itself yet: the queue’s own view and the executor are still to
-come, and deployment execution is not available.
+(for its own delivery, at the revision and target that delivery declares).
+Nothing lands until you authorize the entry, and deployment execution is not
+available.
 
 How a project lands work is set in **Settings…** on the workspace card's **…**
 menu, under **Landing work**: follow **this machine's** rules, or give the
-workspace its own — fast-forward only or any merge, and up to eight checks
-(one command per line, such as `make ci`) that must pass first. The rules are
-recorded for the queue; nothing runs them yet.
+workspace its own: up to eight checks (one command per line, such as
+`make ci`) that must pass first. When you authorize an entry, PiCode runs them
+and lands the branch as a fast-forward. With no rules declared anywhere, or with
+fast-forward turned off, an authorized branch stays blocked and the entry says
+why.
 
 ## Register and request review
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { workspaceSettingsSchema } from "@picode/shared/contracts/schemas.js";
-import { cleanChecks, draftFrom, inheritedLine, integrationSave, integrationSource } from "@picode/shared/domain/workspaceSettings.js";
+import { blocksLanding, cleanChecks, draftFrom, inheritedLine, integrationSave, integrationSource } from "@picode/shared/domain/workspaceSettings.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { IconPlus, IconX } from "./Icons.jsx";
 import { toast } from "../lib/toast.js";
@@ -27,6 +27,7 @@ export default function WorkspaceSettings({ ws, open, onClose, returnFocus }) {
   const listRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const nameRef = useRef(null);
+  const ownRef = useRef(null);
 
   function load() {
     setLoadError("");
@@ -128,7 +129,7 @@ export default function WorkspaceSettings({ ws, open, onClose, returnFocus }) {
 
               <section className="wsset-section" aria-labelledby={"wsset-int-" + ws.id}>
                 <h3 id={"wsset-int-" + ws.id} className="wsset-label">Landing work</h3>
-                <p className="wsset-help">How a branch an agent delivers gets merged into this project.</p>
+                <p className="wsset-help">When you authorize a branch an agent delivered, PiCode runs these checks and then merges it.</p>
                 {loadError ? (
                   <p className="wsset-state" role="alert">{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={load}>Retry</button></p>
                 ) : !page ? (
@@ -141,22 +142,28 @@ export default function WorkspaceSettings({ ws, open, onClose, returnFocus }) {
                         <span className="wsset-seg-face">Same as this machine</span>
                       </label>
                       <label className="wsset-seg-opt">
-                        <input type="radio" name={"wsset-mode-" + ws.id} checked={own} onChange={() => { if (!own) setDraft(draftFrom(page)); setMode("own"); }} />
+                        <input ref={ownRef} type="radio" name={"wsset-mode-" + ws.id} checked={own} onChange={() => { if (!own) setDraft(draftFrom(page)); setMode("own"); }} />
                         <span className="wsset-seg-face">Only this workspace</span>
                       </label>
                     </div>
                     {!own ? (
-                      <p className="wsset-effect">{inheritedLine(page)}</p>
+                      <p className={"wsset-effect" + (integrationSource(page) === "default" || blocksLanding(page.effective) ? " is-blocked" : "")}>
+                        {inheritedLine(page)}
+                        {integrationSource(page) === "default" ? (
+                          <> <button type="button" className="wsset-inline-act" onClick={() => { setDraft(draftFrom(page)); setMode("own"); requestAnimationFrame(() => ownRef.current?.focus()); }}>Set rules for this workspace</button></>
+                        ) : null}
+                      </p>
                     ) : (
                       <div className="wsset-own">
                         <label className="dlg-choice wsset-choice">
-                          <input type="checkbox" checked={draft.ffOnly} onChange={(e) => setDraft((d) => ({ ...d, ffOnly: e.target.checked }))} />
+                          <input type="checkbox" checked={draft.ffOnly} aria-describedby={!draft.ffOnly ? "wsset-ff-warn-" + ws.id : undefined} onChange={(e) => setDraft((d) => ({ ...d, ffOnly: e.target.checked }))} />
                           <span>Only land a branch that is up to date with the target <span className="wsset-muted">(fast-forward)</span></span>
                         </label>
+                        {!draft.ffOnly ? <p id={"wsset-ff-warn-" + ws.id} className="wsset-effect is-blocked">PiCode lands fast-forward only: with this off, authorized branches stay blocked.</p> : null}
                         <div className="wsset-checks">
                           <span className="wsset-sublabel">Checks that must pass first</span>
                           {checks.length === 0 ? (
-                            <p className="wsset-empty">No checks: an approved branch lands right away.</p>
+                            <p className="wsset-empty">No checks: an authorized branch lands right away.</p>
                           ) : (
                             <ol className="wsset-check-list" ref={listRef}>
                               {checks.map((c, i) => (

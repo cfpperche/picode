@@ -5393,6 +5393,11 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .wsset-help { margin: 3px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
 .wsset-effect { margin: 9px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
 .wsset-muted { color: var(--text-secondary); }
+.wsset-effect.is-blocked { color: var(--warn); }
+.wsset-inline-act {
+  padding: 0; border: 0; background: none; font: inherit; cursor: pointer;
+  color: var(--accent); text-decoration: underline; text-underline-offset: 2px;
+}
 .wsset-state { margin: 10px 0 0; font-size: 12px; color: var(--danger); display: flex; align-items: center; gap: 8px; }
 .wsset-skel { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .wsset-seg {

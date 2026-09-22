@@ -25,18 +25,27 @@ export function integrationSource(page) {
 
 // inheritedLine: the one sentence that tells the owner what the workspace
 // follows when it has no settings of its own.
+// The runner (ADR-0182) lands only a fast-forward, and only under rules
+// someone declared: with none — the built-in default — or with fast-forward
+// off, an authorized branch stays blocked, so the line says that instead of
+// describing rules that would never run.
 export function inheritedLine(page) {
   const eff = (page && page.effective) || {};
-  const who = integrationSource(page) === "machine" ? "This machine's rules" : "PiCode's default";
+  if (integrationSource(page) === "default") return "No rules yet: an authorized branch will not land until this workspace or this machine has some.";
   // No closing period: a check such as `go test ./...` already ends in dots.
-  return who + ": " + rulesSummary(eff);
+  return "This machine's rules: " + rulesSummary(eff);
+}
+
+// blocksLanding: rules the runner refuses to act on (fast-forward off).
+export function blocksLanding(rules) {
+  return !!rules && rules.ffOnly === false;
 }
 
 // rulesSummary: the rules in words — "fast-forward only, after make ci".
 export function rulesSummary(rules) {
   const checks = cleanChecks(rules && rules.checks);
-  const merge = rules && rules.ffOnly === false ? "any merge" : "fast-forward only";
-  return merge + (checks.length ? ", after " + checks.join(" · ") : ", no checks");
+  if (blocksLanding(rules)) return "fast-forward off, so authorized branches stay blocked";
+  return "fast-forward only" + (checks.length ? ", after " + checks.join(" · ") : ", no checks");
 }
 
 // cleanChecks drops the form's blank rows; the declaration never holds one.

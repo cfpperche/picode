@@ -11,6 +11,8 @@ a portaled dialog (`App.jsx` `#desktop-navigation` onKeyDown now checks `current
 doors). Verified: `make ci-scoped` PASS; visual-review PASS on scratch after four rounds (defects: machine rules labelled as default,
 "./...." four dots, mobile focus, Escape behavior, focus loss; all fixed); overlayAudit ok every capture; card 5/5. Blind spots: loading
 skeleton never seen (localhost too fast); the machine layer itself has no UI — "Same as this machine" shows it read-only.
+After merging the queue runner (it blocks on no declaration and on ffOnly off), the copy says so: "No rules yet" + "Set rules
+for this workspace", and a warn line when fast-forward is unchecked; both re-verified on scratch (-5, -6).
 
 ## Next up
 

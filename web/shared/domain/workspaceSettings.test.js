@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanChecks, draftFrom, inheritedLine, integrationSave, integrationSource } from "./workspaceSettings.js";
+import { blocksLanding, cleanChecks, draftFrom, inheritedLine, integrationSave, integrationSource, rulesSummary } from "./workspaceSettings.js";
 import { workspaceSettingsSchema } from "../contracts/schemas.js";
 
 const DEFAULT = { declared: false, effective: { fromScope: "default", ffOnly: true } };
@@ -12,8 +12,13 @@ test("the source names the layer in force", () => {
   assert.equal(integrationSource(DEFAULT), "default");
   assert.equal(integrationSource(MACHINE), "machine");
   assert.equal(integrationSource(OWN), "own");
-  assert.equal(inheritedLine(MACHINE), "This machine's rules: any merge, after go test ./...");
-  assert.equal(inheritedLine(DEFAULT), "PiCode's default: fast-forward only, no checks");
+  // The runner blocks both of these, so the line says so (ADR-0182).
+  assert.equal(inheritedLine(MACHINE), "This machine's rules: fast-forward off, so authorized branches stay blocked");
+  assert.match(inheritedLine(DEFAULT), /^No rules yet/);
+  assert.equal(inheritedLine({ declared: false, effective: { ffOnly: true, checks: ["go test ./..."] } }), "This machine's rules: fast-forward only, after go test ./...");
+  assert.equal(rulesSummary({ ffOnly: true }), "fast-forward only, no checks");
+  assert.equal(blocksLanding({ ffOnly: false }), true);
+  assert.equal(blocksLanding({ ffOnly: true }), false);
 });
 
 // One row per line of the decision table in workspaceSettings.js.
