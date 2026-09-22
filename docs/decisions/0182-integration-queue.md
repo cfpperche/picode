@@ -1,8 +1,8 @@
 # ADR-0182: The integration queue
 
-- **Status**: proposed
+- **Status**: accepted (owner approved in session, 2026-09-22)
 - **Date**: 2026-09-22
-- **Boundary**: persistence — one durable, per-repository queue of integration intents and its events; security model — who may enqueue, order and authorize, with eligibility bound to the reviewed revision and expiring with it; process — one integration operation per repository, serialized with the land that exists today and never bypassing the mutation lock.
+- **Boundary**: persistence — one durable, per-repository queue of integration intents and its events; security model — who may enqueue, order and authorize, with eligibility bound to the reviewed revision and expiring with it; process — one integration operation per repository, run by PiCode's own runner on the operation a project declares, serialized and never bypassing the mutation lock.
 
 ## Context
 
