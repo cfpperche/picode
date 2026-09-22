@@ -1,13 +1,17 @@
 ---
-description: Connectors. PiCode writes the files the MCP adapter reads. Pi does not speak MCP itself.
+description: Connectors for every agent CLI. PiCode writes each CLI's own MCP config; Pi reads it through the MCP adapter.
 ---
 
 # MCP
 
-Connectors. PiCode writes the files the **MCP adapter** package reads.
+Connectors. Every agent CLI has the same Connectors pane, and PiCode writes
+that CLI's own configuration file. Claude Code, Codex and the others read it
+on their own; Pi reads it through the **MCP adapter** package.
 
-- **Where:** **Agent CLIs → Pi → Connectors**.
-- **Not this:** Pi does not speak MCP itself. Without the adapter, Connectors is one line and **Open packages** — it does not write files.
+- **Where:** **Agent CLIs → \<cli\> → Connectors**.
+- **Not this:** Pi does not speak MCP itself. On Pi's pane, without the adapter, Connectors is one line and **Open packages** — it does not write files.
+
+The steps below are Pi's; on another CLI skip the adapter and start at step 2.
 
 Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as `npm:pi-mcp-adapter`).
 
@@ -40,7 +44,7 @@ Clicking an agent in the sidebar leaves this page and opens that agent.
 | Servers | edit JSON | Agent CLIs → Connectors |
 | Import Cursor/Claude/Codex | adapter CLI | the CLI has its own Connectors pane — add the same service there |
 
-No adapter → Connectors is one line and **Open packages**. It does not write files.
+Pi without the adapter → Connectors is one line and **Open packages**. It does not write files.
 The page works with a terminal selected; it does not need an agent open.
 
 ## Cookbook

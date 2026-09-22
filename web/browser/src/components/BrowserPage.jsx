@@ -943,7 +943,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             An agent can open a browser beside its session and drive that tab — navigate, click, type. You see the same page and can click and sign in. Closing the split stops it. This is not a headless browser.
           </p>
           <p className="set-groupdesc">
-            Raw protocol lets that agent name any Chrome DevTools Protocol method. It needs Developer mode, below. A pi started outside PiCode has no identity and cannot drive a tab.
+            Raw protocol lets that agent name any Chrome DevTools Protocol method. It needs Developer mode, below. A CLI started outside PiCode has no identity and cannot drive a tab.
           </p>
         </section>
 

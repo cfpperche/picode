@@ -182,7 +182,7 @@ type runtimeStart struct {
 
 // Runtime owns all managed agents.
 type Runtime struct {
-	AgentCmd string // "pi" (ADR-0003)
+	AgentCmd string // "pi": managed mode is Pi-only (ADR-0091, ADR-0160)
 	DataDir  string // ~/.picode — MCP live snapshots when set
 
 	mu       sync.Mutex

@@ -283,26 +283,28 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 │  ├─ Rich UI (React + Vite + Tailwind — ADR-0008)           │
 │  │   sidebar tabs (agents·workspaces·terminals·pins)      │
 │  │   tasks · diffs · sessions tree · auth                 │
-│  └─ xterm.js terminals (the real Pi TUI, 1:1)              │
+│  └─ xterm.js terminals (each CLI's real TUI, 1:1)          │
 └───────────────┬────────────────────────────────────────────┘
                 │ HTTP /api/*  +  WebSocket /ws/*
 ┌───────────────▼────────────────────────────────────────────┐
 │ picode (single Go binary, UI embedded — `-tags embedui`)   │
 │                                                            │
-│  AgentManager ─── spawn/stop/restart ──► pi processes      │
-│  TerminalBridge ─ tmux sessions ───────► pi (interactive)  │
+│  AgentManager ─── spawn/stop/restart ──► agent processes   │
+│  TerminalBridge ─ tmux sessions ───────► any CLI's TUI     │
+│  Agent CLIs ───── catalog · launch ────► 9 CLIs (ADR-0069) │
 │  RPCBridge ────── JSONL stdio ─────────► pi --mode rpc     │
-│  TaskQueue ────── steer / follow_up ───► RPCBridge         │
-│  Broker ───────── inbox routing ───────► PiCode extension  │
-│  SessionReader ── parse ~/.pi/agent/sessions/*.jsonl       │
+│  TaskQueue ────── steer / follow_up ───► RPCBridge (Pi)    │
+│  Broker ───────── inbox routing ───────► MCP / extension   │
+│  SessionReader ── each CLI's session files (ADR-0079)      │
 │  ChangeFeed ───── events table → SSE /api/events (replay)  │
 │  Automations ──── cron tick / webhook ──► new session      │
 └────────────────────────────────────────────────────────────┘
 ```
 
-## Why dual channel per agent
+## Why dual channel per Pi agent
 
-Revised by ADR-0006: **one live pi process per agent, two exclusive run
+This section is Pi's managed mode; every other CLI has only the tmux
+channel (ADR-0160). Revised by ADR-0006: **one live pi process per agent, two exclusive run
 modes** — interactive (tmux TUI) or managed (rpc + panel). The original
 simultaneous design risked concurrent writers on pi's session files.
 

@@ -32,7 +32,7 @@ native editor for say so: *in development — coming soon*. They are
 placeholders, not a promise about a specific release.
 
 - **Where:** last icon in the desktop sidebar header, `Ctrl+K`, or **More** on a phone (`#/clis`).
-- **Not this:** a CLI terminal is not a managed Pi agent. Structured chat and automations still use Pi.
+- **Not this:** a CLI terminal is not a managed Pi agent. Structured chat is Pi's managed mode; every other CLI runs its own TUI.
 
 ## Native packages
 

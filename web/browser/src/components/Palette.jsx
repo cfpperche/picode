@@ -49,7 +49,7 @@ export default function Palette({ open, workspaces, apps, snips, agentId, onClos
 function buildActions(workspaces, apps, focusable, snips, agentId) {
   const out = [
     { id: "whats-new", label: "What’s new in PiCode", group: "app", kind: "whats-new" },
-    { id: "settings", label: "Pi settings", group: "Agent CLIs", kind: "settings" },
+    { id: "settings", label: "CLI settings", group: "Agent CLIs", kind: "settings" },
     { id: "inspector", label: "Toggle inspector", group: "app", kind: "inspector" },
     // Only where the mode can live: a page route has no tab strip to
     // reveal, so the row would run and undo itself (focusMode.js).
