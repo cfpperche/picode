@@ -13,7 +13,7 @@ amendment to ADR-0148. Study and plan: `docs/benchmarks/2026-09-16-computer-use.
 
 | Question | Decided by | Where |
 |---|---|---|
-| Who is calling | daemon | `internal/grant.Key`: agent id, else `term:<terminal id>`, else nobody (ADR-0143) |
+| Who is calling | daemon | `internal/grant.Key`: agent id, else the agent bound to its terminal, else `term:<terminal id>` with no grant (ADR-0143, ADR-0184), else nobody |
 | May they use the computer | daemon, then the shell's mirror | `internal/computer.Resolve` reads `computer.policy.<key>` = `{"enabled":true}`; missing or broken is off. The page pushes the enabled keys to the shell (`computer_set_grants`) at load and on `setting.updated`, and `computer_call` refuses on that copy too |
 | Is the action real | daemon, then the shell | the closed catalog of 23 (`internal/computer/actions.go`, mirrored by `computer.rs`) |
 | What the action does | shell | `desktop-shell/src/computer.rs` on the desk thread |

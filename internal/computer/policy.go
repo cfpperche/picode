@@ -24,7 +24,9 @@ const SettingPrefix = "computer.policy."
 // Resolve reads a principal's grant. Missing, unreadable or malformed is
 // off: a broken setting must never become a working grant.
 func Resolve(st *store.Store, key string) Grant {
-	if st == nil || strings.TrimSpace(key) == "" {
+	// ADR-0184: shells and sign-in terminals hold no grant; a terminal key
+	// reads as off even if an old setting survived.
+	if st == nil || strings.TrimSpace(key) == "" || strings.HasPrefix(key, grant.TerminalPrefix) {
 		return Grant{}
 	}
 	raw, ok, err := st.GetSetting(SettingPrefix + key)

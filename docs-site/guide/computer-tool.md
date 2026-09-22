@@ -54,13 +54,13 @@ paying, sending a message, deleting files or typing a password.
    who sees the tool; the switch decides who may use it. A `pi` you started
    outside PiCode has no identity here and is always refused.
 
-## Managed agent, or a CLI in a terminal?
+## Who gets a switch?
 
 | Where it runs | Identity | What it gets |
 |---|---|---|
-| An agent PiCode manages | its agent id | its own switch in Settings ▸ Computer |
-| A CLI in a PiCode terminal | the terminal's id | its own switch, listed by the terminal's name |
-| A `pi` you started yourself | none | refused, always |
+| An agent (any CLI you start from PiCode) | its agent id | its own switch in Settings ▸ Computer |
+| A CLI typed into a PiCode shell | the terminal's id | refused: a shell has no switch — make it an agent first |
+| A CLI you started outside PiCode | none | refused, always |
 
 ## Where a click or a keystroke lands
 

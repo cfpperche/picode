@@ -166,18 +166,35 @@ func TestPolicySaveTerminalWireRows(t *testing.T) {
 	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st}).Handler)
 	t.Cleanup(ts.Close)
 
-	code, page := postRaw(t, ts, "/api/browser/policy", `{"term":"`+term.ID+`","tier":"act"}`)
-	if code != http.StatusOK || page["saved"] != true || page["termId"] != term.ID {
-		t.Fatalf("known term = %d %v", code, page)
+	// ADR-0184: an unbound terminal holds no grant and has no row; bound
+	// to an agent, a term id edits that agent's grant.
+	if code, page := postRaw(t, ts, "/api/browser/policy", `{"term":"`+term.ID+`","tier":"act"}`); code != http.StatusBadRequest {
+		t.Fatalf("shell term = %d %v", code, page)
 	}
-	var termRow map[string]any
+	cli, err := st.AddAgentWithCLI(ws.ID, "pi", "cli", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tid := term.ID
+	if _, err := st.UpdateAgent(cli.ID, store.AgentPatch{TerminalID: &tid}); err != nil {
+		t.Fatal(err)
+	}
+	code, page := postRaw(t, ts, "/api/browser/policy", `{"term":"`+term.ID+`","tier":"act"}`)
+	if code != http.StatusOK || page["saved"] != true {
+		t.Fatalf("bound term = %d %v", code, page)
+	}
+	var agentRow map[string]any
 	for _, p := range listPolicies(t, ts) {
-		if g := p.(map[string]any); g["kind"] == "terminal" && g["termId"] == term.ID {
-			termRow = g
+		g := p.(map[string]any)
+		if g["kind"] == "terminal" {
+			t.Fatalf("terminal row listed: %v", g)
+		}
+		if g["agentId"] == cli.ID {
+			agentRow = g
 		}
 	}
-	if termRow == nil || termRow["tier"] != "act" || termRow["saved"] != true {
-		t.Fatalf("terminal row did not carry the grant: %v", termRow)
+	if agentRow == nil || agentRow["tier"] != "act" || agentRow["saved"] != true {
+		t.Fatalf("agent row did not carry the grant: %v", agentRow)
 	}
 
 	refusals := []struct {

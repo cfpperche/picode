@@ -1,0 +1,120 @@
+package store
+
+import (
+	"testing"
+
+	"github.com/cfpperche/picode/internal/clilaunch"
+)
+
+// ADR-0184 slice 2 (migration 067): each row of the plan's table.
+func TestMigrateCLITerminalsOntoAgents(t *testing.T) {
+	s := openTest(t)
+	proj := t.TempDir()
+	w, err := s.AddWorkspace("App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	launch := func(ws, name, cwd, cli string) Terminal {
+		t.Helper()
+		tm, err := s.CreateTerminalIn(ws, name, cwd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cli != "" {
+			if err := s.SetTerminalLaunch(tm.ID, cli, clilaunch.Overrides{}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return tm
+	}
+	inWS := launch(w.ID, "Omp mirror", proj, "omp")
+	sub := t.TempDir()
+	inSub := launch(w.ID, "Codex sub", sub, "codex")
+	free := launch(FreeWorkspaceID, "Claude free", sub, "claude-code")
+	signin := launch(FreeWorkspaceID, "Claude Code sign-in", sub, "claude-code")
+	shell := launch(w.ID, "zsh", proj, "")
+	bound := launch(w.ID, "Bound", proj, "grok")
+	owner, err := s.AddAgentWithCLI(w.ID, "grok", "Bound", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	btid := bound.ID
+	if _, err := s.UpdateAgent(owner.ID, AgentPatch{TerminalID: &btid}); err != nil {
+		t.Fatal(err)
+	}
+	for k, v := range map[string]string{
+		"browser.policy.term:" + inWS.ID:     `{"tier":"act"}`,
+		"computer.policy.term:" + free.ID:    `{"enabled":true}`,
+		"computer.policy.term:" + shell.ID:   `{"enabled":true}`,
+		"computer.policy.term:gone-terminal": `{"enabled":true}`,
+		"browser.policy.term:" + bound.ID:    `{"tier":"full"}`,
+		"browser.policy." + owner.ID:         `{"tier":"read"}`,
+	} {
+		if err := s.SetSetting(k, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if _, err := s.db.Exec(`DELETE FROM schema_migrations WHERE version = 67`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.migrate(); err != nil {
+		t.Fatalf("migrate 067: %v", err)
+	}
+
+	check := func(tm Terminal, cli, ws string, work *string) Agent {
+		t.Helper()
+		a, err := s.AgentByTerminal(tm.ID)
+		if err != nil {
+			t.Fatalf("%s not migrated: %v", tm.Name, err)
+		}
+		if a.CLI != cli || a.WorkspaceID != ws || a.Name != tm.Name {
+			t.Fatalf("%s → %+v", tm.Name, a)
+		}
+		if (work == nil) != (a.WorkPath == nil) || (work != nil && *work != *a.WorkPath) {
+			t.Fatalf("%s work path = %v, want %v", tm.Name, a.WorkPath, work)
+		}
+		return a
+	}
+	a := check(inWS, "omp", w.ID, nil)
+	check(inSub, "codex", w.ID, &sub)
+	f := check(free, "claude-code", FreeWorkspaceID, &sub)
+	for _, tm := range []Terminal{signin, shell} {
+		if _, err := s.AgentByTerminal(tm.ID); err == nil {
+			t.Fatalf("%s must stay a terminal", tm.Name)
+		}
+	}
+	if got, _ := s.AgentByTerminal(bound.ID); got.ID != owner.ID {
+		t.Fatalf("bound terminal re-migrated: %+v", got)
+	}
+
+	want := map[string]string{
+		"browser.policy." + a.ID:     `{"tier":"act"}`,
+		"computer.policy." + f.ID:    `{"enabled":true}`,
+		"browser.policy." + owner.ID: `{"tier":"read"}`, // the agent's own grant wins
+	}
+	for k, v := range want {
+		if got, ok, _ := s.GetSetting(k); !ok || got != v {
+			t.Fatalf("%s = %q (%v), want %q", k, got, ok, v)
+		}
+	}
+	var n int
+	if err := s.db.QueryRow(`SELECT COUNT(1) FROM settings WHERE key LIKE '%.policy.term:%'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("%d terminal grants survived", n)
+	}
+
+	// Idempotent: a second run changes nothing.
+	if _, err := s.db.Exec(`DELETE FROM schema_migrations WHERE version = 67`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.migrate(); err != nil {
+		t.Fatalf("migrate 067 again: %v", err)
+	}
+	all, err := s.ListAllAgents()
+	if err != nil || len(all) != 4 {
+		t.Fatalf("agents after rerun = %d %v", len(all), err)
+	}
+}

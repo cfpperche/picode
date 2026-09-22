@@ -47,6 +47,19 @@ func TestDeliveryToolNativePrincipals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// ADR-0184: a shell holds no delivery; the same terminal bound to an
+	// agent delivers as that agent.
+	if res, out := inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"term":%q,"action":"capabilities"}`, tm.ID)); res.StatusCode != 403 {
+		t.Fatalf("shell = %d %v", res.StatusCode, out)
+	}
+	bound, err := st.AddAgentWithCLI(ws.ID, "claude-code", "generic", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tid := tm.ID
+	if _, err := st.UpdateAgent(bound.ID, store.AgentPatch{TerminalID: &tid}); err != nil {
+		t.Fatal(err)
+	}
 	res, out := inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"term":%q,"action":"capabilities"}`, tm.ID))
 	if res.StatusCode != 200 || out["identityScope"] != "launch" || out["integrationQueue"] != true {
 		t.Fatalf("%d %v", res.StatusCode, out)

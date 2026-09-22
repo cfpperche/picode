@@ -24,7 +24,6 @@ import (
 
 	"github.com/cfpperche/picode/internal/browser"
 	"github.com/cfpperche/picode/internal/computer"
-	"github.com/cfpperche/picode/internal/grant"
 )
 
 func registerComputerRoutes(mux Registrar, deps Deps) {
@@ -69,7 +68,7 @@ func handleComputerTool(deps Deps) http.HandlerFunc {
 			}
 			params = req.Params
 		}
-		key := grant.Key(req.Agent, req.Term)
+		key := callerKey(deps, req.Agent, req.Term)
 		step := computerStep{principal: key, termID: strings.TrimSpace(req.Term), agentID: strings.TrimSpace(req.Agent), call: req.Call, action: action}
 		if key == "" {
 			step.record(deps, "refused", "no identity", nil)
@@ -187,13 +186,7 @@ func handleComputerPolicies(deps Deps) http.HandlerFunc {
 			_, saved, _ := deps.Store.GetSetting(computer.SettingPrefix + a.ID)
 			out = append(out, row{Kind: "agent", AgentID: a.ID, Name: a.Name, Workspace: a.WorkspaceID, Enabled: computer.Resolve(deps.Store, a.ID).Enabled, Saved: saved})
 		}
-		if terms, err := deps.Store.ListTerminals(); err == nil {
-			for _, t := range terms {
-				key := grant.TerminalPrefix + t.ID
-				_, saved, _ := deps.Store.GetSetting(computer.SettingPrefix + key)
-				out = append(out, row{Kind: "terminal", TermID: t.ID, Name: t.Name, Workspace: t.WorkspaceID, Enabled: computer.Resolve(deps.Store, key).Enabled, Saved: saved})
-			}
-		}
+		// ADR-0184: every CLI PiCode launches is an agent; shells hold no grant.
 		writeJSON(w, http.StatusOK, map[string]any{"policies": out})
 	}
 }
@@ -221,17 +214,23 @@ func handleComputerPolicySave(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "send either an agent or a term, not both")
 			return
 		}
-		key := grant.Key(req.Agent, req.Term)
-		if key == "" {
-			writeErr(w, http.StatusBadRequest, "an agent id or a term id is required")
-			return
-		}
 		if req.Term != "" {
 			if _, err := deps.Store.GetTerminal(req.Term); err != nil {
 				writeErr(w, http.StatusNotFound, "unknown terminal: "+req.Term)
 				return
 			}
-		} else {
+			// ADR-0184: a terminal's grant is its agent's; a shell has none.
+			if req.Agent = callerAgentID(deps, "", req.Term); req.Agent == "" {
+				writeErr(w, http.StatusBadRequest, errShellGrant)
+				return
+			}
+		}
+		key := req.Agent
+		if key == "" {
+			writeErr(w, http.StatusBadRequest, "an agent id or a term id is required")
+			return
+		}
+		{
 			agents, err := deps.Store.ListAllAgents()
 			if err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())

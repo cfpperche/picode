@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/browser"
-	"github.com/cfpperche/picode/internal/grant"
 )
 
 // The work-browser command channel (ADR-0132). The desktop shell's page opens
@@ -115,8 +114,8 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 		// ADR-0172: an identified caller driving its own split is act on any
 		// http(s) URL. The stored grant is not that gate. Raw CDP still reads
 		// the stored tier, so this raise happens only for a session drive.
-		policy := browser.ResolveCaller(deps.Store, req.Agent, req.Term)
-		key := grant.Key(req.Agent, req.Term)
+		policy := browser.ResolveCaller(deps.Store, callerAgentID(deps, req.Agent, req.Term), req.Term)
+		key := callerKey(deps, req.Agent, req.Term)
 		session := key != "" && browser.IsSessionDrive(req.Verb)
 		if session {
 			policy = browser.SessionDrive()

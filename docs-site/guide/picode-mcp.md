@@ -27,12 +27,13 @@ works unchanged in Claude Code.
 
 ## Who the CLI is, and what it may do
 
-A CLI opened in a PiCode terminal is that **terminal**. PiCode's switches
-apply to it as they apply to any agent: **Settings ▸ Computer** lists the
-terminal, and the computer tool refuses until you turn it on; **Settings ▸
-Browser** gives it the read tier until you grant more. A new terminal is a
-new row. A CLI opened outside PiCode has no identity, and the tool says so
-instead of guessing.
+A CLI you start from PiCode is an **agent**, and PiCode's switches apply to
+it by name: **Settings ▸ Computer** lists it, and the computer tool refuses
+until you turn it on; **Settings ▸ Browser** gives it the read tier until you
+grant more. A CLI typed into a plain PiCode shell holds no grant of its own —
+the computer tool refuses it and the browser reads the tab on screen — until
+you make it an agent. A CLI opened outside PiCode has no identity, and the
+tool says so instead of guessing.
 
 The server carries no credential of its own: it reads the install token
 the way every PiCode script does, and every call is one request to the

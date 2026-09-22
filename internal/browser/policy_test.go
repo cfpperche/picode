@@ -34,7 +34,7 @@ func TestResolveCallerIsTheHouseIdentity(t *testing.T) {
 		want        string
 	}{
 		{"managed agent wins over the terminal", "agent-1", "term-9", "act"},
-		{"terminal principal", "", "term-9", "full"},
+		{"terminal principal holds no grant (ADR-0184)", "", "term-9", "read"},
 		{"agent without a grant", "agent-2", "", "read"},
 		{"terminal without a grant", "", "term-8", "read"},
 		{"unmanaged caller", "", "", "read"},

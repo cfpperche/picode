@@ -61,29 +61,7 @@ func handleBrowserPolicies(deps Deps) http.HandlerFunc {
 				Saved:     saved,
 			})
 		}
-		// ADR-0143: a CLI running in a terminal is a principal too, with its
-		// own row — the human decides what it may do instead of the tool
-		// silently reading the tab on screen.
-		if terms, err := deps.Store.ListTerminals(); err == nil {
-			for _, t := range terms {
-				key := browser.TerminalPrefix + t.ID
-				p := browser.Resolve(deps.Store, key)
-				_, saved, _ := deps.Store.GetSetting(browser.SettingPrefix + key)
-				domains := p.Domains
-				if domains == nil {
-					domains = []string{}
-				}
-				out = append(out, grant{
-					Kind:      "terminal",
-					TermID:    t.ID,
-					Name:      t.Name,
-					Workspace: t.WorkspaceID,
-					Tier:      p.Tier,
-					Domains:   domains,
-					Saved:     saved,
-				})
-			}
-		}
+		// ADR-0184: every CLI PiCode launches is an agent; shells hold no grant.
 		writeJSON(w, http.StatusOK, map[string]any{"policies": out})
 	}
 }
@@ -122,7 +100,12 @@ func handleBrowserPolicySave(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusNotFound, "unknown terminal: "+req.Term)
 				return
 			}
-			key = browser.TerminalPrefix + req.Term
+			// ADR-0184: a terminal's grant is its agent's; a shell has none.
+			if req.Agent = callerAgentID(deps, "", req.Term); req.Agent == "" {
+				writeErr(w, http.StatusBadRequest, errShellGrant)
+				return
+			}
+			key = req.Agent
 		}
 		if key == "" {
 			writeErr(w, http.StatusBadRequest, "an agent id is required")
