@@ -165,7 +165,8 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag 
 		fmt.Printf("  ok     tmux, git, curl, node and npm are already in %s\n", picked.Name)
 		return nil
 	}
-	if state.Family != "ubuntu" {
+	onlyPrefix := len(state.Missing) == 1 && state.Missing[0] == desktop.NpmUserPrefix
+	if state.Family != "ubuntu" && !onlyPrefix {
 		return fmt.Errorf("%s is %s, not Ubuntu — automatic setup only knows Ubuntu.\nInstall inside the distro: %s, then re-run install",
 			picked.Name, familyName(state.Family), strings.Join(state.Missing, ", "))
 	}
@@ -174,9 +175,12 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag 
 	for _, t := range state.Missing {
 		missing[t] = true
 	}
-	// Node comes from NodeSource at the CI major only when node or npm is
-	// missing; a node already present, whatever its major, is left alone.
-	needNode := missing["node"] || missing["npm"]
+	// Node comes from NodeSource at the CI major when node or npm is missing
+	// or node is older than that major (the probe names it NodeUpgrade). A
+	// fresh NodeSource npm has a root-owned /usr prefix, so the account's
+	// prefix moves to ~/.local with it: Agent CLIs installs as the account.
+	needNode := missing["node"] || missing["npm"] || missing[desktop.NodeUpgrade]
+	needPrefix := needNode || missing[desktop.NpmUserPrefix]
 	nodeMajor := desktop.RuntimeNodeMajor
 	var base []string
 	for _, p := range desktop.BasePackages {
@@ -193,9 +197,16 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag 
 			actions = append(actions, "apt-get install "+strings.Join(base, " "))
 		}
 		if needNode {
-			actions = append(actions, "nodejs "+nodeMajor+" from the NodeSource repository")
+			line := "nodejs " + nodeMajor + " from the NodeSource repository"
+			if missing[desktop.NodeUpgrade] {
+				line += " (replaces node " + state.NodeMajor + ")"
+			}
+			actions = append(actions, line)
 		}
-		ok, err := confirm(stdin, fmt.Sprintf("%s is your distro, not one PiCode created.\nRun as root inside %s:\n  %s\nProceed?", picked.Name, picked.Name, strings.Join(actions, "\n  ")))
+		if needPrefix {
+			actions = append(actions, "npm config set prefix ~/.local as "+user+" (so Agent CLIs installs without root)")
+		}
+		ok, err := confirm(stdin, fmt.Sprintf("%s is your distro, not one PiCode created.\nRun inside %s:\n  %s\nProceed?", picked.Name, picked.Name, strings.Join(actions, "\n  ")))
 		if err != nil {
 			return fmt.Errorf("confirm the runtime install: %w (or re-run with --yes)", err)
 		}
@@ -232,6 +243,12 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag 
 			return fmt.Errorf("install nodejs %s: %w", nodeMajor, err)
 		}
 		fmt.Printf("  ok     nodejs %s installed\n", nodeMajor)
+	}
+	if needPrefix {
+		if err := a.runner.Run(desktop.WSLExe, desktop.WSLArgs(picked.Name, user, "sh", "-c", desktop.NpmUserPrefixScript())...); err != nil {
+			return fmt.Errorf("set %s's npm prefix to ~/.local: %w", user, err)
+		}
+		fmt.Printf("  ok     npm installs as %s into ~/.local\n", user)
 	}
 	out, err := a.runner.Output(desktop.WSLExe, desktop.WSLArgs(picked.Name, user, desktop.ProbeArgs()...)...)
 	if err != nil {

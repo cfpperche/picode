@@ -1,4 +1,0 @@
-### Added
-- **The integration queue exists at its doors (ADR-0182).** A project can declare how it integrates — fast-forward only, plus up to eight single-line commands, per workspace with the machine as the fallback layer — and the Delivery read answers with both the queue and the resolved declaration.
-- **An agent can ask for a place, and take it back.** `picode delivery request-integration` names the revision and target the delivery declares (the daemon refuses a drifted revision), `withdraw-integration` steps out by the entry's own id and version, and `show` prints the entry. The same actions are in the MCP tool and in `packages/pi-delivery`; the owner orders and authorizes entries through the queue's owner-scoped API, and the store refuses `order`/`authorize` for anyone else.
-- Nothing runs on its own yet: the serialized executor and the queue's own view are still to come, and deployment execution remains unavailable.
