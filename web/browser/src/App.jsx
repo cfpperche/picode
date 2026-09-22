@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { OPEN_LINK_EVENT } from "./lib/externalLinks.js";
+import { installOpenUrlFeed } from "./lib/openUrlFeed.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
@@ -3583,6 +3584,18 @@ export default function App({ shellChrome = false } = {}) {
       })
       .catch(() => openWebTab(url));
   }, []);
+
+  // A CLI's "open in the browser" (ADR-0180: login pages above all) comes
+  // in over the feed — the wrapper in the terminal posts to the daemon,
+  // which turns it into terminal.open_url. The client actually on screen
+  // answers through the clicked-link path, so the destination preference
+  // governs it too; a hidden client stays out (the daemon's host fallback
+  // covers the nobody-watching case).
+  useEffect(() => installOpenUrlFeed({
+    subscribe: subscribeFeed,
+    open: openTermLink,
+    hidden: () => typeof document !== "undefined" && document.visibilityState !== "visible",
+  }), [openTermLink]);
 
   // The wordmark's one action, shared by the shell's top row and the
   // browser's sidebar: show the dashboard. Pinning alone was not enough.
