@@ -54,7 +54,15 @@ func TestAddAgentWithLaunchOverrides(t *testing.T) {
 	}
 
 	// Pi owns its session: a reserved flag in the overrides is refused;
-	// other args make a Pi agent bound to a launch terminal.
+	// other args make a Pi agent bound to a launch terminal. Pi gets a
+	// configured executable like codex above, so the test does not depend on
+	// pi being installed (a runner has none) — and the refusal below is then
+	// provably about the reserved flag, not about a missing binary.
+	piBin := filepath.Join(t.TempDir(), "pi")
+	if err := os.WriteFile(piBin, []byte("#!/bin/sh\nexec cat\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "PUT", "/api/clis/pi", clilaunch.Config{Executable: piBin}, 200)
 	cliRequest(t, ts, "POST", "/api/agents", map[string]any{"name": "P", "overrides": map[string]any{"args": []string{"--session", "x"}}}, 400)
 	pi := cliRequest(t, ts, "POST", "/api/agents", map[string]any{"name": "P", "path": t.TempDir(), "overrides": map[string]any{"args": []string{"--verbose"}}}, 201)
 	if pi["cli"] != "pi" || pi["terminalId"] == nil {
