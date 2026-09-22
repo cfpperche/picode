@@ -6,4 +6,6 @@ Verified: `make docs` green, `make vale` 0 errors, `make ci-scoped` PASS (fmt, v
 
 visual-review: PASS — dark 1440 (cards and escape-hatch table), the phase-1 `no` chip, light 1440 full page, and mobile 360 (no horizontal overflow, zero clipped elements, cards 312 px). Kept in `var/screenshots/devflow-edges-*.webp`, not committed. Blind spot: Chromium only.
 
-Not done / debts: the maintenance debt this branch leaves — quotes are not tied to their printing sources — is filed in `docs/handoff/open/docs-audit.md`; nothing else outstanding. Merge: fast-forward ready, one commit (`docs: add the flow's refusal and escape-hatch cases`) on top of a064994d, which is `main`'s tip; the merge and `make ci` on `main` have not run.
+Not done / debts: the maintenance debt this branch leaves — quotes are not tied to their printing sources — is filed in `docs/handoff/open/docs-audit.md`; nothing else outstanding.
+Merge: fast-forward ready, one commit (`docs: add the flow's refusal and escape-hatch cases`) on top of a064994d, which is `main`'s tip.
+Merged after this note was written (ADR-0149): `main` at 2f395d82, `make ci` green; the owner deployed with `PICODE_DEPLOY_FORCE=1` (daemon 0.4.0+bd114c2) and the section is live at `cfpperche.github.io/picode/guide/dev-flow` (Pages green) — 13 cards and 5 escape-hatch rows verified on the published page.
