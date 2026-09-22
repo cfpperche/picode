@@ -105,7 +105,29 @@ and a test compares the enum of one with the action list of the other. The
 serialized executor and the Delivery-view lane are the slice's remaining steps
 (`docs/plans/delivery-flow.md`, D3).
 
-### The runner (ADR-0182)
+### Modes and vocabulary (ADR-0186)
+
+An integration is performed by **the project's provider when it has one**. The
+declaration names its mode, `provider` or `local`, and a project that declares
+nothing is not executed at all — absence stays a named blocker. Under `provider`,
+PiCode enqueues through the provider's own queue: the repository's GitHub merge
+queue, or a reviewer's `r+` where the project runs bors. It then observes that
+queue — the entry is present or not, its position, and its **ejection with the
+provider's reason** — and never merges by itself; the provider's CI validates the
+merge result. `order` belongs to the local mode, and under `provider` it is
+refused with that reason, because the provider owns the order. A provider that
+cannot be reached is unknown, never inferred.
+
+The `local` mode is the fallback for a repository with no hosting provider, and
+is the runner described below: the declared single-line commands, then a
+fast-forward-only move.
+
+The surface speaks the community's vocabulary — **merge queue**, entry,
+position, *approved*, *integrating*, *integrated*, *ejected with a reason* — so
+anyone who knows GitHub or bors can read the screen without a manual. Internal
+store field names keep their own words; the mapping is deliberate.
+
+### The runner (ADR-0182, the local mode)
 
 Authorization is execution authority: when the owner authorizes an entry, that
 repository drains — the entry just authorized, then whatever else is authorized

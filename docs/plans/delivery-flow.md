@@ -30,8 +30,9 @@ actually serving each observed environment, without opening agent terminals.
 
 No autonomous deploy, scheduled release train, automatic force/restart, automatic
 conflict resolution, mandatory GitHub/PR workflow, or replacement CI/CD platform.
-No generic shell-command executor, broad provider rollout, dependency-aware
-scheduler or automatic rollback in the initial delivery. Existing provider links
+No generic shell-command executor beyond the declared `local` mode (ADR-0186),
+no broad provider rollout, dependency-aware scheduler or automatic rollback in
+the initial delivery. Existing provider links
 may be exposed; deep remote integrations follow evidence from the pilot.
 
 ## Facts and state contract
@@ -133,6 +134,15 @@ the first usable milestone; they require no new deployment action.
   prior eligibility; do not silently broaden an approved operation.
 - [ ] Handle retries, duplicate requests, external merges and restart recovery
   without repeating an operation whose result is uncertain.
+
+Mode split (ADR-0186, owner-approved 2026-09-22): the integration declaration
+names `provider` or `local`. Under `provider`, PiCode enqueues through the
+project's own queue — the repository's GitHub merge queue, or a reviewer's `r+`
+where bors runs — and observes it (present, position, ejected with reason),
+never merging by itself and never running the project's checks; `order` is
+refused there, because the provider owns it. `local` is the runner that landed
+in D3, kept as the fallback for a repository with no hosting provider. The
+surface says *merge queue*, *entry*, *position* and *ejected with a reason*.
 
 Exit: decision-table tests cover concurrent requests, base movement, stale
 approval, partial failure and recovery. Existing land/gate semantics remain
