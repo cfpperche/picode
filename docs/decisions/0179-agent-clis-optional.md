@@ -67,7 +67,7 @@ CLI only where that CLI is the process it runs, and says which CLI it needs.
 | Agents of other CLIs (workspace or free), terminals, sessions, providers, native settings, guest packages, connectors, dashboard | no | ADR-0160, 0163, 0167, 0169 |
 | Managed mode: `pi --mode rpc`, structured chat, composer, `/api/catalog`, Pi's Packages and Settings panes, `/trust` | yes | ADR-0091, ADR-0160 |
 | Automation **start** (creates a fresh Pi agent) | yes | the run *is* a Pi process |
-| Automation **message** | only when the target is `cli=pi` and not running | a guest agent is reached through its launch terminal (ADR-0089 door) |
+| Automation **message** | only when the target is `cli=pi` and not running | a guest agent is reached through its launch terminal (ADR-0089 door) while that terminal is open; a closed one skips as `terminal closed` |
 | Free agent, `cli` empty or `pi` | yes, to run it | as today |
 | Free agent, other launchable CLI | no | `AddAgentWithCLI(FreeWorkspaceID, …)` plus a free launch terminal |
 
@@ -75,7 +75,7 @@ CLI only where that CLI is the process it runs, and says which CLI it needs.
 
 Easier: a Claude-only or Omp-only user installs on Linux, WSL and Windows
 and sees a System page that names what is present; automations aimed at
-guest agents fire; the docs, the README and the operating contract describe
+guest agents deliver while the agent's terminal is open; the docs, the README and the operating contract describe
 the product that ships; `agents.cli` means the same thing in a workspace and
 in the free list. Harder: the System page and the automations banner have to
 read the CLI catalog (`GET /api/clis`, `describeCLI`) instead of one boolean;

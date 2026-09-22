@@ -32,6 +32,23 @@ var RuntimeTools = []string{"tmux", "git", "curl", "node", "npm"}
 // number read from any CLI's package. A node already present is left alone.
 const RuntimeNodeMajor = "22"
 
+// NpmUserPrefix names the probe's "the account's npm installs need root"
+// item: a global prefix under /usr (NodeSource's, or the distro's) is
+// root-owned, and Agent CLIs' Install runs `npm install -g` as the account.
+// The runtime stage points that account's prefix at ~/.local, whose bin the
+// login shell already carries (ADR-0179). An nvm prefix is left alone.
+const NpmUserPrefix = "npm-user-prefix"
+
+// NodeUpgrade names the probe's "node is older than RuntimeNodeMajor" item:
+// the CLIs a user installs later (Pi needs >=22.19) refuse an older engine.
+var NodeUpgrade = "node-" + RuntimeNodeMajor
+
+// NpmUserPrefixScript sets the account's npm prefix to ~/.local. It runs as
+// that account; no `$` crosses the wsl.exe boundary.
+func NpmUserPrefixScript() string {
+	return "set -e\nmkdir -p ~/.local/bin\nnpm config set prefix ~/.local"
+}
+
 // BasePackages is the apt half of the runtime. gnupg is not in ADR-0098's
 // list; the NodeSource keyring needs it and a minimal image may not have it.
 var BasePackages = []string{"tmux", "git", "curl", "ca-certificates", "gnupg"}
@@ -49,6 +66,7 @@ which git >/dev/null 2>&1 || echo "missing:git"
 which curl >/dev/null 2>&1 || echo "missing:curl"
 which node >/dev/null 2>&1 || echo "missing:node"
 which npm >/dev/null 2>&1 || echo "missing:npm"
+npm config get prefix 2>/dev/null | grep -q '^/usr' && echo "missing:npm-user-prefix"
 node --version 2>/dev/null || echo "nodeversion:"
 echo "@@family@@"
 grep ^ID= /etc/os-release 2>/dev/null || echo ID=unknown
@@ -105,6 +123,9 @@ func ParseProbe(out []byte) ProbeResult {
 		} else if m := parseNodeVersionLine(line); line != "nodeversion:" && m != "" {
 			r.NodeMajor = m
 		}
+	}
+	if r.NodeMajor != "" && NodeOlder(r.NodeMajor, RuntimeNodeMajor) {
+		r.Missing = append(r.Missing, NodeUpgrade)
 	}
 	for _, line := range sections["@@family@@"] {
 		if id, ok := strings.CutPrefix(line, "ID="); ok {

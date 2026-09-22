@@ -92,9 +92,14 @@ project integrates — `ffOnly` plus up to eight single-line commands, written p
 workspace with the machine as the fallback layer and a built-in default
 (`ffOnly`, no checks) when neither declares. The Delivery read carries both: its
 payload gains `queue` and the already-resolved `integration`, so a surface never
-has to repeat the fallback. Requesting and withdrawing an entry *as the agent*
-rides the delivery tool contract, and the serialized executor plus the
-Delivery-view lane are the slice's remaining steps
+has to repeat the fallback. The agent's half rides the delivery tool contract: `request-integration` asks for
+a place for the launch's **own** delivery, naming the revision and target the
+delivery declares — the store checks both, so a drifted or unreviewed revision
+cannot be queued — and `withdraw-integration` takes it back by the entry's own id
+and version, which `show` prints. All three faces (the `picode delivery` command,
+the MCP family and the pi package) offer the same actions and the same fields,
+and a test compares the enum of one with the action list of the other. The
+serialized executor and the Delivery-view lane are the slice's remaining steps
 (`docs/plans/delivery-flow.md`, D3).
 
 ## Integration observation (ADR-0170, D1b)

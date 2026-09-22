@@ -28,6 +28,7 @@ const (
 	reasonPiMissing   = "pi missing"
 	reasonTargetGone  = "target gone"
 	reasonInTerminal  = "agent in terminal"
+	reasonTermClosed  = "terminal closed"
 	reasonQueued      = "queued"
 	reasonExited      = "process exited"
 	reasonStopped     = "stopped during the run"
@@ -89,6 +90,16 @@ func decideFire(in fireInput) fireDecision {
 			// Delivering to a Pi agent means running pi; only an already-running
 			// one needs no pi to start. A guest agent never needs pi (ADR-0179).
 			return fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}
+		}
+		if !in.TargetIsPi {
+			// A guest agent's terminal IS its process (ADR-0160): an open
+			// terminal is where the door delivers, a closed one has nobody to
+			// read the prompt. Starting a CLI and pasting before its TUI is
+			// ready is not delivery, so a closed terminal skips honestly.
+			if in.AgentMode == modeInteractive {
+				return fireDecision{}
+			}
+			return fireDecision{Status: store.RunSkipped, Reason: reasonTermClosed}
 		}
 		if in.AgentMode == modeInteractive {
 			return fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}
@@ -324,6 +335,8 @@ func skipBody(reason string) string {
 		return "Pi is not installed or not on PATH, so this Pi agent could not start."
 	case reasonTargetGone:
 		return "The agent this automation messages no longer exists. Pick another agent in the automation's settings."
+	case reasonTermClosed:
+		return "This agent's terminal is closed, so nobody could read the prompt. Open the agent and the next run will go through."
 	case reasonInTerminal:
 		return "The agent is open in a terminal, where messages are not delivered automatically. Close the terminal session and the next run will go through."
 	}

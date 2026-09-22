@@ -91,8 +91,11 @@ PiCode's own npm gallery (`CatalogGallery`), its scopes are `Global`,
 `webSearch` fact. `Caps.Lane` names no verb — nothing of Pi's is reserved as a
 job — and its `Install`/`Remove`/`Update`/`Toggle`/
 `Inspect`/`Marketplace` on this interface refuse with `ErrNoMutation`: Pi's
-mutations still run through `pipkg` on PiCode's own routes, which answer the
-CLI's fresh list directly. A read that named no workspace or no agent declares
+mutations run through `pipkg` in the server's own handlers on the same
+`POST /api/packages`, `POST /api/packages/update` and `DELETE /api/packages`
+paths, told apart from a CLI's own verb by the `cli` the request carries (none,
+for PiCode's own call), and they answer the CLI's fresh list directly. A read
+that named no workspace or no agent declares
 no radio for that layer (`scopesForContext`), so a control that could not work
 is never offered.
 
@@ -112,11 +115,11 @@ list, so a read that asks for it is answered from `Query.AgentSources` with no
 vendor call at all — under both names a pane may use (`scope=agent` and
 `vendor=agent`).
 
-The legacy payloads are derived, not hand-built: `internal/pkgs/legacy.go`
-maps a `Report` back to Pi's JSON and `internal/pkgs/guest_view.go` to the
-guests', both byte-for-byte what the routes answered before the engine moved
-underneath them, and both compared against the old engine over fixtures in
-tests rather than trusted.
+The unified answers are the model itself. Pi's legacy payload is still derived
+— `internal/pkgs/legacy.go` maps a `Report` back to Pi's JSON for the routes
+Pi's own pane has always parsed — while the guests' payload is now the model
+directly: the mappers that reconstructed their old bytes
+(`internal/pkgs/guest_view.go`) went with the alias below.
 
 ## The routes
 
@@ -124,21 +127,23 @@ tests rather than trusted.
 |---|---|
 | `GET /api/packages/report?cli&scope&vendor&workspace&agent&refresh=1` | the unified `Report` for any CLI; `cli` absent or `pi` means Pi |
 | `GET /api/packages/updates?cli&vendor&workspace` | the badge read: the rows the CLI's own catalog has moved ahead of (`scope` is the fallback for `vendor`) |
+| `GET /api/packages/available?cli&scope&workspace` | the CLI's own installable list (`Driver.Available`), as the unified `Report`; a CLI with no catalog refuses (`ErrNoCatalog` or the vendor's own reason) |
+| `GET /api/packages/marketplaces?cli&scope&workspace` | the CLI's own marketplace sources, in the unified row shape; a CLI that keeps none refuses (`ErrNoMarketplaces`) |
 | `GET /api/packages?workspace&agent` | Pi's read, in Pi's JSON (`Report.Legacy`) — `cli` is not consulted |
-| `POST /api/packages`, `POST /api/packages/update`, `DELETE /api/packages` | Pi's own mutations through `pipkg`, answering the fresh list |
+| `POST /api/packages`, `POST /api/packages/update`, `DELETE /api/packages` | install, update and remove: Pi's own mutations through `pipkg` when the request names no CLI, the CLI's own verb (a job, or the driver's write answering the fresh report) when it names one |
+| `POST /api/packages/toggle`, `/api/packages/marketplace`, `/api/packages/inspect` | the CLI's own toggle, source management and inspection — PiCode's own calls have no such verbs |
 | `GET /api/packages/gallery`, `/api/packages/config`, `/api/packages/describe` | Pi's gallery search and its config descriptors (ADR-0099/0119) |
-| `GET /api/cli-packages{,/available,/marketplaces,/updates}` | the guest shapes, from `DriverFor(cli)` mapped back by `guest_view.go` |
-| `POST /api/cli-packages/{install,remove,update,toggle,marketplace,inspect}` | the guest mutations |
 
-An unknown `cli` on the unified reads is a 400 that names the CLIs which have a
-driver; the guest family refuses one with `ErrNoDriver`. **The
-`/api/cli-packages*` family is an alias for one release** (ADR-0176): it is the
-`/api/packages*` model reached through the paths the guest pane has always
-called, so a caller can be moved over release by release. It keeps its old
-refusals by name — `cli=pi` is "PiCode manages no plugins for this CLI"
-(`ErrNoDriver`, the Pi pane is its own surface) and `scope=agent` is
-`ErrAgentScope`, "CLI plugins have no per-agent scope" — and a project scope
-without a workspace folder is refused before anything runs.
+One path per verb, for every CLI. The `cli` a request carries is what resolves
+its driver, and PiCode's own calls never carry one: Pi's mutations run through
+`pipkg` on those same three paths, and an agent-layer write is PiCode's own list
+for every CLI (`directMutation`, the pane's half of the same rule). An unknown
+`cli` is a 400 naming the CLIs which have a driver; `cli=pi` on a CLI's own verb
+is a 400 too — PiCode manages no plugins for Pi through that surface, because
+Pi's are PiCode's own calls. The `/api/cli-packages*` family this replaced was
+the alias ADR-0176 gave one release; the owner closed that window on 2026-09-22
+and the handlers, the mappers and the legacy tests went together
+(`feat/packages-alias`).
 
 Failures keep their vocabulary: 400 for what PiCode refuses (a scope the CLI
 does not declare, a verb it does not expose, an unreadable request), 409 for a
@@ -239,7 +244,9 @@ through its own flags: `omp -e <entry>` per entry, and `--no-extensions
 --no-skills` when isolated — the two flags that CLI has, never one it would
 refuse (`agentOmpScopeFlags`, ADR-0176 slice 4). Pi and Omp are the two CLIs
 that declare the layer; the others have no per-agent plugin layer to declare,
-and the legacy guest route refuses `agent` by name. The CLIs that take MCP
+and a CLI's own verb — which runs the vendor's command — refuses `scope=agent`
+by name (`ErrAgentScope`), because that layer is PiCode's own list on the agent
+row rather than something the vendor knows. The CLIs that take MCP
 servers at launch get PiCode's own tools through the connector lane
 ([picode-mcp.md](picode-mcp.md)) rather than this pane's scope.
 

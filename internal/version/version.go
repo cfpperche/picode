@@ -11,7 +11,7 @@ import "runtime/debug"
 //
 // Kept in sync with CHANGELOG.md releases; a source build keeps this value.
 // Update comparisons (install.Newer) use Version alone — never Build().
-var Version = "0.4.0"
+var Version = "0.5.0"
 
 // Stamped marks a release build (set by the release workflow alongside
 // Version). Empty on source builds, which is what makes Build() append
