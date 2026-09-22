@@ -1,16 +1,21 @@
-// Pi's own pane, and nothing else: the eight guest CLIs are covered by
-// GUEST_PACKAGES below, and an id that is in neither list gets the
-// "in development" placeholder. Pi is not a guest — it keeps its own API,
-// scopes (machine/workspace/agent) and config descriptors (ADR-0102/0099).
-export const CLI_PACKAGES = [{ id: "pi", name: "Pi" }];
-export const supportsCliPackages = id => CLI_PACKAGES.some(cli => cli.id === id);
-
-// The eight guest CLIs whose vendor owns the plugin store (ADR-0167), in the
-// catalog order `internal/clipkgs` declares. Pi is deliberately absent: its
-// pane, API and package semantics are its own (ADR-0102) and it keeps
-// `CLI_PACKAGES` above. A Go conformance test keeps the two lists in step.
-export const GUEST_PACKAGES = ["claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy", "omp"];
-export const usesGuestPackages = id => GUEST_PACKAGES.includes(id);
+// One pane, every CLI (ADR-0176): the engine is the source of what a CLI is —
+// its scopes, its capabilities, its catalog — and this module is the whole of
+// the contract a browser owns: the request each control sends, the vocabulary
+// the pane speaks for the surface a report declares, and the copy shown where a
+// verb does not exist. Nothing here lists CLIs: a report is asked for and the
+// answer decides (the two hardcoded lists this file used to carry are gone).
+//
+// Pi keeps its own API for its own mutations — the package pages, the config
+// descriptors, the store write behind the agent scope — while a vendor's
+// plugins go through the job lane (ADR-0087). Which one a pane uses is the
+// driver's own declaration (`Caps.Async`), not a branch on which CLI it is.
+//
+// The surface a report declares (`Catalog`) also decides which vocabulary the
+// pane speaks: a CLI whose installable list is PiCode's own npm gallery holds
+// *packages*, and one whose list is the vendor's holds *plugins*. Both word
+// sets were measured in the two panes this file served (ADR-0167/0102) and are
+// kept verbatim, so the merge changes which component draws a control and not
+// what it says.
 
 export function cliPackagesHash(cli = "pi", { workspaceId = "", agentId = "", scope = "user", pkg = "" } = {}) {
   const query = new URLSearchParams();
@@ -87,13 +92,112 @@ export async function loadPiPackagesContext({ workspaceId = "", agentId = "", sc
   return { workspace, agent };
 }
 
-// --- guest CLI plugins (ADR-0167) --------------------------------------------
+// --- the surface a report declares -------------------------------------------
+
+// packagesSurface is where a CLI's installable rows come from: PiCode's own npm
+// gallery ("gallery", Pi's) or the vendor's own store ("vendor", everyone
+// else's). A report with no catalog at all still speaks the vendor's words —
+// its rows are the CLI's own plugins, read from its files.
+export function packagesSurface(report) {
+  return report && report.catalog === "gallery" ? "gallery" : "vendor";
+}
+
+// PANE_WORDS is the copy that differs between the two surfaces, sentence by
+// sentence, exactly as each pane said it before the merge. Anything the two
+// surfaces say identically is not here.
+export const PANE_WORDS = {
+  gallery: {
+    scopeLabel: "Install to",
+    scopeGroup: "Install to",
+    sourcePlaceholder: "npm:pkg  ·  git:github.com/user/repo  ·  ./path",
+    sourceLabel: "Package source",
+    access: "Packages run with full access. Only install what you review.",
+    installedFilter: "Filter installed packages…",
+    installedFilterLabel: "Filter installed packages",
+    noMatch: q => "No installed package matches \u201c" + q + "\u201d.",
+    emptyTitle: "Nothing installed yet",
+    loading: "Loading packages",
+    fallback: "Machine packages",
+    isolation: "Only this agent's packages (skip machine and folder). Restart to apply.",
+  },
+  vendor: {
+    scopeLabel: "Plugins go to",
+    scopeGroup: "Plugin scope",
+    sourcePlaceholder: "npm module, git URL, or name@marketplace",
+    sourceLabel: "Plugin source",
+    access: "Plugins run with full access. Only install what you review.",
+    installedFilter: "Filter installed plugins…",
+    installedFilterLabel: "Filter installed plugins",
+    noMatch: q => "No installed plugin matches \u201c" + q + "\u201d.",
+    emptyTitle: "Nothing installed.",
+    loading: "Loading plugins",
+    fallback: "Use global",
+    isolation: "",
+  },
+};
+
+// paneWords answers the copy one surface speaks, never null: a caller that
+// renders before a report exists gets the vendor's words, which is what a CLI
+// without a catalog reads as.
+export function paneWords(surface) {
+  return PANE_WORDS[surface] || PANE_WORDS.vendor;
+}
+
+// directMutation says whether a mutation is one of PiCode's own calls — the
+// source, its layer, and the target the answer comes back for — rather than a
+// job in the CLI's own lane. A CLI whose mutations are direct calls (`Caps.Async`
+// false, Pi's own pipkg) always is; so is any write into the agent scope, and any
+// row that lives there, because that layer is PiCode's own list on the agent row
+// for every CLI — the CLI's launch is what passes the entries on (ADR-0176 slice
+// 4). A vendor row in a vendor's layer is the lane's, and only its.
+export function directMutation(caps, { scope = "user", row = null } = {}) {
+  if (!caps || !caps.async) return true;
+  return (row ? row.scope : scope) === "agent";
+}
+
+// vendorKnowsRow says the two controls the *vendor* owns — its on/off verb and
+// its inspection — may be offered for this row. A row in the agent layer is
+// PiCode's own entry, not the vendor's plugin: the CLI learns about it at
+// launch, so its own commands do not know the name, and PiCode's list has no
+// disabled state to write. Both controls are therefore absent rather than dead
+// (ADR-0176 slice 4), exactly as they are for Pi, whose rows carry neither.
+// Remove and Update are PiCode's own calls for that layer, and stay.
+function vendorKnowsRow(row) {
+  return !(row && row.scope === "agent");
+}
+
+export function rowToggle(caps, row) {
+  return !!(caps && caps.toggle) && vendorKnowsRow(row);
+}
+
+export function rowInspect(caps, row) {
+  return !!(caps && caps.inspect) && vendorKnowsRow(row);
+}
+
+// paneTabs says whether the Installed/Marketplace pair is offered. A report with
+// no catalog holds one list and has nothing to switch to; and a vendor's catalog
+// does not exist for the agent layer — that list is PiCode's own on the agent
+// row, so the Marketplace tab there would be a control that cannot work
+// (ADR-0176 slice 4). Pi's gallery, which is PiCode's own, stays offered.
+export function paneTabs(report, scope = "user") {
+  if (!report || report.catalog === "") return false;
+  return !(scope === "agent" && report.catalog !== "gallery");
+}
+
+// behindFor finds the catalog's answer for one installed row. The CLI's own
+// update check names the source, the layer it lives in and the version pair; a
+// row the check did not name is not behind, and nothing else may invent one — a
+// blind Update button is a fabricated control (ADR-0167).
+export function behindFor(updates, row) {
+  const list = Array.isArray(updates) ? updates : [];
+  const r = row || {};
+  return list.find(entry => entry && entry.source === r.source && (!entry.scope || !r.vendor || entry.scope === r.vendor)) || null;
+}
+
+// --- the CLI's own plugins (ADR-0167) ----------------------------------------
 //
-// The guest pane talks to one frozen HTTP contract (plan §10) and takes every
-// control from the answer's `caps`, every absence from its `notes`. It never
-// restates a CLI's capabilities: these two functions are the whole of the
-// contract a browser owns — the request shapes, and the copy shown where a
-// verb does not exist.
+// Every control comes from the report's `caps`, every absence from its `notes`.
+// The pane never restates a CLI's capabilities.
 
 // The verb names the contract uses, and the keys a CLI's `notes` may use to
 // explain that verb's absence. `enable`/`disable` are two vendor words for the
@@ -107,12 +211,12 @@ const GUEST_VERB_NOTES = {
   marketplace: ["marketplace", "marketplace-add"],
 };
 
-// guestPackagesNotes is the copy a capability-driven pane must not forget: one
+// packagesNotes is the copy a capability-driven pane must not forget: one
 // sentence per verb this CLI does not expose, then every note whose key is a
 // concept rather than a verb (`capabilities`, `approve`, `local`, `app`) — so
 // each blank cell is explained once, in the vendor's terms, and never by a
 // control that could only fail.
-export function guestPackagesNotes(caps, notes) {
+export function packagesNotes(caps, notes) {
   // Both arguments arrive from a report that may not exist yet, and `null` is
   // not what a default parameter covers: a caller passing `report && report.notes`
   // hands over null before the first load. Coerce here, once, so a pane cannot
@@ -146,19 +250,6 @@ export function catalogRowAction(caps, row) {
   if (r.installed) return "installed";
   if (c.catalogInstall && r.source) return "install";
   return "none";
-}
-
-// rowUpdateState decides what an installed row offers as an update. The vendor
-// has to expose the verb (caps.update) AND its own catalog has to say something
-// newer: a blind Update button is a fabricated control (ADR-0167), so before
-// the first check the pane offers "Check for updates" instead of one button per
-// row, and a row that is current offers nothing.
-export function rowUpdateState(caps, row, checked) {
-  const c = caps || {};
-  const r = row || {};
-  if (!c.update) return "none";
-  if (r.updateAvailable) return "update";
-  return checked ? "current" : "unknown";
 }
 
 // matchParts splits text around every occurrence of the filter's needle, so a
@@ -256,22 +347,35 @@ export function refusalCommand(error) {
   return { message: (error && error.message) || "", command };
 }
 
-// guestPackagesApi(cli, {workspaceId, scope}) is the request builder for every
-// route in the frozen contract (plan §10). A pane never assembles a URL, a
-// query name or a body field inline: it asks for the route it needs, so one
-// rename happens in one place and the shapes are testable without a browser.
+// packagesApi(cli, {workspaceId, agentId, scope}) is the request builder for
+// every route one pane needs (ADR-0176). The reads answer the unified report —
+// the roster, its badge, and the catalog a CLI's mechanism keeps — and the
+// verbs answer where that mechanism runs them: a vendor's own command through
+// the job lane, PiCode's own package API for a CLI whose mutations are direct
+// calls that answer the new list (`Caps.Async` false). A pane never assembles a
+// URL, a query name or a body field inline: it asks for the route it needs, so
+// one rename happens in one place and the shapes are testable without a browser.
 //
 // `ref` on a marketplace action is the scope the vendor's own add/update runs
 // in (Claude's `--scope`, Muse's and Omp's working directory), so a machine
 // action sends none — Codex's `--ref <git ref>` is never handed a scope word.
 // `confirmTerminals` mirrors the clijob lane it already has: PiCode asks before
 // a job that lands in a CLI whose terminals are live (plan §6).
-export function guestPackagesApi(cli, { workspaceId = "", scope = "user" } = {}) {
+export function packagesApi(cli, { workspaceId = "", agentId = "", scope = "user" } = {}) {
   const id = cli || "";
-  const path = (route, { refresh = false } = {}) => {
+  const path = (route, { refresh = false, agent = false, vendor = false } = {}) => {
     const query = new URLSearchParams({ cli: id });
     if (workspaceId) query.set("workspace", workspaceId);
-    if (scope && scope !== "user") query.set("scope", scope);
+    if (agent && agentId) query.set("agent", agentId);
+    // The layer being read. The unified reads take the CLI's own word for it
+    // (`vendor` — the class alone cannot say Claude Code's uncommitted
+    // `local`), the vendor routes take the same word under `scope`, which is
+    // the query they have always answered.
+    if (vendor) {
+      if (scope && scope !== "user") query.set("vendor", scope);
+    } else if (scope && scope !== "user") {
+      query.set("scope", scope);
+    }
     if (refresh) query.set("refresh", "1");
     return route + "?" + query;
   };
@@ -286,16 +390,28 @@ export function guestPackagesApi(cli, { workspaceId = "", scope = "user" } = {})
     return out;
   };
   const post = (route, fields) => ({ method: "POST", path: route, body: body(fields) });
+  // PiCode's own package API takes the source, its layer, and the workspace and
+  // agent the fresh list is read back for — a project-scope write with no
+  // workspace would land on the machine instead.
+  const directBody = fields => {
+    const out = { source: fields.source, scope: fields.scope };
+    if (workspaceId) out.workspaceId = workspaceId;
+    if (agentId) out.agentId = agentId;
+    return out;
+  };
   const get = (route, opts) => ({ method: "GET", path: path(route, opts), body: null });
   const ref = fields => (fields.ref ? { ref: fields.ref } : scope && scope !== "user" ? { ref: scope } : {});
   return {
-    roster: opts => get("/api/cli-packages", opts),
-    available: () => get("/api/cli-packages/available"),
+    // The unified report: what this CLI is and what it holds, in one read.
+    report: opts => get("/api/packages/report", { ...opts, agent: true, vendor: true }),
+    // The badge read: the rows this CLI's own catalog has moved ahead of.
+    updates: opts => get("/api/packages/updates", { ...opts, vendor: true }),
+    // PiCode's own gallery (the catalog a `gallery` report declares).
+    gallery: q => ({ method: "GET", path: "/api/packages/gallery?q=" + encodeURIComponent(String(q == null ? "" : q).trim()), body: null }),
     // The CLI's own configured sources. A CLI with no source-management verb
     // answers 400, which is the contract's "it has none", not a failure.
+    available: () => get("/api/cli-packages/available"),
     marketplaces: () => get("/api/cli-packages/marketplaces"),
-    // The availability check: the CLI's catalog compared with its roster.
-    updates: opts => get("/api/cli-packages/updates", opts),
     install: fields => post("/api/cli-packages/install", fields),
     remove: fields => post("/api/cli-packages/remove", fields),
     update: fields => post("/api/cli-packages/update", fields),
@@ -310,5 +426,18 @@ export function guestPackagesApi(cli, { workspaceId = "", scope = "user" } = {})
       path: "/api/cli-packages/inspect",
       body: { cli: id, target: (fields && (fields.name || fields.target)) || "" },
     }),
+    // PiCode's own package API, for a CLI whose mutations are direct calls that
+    // answer the new list (`Caps.Async` false): the source, its layer, and the
+    // target the answer comes back for.
+    direct: {
+      install: fields => ({ method: "POST", path: "/api/packages", body: directBody(fields) }),
+      update: fields => ({ method: "POST", path: "/api/packages/update", body: directBody(fields) }),
+      remove: fields => {
+        const query = new URLSearchParams({ source: fields.source, scope: fields.scope });
+        if (workspaceId) query.set("workspace", workspaceId);
+        if (agentId) query.set("agent", agentId);
+        return { method: "DELETE", path: "/api/packages?" + query, body: null };
+      },
+    },
   };
 }

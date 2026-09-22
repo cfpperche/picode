@@ -1,356 +1,1115 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as Dialog from "./MobileSheet.jsx";
 import { api, humanizeError } from "@picode/shared/client/api.js";
-import { askConfirm } from "../lib/confirm.js";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
+import {
+  packagesApi, packagesNotes, packagesSurface, paneWords, behindFor,
+  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation, paneTabs, rowToggle, rowInspect, cliPackagesHash,
+} from "@picode/shared/domain/cliPackages.js";
+import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
+import { pkgName } from "@picode/shared/domain/pkgName.js";
 import { paneContext } from "@picode/shared/domain/tree.js";
+import { setShell } from "@picode/shared/client/shell.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import { pkgName } from "@picode/shared/domain/pkgName.js";
+import { askConfirm } from "../lib/confirm.js";
+import { toast } from "../lib/toast.js";
 
-export default function Packages({ hidden, embedded = false, workspaceId, workspaceName, workspacePath, agentId, agentName, updates, onUpdates, beforeMutation = async () => {}, scope = "user", onScopeChange = () => {}, configHash }) {
-  const [data, setData] = useState(null);
-  const [source, setSource] = useState("");
-  const setScope = onScopeChange;
-  const [loadError, setLoadError] = useState("");
+// One pane, every CLI (ADR-0176). It reads the unified report — what a CLI is
+// (its scopes, its capabilities, its catalog) and what it holds — and draws a
+// control only where the report declares that control can work: PiCode's own
+// gallery where the catalog is the gallery, the vendor's marketplace where the
+// vendor has one, Configure where the CLI has config descriptors, a toggle
+// where its own verb exists, a per-row Install only where the catalog names the
+// spec an install takes.
+//
+// The two panes this replaces both survive here. The vocabulary follows the
+// surface the report declares (`Catalog`): a CLI whose installable list is
+// PiCode's own gallery holds *packages* and keeps Pi's words, and one whose
+// list is the vendor's holds *plugins* and keeps that pane's. The mutation
+// transport follows the driver's own declaration (`Caps.Async`): a vendor's
+// command is a durable job in the lane ADR-0087 built, while Pi's is a direct
+// call that answers the new list and shows the transcript PiCode ran.
+//
+// Both apps carry this file (ADR-0072). This app keeps its own copy: the modal
+// primitive is the phone's sheet, the frame names the agent and the workspace
+// it belongs to, package configuration is the desktop layout's, and the empty
+// state is the phone's own sentence.
+
+const JOB_STATE = { queued: "Waiting to start", running: "Running", succeeded: "Done", failed: "Failed", interrupted: "Interrupted" };
+const JOB_ACTION = {
+  "pkg-install": "Install",
+  "pkg-remove": "Remove",
+  "pkg-update": "Update",
+  "pkg-marketplace-add": "Add marketplace source",
+  "pkg-marketplace-update": "Update marketplace source",
+};
+const JOB_ENDED = ["succeeded", "failed", "interrupted"];
+const isPackageJob = job => !!job && String(job.action || "").startsWith("pkg-");
+// A 202 answers with the job itself (store.CLIJob, the lane's shape) — never a
+// wrapper: the pane takes `state`/`message`/`output` and follows `cli.job`
+// events from there.
+const acceptedJob = res => (res && !Array.isArray(res.rows) && res.cli && res.state ? res : null);
+// A row's key: the CLI's own id, or the name/source it prints when it has
+// none. Row errors and pending verbs follow the row, never a shared "".
+const keyOf = row => String((row && (row.id || row.name || row.source)) || "");
+const newKey = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random());
+const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: body == null ? undefined : JSON.stringify(body) });
+
+// This app's own empty state: the phone says "No packages installed." where the
+// desktop pane says "Nothing installed yet." (ADR-0072).
+const EMPTY_TITLE = { gallery: "No packages installed.", vendor: "Nothing installed." };
+
+export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
+  const cli = route.id || "pi";
+  const scope = route.scope || "user";
+  const workspaceId = route.workspaceId || "";
+  const agentId = route.agentId || "";
+  const wanted = route.pkg || "";
+  const paths = useMemo(() => packagesApi(cli, { workspaceId, agentId, scope }), [cli, workspaceId, agentId, scope]);
+  const cliName = terminalCliLabel(cli);
+  // The badge read reports to whoever asked for it (the app's own update list).
+  // It is held in a ref: the caller hands over a fresh closure on every render,
+  // and an effect keyed on it would read the CLI again on each one.
+  const updateSink = useRef(onPackageUpdates);
+  updateSink.current = onPackageUpdates;
+
+  const [report, setReport] = useState(null);
+  const [problem, setProblem] = useState(null);
   const [loading, setLoading] = useState(true);
-  const request = useRef(0);
-  useEffect(() => () => { request.current++; }, []);
-  const [q, setQ] = useState("");
+  const [tab, setTab] = useState("installed");
+  const [behind, setBehind] = useState([]);
+  const [run, setRun] = useState(null);            // a direct mutation's transcript
+  const [job, setJob] = useState(null);            // a lane job
+  const [busy, setBusy] = useState(null);
+  const [rowError, setRowError] = useState({});
+  const [sourceProblem, setSourceProblem] = useState(null);
+  const [source, setSource] = useState("");
+  const [poolFilter, setPoolFilter] = useState("");
+  const [galleryQ, setGalleryQ] = useState("");
   const [hits, setHits] = useState([]);
   const [searching, setSearching] = useState(true);
-  const [job, setJob] = useState(null);
-  const [tab, setTab] = useState("installed"); // installed | marketplace
-  const [ownUpdates, setOwnUpdates] = useState([]);
-  const behind = updates || ownUpdates;
+  const [market, setMarket] = useState(null);
+  const [marketProblem, setMarketProblem] = useState(null);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketFilter, setMarketFilter] = useState("");
+  const [addSource, setAddSource] = useState({ name: "", source: "" });
+  const [sources, setSources] = useState(null);
+  const [inspect, setInspect] = useState(null);
+  const live = useRef(true);
+  const sequence = useRef(0);
+  const sourceField = useRef(null);
 
-  function listURL() {
-    const q = [];
-    if (workspaceId) q.push("workspace=" + encodeURIComponent(workspaceId));
-    if (agentId) q.push("agent=" + encodeURIComponent(agentId));
-    return "/api/packages" + (q.length ? "?" + q.join("&") : "");
-  }
+  const caps = (report && report.caps) || {};
+  const surface = packagesSurface(report);
+  const words = { ...paneWords(surface), emptyTitle: EMPTY_TITLE[surface] };
+  // The frame is one object: the phone names the agent and the workspace the
+  // pane is looking at, which is a fact about the report the read just answered.
+  const frame = { id: "packages-view", title: "Packages", hidden, embedded: true, context: paneContext(report?.agentName, report?.workspaceName) };
+  const rows = (report && Array.isArray(report.rows) && report.rows) || [];
+  const jobRunning = !!job && !JOB_ENDED.includes(job.state);
+  const guard = !!busy || !!run || jobRunning;
 
-  function updatesURL() {
-    return workspaceId ? "/api/packages/updates?workspace=" + encodeURIComponent(workspaceId) : "/api/packages/updates";
-  }
-
-  async function pullUpdates() {
-    try {
-      const page = await api(updatesURL());
-      const next = page.updates || [];
-      setOwnUpdates(next);
-      if (onUpdates) onUpdates(next);
-    } catch { /* keep last */ }
-  }
-
-  async function load() {
-    const seq = ++request.current;
+  const load = useCallback(async (opts = {}) => {
+    const request = ++sequence.current;
     setLoading(true);
     try {
-      const next = await api(listURL());
-      if (seq === request.current) { setData(next); setLoadError(""); }
-    } catch (err) { if (seq === request.current) setLoadError(err.message); }
-    finally { if (seq === request.current) setLoading(false); }
-    if (seq === request.current) await pullUpdates();
-  }
+      const next = await api(paths.report(opts).path);
+      if (!live.current || request !== sequence.current) return;
+      setReport(next);
+      setProblem(null);
+    } catch (ex) {
+      // The CLI's own words, verbatim: a refused or unparsable roster is never
+      // an empty list, and an offline CLI keeps the last one on screen.
+      if (live.current && request === sequence.current) setProblem({ message: ex.message, status: ex.status });
+    } finally {
+      if (live.current && request === sequence.current) setLoading(false);
+    }
+  }, [paths]);
 
-  useEffect(() => { if (!hidden) load(); }, [hidden, workspaceId, agentId]);
-
+  // The badge read: the CLI's own catalog against its roster. A check that
+  // cannot run leaves every row unmarked — never "up to date" (ADR-0167).
+  const pullUpdates = useCallback(async (opts = {}) => {
+    try {
+      const page = await api(paths.updates(opts).path);
+      if (!live.current) return;
+      const next = page.updates || [];
+      setBehind(next);
+      updateSink.current?.(next, workspaceId);
+    } catch { /* best effort: the rows simply carry no badge */ }
+  }, [paths, workspaceId]);
 
   useEffect(() => {
-    if (hidden || tab !== "marketplace") return;
+    live.current = true;
+    return () => { live.current = false; sequence.current++; };
+  }, []);
+
+  useEffect(() => { if (!hidden) load(); }, [hidden, load]);
+
+  // The workspace and the agent this target names may change under the pane
+  // (a rename, a removal, another window): the feed says when to read again.
+  useEffect(() => {
+    if (!workspaceId && !agentId) return undefined;
+    let timer;
+    const unsubscribe = subscribeFeed(event => {
+      if (/^(agent|workspace)\.(updated|deleted)$|^feed\.(open|reset)$/.test(event.type)) {
+        clearTimeout(timer); timer = setTimeout(() => load(), 80);
+      }
+    });
+    return () => { clearTimeout(timer); unsubscribe(); };
+  }, [workspaceId, agentId, load]);
+
+  // The lane keeps one active job per CLI, so a reload mid-install finds it
+  // there instead of pretending nothing is running. A terminal state is what
+  // re-reads the CLI's own roster: success is only success after that read.
+  useEffect(() => {
+    if (!caps.async) return undefined;
+    let timer;
+    const settle = () => { clearTimeout(timer); timer = setTimeout(() => { load(); if (tab === "marketplace") { loadMarket(); loadSources(); } }, 80); };
+    const off = subscribeFeed(event => {
+      if (event.type === "cli.job") {
+        const next = event.data;
+        if (!isPackageJob(next) || next.cli !== cli) return;
+        setJob(next);
+        if (JOB_ENDED.includes(next.state)) settle();
+        return;
+      }
+      if (event.type === "cli.packages" && event.data && event.data.cli === cli) settle();
+      if (event.type === "feed.open" || event.type === "feed.reset") settle();
+    });
+    api("/api/cli-jobs").then(page => {
+      const found = (page.jobs || []).filter(isPackageJob).find(row => row.cli === cli);
+      if (live.current && found) setJob(found);
+    }).catch(() => {});
+    return () => { off(); clearTimeout(timer); };
+  }, [cli, caps.async, load, tab]);
+
+  // PiCode's own gallery: the catalog a `gallery` report declares is searched
+  // through its own route, once the Marketplace tab is open.
+  useEffect(() => {
+    if (hidden || surface !== "gallery" || tab !== "marketplace") return undefined;
     const t = setTimeout(async () => {
       setSearching(true);
       try {
-        const page = await api("/api/packages/gallery?q=" + encodeURIComponent(q.trim()));
+        const page = await api(paths.gallery(galleryQ).path);
         setHits(page.hits || []);
       } catch { setHits([]); }
       finally { setSearching(false); }
-    }, q ? 280 : 0);
+    }, galleryQ ? 280 : 0);
     return () => clearTimeout(t);
-  }, [hidden, q, tab]);
+  }, [hidden, surface, tab, galleryQ, paths]);
 
-  const installed = useMemo(() => {
-    const s = new Set();
-    const want = scope === "project" ? "project" : scope === "agent" ? "agent" : "user";
-    for (const p of (data && data.packages) || []) {
-      if (p.scope === want) s.add(p.source);
+  useEffect(() => { if (!hidden && caps.update) pullUpdates(); }, [hidden, caps.update, pullUpdates]);
+
+  const loadMarket = useCallback(async () => {
+    setMarketLoading(true);
+    try {
+      const next = await api(paths.available().path);
+      if (!live.current) return;
+      setMarket({ rows: Array.isArray(next.rows) ? next.rows : [], note: next.note || "" });
+      setMarketProblem(null);
+    } catch (ex) {
+      if (live.current) setMarketProblem({ message: ex.message, status: ex.status });
+    } finally {
+      if (live.current) setMarketLoading(false);
     }
-    return s;
-  }, [data, scope]);
+  }, [paths]);
 
-  async function installSource(src) {
-    const nextSrc = (src || "").trim();
-    if (!nextSrc || job || loadError || !data) return;
+  // The CLI's own configured marketplace sources. A 400 is the contract's "this
+  // CLI manages no sources" (Hermes), not a failure.
+  const loadSources = useCallback(async () => {
+    if (!caps.marketplace) return;
+    try {
+      const next = await api(paths.marketplaces().path);
+      if (live.current) setSources(Array.isArray(next.marketplaces) ? next.marketplaces : []);
+    } catch (ex) {
+      if (live.current) setSources(ex.status === 400 ? [] : null);
+    }
+  }, [paths, caps.marketplace]);
+
+  // The vendor's catalog is one vendor call: read it when the tab is opened,
+  // and again when a mutation invalidates it — never on a timer.
+  useEffect(() => {
+    if (hidden || surface === "gallery" || tab !== "marketplace") return;
+    if (report && report.catalog) loadMarket();
+    if (caps.marketplace) loadSources();
+  }, [hidden, surface, tab, report, caps.marketplace, loadMarket, loadSources]);
+
+  // One request key per user action: the retry after the terminals guard is the
+  // same request, which is exactly what the lane's idempotency is for.
+  async function send(build, fields) {
+    const first = build(fields);
+    try {
+      return await api(first.path, json(first.method, first.body));
+    } catch (ex) {
+      // Only the lane's own guard, never a vendor sentence that happens to
+      // contain the word: clijob refuses with "... terminal(s) are running."
+      if (!/terminals? are running/i.test(ex.message || "")) throw ex;
+      const ok = await askConfirm({ title: "Terminals are running", message: ex.message, confirmLabel: "Run anyway", danger: true });
+      if (!ok) return null;
+      const retry = build({ ...fields, confirmTerminals: true });
+      return await api(retry.path, json(retry.method, retry.body));
+    }
+  }
+
+  function fail(key, ex) {
+    // A refusal may carry the command that fixes it (Grok's --trust, a
+    // marketplace-declared command): keep it beside the vendor's words so the
+    // row offers the line to run instead of a dead end.
+    const entry = refusalCommand(ex);
+    if (key) setRowError(prev => ({ ...prev, [key]: entry }));
+    else setSourceProblem(entry);
+  }
+
+  async function install(value, row) {
+    const target = String(value || "").trim();
+    if (!target || guard || !report) return;
     if (scope === "project" && !workspaceId) return;
     if (scope === "agent" && !agentId) return;
-    setJob({ action: "install", source: nextSrc, scope, cwd: scope === "project" ? workspacePath : "", step: 0, error: "", done: false });
-    const tick = startJobTick(setJob, 2);
+    const id = row ? keyOf(row) : "";
+    if (id) setRowError(prev => ({ ...prev, [id]: null })); else setSourceProblem(null);
+    // A direct mutation answers the CLI's fresh list, so the pane shows the
+    // transcript PiCode ran and re-reads the report (Pi's own transport); the
+    // agent scope is that kind of write for every CLI, and `directMutation` is
+    // where that rule lives (ADR-0176 slice 4).
+    if (directMutation(caps, { scope })) {
+      setRun({ action: "install", source: target, scope, cwd: scope === "project" ? (report.workspacePath || "") : "", step: 0, error: "", done: false });
+      const tick = startJobTick(setRun, 2);
+      try {
+        const req = paths.direct.install({ source: target, scope });
+        await api(req.path, json(req.method, req.body));
+        setRun(j => j && { ...j, step: 2, done: true });
+        setSource("");
+        await load(); await pullUpdates();
+        setTimeout(() => setRun(null), 520);
+      } catch (ex) {
+        setRun(j => j && { ...j, step: 0, error: humanizeError(ex.message || String(ex)) });
+      } finally {
+        clearInterval(tick);
+      }
+      return;
+    }
+    setBusy({ verb: "install", id, label: "Installing…" });
     try {
-      await beforeMutation();
-      const next = await api("/api/packages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: nextSrc, scope, workspaceId: workspaceId || undefined, agentId: agentId || undefined }),
-      });
-      setJob((j) => j && { ...j, step: 2, done: true });
-      setData(next);
-      setSource("");
-      await pullUpdates();
-      setTimeout(() => setJob(null), 520);
-    } catch (err) {
-      setJob((j) => j && { ...j, step: 0, error: humanizeError(err.message || String(err)) });
+      const res = await send(build => paths.install({ ...build, source: target }), { requestKey: newKey() });
+      const started = acceptedJob(res);
+      if (started) setJob(started);
+      if (!row) setSource("");
+    } catch (ex) {
+      fail(id, ex);
     } finally {
-      clearInterval(tick);
+      setBusy(null);
     }
   }
 
-  function behindOf(p) {
-    return behind.find((u) => u.source === p.source && u.scope === p.scope);
-  }
-
-  async function updatePkg(pkg) {
-    if (!pkg || job || loadError || !data || pkg.scope === "agent") return;
-    const sc = pkg.scope === "project" ? "project" : "user";
-    setJob({ action: "update", source: pkg.source, scope: sc, cwd: sc === "project" ? workspacePath : "", step: 0, error: "", done: false });
-    const tick = startJobTick(setJob, 2);
+  async function toggle(row, on) {
+    if (guard) return;
+    const name = row.name || row.id;
+    setBusy({ verb: "toggle", id: keyOf(row), label: on ? "Enabling…" : "Disabling…" });
+    setRowError(prev => ({ ...prev, [keyOf(row)]: "" }));
+    // The vendor answers a toggle with the new roster, so the row moves now and
+    // the answer either confirms it or is rolled back with the reason shown.
+    setReport(cur => (cur ? { ...cur, rows: cur.rows.map(r => (keyOf(r) === keyOf(row) ? { ...r, enabled: on } : r)) } : cur));
     try {
-      await beforeMutation();
-      const next = await api("/api/packages/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: pkg.source, scope: sc, workspaceId: workspaceId || undefined, agentId: agentId || undefined }),
-      });
-      setJob((j) => j && { ...j, step: 2, done: true });
-      setData(next);
-      await pullUpdates();
-      setTimeout(() => setJob(null), 520);
-    } catch (err) {
-      setJob((j) => j && { ...j, step: 0, error: humanizeError(err.message || String(err)) });
+      const res = await send(build => paths.toggle({ ...build, name, source: row.source || "" }, on), {});
+      if (res && Array.isArray(res.rows)) setReport(res);
+    } catch (ex) {
+      setReport(cur => (cur ? { ...cur, rows: cur.rows.map(r => (keyOf(r) === keyOf(row) ? { ...r, enabled: row.enabled } : r)) } : cur));
+      fail(keyOf(row), ex);
     } finally {
-      clearInterval(tick);
+      setBusy(null);
     }
   }
 
-  async function remove(pkg) {
+  async function runJob(verb, label, build, fields, id) {
+    if (guard) return;
+    setBusy({ verb, id, label });
+    setRowError(prev => ({ ...prev, [id]: "" }));
+    try {
+      const res = await send(build, fields);
+      const started = acceptedJob(res);
+      if (started) setJob(started);
+    } catch (ex) {
+      fail(id, ex);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // A direct update is PiCode's own call and answers the fresh list — including
+  // any row in the agent's own list, which is PiCode's store for every CLI
+  // (`directMutation`, ADR-0176 slice 4).
+  async function updateRow(row, entry) {
+    if (guard || !report) return;
+    if (directMutation(caps, { row })) {
+      const layer = row.scope === "workspace" ? "project" : row.scope === "agent" ? "agent" : "user";
+      setRun({ action: "update", source: row.source, scope: layer, cwd: layer === "project" ? (report.workspacePath || "") : "", step: 0, error: "", done: false });
+      const tick = startJobTick(setRun, 2);
+      try {
+        const req = paths.direct.update({ source: row.source, scope: layer });
+        await api(req.path, json(req.method, req.body));
+        setRun(j => j && { ...j, step: 2, done: true });
+        await load(); await pullUpdates();
+        setTimeout(() => setRun(null), 520);
+      } catch (ex) {
+        setRun(j => j && { ...j, step: 0, error: humanizeError(ex.message || String(ex)) });
+      } finally {
+        clearInterval(tick);
+      }
+      return;
+    }
+    await runJob("update", "Updating…", build => paths.update({ ...build, name: row.name || row.id }), { requestKey: newKey() }, keyOf(row));
+  }
+
+  async function removeRow(row) {
+    if (guard || !report) return;
+    const name = row.name || row.id || row.source;
+    if (directMutation(caps, { row })) {
+      const ok = await askConfirm({
+        title: "Remove package",
+        message: "Remove " + row.source + " from " + cli + "? This does not uninstall " + cli + " itself.",
+        confirmLabel: "Remove",
+        danger: true,
+      });
+      if (!ok) return;
+      const layer = row.scope === "workspace" ? "project" : row.scope === "agent" ? "agent" : "user";
+      setRun({ action: "remove", source: row.source, scope: layer, cwd: layer === "project" ? (report.workspacePath || "") : "", step: 0, error: "", done: false });
+      const tick = startJobTick(setRun, 2);
+      try {
+        const req = paths.direct.remove({ source: row.source, scope: layer });
+        await api(req.path, json(req.method, req.body));
+        setRun(j => j && { ...j, step: 2, done: true });
+        await load(); await pullUpdates();
+        setTimeout(() => setRun(null), 520);
+      } catch (ex) {
+        setRun(j => j && { ...j, step: 0, error: humanizeError(ex.message || String(ex)) });
+      } finally {
+        clearInterval(tick);
+      }
+      return;
+    }
+    // The confirm names the plugin, and — for the integration PiCode installed
+    // itself — the consequence the vendor note spells out.
     const ok = await askConfirm({
-      title: "Remove package",
-      message: "Remove " + pkg.source + " from pi? This does not uninstall pi itself.",
+      title: "Remove " + name + "?",
+      message: cliName + " stops loading this plugin." + (row.managedByPiCode && row.note ? " " + row.note : ""),
       confirmLabel: "Remove",
       danger: true,
     });
-    if (!ok || job || loadError || !data) return;
-    const sc = pkg.scope === "project" ? "project" : pkg.scope === "agent" ? "agent" : "user";
-    setJob({ action: "remove", source: pkg.source, scope: sc, cwd: sc === "project" ? workspacePath : "", step: 0, error: "", done: false });
-    const tick = startJobTick(setJob, 2);
+    if (!ok) return;
+    await runJob("remove", "Removing…", build => paths.remove({ ...build, name, source: row.source || "" }), { requestKey: newKey() }, keyOf(row));
+  }
+
+  async function openInspect(row) {
+    if (busy) return;
+    const name = row.name || row.id;
+    setBusy({ verb: "inspect", id: keyOf(row), label: "Reading…" });
+    setInspect({ name, output: "", problem: "" });
     try {
-      let url = "/api/packages?source=" + encodeURIComponent(pkg.source) + "&scope=" + sc;
-      if (workspaceId) url += "&workspace=" + encodeURIComponent(workspaceId);
-      if (agentId) url += "&agent=" + encodeURIComponent(agentId);
-      await beforeMutation();
-      const next = await api(url, { method: "DELETE" });
-      setJob((j) => j && { ...j, step: 2, done: true });
-      setData(next);
-      await pullUpdates();
-      setTimeout(() => setJob(null), 520);
-    } catch (err) {
-      setJob((j) => j && { ...j, step: 0, error: humanizeError(err.message || String(err)) });
+      const res = await send(build => paths.inspect({ ...build, name }), {});
+      setInspect({ name, output: (res && res.output) || "", problem: "" });
+    } catch (ex) {
+      setInspect({ name, output: "", problem: ex.message });
     } finally {
-      clearInterval(tick);
+      setBusy(null);
     }
   }
 
-  const list = data && data.packages ? data.packages : [];
-  const gallery = (data && data.gallery) || "https://pi.dev/packages";
+  async function addMarketplace(event) {
+    event.preventDefault();
+    if (guard) return;
+    const name = addSource.name.trim();
+    const value = addSource.source.trim();
+    if (!value) return;
+    setBusy({ verb: "source", id: "", label: "Adding…" });
+    setSourceProblem(null);
+    try {
+      const res = await send(build => paths.marketplace("add", { ...build, name, source: value }), { requestKey: newKey() });
+      const started = acceptedJob(res);
+      if (started) setJob(started);
+      setAddSource({ name: "", source: "" });
+    } catch (ex) {
+      fail("", ex);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function marketSource(action, name) {
+    if (guard || !name) return;
+    if (action === "remove") {
+      const ok = await askConfirm({
+        title: "Remove " + name + "?",
+        message: "Plugins it installed stay installed. " + cliName + " stops listing this source.",
+        confirmLabel: "Remove source",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    setBusy({ verb: "source:" + action, id: name, label: action === "remove" ? "Removing…" : "Updating…" });
+    setSourceProblem(null);
+    try {
+      const res = await send(build => paths.marketplace(action, { ...build, name }), action === "remove" ? {} : { requestKey: newKey() });
+      const started = acceptedJob(res);
+      if (started) setJob(started);
+      // A source removal is a fast call and answers with the CLI's own
+      // marketplace list, so the chips move without a second read.
+      if (res && Array.isArray(res.marketplaces)) setSources(res.marketplaces);
+    } catch (ex) {
+      fail("", ex);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // An empty installed list is worth showing the catalog in: one extra read,
+  // cached server-side, and only while there is nothing to show.
+  useEffect(() => {
+    if (hidden || surface === "gallery" || rows.length > 0 || !report || !report.catalog || market || marketLoading) return;
+    loadMarket();
+  }, [hidden, surface, rows.length, report, market, marketLoading, loadMarket]);
+
+  // PiCode's package pages (ADR-0119) are Pi's config descriptors: a CLI whose
+  // report does not declare them refuses the link instead of drawing a roster
+  // under a configuration hash.
+  if (wanted && report && !caps.config) {
+    return (
+      <PageFrame {...frame}>
+        <div className="cli-notice" role="status"><span>{cliName + (surface === "gallery" ? " packages" : " plugins") + " have no configuration page."}</span></div>
+      </PageFrame>
+    );
+  }
+  // The config editors are the desktop layout's (ADR-0072): the phone points at
+  // them instead of drawing a file editor over a phone keyboard.
+  if (wanted && caps.config) {
+    return (
+      <PageFrame {...frame}>
+        <div className="cli-notice" role="status">
+          <span>Package configuration is available in the desktop layout.</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShell("desktop")}>Open desktop layout</button>
+        </div>
+      </PageFrame>
+    );
+  }
+
+  const needle = poolFilter.trim().toLowerCase();
+  const shown = needle
+    ? rows.filter(row => [row.name, row.id, row.source, row.version, row.description].some(value => String(value || "").toLowerCase().includes(needle)))
+    : rows;
+  // Groups only appear when the list actually mixes origins (the domain
+  // decides; one group is the whole list and gets no header).
+  const groups = groupInstalledRows(shown);
+  const absence = packagesNotes(caps, (report && report.notes) || {});
+  const marketRows = (market && market.rows) || [];
+  const mneedle = marketFilter.trim().toLowerCase();
+  const shownMarket = mneedle
+    ? marketRows.filter(row => [row.name, row.id, row.source, row.description, row.marketplace].some(value => String(value || "").toLowerCase().includes(mneedle)))
+    : marketRows;
+  // The CLI's own source list when the route (or a marketplace call) answered;
+  // an empty one is a real answer ("this CLI lists no sources"), so only a
+  // missing answer falls back to the sources this catalog's rows name.
+  const sourceNames = sources
+    ? sources.map(row => row.name || row.id).filter(Boolean)
+    : [...new Set(marketRows.map(row => row.marketplace).filter(Boolean))];
+  const verbFor = row => (busy && busy.id && busy.id === keyOf(row) ? busy.verb : "");
+  const marketplace = surface !== "gallery" && tab === "marketplace";
+  const tabs = paneTabs(report, scope);
+  // The empty state points at the CLI's own catalog instead of asking the user
+  // to guess a name: real entries, and only where the CLI can install.
+  const emptyPicks = rows.length === 0
+    ? ((market && market.rows) || []).filter(row => catalogRowAction(caps, row) === "install").slice(0, 3)
+    : [];
 
   return (
-    <PageFrame embedded={embedded} id="packages-view" title="Packages" context={paneContext(agentName, workspaceName)} hidden={hidden} wide>
-      {loadError ? <div className="cli-notice is-error" role="alert"><span>{loadError}</span><button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>{loading ? "Retrying…" : "Try again"}</button></div> : null}
-      {!data && loading ? <div className="cli-loading" aria-label="Loading packages"><div /><div /><div /></div> : null}
-      <fieldset className="cli-packages-fields" hidden={!data} disabled={!!loadError || !data || !!job}>
-      <form className="pkg-by-source" noValidate onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
-        <input
-          className="dlg-input"
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          placeholder="npm:pkg  ·  git:github.com/user/repo  ·  ./path"
-          disabled={!!job}
-          aria-label="Package source"
-        />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentId)}>Install</button>
-      </form>
-      <div className="pkg-scope" data-align-row data-align-wrap role="radiogroup" aria-label="Install scope">
-        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
-        {workspaceId ? (
-          <button
-            type="button"
-            role="radio"
-            className="pkg-scope-btn"
-            aria-checked={scope === "project"}
-            title={"Installs in " + (workspaceName || "this folder")}
-            onClick={() => setScope("project")}
-          >{workspaceName || "This workspace"}</button>
-        ) : null}
-        {agentId ? (
-          <button
-            type="button"
-            role="radio"
-            className="pkg-scope-btn"
-            aria-checked={scope === "agent"}
-            title={"Only " + (agentName || "this agent") + ", every session"}
-            onClick={() => setScope("agent")}
-          >This agent</button>
-        ) : null}
-      </div>
-      {agentId ? (
-        <label className="pkg-fine" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input
-            type="checkbox"
-            checked={!!(data && data.isolated)}
-            disabled={!!job}
-            onChange={async (e) => {
-              const on = e.target.checked;
-              try {
-                await beforeMutation();
-                await api("/api/agents/" + agentId, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ packagesIsolated: on }),
-                });
-                await load();
-              } catch (err) { setLoadError(err.message); }
-            }}
-          />
-          Only this agent's packages (skip machine and folder). Restart to apply.
-        </label>
+    <PageFrame {...frame}>
+      {problem ? (
+        <div className="cli-notice is-error" role="alert">
+          <span>{problem.message}</span>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={() => load({ refresh: true })}>{loading ? "Retrying…" : "Try again"}</button>
+          {scope !== "user" ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => goToScope("user")}>{words.fallback}</button> : null}
+        </div>
       ) : null}
-      <p className="pkg-fine">Packages run with full access. Only install what you review.</p>
 
-      <div className="pkg-tabs" role="tablist" aria-label="Packages">
-        <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "installed"} onClick={() => setTab("installed")}>
-          Installed{data && list.length ? <span className="pkg-tab-count">{list.length}</span> : null}
-        </button>
-        <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "marketplace"} onClick={() => setTab("marketplace")}>Marketplace</button>
-      </div>
+      {!report && loading && !problem ? (
+        <div className="gpkg-grid gpkg-skel" role="status" aria-label={words.loading}>
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={"skel-" + index} className="gpkg-card" aria-hidden="true">
+              <div className="gpkg-card-head"><div className="skel-line w-50" /></div>
+              <div className="skel-line w-90" />
+              <div className="skel-line w-70" />
+              <div className="gpkg-card-foot"><div className="skel-line w-40" /></div>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
-      {tab === "installed" ? (
-        list.length === 0 && data ? (
-          <div className="pkg-empty">
-            <p className="pkg-empty-title">No packages installed.</p>
-            <button type="button" className="btn btn-sm" onClick={() => setTab("marketplace")}>Open the Marketplace</button>
-          </div>
-        ) : (
-          <ul className="pkg-grid" role="tabpanel">
-            {list.map((p) => {
-              const u = behindOf(p);
-              const scopeLabel = p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine";
-              return (
-                <li key={p.scope + ":" + p.source} className="pkg-card pkg-card-installed">
+      {report ? (
+        <fieldset className="cli-packages-fields" disabled={guard || !!problem}>
+          {report.scopes.length ? (
+            <div className="gpkg-scope" data-align-row data-align-wrap>
+              <span className="pkg-scope-label">{words.scopeLabel}</span>
+              <div className="pkg-scope" role="radiogroup" aria-label={words.scopeGroup}>
+                {report.scopes.map(entry => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    role="radio"
+                    className="pkg-scope-btn"
+                    aria-checked={scope === entry.vendor || scope === entry.id}
+                    title={entry.note || undefined}
+                    onClick={() => { const next = entry.vendor || entry.id; if (scope !== next) goToScope(next); }}
+                  >{entry.label}</button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {currentScopeNote(report, scope) ? <p className="pkg-fine">{currentScopeNote(report, scope)}</p> : null}
+
+          {job ? (
+            <div className="cli-job-card" role="status" data-state={job.state}>
+              <div className="cli-job-head">
+                <span className={"cli-job-state is-" + job.state}>{JOB_STATE[job.state] || job.state}</span>
+                <span>{(JOB_ACTION[job.action] || job.action) + " · " + cliName}</span>
+              </div>
+              {job.message ? <p>{job.message}</p> : null}
+              {job.command && JOB_ENDED.includes(job.state) && job.state !== "succeeded" ? <Problem entry={{ message: "", command: job.command }} /> : null}
+              {job.output ? <details className="cli-job-log"><summary>Output</summary><pre>{job.output}</pre></details> : null}
+              {job.state === "interrupted" ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setJob(null); load({ refresh: true }); }}>Check result</button> : null}
+              {JOB_ENDED.includes(job.state) && job.state !== "interrupted" ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => setJob(null)}>Dismiss</button> : null}
+            </div>
+          ) : null}
+
+          {caps.install ? (
+            <form className="pkg-by-source gpkg-install" data-align-row data-align-wrap noValidate onSubmit={event => { event.preventDefault(); install(source, null); }}>
+              <input
+                ref={sourceField}
+                className="dlg-input"
+                value={source}
+                onChange={event => setSource(event.target.value)}
+                placeholder={words.sourcePlaceholder}
+                aria-label={words.sourceLabel}
+                disabled={guard}
+              />
+              <button type="submit" className="btn btn-primary btn-sm" disabled={guard || !source.trim()}>{busy && busy.verb === "install" && !busy.id ? "Installing…" : "Install"}</button>
+            </form>
+          ) : null}
+          <Problem entry={sourceProblem} />
+
+          {caps.isolatedSwitch && agentId ? (
+            <label className="pkg-fine" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={!!report.isolated}
+                disabled={guard}
+                onChange={async event => {
+                  const on = event.target.checked;
+                  try {
+                    await api("/api/agents/" + agentId, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ packagesIsolated: on }),
+                    });
+                    await load();
+                  } catch (ex) { setProblem({ message: ex.message, status: ex.status }); }
+                }}
+              />
+              {words.isolation}
+            </label>
+          ) : null}
+
+          <p className="pkg-fine">{words.access}</p>
+
+          {/* The blank cells of the capability table, in the CLI's own words:
+              one sentence per verb it does not have, never a dead control. */}
+          {absence.length ? <ul className="gpkg-notes">{absence.map(text => <li key={text}>{text}</li>)}</ul> : null}
+
+          {tabs ? (
+            <div className="pkg-tabs" role="tablist" aria-label="Packages">
+              <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "installed"} onClick={() => setTab("installed")}>
+                Installed{rows.length ? <span className="pkg-tab-count">{rows.length}</span> : null}
+              </button>
+              <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "marketplace"} onClick={() => setTab("marketplace")}>Marketplace</button>
+            </div>
+          ) : null}
+
+          {surface === "gallery" ? (
+            <GalleryBody
+              tab={tab} report={report} rows={rows} behind={behind} guard={guard} caps={caps}
+              needle={poolFilter} setNeedle={setPoolFilter} shown={shown} words={words} filter={false}
+              galleryQ={galleryQ} setGalleryQ={setGalleryQ} hits={hits} searching={searching}
+              onInstall={install} onUpdate={updateRow} onRemove={removeRow} onOpenMarket={() => setTab("marketplace")} scope={scope}
+            />
+          ) : (
+            <VendorBody
+              tab={tab} marketplace={marketplace} rows={rows} shown={shown} groups={groups} behind={behind} guard={guard} caps={caps}
+              needle={poolFilter} setNeedle={setPoolFilter} words={words} absence={absence}
+              market={market} marketRows={marketRows} shownMarket={shownMarket} marketFilter={marketFilter} setMarketFilter={setMarketFilter}
+              marketLoading={marketLoading} marketProblem={marketProblem} loadMarket={loadMarket} cliName={cliName}
+              sourceNames={sourceNames} sourcesLoaded={!!sources} capsMarketplace={caps.marketplace}
+              addSource={addSource} setAddSource={setAddSource} onAddSource={addMarketplace} onMarketSource={marketSource}
+              emptyPicks={emptyPicks} busy={busy} verbFor={verbFor} rowError={rowError} sourceField={sourceField}
+              onInstall={install} onToggle={toggle} onUpdate={updateRow} onInspect={openInspect} onRemove={removeRow} onOpenMarket={() => setTab("marketplace")}
+            />
+          )}
+        </fieldset>
+      ) : null}
+
+      {run ? <JobOverlay job={run} onClose={() => setRun(null)} /> : null}
+
+      {/* The vendor's own inspection text, verbatim: PiCode summarises nothing. */}
+      {inspect ? (
+        <Dialog.Root open onOpenChange={open => { if (!open) setInspect(null); }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="dlg-overlay" />
+            <Dialog.Content className="dlg">
+              <Dialog.Title className="dlg-title">{(cliName + " · ") + inspect.name}</Dialog.Title>
+              {inspect.problem ? (
+                <Dialog.Description className="pkg-job-err" role="alert">{inspect.problem}</Dialog.Description>
+              ) : inspect.output ? (
+                <Dialog.Description asChild><div className="dlg-body"><pre className="gpkg-output">{inspect.output}</pre></div></Dialog.Description>
+              ) : (
+                <Dialog.Description className="dlg-body">{"Reading " + inspect.name + "…"}</Dialog.Description>
+              )}
+              <div className="dlg-actions" data-align-row data-align-wrap>
+                <Dialog.Close asChild><button type="button" className="btn btn-sm">Close</button></Dialog.Close>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      ) : null}
+    </PageFrame>
+  );
+
+  function goToScope(next) {
+    location.hash = cliPackagesHash(cli, { ...route, scope: next });
+  }
+
+}
+
+// currentScopeNote is the line under the scope radios: the declaration's own
+// sentence about the layer the pane is looking at.
+function currentScopeNote(report, scope) {
+  const entry = (report.scopes || []).find(row => row.vendor === scope || row.id === scope);
+  return entry ? entry.note || "" : "";
+}
+
+// Highlight shows *why* a card survived the filter: the matched run in the
+// accent colour, the rest untouched. Backed by matchParts, so the needle is a
+// string and not a pattern.
+function Highlight({ text, needle }) {
+  const parts = matchParts(text, needle);
+  if (!parts.some(part => part.hit)) return parts[0].text;
+  return <>{parts.map((part, index) => (part.hit ? <mark key={index} className="pkg-mark">{part.text}</mark> : part.text))}</>;
+}
+
+// Problem is one failed action: the CLI's own words, and — when the fix is a
+// command only a person in a terminal can run — that exact line with a copy
+// button. The command is rendered server-side by the same builder that executed
+// it, so it is never a line PiCode would not run.
+function Problem({ entry }) {
+  if (!entry || !entry.message) return entry && entry.command ? <CommandLine command={entry.command} /> : null;
+  return (
+    <div className="gpkg-problem" role="alert">
+      <span className="gpkg-row-note is-error">{entry.message}</span>
+      {entry.command ? <CommandLine command={entry.command} /> : null}
+    </div>
+  );
+}
+
+function CommandLine({ command }) {
+  return (
+    <span className="gpkg-cmd">
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        title={command}
+        onClick={() => navigator.clipboard.writeText(command)
+          .then(() => toast.ok("Command copied."))
+          .catch(() => toast.error("Clipboard blocked — copy it by hand."))}
+      >Copy command</button>
+      <span className="pkg-fine">Run it in a terminal.</span>
+    </span>
+  );
+}
+
+// GalleryBody is the surface whose catalog is PiCode's own npm gallery: the
+// installed rows are PiCode's packages, with a preview frame, the descriptor
+// link, the update badge and a per-row Install on each catalog hit.
+function GalleryBody({ tab, report, rows, behind, guard, caps, needle, setNeedle, shown, words, galleryQ, setGalleryQ, hits, searching, onInstall, onUpdate, onRemove, onOpenMarket, scope, filter = true }) {
+  if (tab === "marketplace") {
+    return (
+      <>
+        <section className="pkg-toolbar" data-align-row>
+          <input
+            className="pkg-search"
+            value={galleryQ}
+            onChange={event => setGalleryQ(event.target.value)}
+            placeholder="Filter packages…"
+            aria-label="Search gallery"
+          />
+          <span className="pkg-count">{searching && !hits.length ? "Loading…" : searching ? "Updating…" : hits.length ? hits.length + " shown" : "No matches"}</span>
+          <a className="settings-link" href={report.gallery || "https://pi.dev/packages"} target="_blank" rel="noopener noreferrer">pi.dev ↗</a>
+        </section>
+
+        <ul className="pkg-grid" role="tabpanel" aria-busy={searching && !hits.length}>
+          {searching && !hits.length ? Array.from({ length: 6 }, (_, i) => (
+            <li key={"skel-" + i} className="pkg-card pkg-skel" aria-hidden="true">
+              <div className="pkg-preview">
+                <div className="pkg-preview-frame"><span /><span /><span /></div>
+              </div>
+              <div className="pkg-card-body">
+                <div className="skel-line w-50" />
+                <div className="skel-line w-90" />
+                <div className="skel-line w-70" />
+                <div className="skel-line w-40" />
+                <div className="skel-line w-80" />
+              </div>
+            </li>
+          )) : null}
+          {hits.map(hit => {
+            const on = rows.some(row => row.source === hit.source && row.vendor === scope);
+            return (
+              <li key={hit.source} className="pkg-card">
+                <div className={"pkg-preview" + (hit.image ? " has-media" : "")} aria-hidden="true">
+                  <div className="pkg-preview-frame">
+                    {hit.image ? <img src={hit.image} alt="" loading="lazy" /> : <><span /><span /><span /></>}
+                  </div>
+                </div>
+                <div className="pkg-card-body">
+                  <div className="pkg-card-head">
+                    <span className="pkg-card-name">{hit.name}</span>
+                    {hit.kind ? <span className="pkg-type">{hit.kind}</span> : null}
+                  </div>
+                  {hit.description ? <p className="pkg-card-desc">{hit.description}</p> : <p className="pkg-card-desc"> </p>}
+                  <div className="pkg-card-meta">
+                    {hit.publisher ? <span>{hit.publisher}</span> : null}
+                    {hit.downloads ? <span>{fmtDown(hit.downloads)}</span> : null}
+                    {hit.updated ? <span>{fmtAge(hit.updated)}</span> : null}
+                    {hit.version ? <span>{hit.version}</span> : null}
+                  </div>
+                  <div className="pkg-card-foot">
+                    <code className="pkg-cmd">{cliInstallLine(hit.source)}</code>
+                    <button type="button" className="btn btn-primary btn-sm" disabled={guard || on} onClick={() => onInstall(hit.source)}>
+                      {on ? "Installed" : "Install"}
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </>
+    );
+  }
+  return (
+    <>
+      {rows.length === 0 ? (
+        <div className="pkg-empty">
+          <p className="pkg-empty-title">{words.emptyTitle}</p>
+          {report.catalog ? <button type="button" className="btn btn-sm" onClick={onOpenMarket}>Open the Marketplace</button> : null}
+        </div>
+      ) : (
+        <>
+          {filter ? (
+            <div className="pkg-installed-toolbar" data-align-row>
+              <input
+                className="pkg-search"
+                value={needle}
+                onChange={event => setNeedle(event.target.value)}
+                placeholder={words.installedFilter}
+                aria-label={words.installedFilterLabel}
+              />
+              <span className="pkg-count">{shown.length === rows.length ? rows.length + " installed" : shown.length + " of " + rows.length}</span>
+            </div>
+          ) : null}
+          {filter && shown.length === 0 ? (
+            <p className="pkg-fine">{words.noMatch(needle)} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setNeedle("")}>Clear filter</button></p>
+          ) : (
+            <ul className="pkg-grid" role="tabpanel">
+              {shown.map(row => (
+                <li key={row.scope + ":" + row.source} className="pkg-card pkg-card-installed">
                   <div className="pkg-preview" aria-hidden="true">
                     <div className="pkg-preview-frame"><span /><span /><span /></div>
                   </div>
                   <div className="pkg-card-body">
                     <div className="pkg-card-head">
-                      <span className="pkg-card-name" title={p.source}>{pkgName(p.source)}</span>
-                      <span className="pkg-type">{scopeLabel}</span>
+                      <span className="pkg-card-name" title={row.source}>{pkgName(row.source)}</span>
+                      <span className="pkg-type">{layerLabel(row, report)}</span>
                     </div>
-                    <p className="pkg-card-desc pkg-src" title={p.source}>{p.kind === "path" && p.installedPath ? p.installedPath : p.source}</p>
+                    <p className="pkg-card-desc pkg-src" title={row.source}>{row.kind === "path" && row.installedPath ? row.installedPath : row.source}</p>
                     <div className="pkg-card-meta">
-                      {p.kind ? <span>{p.kind}</span> : null}
-                      {u && u.current ? <span>{u.current}</span> : null}
-                      {u && u.latest ? <span className="pkg-behind">{u.latest} available</span> : null}
-                      {p.kind !== "path" && p.installedPath ? <span className="pkg-path" title={p.installedPath}>{p.installedPath}</span> : null}
+                      {row.kind ? <span>{row.kind}</span> : null}
+                      {behindFor(behind, row) && behindFor(behind, row).current ? <span>{behindFor(behind, row).current}</span> : null}
+                      {behindFor(behind, row) && behindFor(behind, row).latest ? <span className="pkg-behind">{behindFor(behind, row).latest} available</span> : null}
+                      {row.kind !== "path" && row.installedPath ? <span className="pkg-path" title={row.installedPath}>{row.installedPath}</span> : null}
                     </div>
                     <div className="pkg-card-foot">
-                      {u ? (
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>
+                      {behindFor(behind, row) ? (
+                        <button type="button" className="btn btn-primary btn-sm" disabled={guard} title={behindTitle(behindFor(behind, row))} onClick={() => onUpdate(row, behindFor(behind, row))}>Update</button>
                       ) : null}
                       <span className="pkg-foot-spacer" />
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
+                      <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => onRemove(row)}>Remove</button>
                     </div>
                   </div>
                 </li>
-              );
-            })}
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// VendorBody is the surface whose catalog is the vendor's own: the roster the
+// CLI prints, its catalog, and the sources it keeps — every control gated by
+// the capability the report declares.
+function VendorBody({
+  tab, marketplace, rows, shown, groups, behind, guard, caps, needle, setNeedle, words, absence,
+  market, marketRows, shownMarket, marketFilter, setMarketFilter, marketLoading, marketProblem, loadMarket, cliName,
+  sourceNames, sourcesLoaded, capsMarketplace, addSource, setAddSource, onAddSource, onMarketSource,
+  emptyPicks, busy, verbFor, rowError, sourceField, onInstall, onToggle, onUpdate, onInspect, onRemove, onOpenMarket,
+}) {
+  const grid = list => (
+    <ul className="gpkg-grid" aria-busy={guard ? "true" : undefined}>
+      {list.map(row => (
+        <li key={keyOf(row)} className={"gpkg-card" + (row.enabled === false ? " is-off" : "")}>
+          <div className="gpkg-card-head">
+            <span className="gpkg-card-name" title={row.source || row.name || row.id}><Highlight text={row.name || row.id} needle={needle} /></span>
+            {row.version ? <span className="pkg-type">{row.version}</span> : null}
+            {behindFor(behind, row) ? <span className="pkg-type is-update" title={"The CLI's catalog offers " + behindFor(behind, row).latest}>{"\u2192 " + behindFor(behind, row).latest}</span> : null}
+          </div>
+          {row.description ? <p className="gpkg-card-desc" title={row.description}><Highlight text={row.description} needle={needle} /></p> : null}
+          {row.note ? <p className="gpkg-row-note" title={row.note}>{row.note}</p> : null}
+          <div className="gpkg-card-meta">
+            {row.vendor ? <span className="pkg-type">{row.vendor}</span> : null}
+            {row.status ? <span className="gpkg-status">{row.status}</span> : null}
+            {row.managedByPiCode ? <span className="is-picode">Installed by PiCode</span> : null}
+            {row.source ? <span className="gpkg-card-src" title={row.source}>{row.source}</span> : null}
+          </div>
+          <Problem entry={rowError[keyOf(row)]} />
+          <div className="gpkg-card-foot">
+            {rowToggle(caps, row) ? (
+              <button type="button" className="btn btn-sm" disabled={guard} onClick={() => onToggle(row, !row.enabled)}>
+                {verbFor(row) === "toggle" ? busy.label : row.enabled ? "Disable" : "Enable"}
+              </button>
+            ) : null}
+            {behindFor(behind, row) ? (
+              <button type="button" className="btn btn-sm" disabled={guard} title={"Update to " + behindFor(behind, row).latest} onClick={() => onUpdate(row)}>{verbFor(row) === "update" ? busy.label : "Update"}</button>
+            ) : null}
+            {rowInspect(caps, row) ? (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => onInspect(row)}>{verbFor(row) === "inspect" ? busy.label : "Inspect"}</button>
+            ) : null}
+            {caps.remove ? (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => onRemove(row)}>{verbFor(row) === "remove" ? busy.label : "Remove"}</button>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+
+  if (marketplace) {
+    return (
+      <>
+        {marketProblem ? (
+          <div className="cli-notice is-error" role="alert">
+            <span>{marketProblem.message}</span>
+            <button type="button" className="btn btn-ghost btn-sm" disabled={marketLoading} onClick={loadMarket}>{marketLoading ? "Retrying…" : "Try again"}</button>
+          </div>
+        ) : null}
+
+        {capsMarketplace ? (
+          <form className="gpkg-source" data-align-row data-align-wrap noValidate onSubmit={onAddSource}>
+            <input
+              className="dlg-input"
+              value={addSource.name}
+              onChange={event => setAddSource(form => ({ ...form, name: event.target.value }))}
+              placeholder="Name, if this CLI needs one"
+              aria-label="Marketplace name"
+              disabled={guard}
+            />
+            <input
+              className="dlg-input"
+              value={addSource.source}
+              onChange={event => setAddSource(form => ({ ...form, source: event.target.value }))}
+              placeholder="owner/repo, git URL, or marketplace URL"
+              aria-label="Marketplace source"
+              disabled={guard}
+            />
+            <button type="submit" className="btn btn-sm" disabled={guard || !addSource.source.trim()}>Add source</button>
+          </form>
+        ) : null}
+        {sourceNames.length ? (
+          <ul className="gpkg-sources" aria-label={sourcesLoaded ? "Marketplace sources" : "Marketplace sources in this catalog"}>
+            {sourceNames.map(name => (
+              <li key={name} className="gpkg-source-chip">
+                <button
+                  type="button"
+                  className="gpkg-source-name"
+                  aria-pressed={marketFilter === name}
+                  title={"Show only " + name + "'s plugins"}
+                  onClick={() => setMarketFilter(marketFilter === name ? "" : name)}
+                >{name}</button>
+                <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => onMarketSource("update", name)}>{busy && busy.id === name && busy.verb === "source:update" ? busy.label : "Update"}</button>
+                <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => onMarketSource("remove", name)}>{busy && busy.id === name && busy.verb === "source:remove" ? busy.label : "Remove"}</button>
+              </li>
+            ))}
           </ul>
-        )
-      ) : (
-        <>
+        ) : null}
+
+        {/* The catalog runs to hundreds of rows: the filter rides along. */}
+        <div className="gpkg-sticky">
           <section className="pkg-toolbar" data-align-row>
             <input
               className="pkg-search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Filter packages…"
-              aria-label="Search gallery"
+              value={marketFilter}
+              onChange={event => setMarketFilter(event.target.value)}
+              placeholder="Filter this catalog…"
+              aria-label="Filter this catalog"
             />
-            <span className="pkg-count">{searching && !hits.length ? "Loading…" : searching ? "Updating…" : hits.length ? hits.length + " shown" : "No matches"}</span>
-            <a className="settings-link" href={gallery} target="_blank" rel="noopener noreferrer">pi.dev ↗</a>
+            <span className="pkg-count">{marketLoading ? (marketRows.length ? "Updating…" : "Loading…") : marketRows.length ? (marketFilter.trim() ? shownMarket.length + " of " + marketRows.length : marketRows.length + " shown") : null}</span>
           </section>
+        </div>
 
-          <ul className="pkg-grid" role="tabpanel" aria-busy={searching && !hits.length}>
-            {searching && !hits.length ? Array.from({ length: 6 }, (_, i) => (
-              <li key={"skel-" + i} className="pkg-card pkg-skel" aria-hidden="true">
-                <div className="pkg-preview">
-                  <div className="pkg-preview-frame"><span /><span /><span /></div>
+        {marketLoading && !marketRows.length ? (
+          <div className="gpkg-grid gpkg-skel" role="status" aria-label="Loading the marketplace">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={"mskel-" + index} className="gpkg-card" aria-hidden="true">
+                <div className="gpkg-card-head"><div className="skel-line w-50" /></div>
+                <div className="skel-line w-90" />
+                <div className="skel-line w-70" />
+                <div className="gpkg-card-foot"><div className="skel-line w-40" /></div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {market && market.note ? <p className="pkg-fine">{market.note}</p> : null}
+
+        {market && !marketLoading && marketRows.length === 0 ? (
+          <div className="pkg-empty">
+            <p className="pkg-empty-title">This marketplace lists nothing.</p>
+            <button type="button" className="btn btn-sm" onClick={loadMarket}>Read it again</button>
+          </div>
+        ) : null}
+
+        {marketRows.length && shownMarket.length === 0 ? (
+          <p className="pkg-fine">{"Nothing in this catalog matches “" + marketFilter + "”."} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMarketFilter("")}>Clear filter</button></p>
+        ) : null}
+
+        {shownMarket.length ? (
+          <ul className="gpkg-grid" role="tabpanel" aria-busy={marketLoading ? "true" : undefined}>
+            {shownMarket.map(row => (
+              <li key={keyOf(row)} className="gpkg-card">
+                <div className="gpkg-card-head">
+                  <span className="gpkg-card-name" title={row.source || row.name || row.id}><Highlight text={row.name || row.id} needle={marketFilter} /></span>
+                  {row.version ? <span className="pkg-type">{row.version}</span> : null}
+                  {row.marketplace ? (
+                    <button
+                      type="button"
+                      className="pkg-type is-filter"
+                      aria-pressed={marketFilter === row.marketplace}
+                      title={"Show only " + row.marketplace + "'s plugins"}
+                      onClick={() => setMarketFilter(marketFilter === row.marketplace ? "" : row.marketplace)}
+                    >{row.marketplace}</button>
+                  ) : null}
                 </div>
-                <div className="pkg-card-body">
-                  <div className="skel-line w-50" />
-                  <div className="skel-line w-90" />
-                  <div className="skel-line w-70" />
-                  <div className="skel-line w-40" />
-                  <div className="skel-line w-80" />
+                {row.description ? <p className="gpkg-card-desc" title={row.description}><Highlight text={row.description} needle={marketFilter} /></p> : null}
+                <div className="gpkg-card-meta">
+                  {row.source ? <span className="gpkg-card-src" title={row.source}>{row.source}</span> : null}
+                </div>
+                <Problem entry={rowError[keyOf(row)]} />
+                <div className="gpkg-card-foot">
+                  {row.installed ? (
+                    <span className="gpkg-status is-on">Installed</span>
+                  ) : catalogRowAction(caps, row) === "install" ? (
+                    <button type="button" className="btn btn-primary btn-sm" disabled={guard} onClick={() => onInstall(row.source, row)}>
+                      {verbFor(row) === "install" ? busy.label : "Install"}
+                    </button>
+                  ) : null}
                 </div>
               </li>
-            )) : null}
-            {hits.map((h) => {
-              const on = installed.has(h.source);
-              return (
-                <li key={h.source} className="pkg-card">
-                  <div className={"pkg-preview" + (h.image ? " has-media" : "")} aria-hidden="true">
-                    <div className="pkg-preview-frame">
-                      {h.image ? <img src={h.image} alt="" loading="lazy" /> : <><span /><span /><span /></>}
-                    </div>
-                  </div>
-                  <div className="pkg-card-body">
-                    <div className="pkg-card-head">
-                      <span className="pkg-card-name">{h.name}</span>
-                      {h.kind ? <span className="pkg-type">{h.kind}</span> : null}
-                    </div>
-                    {h.description ? <p className="pkg-card-desc">{h.description}</p> : <p className="pkg-card-desc"> </p>}
-                    <div className="pkg-card-meta">
-                      {h.publisher ? <span>{h.publisher}</span> : null}
-                      {h.downloads ? <span>{fmtDown(h.downloads)}</span> : null}
-                      {h.updated ? <span>{fmtAge(h.updated)}</span> : null}
-                      {h.version ? <span>{h.version}</span> : null}
-                    </div>
-                    <div className="pkg-card-foot">
-                      <code className="pkg-cmd">pi install {h.source}</code>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        disabled={!!job || on}
-                        onClick={() => installSource(h.source)}
-                      >
-                        {on ? "Installed" : "Install"}
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
+            ))}
           </ul>
-        </>
-      )}
+        ) : null}
+      </>
+    );
+  }
 
-      </fieldset>
-      {job ? <JobOverlay job={job} onClose={() => setJob(null)} /> : null}
-    </PageFrame>
+  return (
+    <>
+      <div className="gpkg-sticky">
+        {rows.length > 1 ? (
+          <div className="pkg-installed-toolbar" data-align-row>
+            <input
+              className="pkg-search"
+              value={needle}
+              onChange={event => setNeedle(event.target.value)}
+              placeholder={words.installedFilter}
+              aria-label={words.installedFilterLabel}
+            />
+            <span className="pkg-count">{shown.length === rows.length ? rows.length + " installed" : shown.length + " of " + rows.length}</span>
+          </div>
+        ) : null}
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="pkg-empty">
+          <p className="pkg-empty-title">{words.emptyTitle}</p>
+          {emptyPicks.length ? (
+            <>
+              <p className="pkg-fine">{cliName + " offers these — install one, or name any source above."}</p>
+              <ul className="gpkg-picks">
+                {emptyPicks.map(row => (
+                  <li key={keyOf(row)} className="gpkg-pick">
+                    <span className="gpkg-pick-name" title={row.source || row.name}>{row.name || row.id}</span>
+                    {row.version ? <span className="pkg-type">{row.version}</span> : null}
+                    <button type="button" className="btn btn-sm" disabled={guard} onClick={() => onInstall(row.source, row)}>
+                      {verbFor(row) === "install" ? busy.label : "Install"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {market ? <button type="button" className="btn btn-ghost btn-sm" onClick={onOpenMarket}>See the whole catalog</button> : null}
+            </>
+          ) : market ? (
+            <button type="button" className="btn btn-sm" onClick={onOpenMarket}>Open the Marketplace</button>
+          ) : caps.install ? (
+            <button type="button" className="btn btn-sm" onClick={() => sourceField.current && sourceField.current.focus()}>Install a plugin</button>
+          ) : null}
+        </div>
+      ) : shown.length === 0 ? (
+        <p className="pkg-fine">{words.noMatch(needle)} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setNeedle("")}>Clear filter</button></p>
+      ) : groups.length ? groups.map(group => (
+        <section key={group.key} className="gpkg-group">
+          <h4 className="gpkg-group-head">
+            <span>{group.label}</span>
+            <span className="gpkg-group-count">{group.rows.length}</span>
+          </h4>
+          {grid(group.rows)}
+        </section>
+      )) : grid(shown)}
+    </>
   );
+}
+
+// layerLabel names the layer a row lives in, in the pane's own words: the
+// caller's name for the workspace or the agent when the report carries one,
+// the class's bare word otherwise.
+function layerLabel(row, report) {
+  if (row.scope === "workspace") return report.workspaceName || "workspace";
+  if (row.scope === "agent") return report.agentName || "agent";
+  return "global";
+}
+
+function behindTitle(entry) {
+  return entry && entry.current && entry.latest ? entry.current + " → " + entry.latest : undefined;
 }
 
 function startJobTick(setJob, stepCount) {
   return setInterval(() => {
-    setJob((j) => {
+    setJob(j => {
       if (!j || j.error || j.done) return j;
       if (j.step < stepCount - 1) return { ...j, step: j.step + 1 };
       return j;
@@ -358,6 +1117,10 @@ function startJobTick(setJob, stepCount) {
   }, 480);
 }
 
+// jobSteps is the transcript a direct mutation shows: the exact command PiCode
+// ran, and the read that follows it. The line is the driver's own argv
+// (`pipkg.MutateArgs`), spelled here because this transport answers the fresh
+// list rather than a lane job carrying its command.
 function jobSteps(job) {
   if (job.action === "update") {
     return [
@@ -417,6 +1180,12 @@ function JobOverlay({ job, onClose }) {
       </div>
     </div>
   );
+}
+
+// cliInstallLine is the line a gallery card shows for a hit: PiCode's own
+// install verb for its own gallery, exactly as the CLI takes it.
+function cliInstallLine(source) {
+  return "pi install " + source;
 }
 
 function fmtDown(n) {

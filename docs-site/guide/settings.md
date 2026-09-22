@@ -15,10 +15,10 @@ Two different screens. Do not mix them.
 | `#/clis/pi/keyboard` | the keyboard map | `~/.pi/agent/keybindings.json` (one map per machine) |
 | `#/preferences` | **PiCode** chrome | theme, server port |
 
-The pane edits **one layer at a time**. **Edit** picks it — this machine, the
+The pane edits **one layer at a time**. **Edit** picks it — global, the
 workspace, or the agent — and the line under it is the file that layer writes.
 A row says where its value comes from: **Set here** when this layer sets it
-(accent bar on the left), otherwise **Pi default** or **From This machine**.
+(accent bar on the left), otherwise **Pi default** or **From Global**.
 A row this layer sets has **Use inherited**, which hands the value back to the
 layer below instead of freezing a copy of it.
 

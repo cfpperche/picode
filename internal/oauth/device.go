@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/cfpperche/picode/internal/catalog"
 )
 
 const (
@@ -25,20 +23,20 @@ type deviceCred struct {
 	poll      func(ctx context.Context) error
 }
 
-func beginDevice(provider string) (deviceCred, error) {
+func beginDevice(provider string, sink Sink) (deviceCred, error) {
 	switch provider {
 	case "github-copilot":
-		return beginCopilot()
+		return beginCopilot(sink)
 	case "kimi-coding":
-		return beginKimi()
+		return beginKimi(sink)
 	case "xai":
-		return beginXAI()
+		return beginXAI(sink)
 	default:
 		return deviceCred{}, fmt.Errorf("no device login for %s", provider)
 	}
 }
 
-func beginCopilot() (deviceCred, error) {
+func beginCopilot(sink Sink) (deviceCred, error) {
 	form := url.Values{"client_id": {copilotClientID}, "scope": {"read:user"}}
 	raw, err := postFormJSON("https://github.com/login/device/code", form, map[string]string{
 		"Accept": "application/json", "User-Agent": "GitHubCopilotChat/0.35.0",
@@ -90,7 +88,7 @@ func beginCopilot() (deviceCred, error) {
 		if json.Unmarshal(raw, &tok) != nil || tok.Token == "" {
 			return fmt.Errorf("invalid copilot token")
 		}
-		return catalog.PutOAuth("github-copilot", map[string]any{
+		return writeCred(sink, "github-copilot", map[string]any{
 			"type":    "oauth",
 			"refresh": ghToken,
 			"access":  tok.Token,
@@ -99,7 +97,7 @@ func beginCopilot() (deviceCred, error) {
 	}}, nil
 }
 
-func beginKimi() (deviceCred, error) {
+func beginKimi(sink Sink) (deviceCred, error) {
 	form := url.Values{"client_id": {kimiClientID}}
 	raw, err := postFormJSON("https://auth.kimi.com/api/oauth/device_authorization", form, map[string]string{"Accept": "application/json"})
 	if err != nil {
@@ -128,11 +126,11 @@ func beginKimi() (deviceCred, error) {
 		return pollOAuthToken(ctx, "https://auth.kimi.com/api/oauth/token", url.Values{
 			"client_id": {kimiClientID}, "device_code": {d.DeviceCode},
 			"grant_type": {"urn:ietf:params:oauth:grant-type:device_code"},
-		}, interval, "kimi-coding", 0)
+		}, interval, "kimi-coding", 0, sink)
 	}}, nil
 }
 
-func beginXAI() (deviceCred, error) {
+func beginXAI(sink Sink) (deviceCred, error) {
 	form := url.Values{"client_id": {xaiClientID}, "scope": {xaiScope}, "referrer": {"pi"}}
 	raw, err := postFormJSON("https://auth.x.ai/oauth2/device/code", form, map[string]string{"Accept": "application/json"})
 	if err != nil {
@@ -161,11 +159,11 @@ func beginXAI() (deviceCred, error) {
 		return pollOAuthToken(ctx, "https://auth.x.ai/oauth2/token", url.Values{
 			"client_id": {xaiClientID}, "device_code": {d.DeviceCode},
 			"grant_type": {"urn:ietf:params:oauth:grant-type:device_code"},
-		}, interval, "xai", 5*time.Minute)
+		}, interval, "xai", 5*time.Minute, sink)
 	}}, nil
 }
 
-func pollOAuthToken(ctx context.Context, tokenURL string, form url.Values, interval time.Duration, provider string, skew time.Duration) error {
+func pollOAuthToken(ctx context.Context, tokenURL string, form url.Values, interval time.Duration, provider string, skew time.Duration, sink Sink) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -197,7 +195,7 @@ func pollOAuthToken(ctx context.Context, tokenURL string, form url.Values, inter
 			continue
 		}
 		exp := time.Now().Add(time.Duration(expSec)*time.Second - skew).UnixMilli()
-		return catalog.PutOAuth(provider, map[string]any{
+		return writeCred(sink, provider, map[string]any{
 			"type": "oauth", "access": access, "refresh": refresh, "expires": exp,
 		})
 	}

@@ -39,7 +39,7 @@ fire in a browser tab is visible rather than mysterious — five of pi's own
 defaults are in that list today.
 
 Each CLI's Keyboard tab says what *its* map is, because they are not the same
-thing. Pi, Omp, Codex and Antigravity are editable there. A CLI whose own editor PiCode has not built yet
+thing. Pi, Omp, Codex, Antigravity and OpenCode are editable there. A CLI whose own editor PiCode has not built yet
 says so and links the vendor's documentation — Claude Code, OpenCode and
 Antigravity today. A CLI that keeps no key map file at all — Hermes Agent, whose
 three editable keys are rows in its **Settings** tab — says that and sends you to

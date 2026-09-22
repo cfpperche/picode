@@ -18,9 +18,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/clicreds"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/communication"
+	"github.com/cfpperche/picode/internal/credentials"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -963,6 +966,54 @@ func recordCLILaunchAttempt(deps Deps, id string, err error) {
 	_ = deps.Store.SetTerminalLaunchAttempt(id, a)
 }
 
+// ompCredentialEnv turns the vault's newest non-paused credential per
+// provider into the env names omp's own declaration declares — the one
+// channel a guest whose store PiCode cannot write has (ADR-0178). A provider
+// the user already envs in their launch config is skipped, never clobbered.
+func ompCredentialEnv(file *credentials.File, have map[string]string) [][2]string {
+	if file == nil {
+		return nil
+	}
+	spec, ok := clicreds.For("omp")
+	if !ok {
+		return nil
+	}
+	var out [][2]string
+	for _, declared := range spec.Providers {
+		slot, ok := file.Providers[declared.Provider]
+		if !ok {
+			continue
+		}
+		// Last written row wins: the vault appends, and the newest credential
+		// is the one a fresh sign-in just minted. Paused rows are skipped.
+		for i := len(slot.Accounts) - 1; i >= 0; i-- {
+			row := slot.Accounts[i]
+			if row.Paused || row.Type != "oauth" && row.Type != catalog.LoginAPIKey {
+				continue
+			}
+			var cred struct {
+				Key    string `json:"key"`
+				Access string `json:"access"`
+			}
+			if json.Unmarshal(row.Cred, &cred) != nil {
+				continue
+			}
+			for kind, envName := range declared.Env {
+				value := cred.Key
+				if kind == clicreds.KindOAuth {
+					value = cred.Access
+				}
+				if value == "" || have[envName] != "" {
+					continue
+				}
+				out = append(out, [2]string{envName, value})
+			}
+			break
+		}
+	}
+	return out
+}
+
 // launchIdentityEnv is the caller identity a CLI launch carries (ADR-0160
 // Fatia E): PICODE_TERM_ID always, plus PICODE_AGENT_ID when the terminal is
 // bound to an agent. picode mcp resolves principal with agent-wins
@@ -985,6 +1036,26 @@ func launchIdentityEnv(deps Deps, termID string) []string {
 // Omp authentication and configuration remain in the user's normal profile.
 func ompAgentSessionDir(dataDir, agentID string) string {
 	return filepath.Join(dataDir, "omp-sessions", agentID)
+}
+
+// agentOmpScopeFlags is the agent's own scope as Omp's launch takes it: every
+// entry of the agent's list as `-e`, and — when "only this agent's packages" is
+// on — the two flags this CLI has for skipping what it would auto-load. Omp has
+// no --no-prompt-templates/--no-themes (measured 2026-09-21), so its isolation
+// is those two alone, never a flag the CLI would refuse. Pi's list rides the
+// same store field with pi's own flags (`store.Agent.CLIFlags`); this is what
+// makes the packages pane's agent scope real for Omp (ADR-0176 slice 4).
+func agentOmpScopeFlags(a store.Agent) []string {
+	var args []string
+	if a.PackagesIsolated {
+		args = append(args, "--no-extensions", "--no-skills")
+	}
+	for _, src := range a.Packages {
+		if src = strings.TrimSpace(src); src != "" {
+			args = append(args, "-e", src)
+		}
+	}
+	return args
 }
 
 type preparedCLILaunch struct {
@@ -1037,6 +1108,26 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 				return nil, err
 			}
 			c.Args = append(c.Args, "--session-dir", ompAgentSessionDir(deps.DataDir, a.ID))
+			// The integration guard (cli_plan.go) refuses the same conflict for
+			// the activity extension; the agent's own entries are injected
+			// after that guard runs, so they are checked here — omp refuses a
+			// run outright when --trusted-extension meets any -e, and a launch
+			// that cannot run is not worth starting.
+			if flags := agentOmpScopeFlags(a); len(flags) > 0 {
+				if ompTrustedExtensionConflict(c) {
+					return nil, errors.New("Your --trusted-extension argument conflicts with this agent's own extensions. Drop the flag, or remove the entries in the agent's package scope.")
+				}
+				c.Args = append(c.Args, flags...)
+			}
+		}
+		// Vault credentials travel by env (ADR-0178): the env names are the
+		// ones omp's own declaration declares, and env is the lowest channel
+		// in omp's resolution chain — a native /login outranks an injected
+		// token, and a user-configured env entry outranks us both.
+		if file, err := credentials.Default().Load(); err == nil {
+			for _, kv := range ompCredentialEnv(&file, c.Env) {
+				c.Env[kv[0]] = kv[1]
+			}
 		}
 	}
 	root := filepath.Join(deps.DataDir, "cli-launch", v.TerminalID)

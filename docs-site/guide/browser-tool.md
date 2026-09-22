@@ -18,7 +18,7 @@ call uses (the install token); it opens no port and adds no credential.
 
 Install `packages/pi-browser` from the PiCode repository. Guide for install
 targets: [Packages](/guide/packages). Pick **This agent** to reach one agent
-only, or **This machine** so a plain `pi` in a terminal sees it too.
+only, or **Global** so a plain `pi` in a terminal sees it too.
 
 ## What it can do
 
@@ -55,7 +55,7 @@ live for the agent's next command.
    there. Without it the agent is told plainly: *the desktop app is not
    connected*.
 2. **A visible package.** Install scope decides who sees it: **This agent**
-   is private to that agent, **This machine** (`~/.pi/agent`) and
+   is private to that agent, **Global** (`~/.pi/agent`) and
    **this project** are visible to a plain `pi` too.
 
 ## Managed agent, or a plain `pi` TUI?

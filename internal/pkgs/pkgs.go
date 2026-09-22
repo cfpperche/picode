@@ -70,6 +70,20 @@ type Caps struct {
 	// prints a name and a version and never says where the plugin comes from
 	// (Omp's) is information: its rows carry no control.
 	CatalogInstall bool `json:"catalogInstall"`
+	// Async says a mutation on this CLI is reserved and run in the durable job
+	// lane ADR-0087 built: the request is answered with the job, the CLI's
+	// fresh list follows from the lane's events, and a pane follows those
+	// events. A driver whose CLI is mutated by a direct call that answers the
+	// new list (Pi's pipkg install, and its store write for the agent scope)
+	// declares false: the pane runs the call, shows its own transcript and
+	// re-reads the report.
+	Async bool `json:"async"`
+	// IsolatedSwitch says the CLI has PiCode's "only this agent's packages"
+	// flag on the agent row — the agent loads its own list instead of the
+	// machine's and the workspace's. It is a fact about PiCode's agent rather
+	// than a vendor verb, so only a driver whose rows live on an agent row
+	// declares it; a CLI without one draws no such checkbox.
+	IsolatedSwitch bool `json:"isolatedSwitch"`
 }
 
 // Row is one package, from either engine. Source is what a removal takes back
@@ -136,6 +150,16 @@ type Report struct {
 	CheckedAt string `json:"checkedAt,omitempty"`
 	// Capabilities are derived facts a surface may gate on (webSearch, …).
 	Capabilities map[string]bool `json:"capabilities,omitempty"`
+	// WorkspacePath is the folder this read ran in, when one was named: a pane
+	// that has to say where a mutation lands (Pi's project-scope transcript)
+	// reads it here instead of resolving the workspace itself.
+	WorkspacePath string `json:"workspacePath,omitempty"`
+	// WorkspaceName and AgentName are the caller's own names for the workspace
+	// and agent layers, when one is in context: a pane badges a row that lives
+	// on one of them with its name instead of the class's bare word, and the
+	// title of the agent's pane says whose packages these are.
+	WorkspaceName string `json:"workspaceName,omitempty"`
+	AgentName     string `json:"agentName,omitempty"`
 	// Isolated is Pi's "only this agent's packages" switch, carried so a pane
 	// can explain why a stored row is not loaded.
 	Isolated bool `json:"isolated,omitempty"`
@@ -145,6 +169,11 @@ type Report struct {
 // the agent scope in: the engine does not reach the store, so Pi's per-agent
 // list — and its "only this agent's packages" switch — travel as data.
 //
+// WorkspaceName and AgentName are the same kind of fact for the other two
+// layers: a driver whose scope radio names them (Pi's workspace radio reads the
+// folder, its agent scope spells the agent out) reads them here, and a driver
+// that says "This workspace" ignores both.
+//
 // Vendor is the CLI's own word for the scope, which the class cannot always
 // say: Claude Code's `local` is a workspace-class layer with its own command
 // word. A driver asks its CLI with Vendor when the caller named one, and with
@@ -153,6 +182,8 @@ type Query struct {
 	Scope         Scope
 	Vendor        string
 	WorkspacePath string
+	WorkspaceName string
+	AgentName     string
 	AgentSources  []string
 	AgentIsolated bool
 	Fresh         bool

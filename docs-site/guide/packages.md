@@ -15,11 +15,11 @@ Canonical: [pi packages](https://github.com/earendil-works/pi/blob/main/packages
 
 Pick a target and Install. **Installed** lists what each target has (Update when a
 newer version exists, Remove); **Marketplace** is the pi.dev gallery. Without
-an agent selected, only **This machine** is offered.
+an agent selected, only **Global** is offered.
 
 | Target | Who gets it | How |
 |---|---|---|
-| This machine | Every agent on this computer | `pi install` |
+| Global | Every agent on this computer | `pi install` |
 | This workspace | Every agent in this folder | `pi install -l` |
 | This agent | Only that agent, every session | PiCode remembers it and starts pi with `-e` |
 
@@ -34,7 +34,7 @@ If a package on this machine or in this folder is behind, that row shows **Updat
 | Machine / project | `pi install` / `-l` | same |
 | One agent | — | **This agent** |
 
-Search: install `npm:pi-web-search` (This machine). Chat expands `web_search` into source cards. Needs a model that supports native search (Gemini / OpenAI / Anthropic).
+Search: install `npm:pi-web-search` (Global). Chat expands `web_search` into source cards. Needs a model that supports native search (Gemini / OpenAI / Anthropic).
 
 MCP servers: install `npm:pi-mcp-adapter`, then Agent CLIs → Connectors. Guide: [MCP](/guide/mcp).
 
@@ -117,7 +117,7 @@ so "nothing installed" always means nothing is installed.
 
 ## Package links
 
-The machine view lives at `#/clis/pi/packages`. Links opened from an agent
+The global view lives at `#/clis/pi/packages`. Links opened from an agent
 retain that agent and its workspace through reloads. Old `#/packages` links
 redirect to the new view. Missing targets show a recovery action.
 

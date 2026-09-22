@@ -17,7 +17,7 @@ PiCode has two settings worlds. Do not mix them.
 
 **Providers / API keys** — Agent CLIs → Pi → [Providers](/guide/providers). Writes `~/.pi/agent/auth.json` (extra logins in `~/.picode/accounts.json`).
 
-**Agent behavior** — Agent CLIs → Pi → [Settings](/guide/settings). One layer at a time: this machine, the workspace, or the agent.
+**Agent behavior** — Agent CLIs → Pi → [Settings](/guide/settings). One layer at a time: global, the workspace, or the agent.
 
 **Keyboard map** — Agent CLIs → [Keyboard](/guide/keyboard). Writes `~/.pi/agent/keybindings.json` (one map per machine).
 

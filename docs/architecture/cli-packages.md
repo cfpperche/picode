@@ -53,9 +53,14 @@ own words, for synchronous refusals and for a failed job alike.
 `GET /api/cli-packages` answers with the CLI's scopes, capabilities, notes and
 rows. Scopes are the CLI's own: Claude Code adds `local` (uncommitted) beside
 `user` and `project`; OpenCode, Muse and Omp have machine and project; Codex,
-Grok, Hermes and Antigravity are machine-only. `agent` is refused by name for
-every guest — no vendor has a per-terminal plugin layer — and a project scope
-without a workspace folder is refused before anything runs.
+Grok, Hermes and Antigravity are machine-only. The unified read
+(`GET /api/packages/report`, ADR-0176) adds PiCode's own `agent` layer where a
+launch can pass it on: Omp's entries live on the agent row like Pi's, are
+answered from the store with no vendor call, and reach the CLI at its next start
+as `-e` — with `--no-extensions --no-skills` when the agent is isolated, the two
+flags that CLI has (ADR-0176 slice 4). The legacy guest route still refuses
+`agent` by name — no vendor has a per-terminal plugin layer — and a project
+scope without a workspace folder is refused before anything runs.
 
 The roster comes from the CLI itself:
 

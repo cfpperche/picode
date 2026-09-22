@@ -66,7 +66,7 @@ var catalog = []spec{
 	{
 		id: "claude-code",
 		layers: []layerSpec{
-			{scope: "user", label: "This machine", format: FormatJSON, file: userFile(".claude", "settings.json")},
+			{scope: "user", label: "Global", format: FormatJSON, file: userFile(".claude", "settings.json")},
 			{scope: "project", label: "This workspace", format: FormatJSON, file: projectFile(".claude", "settings.json")},
 		},
 		fields: []Field{
@@ -89,7 +89,7 @@ var catalog = []spec{
 		// Codex reads one file. There is no per-workspace config, so the pane
 		// shows no layer switcher rather than an empty second tab.
 		layers: []layerSpec{
-			{scope: "user", label: "This machine", format: FormatTOML, file: userFile(".codex", "config.toml")},
+			{scope: "user", label: "Global", format: FormatTOML, file: userFile(".codex", "config.toml")},
 		},
 		fields: []Field{
 			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Codex default"},
@@ -113,7 +113,7 @@ var catalog = []spec{
 	{
 		id: "grok",
 		layers: []layerSpec{
-			{scope: "user", label: "This machine", format: FormatTOML, file: userFile(".grok", "config.toml")},
+			{scope: "user", label: "Global", format: FormatTOML, file: userFile(".grok", "config.toml")},
 			{scope: "project", label: "This workspace", format: FormatTOML, file: projectFile(".grok", "config.toml")},
 		},
 		fields: []Field{
@@ -134,7 +134,7 @@ var catalog = []spec{
 	{
 		id: "hermes",
 		layers: []layerSpec{
-			{scope: "user", label: "This machine", format: FormatYAML, file: userFile(".hermes", "config.yaml")},
+			{scope: "user", label: "Global", format: FormatYAML, file: userFile(".hermes", "config.yaml")},
 		},
 		fields: []Field{
 			{Key: "model.default", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Hermes default"},
@@ -169,7 +169,7 @@ var catalog = []spec{
 	{
 		id: "opencode",
 		layers: []layerSpec{
-			{scope: "user", label: "This machine", format: FormatJSONC, file: userFile(".config", "opencode", "opencode.json")},
+			{scope: "user", label: "Global", format: FormatJSONC, file: userFile(".config", "opencode", "opencode.json")},
 			{scope: "project", label: "This workspace", format: FormatJSONC, file: projectFile("opencode.json")},
 		},
 		fields: []Field{
@@ -184,7 +184,7 @@ var catalog = []spec{
 	{
 		id: "muse",
 		layers: []layerSpec{
-			{scope: "user", label: "This machine", format: FormatJSON, file: userFile(".config", "muse", "settings.json")},
+			{scope: "user", label: "Global", format: FormatJSON, file: userFile(".config", "muse", "settings.json")},
 		},
 		fields: []Field{
 			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Muse Code default"},
@@ -200,7 +200,7 @@ var catalog = []spec{
 		// installs, `trustedWorkspaces` is a list the CLI maintains. One
 		// declared scalar is thin, and it is what is true.
 		layers: []layerSpec{
-			{scope: "user", label: "This machine", format: FormatJSON, file: userFile(".gemini", "antigravity-cli", "settings.json")},
+			{scope: "user", label: "Global", format: FormatJSON, file: userFile(".gemini", "antigravity-cli", "settings.json")},
 		},
 		fields: []Field{
 			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Antigravity default"},
@@ -209,7 +209,7 @@ var catalog = []spec{
 	{
 		id: "omp",
 		layers: []layerSpec{
-			{scope: "user", label: "This machine", format: FormatYAML, file: userFile(".omp", "agent", "config.yml")},
+			{scope: "user", label: "Global", format: FormatYAML, file: userFile(".omp", "agent", "config.yml")},
 			{scope: "project", label: "This workspace", format: FormatYAML, file: projectFile(".omp", "config.yml")},
 		},
 		fields: []Field{

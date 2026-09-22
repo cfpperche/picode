@@ -1,5 +1,12 @@
 ### Added
 
+- **OpenCode's keyboard map is editable in PiCode.** Agent CLIs → OpenCode →
+  Keyboard lists the 162 actions OpenCode's own config table declares (with its
+  descriptions) and writes `keybinds` rows into the CLI's user
+  `~/.config/opencode/tui.json` — never the legacy `keybinds` section in
+  `opencode.json`, which the CLI itself migrates away. Disabling an action is
+  written the CLI's own way (`"none"`), and the tab says a change needs a TUI
+  restart, which the loader's source confirms.
 - **Antigravity's keyboard map is editable in PiCode.** Agent CLIs →
   Antigravity → Keyboard lists its 36 actions with the chords the installed build
   ships, and PiCode writes the CLI's own `keybindings.json` — the vendor's

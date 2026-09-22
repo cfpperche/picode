@@ -400,8 +400,23 @@ through the same engine, labels twenty parts vendor / sixteen parts id-derived
 (the two doc pages that match the installed build name twenty actions; the rest
 they leave unnamed, and the catalog says which is which). Its pickup was
 **measured in a live session**: the TUI keeps the map it loaded at start, so the
-row says restart. The remaining rows are P4: Claude Code's inverted contexts and
-OpenCode's leader sequences and project layer.
+row says restart. **OpenCode shipped (2026-09-21, `feat/keymaps-p4`)**: 162 actions from the
+loader's own Definitions table, written into the user `tui.json`'s `keybinds`
+object (never the legacy `opencode.json` section, which the CLI migrates), the
+vendor's "none" reading as unbound, user scope only — a project `tui.json` wins,
+and the pane says which file it writes. Pickup: restart, from the loader's
+source (the config is snapshotted at TUI start; the reload RPC does not cover
+keybinds).
+
+**Claude Code is the last row, and its gate was settled live before any writing:**
+2.1.278 logs `KeybindingSetup initialized with 229 bindings` and `Watching for
+changes to /home/goat/.claude/keybindings.json` — the feature is not gated off
+on this build, and the pickup is hot-reload, observed. Its shape is inverted
+(`bindings: [{context, bindings: {chord: action|null}}]`), which needs the
+inverted adapter: splice a chord into the context block for the row's action,
+drop entries whose value is that action, `null` as the unbind verb, and a
+first-write that matches the vendor's own `/keybindings` template. 22 contexts,
+~115 actions from the vendor's docs page. That adapter is the final slice.
 
 ## P2's inputs (measured 2026-09-21)
 

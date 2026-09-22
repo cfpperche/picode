@@ -35,17 +35,89 @@ func TestDriverForResolvesPiAndTheGuests(t *testing.T) {
 	}
 }
 
-// Only Pi declares the agent scope: it is PiCode's own list on the agent row.
-// A guest that grows the mechanism is a decision, not an accident (ADR-0167).
-func TestOnlyPiDeclaresTheAgentScope(t *testing.T) {
+// Who declares the agent scope, and the mechanism each one has for it: the
+// layer is PiCode's own list on the agent row, never a vendor's, so a CLI whose
+// launch cannot pass the entries on must not declare it — the radio would be a
+// control that cannot work (ADR-0176 slice 4; the plan's decision table). The
+// isolation switch travels with it for the same reason: it is the agent row's
+// own flag, and it is offered where a launch honours it.
+func TestWhoDeclaresTheAgentScope(t *testing.T) {
+	mechanisms := map[string]string{
+		"pi":  "pi -e per entry, plus pi's own isolation flags",
+		"omp": "omp -e per entry, plus --no-extensions --no-skills when isolated",
+	}
 	for _, cli := range CLIs() {
-		has := slices.ContainsFunc(DriverFor(cli).Scopes(), func(s ScopeRow) bool { return s.ID == Agent })
-		if cli == "pi" && !has {
-			t.Fatal("pi must declare the agent scope")
+		hasAgent := slices.ContainsFunc(DriverFor(cli).Scopes(), func(s ScopeRow) bool { return s.ID == Agent })
+		_, hasMechanism := mechanisms[cli]
+		if hasAgent != hasMechanism {
+			t.Fatalf("%s: declares the agent scope = %v, has a launch mechanism = %v", cli, hasAgent, hasMechanism)
 		}
-		if cli != "pi" && has {
-			t.Fatalf("%s declares the agent scope", cli)
+		if got := DriverFor(cli).Caps().IsolatedSwitch; got != hasMechanism {
+			t.Fatalf("%s: IsolatedSwitch = %v, want %v", cli, got, hasMechanism)
 		}
+	}
+}
+
+// The agent scope answers PiCode's own list for a guest exactly as it does for
+// Pi: no vendor call is made (there is nothing in the CLI to call — the launch
+// is what passes the entries on), the rows carry the store's entries with the
+// agent's own vendor word, and the radio is offered only when the read named an
+// agent (ADR-0176 slice 4).
+func TestGuestAgentScopeAnswersPiCodeList(t *testing.T) {
+	rep, err := DriverFor("omp").List(context.Background(), Query{
+		Scope:        Agent,
+		AgentName:    "Atlas",
+		AgentSources: []string{" npm:pi-browser ", "", "git:github.com/x/y"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Rows) != 2 {
+		t.Fatalf("rows = %+v", rep.Rows)
+	}
+	first := rep.Rows[0]
+	if first.Name != "pi-browser" || first.Source != "npm:pi-browser" || first.Scope != Agent || first.Vendor != "agent" || !first.Enabled {
+		t.Fatalf("row = %+v", first)
+	}
+	if !slices.ContainsFunc(rep.Scopes, func(s ScopeRow) bool { return s.ID == Agent }) {
+		t.Fatalf("no agent row with an agent named: %+v", rep.Scopes)
+	}
+	if rep.AgentName != "Atlas" {
+		t.Fatalf("agent name = %q, want Atlas", rep.AgentName)
+	}
+	// The pane also names the layer by the word its own row carries
+	// (`vendor=agent`), which is what the unified reads send: one answer.
+	byWord, err := DriverFor("omp").List(context.Background(), Query{
+		Vendor:       "agent",
+		AgentName:    "Atlas",
+		AgentSources: []string{"npm:pi-browser"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byWord.Rows) != 1 || byWord.Rows[0].Source != "npm:pi-browser" {
+		t.Fatalf("the vendor-word spelling answered %+v", byWord.Rows)
+	}
+	// And the badge read answers empty for that layer rather than asking the
+	// vendor for a catalog the layer does not have.
+	updates, err := DriverFor("omp").CheckUpdates(context.Background(), Query{Vendor: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updates.Rows) != 0 {
+		t.Fatalf("updates at the agent layer = %+v", updates.Rows)
+	}
+	// The same read with no agent named offers no agent radio: the layer is
+	// one agent's list, so a read that named none cannot answer it.
+	bare, err := DriverFor("omp").List(context.Background(), Query{Scope: Agent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(bare.Scopes, func(s ScopeRow) bool { return s.ID == Agent }) {
+		t.Fatalf("agent radio offered with no agent: %+v", bare.Scopes)
+	}
+	if len(bare.Rows) != 0 {
+		t.Fatalf("rows with no entries = %+v", bare.Rows)
 	}
 }
 

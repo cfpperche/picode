@@ -55,17 +55,23 @@
   every plugin verb" reading was the vendor's per-machine feature gate measured
   with a fresh HOME — the harness now seeds that config from the machine's own
   cache.
-- [ ] **`GET /api/packages/report` still drops the isolation switch.** The badge
+- [x] **`GET /api/packages/report` still drops the isolation switch.** The badge
   half of this debt was paid 2026-09-21 (`feat/packages-guests`, slice 2): the
   four guest reads answer from `pkgs.DriverFor(cli)` — a pure mapper
   (`internal/pkgs/guest_view.go`) reproduces the pane's bytes, proven over
   fixtures and over the real routes — and every guest driver now maps the
   vendor's whole capability set, `Caps.Update` included. So
   `/api/packages/updates?cli=<guest>` answers the vendor's own check where the
-  CLI has the update verb instead of 400. What remains: `GET
-  /api/packages/report` does not pass `Query.AgentIsolated`, so "only this
-  agent's packages" is still visible only through the legacy route. Closes when
-  one pane renders the unified shape (slice 3).
+  CLI has the update verb instead of 400. Paid 2026-09-22 (`feat/packages-pane`,
+  slice 3 — the close this debt named): `handlePackageReport` hands the agent
+  row's flag to the engine (`Query.AgentIsolated`), Pi's driver puts it on the
+  report (`Report.Isolated`, `json:"isolated,omitempty"` — a switched-off agent
+  is the absent field, which is why an unswitched report has no key), and the
+  merged pane both reads it (`checked={!!report.isolated}`) and writes it back
+  through `PATCH /api/agents/<id> {packagesIsolated}`.
+  `internal/server/package_report_test.go` pins an isolated agent's report at
+  `"isolated":true`, and a scratch instance measured the round trip end to end:
+  PATCH true → report `"isolated":true` → the box drawn ticked.
   Plan: `docs/plans/packages-unification.md`.
 
 - [x] **Omp's own `extensions` list is invisible in the guest packages pane.**

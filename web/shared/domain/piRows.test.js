@@ -41,7 +41,7 @@ test("rows keep their declared order inside their group", () => {
 test("a row says whether this layer set it, and hands back only what it set", () => {
   const model = PI_ROWS.find((r) => r.kind === "model");
   const own = { has: { defaultModel: true } };
-  const state = piRowState(model, { defaultModel: "opus" }, own, "From This machine");
+  const state = piRowState(model, { defaultModel: "opus" }, own, "From Global");
   assert.equal(state.setHere, true);
   // One of three fields is overridden, so only that one is handed back.
   assert.deepEqual(state.resetKeys, ["defaultModel"]);
