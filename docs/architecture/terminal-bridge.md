@@ -239,8 +239,11 @@ finds no marker and is refused (fail-closed).
 ### Browser hand-off (ADR-0180)
 
 The same session PATH also carries a browser hand-off: a `picode-open`
-wrapper, `xdg-open` and `wslview` shadows, and `BROWSER=<dataDir>/bin/picode-open`
-in the session environment. A CLI's "open in the browser" moment (OAuth
+wrapper, `xdg-open` and `wslview` shadows, `BROWSER=<dataDir>/bin/picode-open`
+in the session environment, and — for launched CLI panes, whose `/bin/sh`
+launch script never sources the rcfile — the intercept bin dir exported
+first on the script's PATH (`interceptCLIPath`). A CLI's "open in the
+browser" moment (OAuth
 `/login` above all) used to resolve inside WSL — an installed chromium
 opened in a window nobody watches. The wrapper forwards exactly its first
 `http(s)` argument to `POST /api/terminals/{id}/open-url` (bearer token

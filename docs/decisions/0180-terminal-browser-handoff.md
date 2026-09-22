@@ -33,8 +33,13 @@ reconnect hours later.
 ## Decision
 
 Managed terminals get a **browser hand-off**: a `picode-open` wrapper plus
-`xdg-open` and `wslview` shadows in the intercept bin dir, and
-`BROWSER=<dataDir>/bin/picode-open` in the session environment. The wrapper
+`xdg-open` and `wslview` shadows in the intercept bin dir, `BROWSER=<dataDir>/bin/picode-open`
+in the session environment, **and the intercept bin dir first on the PATH of
+every launched CLI pane** — CLI panes are `/bin/sh` launch scripts, not
+interactive shells, so the rcfile prepend never runs for them; omp resolves
+its opener by PATH lookup (`wslview`, else `xdg-open`) and the first
+landing opened WSL chromium despite `BROWSER` (measured 2026-09-22, fixed
+same day in `interceptCLIPath`). The wrapper
 forwards exactly its first `http(s)` argument to
 `POST /api/terminals/{id}/open-url` (bearer token from `<dataDir>/token`,
 same as the hook reporters); every other argument, missing curl, an absent
