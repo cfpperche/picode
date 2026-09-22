@@ -163,13 +163,47 @@
   the `directMutation` rows in `cliPackages.test.js`, plus the new
   `the transport declaration is read one verb at a time`.
 
-- [ ] **The `/api/cli-packages*` family is an alias for one release
-  (ADR-0176).** The guest routes answer from `pkgs.DriverFor(cli)` and are
-  mapped back to the bytes the pane has always parsed
-  (`internal/pkgs/guest_view.go`), so a caller can be moved over deliberately;
-  `docs/architecture/packages.md` and `docs/architecture/routes.md` carry the
-  deadline. The one in-repo caller left is `web/shared/domain/cliPackages.js`
-  (`available`, `marketplaces`, install/remove/update/toggle/marketplace/
-  inspect) — the unified reads already go to `/api/packages*`. Closes when that
-  module reads the unified paths for every CLI and the handlers,
-  `guest_view.go`'s route mappers and their tests are removed together.
+- [x] **The `/api/cli-packages*` family is an alias for one release
+  (ADR-0176).** Paid 2026-09-22 (`feat/packages-alias`) — the window was closed
+  by the owner's call, not by a calendar check. The whole family is gone: the
+  route registrations, `handleCLIPackages`/`handleCLIPackagesAvailable`/
+  `handleCLIPackageUpdates`/`handleCLIPackageMarkets` and
+  `internal/pkgs/guest_view.go` with every mapper in it (the guest answers are
+  now `pkgs.Report`/`pkgs.Row` themselves). `internal/server/cli_packages.go`
+  became `internal/server/packages_vendor.go`: the surviving handlers are the
+  CLI's own surface on the unified paths — `GET /api/packages/available`,
+  `GET /api/packages/marketplaces`, `POST /api/packages/toggle`,
+  `/marketplace`, `/inspect`, and the `cli`-named branch of
+  `POST /api/packages`, `POST /api/packages/update`, `DELETE /api/packages`
+  (PiCode's own calls name no CLI, which is what keeps the two apart).
+  `cliPackagePaths`, `packageCommand`, `resolvePackageJob`, `cliJobView`,
+  `publishPackageChange` and `jobKey` survive unchanged — they are the engine
+  the family still needs; `guestQuery` was renamed `vendorQuery`,
+  `Guest*` had no other caller. The one in-repo caller,
+  `web/shared/domain/cliPackages.js`, now reads the unified paths for every
+  verb (`directMutation`/`laneMutation`/`anyLaneMutation` unchanged, deciding
+  the lane-versus-own-write path exactly as before), with one field adapted at
+  that boundary: `sourceGroupKey` reads the unified row's `kind` (and
+  `installedPath`), where it read the alias's `sourceKind`/`installPath`.
+  Inventory of `/api/cli-packages` callers before the deletion: the Go route
+  family (`internal/server/cli_packages.go`), the JS module and its test — no
+  caller in Go outside that file, `ext/`, `desktop-shell/`, `scripts/` or
+  `docs-site/`; `scripts/qa-cli-packages.mjs` names the pane's DOM id
+  (`#cli-packages-view`), never the route. Tests: the byte-pinning ones went
+  with the mappers (`TestGuestViewMatchesTheEngineByteForByte`,
+  `TestGuestViewIsThePanesPayload`, `TestGuestMutationViewsAreThePanesPayload`)
+  and the alias-only refusals (`TestCLIPackagesGuests`'s `cli=pi` and
+  `scope=agent` rows) went with the routes; the driver equivalence they
+  guarded is now `TestGuestRowsCarryTheEnginesFacts` /
+  `TestGuestMutationAnswersCarryTheEnginesFacts`, and every route behaviour is
+  covered on the unified paths (`TestPackageReportReadsTheVendor`,
+  `TestPackageVendorRoutesPinTheRefusals`, `TestPackageToggleAnswersTheFreshReport`,
+  `TestPackageInstallIsAnIdempotentJob`, `TestPackageMarketplaceRemoveLeavesNoJob`,
+  `TestPackageMarketplacesReadOnLoad`, `TestPackageInspectIsVendorText`,
+  `TestPackageRefusalCarriesTheCommand`, `TestPackageJobCarriesTheCommand`,
+  `TestPackageOpenCodeRemoveIsPiCodeOwnWrite`, `TestPackageOmpExtensions`,
+  `TestPackageOmpExtensionToggle`, `TestPackageUpdatesMarksWhatIsBehind`).
+  Measured through the pane against a scratch instance (a guest install, an
+  update, a toggle, a remove, the Omp extension own-write and a refusal); the
+  run and its evidence are recorded in
+  `docs/handoff/2026-09-22-packages-alias.md`.

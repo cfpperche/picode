@@ -17,14 +17,20 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-// Native CLI packages (ADR-0167). The eight guest CLIs manage their own
-// plugins; PiCode declares what each one exposes (internal/clipkgs), runs the
-// vendor's own command, and keeps no package database. Reads and mutations
-// alike answer from the unified driver (ADR-0176: pkgs.DriverFor(cli), mapped
-// back to the bytes this pane has always parsed); every mutation that installs
-// or fetches is a durable job in the lane ADR-0087 built, so a PiCode restart
-// never replays one and the pane can show progress from the events that lane
-// already publishes.
+// The CLIs' own package surface (ADR-0167, ADR-0176). Eight of the CLIs PiCode
+// drives manage their own plugins; PiCode declares what each one exposes
+// (internal/clipkgs), runs the vendor's own command, and keeps no package
+// database. Every one of their verbs is answered on the same `/api/packages*`
+// family Pi's own calls use, with the CLI named in the request: the driver runs
+// the CLI's own command, or performs the write the CLI has no command for, and
+// every mutation that installs or fetches is a durable job in the lane
+// ADR-0087 built, so a PiCode restart never replays one and the pane can show
+// progress from the events that lane already publishes.
+//
+// The answers are the unified model (`pkgs.Report`, `pkgs.Row`) on every route.
+// The `/api/cli-packages*` alias and the mappers in `internal/pkgs/
+// guest_view.go` that reconstructed the bytes the guest pane used to parse are
+// gone with it (ADR-0176's one-release window, closed by the owner 2026-09-22).
 //
 // A job carries its own arguments in the job payload: `Resolve` runs after a
 // restart too, and the argv of `pkg-install` depends on the plugin, the scope
@@ -32,19 +38,10 @@ import (
 // job is reserved, and again inside the lane — from the same payload shape, so
 // the two cannot disagree.
 
-func registerCLIPackageRoutes(mux Registrar, deps Deps) {
-	mux.HandleFunc("GET /api/cli-packages", handleCLIPackages(deps))
-	mux.HandleFunc("GET /api/cli-packages/available", handleCLIPackagesAvailable(deps))
-	mux.HandleFunc("GET /api/cli-packages/marketplaces", handleCLIPackageMarkets(deps))
-	mux.HandleFunc("GET /api/cli-packages/updates", handleCLIPackageUpdates(deps))
-	mux.HandleFunc("POST /api/cli-packages/install", handleCLIPackageJob(deps, "pkg-install"))
-	mux.HandleFunc("POST /api/cli-packages/remove", handleCLIPackageJob(deps, "pkg-remove"))
-	mux.HandleFunc("POST /api/cli-packages/update", handleCLIPackageJob(deps, "pkg-update"))
-	mux.HandleFunc("POST /api/cli-packages/toggle", handleCLIPackageToggle(deps))
-	mux.HandleFunc("POST /api/cli-packages/marketplace", handleCLIPackageMarketplace(deps))
-	mux.HandleFunc("POST /api/cli-packages/inspect", handleCLIPackageInspect(deps))
-}
-
+// cliPackageRequest is one request on a CLI's own surface: the CLI it names,
+// the folder a project-scope mutation runs in, the plugin by name and source,
+// and the idempotency key the lane reserves by. A marketplace action adds its
+// action, its ref and the source it names; a toggle adds the state asked for.
 type cliPackageRequest struct {
 	CLI              string `json:"cli"`
 	Workspace        string `json:"workspace"`
@@ -204,39 +201,26 @@ func packageJobCommand(j store.CLIJob) string {
 	return cmd.Line
 }
 
-// guestQuery is one guest read as the driver takes it: the scope word the
+// vendorQuery is one CLI read as the driver takes it: the scope word the
 // request carried (the class cannot say `local`) and the folder a project-scope
 // read runs in.
-func guestQuery(scope, cwd string) pkgs.Query {
+func vendorQuery(scope, cwd string) pkgs.Query {
 	return pkgs.Query{Vendor: scope, WorkspacePath: cwd}
 }
 
-func handleCLIPackages(deps Deps) http.HandlerFunc {
+// handlePackageAvailable is GET /api/packages/available: the CLI's own
+// installable list, read from the vendor's own command and answered as the
+// unified report. A CLI with no such list refuses — the model's own sentence
+// where the interface has one (`ErrNoCatalog`, Pi's gallery), the vendor's own
+// reason where the CLI simply has no such verb — never an empty catalog.
+func handlePackageAvailable(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		cli, scope := q.Get("cli"), q.Get("scope")
-		paths, err := cliPackagePaths(deps, cli, q.Get("workspace"), scope)
-		if err != nil {
-			writeErr(w, statusForPackageErr(err), err.Error())
+		cli, scope := strings.TrimSpace(q.Get("cli")), q.Get("scope")
+		drv, ok := packageDriver(w, cli)
+		if !ok {
 			return
 		}
-		read := guestQuery(scope, paths.Cwd)
-		read.Fresh = q.Get("refresh") == "1"
-		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
-		defer cancel()
-		rep, err := pkgs.DriverFor(cli).List(ctx, read)
-		if err != nil {
-			writeErr(w, statusForPackageErr(err), err.Error())
-			return
-		}
-		writeJSON(w, http.StatusOK, pkgs.Guest(cli, rep))
-	}
-}
-
-func handleCLIPackagesAvailable(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-		cli, scope := q.Get("cli"), q.Get("scope")
 		paths, err := cliPackagePaths(deps, cli, q.Get("workspace"), scope)
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
@@ -244,48 +228,45 @@ func handleCLIPackagesAvailable(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		rep, err := pkgs.DriverFor(cli).Available(ctx, guestQuery(scope, paths.Cwd))
+		rep, err := drv.Available(ctx, vendorQuery(scope, paths.Cwd))
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, pkgs.GuestAvailable(cli, rep))
+		writeJSON(w, http.StatusOK, rep)
 	}
 }
 
-// handleCLIPackageUpdates compares the CLI's installed plugins with its own
-// catalog and marks the rows that are behind (ADR-0167). It is a read: opening
-// the pane does not fetch anything, the check runs when the pane asks for it,
-// and the vendor's catalog is the only source of "latest".
-func handleCLIPackageUpdates(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-		cli, scope := q.Get("cli"), q.Get("scope")
-		paths, err := cliPackagePaths(deps, cli, q.Get("workspace"), scope)
-		if err != nil {
-			writeErr(w, statusForPackageErr(err), err.Error())
-			return
-		}
-		read := guestQuery(scope, paths.Cwd)
-		read.Fresh = q.Get("refresh") == "1"
-		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
-		defer cancel()
-		rep, err := pkgs.DriverFor(cli).CheckUpdates(ctx, read)
-		if err != nil {
-			writeErr(w, statusForPackageErr(err), err.Error())
-			return
-		}
-		writeJSON(w, http.StatusOK, pkgs.Guest(cli, rep))
-	}
+// marketplacesAnswer is a CLI's own source list as this family answers it: the
+// CLI it belongs to and its rows, in the unified row shape. A read and a
+// removal answer the same shape — one fact, one payload — and the list is never
+// null, because an empty one is a real answer ("this CLI lists no sources").
+type marketplacesAnswer struct {
+	CLI          string     `json:"cli"`
+	Marketplaces []pkgs.Row `json:"marketplaces"`
 }
 
-// handleCLIPackageMarkets lists the CLI's configured marketplace sources on
-// load: the pane needs them before it can manage them, and a removal is not
-// the only way to learn them (found in the pane's own build, 2026-09-20).
-func handleCLIPackageMarkets(deps Deps) http.HandlerFunc {
+func marketplacesAnswerOf(cli string, rows []pkgs.Row) marketplacesAnswer {
+	if rows == nil {
+		rows = []pkgs.Row{}
+	}
+	return marketplacesAnswer{CLI: cli, Marketplaces: rows}
+}
+
+// handlePackageMarketplaces is GET /api/packages/marketplaces: the sources the
+// CLI is configured with, which the pane needs before it can manage them — a
+// removal is not the only way to learn them (found in the pane's own build,
+// 2026-09-20). A CLI that keeps none refuses (`ErrNoMarketplaces`, or the
+// vendor's own reason for the verb it does not have) rather than answering a
+// list that would read as "none configured".
+func handlePackageMarketplaces(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		cli, scope := q.Get("cli"), q.Get("scope")
+		cli, scope := strings.TrimSpace(q.Get("cli")), q.Get("scope")
+		drv, ok := packageDriver(w, cli)
+		if !ok {
+			return
+		}
 		paths, err := cliPackagePaths(deps, cli, q.Get("workspace"), scope)
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
@@ -293,25 +274,23 @@ func handleCLIPackageMarkets(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		rows, err := pkgs.DriverFor(cli).Marketplaces(ctx, guestQuery(scope, paths.Cwd))
+		rows, err := drv.Marketplaces(ctx, vendorQuery(scope, paths.Cwd))
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, pkgs.GuestMarketplaces(cli, rows))
+		writeJSON(w, http.StatusOK, marketplacesAnswerOf(cli, rows))
 	}
 }
 
-// handleCLIPackageJob starts a durable install, removal, update or
-// marketplace-source action. The answer is the job — or, for a mutation the
-// driver runs itself (a CLI whose removal is a write of one of its own files),
-// the CLI's fresh list, because there is no argv for the lane to run. The pane
-// follows `cli.job` events for the first, and the `cli.packages` event for the
-// second.
-func handleCLIPackageJob(deps Deps, action string) http.HandlerFunc {
+// vendorPackageJob answers an install, a removal or an update on the CLI's own
+// surface. The answer is the job — or, for a mutation the driver runs itself (a
+// CLI whose removal is a write of one of its own files), the CLI's fresh list,
+// because there is no argv for the lane to run. The pane follows `cli.job`
+// events for the first, and the `cli.packages` event for the second.
+func vendorPackageJob(deps Deps, action string, v cliPackageRequest) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var v cliPackageRequest
-		if !readCLIJSON(w, r, &v) {
+		if _, ok := packageDriver(w, v.CLI); !ok {
 			return
 		}
 		if deps.CLIJobs == nil {
@@ -341,7 +320,7 @@ func handleCLIPackageJob(deps Deps, action string) http.HandlerFunc {
 			// the CLI's fresh list, the way a synchronous mutation always
 			// answers (ADR-0048).
 			publishPackageChange(deps, v.CLI, action)
-			read := guestQuery(v.Scope, paths.Cwd)
+			read := vendorQuery(v.Scope, paths.Cwd)
 			read.Fresh = true
 			ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 			defer cancel()
@@ -350,7 +329,7 @@ func handleCLIPackageJob(deps Deps, action string) http.HandlerFunc {
 				writeErr(w, statusForPackageErr(err), err.Error())
 				return
 			}
-			writeJSON(w, http.StatusOK, pkgs.Guest(v.CLI, rep))
+			writeJSON(w, http.StatusOK, rep)
 			return
 		}
 		raw, err := json.Marshal(payload)
@@ -367,13 +346,18 @@ func handleCLIPackageJob(deps Deps, action string) http.HandlerFunc {
 	}
 }
 
-// handleCLIPackageToggle enables or disables one plugin. It is synchronous:
-// the vendor call is a local state change, and the answer is the fresh list so
-// the pane never has to guess the row's next state.
-func handleCLIPackageToggle(deps Deps) http.HandlerFunc {
+// handlePackageToggle is POST /api/packages/toggle: it enables or disables one
+// plugin. It is synchronous: the vendor call is a local state change, and the
+// answer is the CLI's fresh report so the pane never has to guess the row's
+// next state.
+func handlePackageToggle(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var v cliPackageRequest
 		if !readCLIJSON(w, r, &v) {
+			return
+		}
+		drv, ok := packageDriver(w, v.CLI)
+		if !ok {
 			return
 		}
 		paths, err := cliPackagePaths(deps, v.CLI, v.Workspace, v.Scope)
@@ -383,8 +367,7 @@ func handleCLIPackageToggle(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		drv := pkgs.DriverFor(v.CLI)
-		read := guestQuery(v.Scope, paths.Cwd)
+		read := vendorQuery(v.Scope, paths.Cwd)
 		cmd, err := drv.Toggle(ctx, read, pkgs.Target{
 			Name: v.Name, Source: v.Source, On: v.On == nil || *v.On,
 		})
@@ -404,13 +387,14 @@ func handleCLIPackageToggle(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, pkgs.Guest(v.CLI, rep))
+		writeJSON(w, http.StatusOK, rep)
 	}
 }
 
-// handleCLIPackageMarketplace manages the CLI's own marketplace sources: a
-// fetch (add, update) is a job, a removal is a local change.
-func handleCLIPackageMarketplace(deps Deps) http.HandlerFunc {
+// handlePackageMarketplace is POST /api/packages/marketplace: it manages the
+// CLI's own marketplace sources — a fetch (add, update) is a job, a removal is
+// a local change.
+func handlePackageMarketplace(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var v cliPackageRequest
 		if !readCLIJSON(w, r, &v) {
@@ -421,6 +405,10 @@ func handleCLIPackageMarketplace(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "Unknown marketplace action.")
 			return
 		}
+		drv, ok := packageDriver(w, v.CLI)
+		if !ok {
+			return
+		}
 		paths, err := cliPackagePaths(deps, v.CLI, v.Workspace, v.Scope)
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
@@ -428,8 +416,7 @@ func handleCLIPackageMarketplace(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		drv := pkgs.DriverFor(v.CLI)
-		read := guestQuery(v.Scope, paths.Cwd)
+		read := vendorQuery(v.Scope, paths.Cwd)
 		req := pkgs.MarketRequest{Action: action, Source: v.Source, Name: v.Name, Ref: v.Ref}
 		if action == "remove" {
 			cmd, err := drv.Marketplace(ctx, read, req)
@@ -443,7 +430,7 @@ func handleCLIPackageMarketplace(deps Deps) http.HandlerFunc {
 				writeErr(w, statusForPackageErr(err), err.Error())
 				return
 			}
-			writeJSON(w, http.StatusOK, pkgs.GuestMarketplaceSources(rows))
+			writeJSON(w, http.StatusOK, marketplacesAnswerOf(v.CLI, rows))
 			return
 		}
 		if _, err := drv.Marketplace(ctx, read, req); err != nil {
@@ -473,8 +460,16 @@ func handleCLIPackageMarketplace(deps Deps) http.HandlerFunc {
 	}
 }
 
-// handleCLIPackageInspect returns the vendor's own inspection output, verbatim.
-func handleCLIPackageInspect(deps Deps) http.HandlerFunc {
+// inspectAnswer is the vendor's own inspection output, verbatim, with the CLI
+// it came from.
+type inspectAnswer struct {
+	CLI    string `json:"cli"`
+	Output string `json:"output"`
+}
+
+// handlePackageInspect is POST /api/packages/inspect: the vendor's own
+// inspection output for one plugin, in the vendor's words.
+func handlePackageInspect(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var v cliPackageRequest
 		if !readCLIJSON(w, r, &v) {
@@ -485,6 +480,10 @@ func handleCLIPackageInspect(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(clipkgs.ErrBadTarget), clipkgs.ErrBadTarget.Error())
 			return
 		}
+		drv, ok := packageDriver(w, v.CLI)
+		if !ok {
+			return
+		}
 		paths, err := cliPackagePaths(deps, v.CLI, v.Workspace, v.Scope)
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
@@ -492,12 +491,12 @@ func handleCLIPackageInspect(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		cmd, out, err := pkgs.DriverFor(v.CLI).Inspect(ctx, guestQuery(v.Scope, paths.Cwd), pkgs.Target{Name: name})
+		cmd, out, err := drv.Inspect(ctx, vendorQuery(v.Scope, paths.Cwd), pkgs.Target{Name: name})
 		if err != nil {
 			writePackageErr(w, err, cmd.Line)
 			return
 		}
-		writeJSON(w, http.StatusOK, pkgs.GuestInspect(v.CLI, out))
+		writeJSON(w, http.StatusOK, inspectAnswer{CLI: v.CLI, Output: out})
 	}
 }
 

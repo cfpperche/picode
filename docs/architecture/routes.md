@@ -275,24 +275,29 @@ and the vendor facts are in `docs/architecture/packages.md`). The unified read
 is `GET /api/packages/report?cli=&scope=&vendor=&workspace=&agent=&refresh=1`:
 the CLI's own driver answers its scopes, capabilities, catalog, notes and rows,
 and `cli` absent or `pi` means Pi. `GET /api/packages/updates?cli=&vendor=` is
-the badge read for every CLI, while `GET /api/packages` and its
-`POST`/`POST update`/`DELETE` mutations stay Pi's own surface, in Pi's JSON,
-answered by `pipkg` — which is also where `/api/packages/gallery`,
-`/api/packages/config` and `/api/packages/describe` live. The
-**`/api/cli-packages*` family** (list, available, marketplaces, updates;
-install, remove, update, toggle, marketplace, inspect) is the alias for one
-release: the same engine mapped back to the bytes the guest
-pane has always parsed, with its old refusals by name (`cli=pi`,
-`scope=agent`). A guest's install, removal, update and marketplace fetch reserve
+the badge read for every CLI, while `GET /api/packages` keeps Pi's own read, in
+Pi's JSON, answered by `pipkg` — which is also where `/api/packages/gallery`,
+`/api/packages/config` and `/api/packages/describe` live. A CLI's own verbs are
+on that same family, one path per verb: `GET /api/packages/available` and
+`GET /api/packages/marketplaces` for its catalog and its configured sources,
+`POST /api/packages` (install), `POST /api/packages/update`,
+`DELETE /api/packages` (remove), `POST /api/packages/toggle`,
+`POST /api/packages/marketplace` and `POST /api/packages/inspect` — the `cli`
+in the request resolves the driver, and PiCode's own calls (Pi's mutations, an
+agent-layer write) name none, which is what keeps the two apart. A guest's
+install, removal, update and marketplace fetch reserve
 a durable job in the ADR-0087 lane (202 + job row, idempotent by request key,
 refused while that CLI's terminals are running) wherever its driver's `Caps.Lane`
 declares that verb; its toggle, inspect and
 marketplace removal answer directly; and a mutation the CLI exposes only as a
 write of its own config file (OpenCode's removal, Omp's workspace `extensions`
-entry) has no argv to reserve, so it runs in process and answers the fresh list —
-the declaration is one fact per verb for exactly that reason. The agent layer is PiCode's
+entry) has no argv to reserve, so it runs in process and answers the fresh
+report — the declaration is one fact per verb for exactly that reason. The agent
+layer is PiCode's
 store (`agents.packages`, `packagesIsolated`), reached through the report's
-`agent`/`vendor` parameters and applied at the CLI's next launch.
+`agent`/`vendor` parameters and applied at the CLI's next launch. The
+`/api/cli-packages*` alias ADR-0176 gave one release is gone (owner's call,
+2026-09-22): no handler, mapper or client path is left in the repo.
 
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`), bucketed by pi
