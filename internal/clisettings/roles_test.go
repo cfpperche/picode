@@ -387,3 +387,39 @@ func TestOmpRoleCatalogIsTheVendorsOwn(t *testing.T) {
 		}
 	}
 }
+
+// The role matrix, the fallbacks and the retry knobs are drawn by the Models
+// pane, beside the catalog they pick from (owner, 2026-09-22); Settings keeps
+// what is not about choosing a model. One file and one revision either way —
+// the pane only decides where a row is drawn.
+func TestOmpModelRowsLiveInTheModelsPane(t *testing.T) {
+	home := ompHome(t, "retry:\n  fallbackChains:\n    default: [\"@smol\"]\nmodelTags:\n  review:\n    name: REVIEW\n")
+	rep, err := Read("omp", Paths{Home: home})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stays := map[string]bool{"defaultThinkingLevel": true, "memory.backend": true, "symbolPreset": true, "theme.dark": true}
+	for _, f := range rep.Fields {
+		want := "models"
+		if stays[f.Key] {
+			want = ""
+		}
+		if f.Pane != want {
+			t.Errorf("%s is drawn in pane %q, want %q", f.Key, f.Pane, want)
+		}
+	}
+	for _, key := range []string{"modelTags.scout.name", "modelRoles.scout", "retry.fallbackChains.openai/*"} {
+		f, err := For("omp").fieldFor(key)
+		if err != nil || f.Pane != "models" {
+			t.Errorf("a new %s must be created in the Models pane: %+v %v", key, f, err)
+		}
+	}
+}
+
+func TestChainLabelsReadAsSentences(t *testing.T) {
+	for key, want := range map[string]string{"default": "When default fails", "openai/gpt-5": "When openai/gpt-5 fails", "openai/*": "When any openai model fails"} {
+		if got := chainLabel(key); got != want {
+			t.Errorf("%s: %q, want %q", key, got, want)
+		}
+	}
+}
