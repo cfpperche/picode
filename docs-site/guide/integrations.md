@@ -23,7 +23,7 @@ PiCode (**Webhooks** in the user menu).
 4. Sign in when the service requires it. Existing authentication and server
    support come from the installed adapter, not from a separate PiCode vault.
 
-Choose **This machine**, a workspace, or an available agent-specific folder.
+Choose **Global**, a workspace, or an available agent-specific folder.
 These are configuration scopes, not a security sandbox. Some credentials are
 shared by server name on the machine. Desktop changes can reload the selected
 running agent; other running agents may need a restart to reload configuration.

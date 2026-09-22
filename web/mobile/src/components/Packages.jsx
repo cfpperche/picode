@@ -179,7 +179,7 @@ export default function Packages({ hidden, embedded = false, workspaceId, worksp
         <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentId)}>Install</button>
       </form>
       <div className="pkg-scope" data-align-row data-align-wrap role="radiogroup" aria-label="Install scope">
-        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
+        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>Global</button>
         {workspaceId ? (
           <button
             type="button"
@@ -242,7 +242,7 @@ export default function Packages({ hidden, embedded = false, workspaceId, worksp
           <ul className="pkg-grid" role="tabpanel">
             {list.map((p) => {
               const u = behindOf(p);
-              const scopeLabel = p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine";
+              const scopeLabel = p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "global";
               return (
                 <li key={p.scope + ":" + p.source} className="pkg-card pkg-card-installed">
                   <div className="pkg-preview" aria-hidden="true">

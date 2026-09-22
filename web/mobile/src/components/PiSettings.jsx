@@ -101,7 +101,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
   // Palette's scoped-models shortcut opens the machine layer, where that row
   // lives. A layer that cannot exist for this context is never offered.
   const layers = [
-    { id: "global", label: "This machine", file: (rep && rep.global && rep.global.path) || "" },
+    { id: "global", label: "Global", file: (rep && rep.global && rep.global.path) || "" },
     ...(workspace ? [{ id: "project", label: workspace.name || "This folder", file: (rep && rep.project && rep.project.path) || "" }] : []),
     ...(agent ? [{ id: "agent", label: displayAgentName(agent, workspace), file: "" }] : []),
   ];
@@ -190,7 +190,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
                 onDraft={(value) => setDrafts((current) => ({ ...current, [active.id]: value }))}
                 values={active.id === "global" ? g : p}
                 own={own}
-                parentLabel={active.id === "project" ? "From This machine" : "Pi default"}
+                parentLabel={active.id === "project" ? "From Global" : "Pi default"}
                 catalog={catalog}
                 saving={saving}
                 onSave={(patch) => save(active.id, patch, active.id === "global" ? "Saved for every pi on this machine." : "Saved for this folder.")}
@@ -208,7 +208,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
 }
 
 function inheritedLabel(workspace) {
-  return workspace ? "this folder" : "This machine";
+  return workspace ? "this folder" : "Global";
 }
 
 function LayerKnobs({ prefix, values, own, parentLabel, catalog, saving, onSave, onReset, draft, onDraft, machine }) {

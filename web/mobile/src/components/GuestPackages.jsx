@@ -487,14 +487,14 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
         <div className="cli-notice is-error" role="alert">
           <span>{problem.message}</span>
           <button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={() => load({ refresh: true })}>{loading ? "Retrying…" : "Try again"}</button>
-          {scope !== "user" ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => onScopeChange("user")}>Use this machine</button> : null}
+          {scope !== "user" ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => onScopeChange("user")}>Use global</button> : null}
         </div>
       ) : null}
 
       {needsWorkspace ? (
         <div className="cli-notice" role="status">
           <span>{"Changing plugins in a project layer needs a workspace."}</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onScopeChange("user")}>Use this machine</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onScopeChange("user")}>Use global</button>
         </div>
       ) : null}
 

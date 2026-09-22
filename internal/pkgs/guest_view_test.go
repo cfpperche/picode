@@ -148,7 +148,7 @@ func TestGuestViewIsThePanesPayload(t *testing.T) {
 	rep := Report{
 		CLI: "omp",
 		Scopes: []ScopeRow{
-			{ID: Machine, Vendor: "user", Label: "This machine"},
+			{ID: Machine, Vendor: "user", Label: "Global"},
 			{ID: Workspace, Vendor: "project", Label: "This workspace", Note: "Omp applies a project scope to marketplace installs."},
 		},
 		Caps:  Caps{List: true, Available: true, Install: true, Toggle: true, Update: true, Inspect: true, Marketplace: true},
@@ -172,7 +172,7 @@ func TestGuestViewIsThePanesPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := `{"cli":"omp",` +
-		`"scopes":[{"id":"user","label":"This machine"},` +
+		`"scopes":[{"id":"user","label":"Global"},` +
 		`{"id":"project","label":"This workspace","note":"Omp applies a project scope to marketplace installs."}],` +
 		`"caps":{"install":true,"remove":false,"toggle":true,"update":true,"inspect":true,"marketplace":true,"available":true,"catalogInstall":false},` +
 		`"notes":{"inspect":"Inspect prints the vendor's own report."},` +

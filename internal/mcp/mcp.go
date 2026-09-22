@@ -207,7 +207,7 @@ func (p Paths) Layers() []Layer {
 		{ID: "shared-global", Label: "Shared (~/.config/mcp)", Path: p.SharedGlobal(), Scope: "import", Writable: false},
 		{ID: "agents-global", Label: "Shared (~/.agents)", Path: p.AgentsGlobal(), Scope: "import", Writable: false},
 		{ID: "agents-nested", Label: "Shared (~/.agents/mcp)", Path: p.AgentsNested(), Scope: "import", Writable: false},
-		{ID: "pi-global", Label: "This machine", Path: p.PiGlobal(), Scope: "user", Writable: true},
+		{ID: "pi-global", Label: "Global", Path: p.PiGlobal(), Scope: "user", Writable: true},
 	}
 	if path := p.SharedProject(); path != "" {
 		out = append(out, Layer{ID: "shared-project", Label: "This folder", Path: path, Scope: "project", Writable: true})

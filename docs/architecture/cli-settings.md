@@ -50,7 +50,7 @@ switch has no third state, so an unset key is drawn at **the CLI's own
 default**, which every boolean field declares and
 `TestEveryBooleanDeclaresItsDefault` holds against a table of where each value
 was read from. The source line carries the provenance instead — "Set here",
-"From This machine", or "<CLI> default" — and a default that is conditional
+"From Global", or "<CLI> default" — and a default that is conditional
 ("On while memories are on") stays as the row's help line. Declaring a default
 is a claim about someone else's software: Hermes' `display.show_reasoning`
 shipped as "Off" here while its own `config_defaults.py` says `True`, which is
@@ -125,7 +125,7 @@ the pane renders whatever the table says, the way the guest pane already did.
 Three of them are not scalars and are declared as their own kinds rather than
 flattened: `model` is the three coupled selects the catalog feeds, `patterns`
 is the free list of scoped models, `tools` is the grid over pi's fixed tool
-set. A row marked `machine` is offered only on the This machine layer.
+set. A row marked `machine` is offered only on the Global layer.
 
 `web/shared/domain/resolveLayer.js` is **derived** from that table
 (2026-09-20): every field declares its type and its `unset` value — what pi
@@ -176,7 +176,7 @@ The pane edits **one layer at a time**. A labelled switcher (*This machine*,
 the workspace, the agent) writes `layer=global|project|agent` onto the route
 beside `agentId`, the body renders only that layer's rows, and the file it
 writes is named under the switcher. Values a layer does not set come from its
-parent, and the row says so (`From This machine`, `Pi default`); a row this
+parent, and the row says so (`From Global`, `Pi default`); a row this
 layer sets carries the accent bar, `Set here`, and **Use inherited**, which
 sends `patch.reset[]` so `pisettings.Apply` deletes exactly those keys (an
 empty `compaction` object goes with its last key; an unknown name is refused
