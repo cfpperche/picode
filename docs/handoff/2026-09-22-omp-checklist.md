@@ -14,7 +14,6 @@ terminal checklist route (status mapping and sessionId correct); re-verified aft
 to the canonical store (`omp config set extensions`, visible in the Packages pane under Global).
 Blind spot: the live runs used the user-layer entry, not the wrapper's own -e.
 visual-review: n/a (server-side injection; the checklist UI already exists)
-Merge: fast-forward ready.
 
 ## Next up
 
