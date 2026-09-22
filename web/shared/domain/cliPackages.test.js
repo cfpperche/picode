@@ -113,7 +113,7 @@ test("each surface keeps the words its own pane always used", () => {
   assert.equal(vendor.scopeLabel, "Plugins go to");
   assert.equal(vendor.access, "Plugins run with full access. Only install what you review.");
   assert.equal(vendor.emptyTitle, "Nothing installed.");
-  assert.equal(vendor.fallback, "Use this machine");
+  assert.equal(vendor.fallback, "Use global");
   // An unknown surface is the vendor's, never null: a pane renders before its
   // first report.
   assert.deepEqual(paneWords("nope"), PANE_WORDS.vendor);

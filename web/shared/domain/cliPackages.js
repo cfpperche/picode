@@ -131,7 +131,7 @@ export const PANE_WORDS = {
     noMatch: q => "No installed plugin matches \u201c" + q + "\u201d.",
     emptyTitle: "Nothing installed.",
     loading: "Loading plugins",
-    fallback: "Use this machine",
+    fallback: "Use global",
     isolation: "",
   },
 };

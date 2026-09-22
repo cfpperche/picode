@@ -1096,7 +1096,7 @@ function VendorBody({
 function layerLabel(row, report) {
   if (row.scope === "workspace") return report.workspaceName || "workspace";
   if (row.scope === "agent") return report.agentName || "agent";
-  return "machine";
+  return "global";
 }
 
 function behindTitle(entry) {
