@@ -265,7 +265,21 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   async function checkSignin() {
     setBusy("check");
     try {
-      let row = await api("/api/credentials/import", json("POST", { cli }));
+      // Ask BEFORE the write: preview says whether this login would replace
+      // an unnamed one, and after the write the replaced tokens are already
+      // gone — the name has to come first.
+      const pre = await api("/api/credentials/import", json("POST", { cli, preview: true }));
+      let as = "";
+      if (!pre.created && !pre.identity) {
+        const name = await askPrompt({
+          title: "Name this login",
+          message: "This CLI's store carries no account name, so its logins cannot be told apart. Name this one and the next sign-in is kept beside it instead of on top of it.",
+          defaultValue: pre.who || "",
+          confirmLabel: "Name it",
+        });
+        if (name) as = name;
+      }
+      const row = await api("/api/credentials/import", json("POST", { cli, ...(as ? { as } : {}) }));
       // The file still holds the account that was there when Sign in was
       // clicked. Closing the strip here is a lie: no second account arrived.
       if (signin && signin.stamp && row.stamp === signin.stamp) {
@@ -275,19 +289,9 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
         }));
         return;
       }
-      // A store that carries no account name would have this sign-in replace
-      // the row already there. Ask, then keep both.
-      if (row.created === false && !row.identity) {
-        const name = await askPrompt({
-          title: "Name this login",
-          message: "This CLI's store carries no account name, so its logins cannot be told apart. Name this one and the next sign-in is kept beside it instead of on top of it.",
-          defaultValue: row.who || "",
-          confirmLabel: "Name it",
-        });
-        if (name) row = await api("/api/credentials/import", json("POST", { cli, as: name }));
-      }
       setSignin(null);
-      toast.ok(row.who ? "Signed in as " + row.who + "." : "Saved to the vault.");
+      if (as) toast.ok("Saved as " + as + ".");
+      else toast.ok(row.who ? "Signed in as " + row.who + "." : "Saved to the vault.");
       await load();
     } catch (ex) {
       setSignin((prev) => ({
