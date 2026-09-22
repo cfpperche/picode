@@ -1,7 +1,7 @@
 # ADR-0156: computer — an input action lands only in the window the agent last saw (amends ADR-0148)
 
-- **Status**: proposed (the owner asked for the branch in session, 2026-09-18,
-  after the incident below)
+- **Status**: accepted (owner, 2026-09-22; asked for in session 2026-09-18
+  after the incident below, and shipped since)
 - **Date**: 2026-09-18
 - **Boundary**: security model — the first refinement of ADR-0148's
   "one grant, everything" policy: the computer tool's input actions gain a
