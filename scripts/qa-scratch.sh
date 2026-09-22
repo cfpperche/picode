@@ -42,6 +42,20 @@ port_pid() { fuser "$1/tcp" 2>/dev/null | tr -d ' ' | awk '{print $1}'; }
 
 health() { curl -sf -m 3 "http://localhost:$1/api/health" >/dev/null 2>&1; }
 
+# owns_port says whether the process answering on a port is *this* scratch's
+# daemon: it wrote server.json in this data dir, for this port, and its pid is
+# the listener. A healthy answer alone proves nothing — on 2026-09-22 another
+# session's scratch took the port while this one was building, this daemon
+# failed to bind, the health check was answered by the other instance, and
+# `seed` then created a workspace, an agent and a terminal inside it.
+owns_port() {
+  local want_port=$1 pid port owner
+  pid=$(daemon_field pid || true)
+  port=$(daemon_field port || true)
+  owner=$(port_pid "$want_port" || true)
+  [ -n "$pid" ] && [ "$port" = "$want_port" ] && [ -n "$owner" ] && [ "$owner" = "$pid" ]
+}
+
 case "$cmd" in
   start)
     port=${3:-}
@@ -49,16 +63,21 @@ case "$cmd" in
       port=8470
       while fuser -s "$port/tcp" 2>/dev/null; do port=$((port + 1)); done
     fi
-    if held=$(port_pid "$port") && [ -n "$held" ]; then
-      echo "qa-scratch: :$port is held by pid $held — refusing to kill it; start with another port." >&2
-      exit 1
-    fi
     mkdir -p "$dir/home/.pi/agent" "$dir/data"
     for f in auth.json models-store.json; do
       [ -f "$HOME/.pi/agent/$f" ] && cp "$HOME/.pi/agent/$f" "$dir/home/.pi/agent/$f"
     done
     make --no-print-directory web >/dev/null
     go build -tags embedui -o "$dir/picode" ./cmd/picode
+    # Checked after the build, not before it: the build takes long enough for
+    # another scratch to take a port that was free when the scan ran.
+    if held=$(port_pid "$port") && [ -n "$held" ]; then
+      echo "qa-scratch: :$port is held by pid $held — refusing to kill it; start with another port." >&2
+      exit 1
+    fi
+    # A server.json left by an earlier run would name an old pid and port, and
+    # the ownership check below would read it as this launch's.
+    rm -f "$dir/data/server.json"
     echo "$port" > "$portfile"
     # The daemon must not inherit the identity of whatever started it: run from
     # inside a PiCode terminal — which is how an agent runs QA — PICODE_AGENT_ID
@@ -68,28 +87,38 @@ case "$cmd" in
     setsid nohup env -u PICODE_AGENT_ID -u PICODE_TERM_ID -u PICODE_TERM_URL -u PICODE_INSTANCE -u TMUX -u TMUX_PANE \
       HOME="$PWD/$dir/home" PICODE_DATA="$PWD/$dir/data" PICODE_PORT="$port" PICODE_INSECURE=1 \
       "$PWD/$dir/picode" > "$dir/server.log" 2>&1 < /dev/null &
+    launched=$!
+    # Ready means this daemon answers on this port — not that something does.
     for _ in $(seq 40); do
-      curl -sf "http://localhost:$port/api/health" >/dev/null 2>&1 && break
+      owns_port "$port" && health "$port" && break
+      kill -0 "$launched" 2>/dev/null || break
       sleep 0.5
     done
-    if ! curl -sf "http://localhost:$port/api/health" >/dev/null 2>&1; then
-      echo "qa-scratch: daemon did not answer on :$port — see $dir/server.log" >&2
+    if ! owns_port "$port" || ! health "$port"; then
+      owner=$(port_pid "$port" || true)
+      if [ -n "$owner" ] && ! owns_port "$port"; then
+        echo "qa-scratch: :$port is answered by pid $owner, which is not this scratch's daemon — it did not bind. Start $name with another port (see $dir/server.log)." >&2
+      else
+        echo "qa-scratch: daemon did not answer on :$port — see $dir/server.log" >&2
+      fi
+      kill "$launched" 2>/dev/null || true
+      rm -f "$portfile" "$pidfile"
       exit 1
     fi
-    # The daemon's own pid, so `stop` ends exactly this process (below):
-    # server.json first (the daemon wrote it), the listener as the fallback.
-    pid=$(daemon_field pid || true)
-    [ -n "$pid" ] || pid=$(port_pid "$port" || true)
-    if [ -n "$pid" ]; then
-      echo "$pid" > "$pidfile"
-    else
-      rm -f "$pidfile"
-      echo "qa-scratch: could not read a pid from :$port — stop will not guess whose daemon it is." >&2
-    fi
+    # The daemon's own pid, from the server.json it wrote as it bound — the
+    # listener was checked against it above, so `stop` ends exactly this
+    # process and never a neighbour.
+    pid=$(daemon_field pid)
+    echo "$pid" > "$pidfile"
     echo "qa-scratch: $name is up at $(url)  (pid ${pid:-unknown}; log: $dir/server.log)"
     echo "  agent_browser open $(url)/desktop/    # mobile: $(url)/mobile/?mobile=1#/"
     ;;
   seed)
+    port=$(cat "$portfile" 2>/dev/null || true)
+    if [ -z "$port" ] || ! owns_port "$port"; then
+      echo "qa-scratch: :${port:-?} is not answered by $name's own daemon — refusing to seed another instance. Start $name first." >&2
+      exit 1
+    fi
     base=$(url)
     ws=$(curl -sf -X POST "$base/api/workspaces" -H 'content-type: application/json' \
       -d "{\"name\":\"QA\",\"path\":\"$PWD\"}")
