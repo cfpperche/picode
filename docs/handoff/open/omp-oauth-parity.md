@@ -14,7 +14,7 @@ PiCode imports what their store holds (Native readers). Omp is the gap:
   deliberately does not read, so the roster cannot show or import the
   resulting subscription (note in `clicreds`).
 
-## Paths to close it
+## Next
 
 - [ ] Upstream omp: publish a non-TUI login entrypoint (`omp login
       <provider>` or equivalent over the auth-broker). PiCode side is then a
