@@ -176,7 +176,7 @@ func TestTmuxServerWatchIntegration(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not installed — integration test skipped")
 	}
-	tmp := t.TempDir()
+	tmp := shortSocketDir(t)
 	// This test *ends* a server, so it owns its socket outright (-S) instead of
 	// rebinding the process-wide TMUX_TMPDIR: that shape pointed every other
 	// tmux call in this binary — background goroutines included — at the

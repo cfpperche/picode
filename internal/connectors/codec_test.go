@@ -96,11 +96,11 @@ func TestConnectorListToleratesJSONC(t *testing.T) {
 			addScope: "user",
 			seed: func(t *testing.T) (Paths, string) {
 				return seedJSONCUser(t, filepath.Join(".config", "muse", "settings.json"), `{
-					"mcp_servers": {`+server+`
+					"mcpServers": {`+server+`
 					},
 				}`)
 			},
-			scroll: "mcp_servers",
+			scroll: "mcpServers",
 		},
 		{
 			name:     "agy user",

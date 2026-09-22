@@ -266,10 +266,25 @@ func previewDocument(root, rel string) (string, int, error) {
 
 // previewWithin resolves symlinks and refuses anything that lands outside
 // the ticket root, so a symlink inside the project cannot alias a secret.
+//
+// Both sides are resolved, which they were not: the file was canonicalised
+// and compared against the root as written, so a root reached *through* a
+// symlink made every file look like an escape. That is every path on macOS,
+// where /var is /private/var — a workspace there served 404 for its own
+// files (TestPreviewTicketDiesWithItsSession under a symlinked TMPDIR) — and
+// any Linux host whose project sits under a linked mount or home. Comparing
+// two canonical paths is strictly more correct than comparing one: nothing
+// becomes reachable that resolved outside the root before.
 func previewWithin(root, abs string) (string, error) {
 	resolved, err := filepath.EvalSymlinks(abs)
 	if err != nil {
 		return "", err
+	}
+	// A root that cannot be resolved (deleted between mint and read) keeps
+	// the raw spelling: the comparison below then refuses, which is the
+	// answer a missing root deserves.
+	if canonRoot, err := filepath.EvalSymlinks(root); err == nil {
+		root = canonRoot
 	}
 	rel, err := filepath.Rel(root, resolved)
 	if err != nil {

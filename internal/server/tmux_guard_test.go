@@ -480,7 +480,9 @@ func TestTmuxGuardAgainstRealServer(t *testing.T) {
 	//     PATH leak would fail the fixture setup below, loudly.
 	real := requireRealTmux(t)
 	root := t.TempDir()
-	tmp := filepath.Join(root, "tmp") // TMUX_TMPDIR: a private default-socket namespace
+	// TMUX_TMPDIR: a private default-socket namespace, kept short enough
+	// to bind (see shortSocketDir).
+	tmp := filepath.Join(shortSocketDir(t), "tmp")
 	dataDir := filepath.Join(root, "data")
 	for _, d := range []string{tmp, dataDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
