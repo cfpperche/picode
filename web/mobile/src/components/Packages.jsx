@@ -4,7 +4,7 @@ import { api, humanizeError } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import {
   packagesApi, packagesNotes, packagesSurface, paneWords, behindFor,
-  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation, paneTabs, rowToggle, rowInspect, cliPackagesHash,
+  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation, laneMutation, anyLaneMutation, paneTabs, rowToggle, rowInspect, cliPackagesHash,
 } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { pkgName } from "@picode/shared/domain/pkgName.js";
@@ -27,9 +27,12 @@ import { toast } from "../lib/toast.js";
 // surface the report declares (`Catalog`): a CLI whose installable list is
 // PiCode's own gallery holds *packages* and keeps Pi's words, and one whose
 // list is the vendor's holds *plugins* and keeps that pane's. The mutation
-// transport follows the driver's own declaration (`Caps.Async`): a vendor's
-// command is a durable job in the lane ADR-0087 built, while Pi's is a direct
-// call that answers the new list and shows the transcript PiCode ran.
+// transport follows the driver's own declaration, one verb at a time
+// (`Caps.Lane`): a verb on it is a command the durable lane ADR-0087 built
+// reserves and runs, and a verb off it is a mutation PiCode performs itself —
+// a vendor config file it splices — which answers the CLI's fresh list, so the
+// pane shows the transcript and re-reads the report the way Pi's own direct
+// calls already do. Pi, whose mutations are all its own calls, declares none.
 //
 // Both apps carry this file (ADR-0072). This app keeps its own copy: the modal
 // primitive is the phone's sheet, the frame names the agent and the workspace
@@ -101,6 +104,7 @@ export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
   const sourceField = useRef(null);
 
   const caps = (report && report.caps) || {};
+  const onTheLane = anyLaneMutation(caps);
   const surface = packagesSurface(report);
   const words = { ...paneWords(surface), emptyTitle: EMPTY_TITLE[surface] };
   // The frame is one object: the phone names the agent and the workspace the
@@ -163,7 +167,7 @@ export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
   // there instead of pretending nothing is running. A terminal state is what
   // re-reads the CLI's own roster: success is only success after that read.
   useEffect(() => {
-    if (!caps.async) return undefined;
+    if (!onTheLane) return undefined;
     let timer;
     const settle = () => { clearTimeout(timer); timer = setTimeout(() => { load(); if (tab === "marketplace") { loadMarket(); loadSources(); } }, 80); };
     const off = subscribeFeed(event => {
@@ -182,7 +186,7 @@ export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
       if (live.current && found) setJob(found);
     }).catch(() => {});
     return () => { off(); clearTimeout(timer); };
-  }, [cli, caps.async, load, tab]);
+  }, [cli, onTheLane, load, tab]);
 
   // PiCode's own gallery: the catalog a `gallery` report declares is searched
   // through its own route, once the Marketplace tab is open.
@@ -329,6 +333,11 @@ export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
       const res = await send(build, fields);
       const started = acceptedJob(res);
       if (started) setJob(started);
+      // A driver can be mixed per row — an Omp `extensions` entry is a write
+      // while the same CLI's plugin rows are lane commands — so a mutation
+      // answered with the CLI's fresh list rather than a job is PiCode's own
+      // write: the pane keeps the list the answer carried.
+      else if (res && Array.isArray(res.rows)) setReport(res);
     } catch (ex) {
       fail(id, ex);
     } finally {
@@ -397,6 +406,28 @@ export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
       danger: true,
     });
     if (!ok) return;
+    // A removal the driver performs itself has no argv for the lane: the
+    // declaration says so before the request (`Caps.Lane.remove`), which is
+    // what lets the pane show the work the way the direct path does instead of
+    // waiting for an answer it cannot read. The route answers the CLI's fresh
+    // list, and the write has no command line to show.
+    if (!laneMutation(caps, "remove")) {
+      setRun({ action: "remove", source: row.source, scope, cwd: scope === "project" ? (report.workspacePath || "") : "", written: true, step: 0, error: "", done: false });
+      const tick = startJobTick(setRun, 2);
+      try {
+        const req = paths.remove({ name, source: row.source || "" });
+        const res = await send(() => req, { requestKey: newKey() });
+        if (res && Array.isArray(res.rows)) setReport(res);
+        setRun(j => j && { ...j, step: 2, done: true });
+        await load(); await pullUpdates();
+        setTimeout(() => setRun(null), 520);
+      } catch (ex) {
+        setRun(j => j && { ...j, step: 0, error: humanizeError(ex.message || String(ex)) });
+      } finally {
+        clearInterval(tick);
+      }
+      return;
+    }
     await runJob("remove", "Removing…", build => paths.remove({ ...build, name, source: row.source || "" }), { requestKey: newKey() }, keyOf(row));
   }
 
@@ -1120,7 +1151,10 @@ function startJobTick(setJob, stepCount) {
 // jobSteps is the transcript a direct mutation shows: the exact command PiCode
 // ran, and the read that follows it. The line is the driver's own argv
 // (`pipkg.MutateArgs`), spelled here because this transport answers the fresh
-// list rather than a lane job carrying its command.
+// list rather than a lane job carrying its command. A mutation the driver
+// performs itself — a splice of the CLI's own config file — ran no command at
+// all (`job.written`), so its step is the action and its subject, never a line
+// PiCode did not run.
 function jobSteps(job) {
   if (job.action === "update") {
     return [
@@ -1135,6 +1169,12 @@ function jobSteps(job) {
       { id: "list", label: "Reload. Takes effect the next time this agent starts." },
     ];
   }
+  if (job.written) {
+    return [
+      { id: "run", label: (bin === "remove" ? "Remove " : "Install ") + job.source },
+      { id: "list", label: "Reload installed packages" },
+    ];
+  }
   const local = job.scope === "project";
   const cmd = local
     ? "pi " + bin + " -l " + job.source + " --no-approve"
@@ -1145,6 +1185,11 @@ function jobSteps(job) {
   return steps;
 }
 
+// JobOverlay is the transcript of one direct mutation: the steps above, the
+// vendor's words on a failure, and — for a mutation that hands the CLI a
+// command — the line about how long that command may take. A mutation the
+// driver performs itself (`job.written`) has no such command, so it carries no
+// such sentence either.
 function JobOverlay({ job, onClose }) {
   const steps = jobSteps(job);
   const title = job.action === "remove" ? "Removing package" : job.action === "update" ? "Updating package" : "Installing package";
@@ -1174,7 +1219,7 @@ function JobOverlay({ job, onClose }) {
             <p className="pkg-job-err">{job.error}</p>
             <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Close</button>
           </>
-        ) : (
+        ) : job.written ? null : (
           <p className="pkg-fine">Stays here until pi finishes. npm can take a minute.</p>
         )}
       </div>

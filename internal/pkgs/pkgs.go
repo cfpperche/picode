@@ -53,6 +53,23 @@ const (
 	CatalogVendor Catalog = "vendor"
 )
 
+// Transport is the transport declaration, one fact per mutation verb: true is
+// a vendor command, false a write PiCode performs itself. The verbs are the
+// ones the durable job lane can carry — an install, a removal, an update and a
+// marketplace fetch — because those are the mutations a route hands a command
+// to the lane. A toggle and an inspection are never on the lane: their answer
+// depends on the result (the CLI's own text), so every driver runs them in
+// process, and `Caps.Toggle`/`Caps.Inspect` already say whether they exist.
+type Transport struct {
+	Install bool `json:"install"`
+	Remove  bool `json:"remove"`
+	Update  bool `json:"update"`
+	// Marketplace covers the marketplace-source actions that fetch — an add
+	// and an update, which are the lane's work. A source removal is a local
+	// change, so no driver puts it on the lane.
+	Marketplace bool `json:"marketplace"`
+}
+
 // Caps is what a driver's CLI exposes. A control a pane draws is gated here,
 // so "this CLI cannot do that" is data instead of a branch.
 type Caps struct {
@@ -70,14 +87,22 @@ type Caps struct {
 	// prints a name and a version and never says where the plugin comes from
 	// (Omp's) is information: its rows carry no control.
 	CatalogInstall bool `json:"catalogInstall"`
-	// Async says a mutation on this CLI is reserved and run in the durable job
-	// lane ADR-0087 built: the request is answered with the job, the CLI's
-	// fresh list follows from the lane's events, and a pane follows those
-	// events. A driver whose CLI is mutated by a direct call that answers the
-	// new list (Pi's pipkg install, and its store write for the agent scope)
-	// declares false: the pane runs the call, shows its own transcript and
-	// re-reads the report.
-	Async bool `json:"async"`
+	// Lane is how the mutations that change this CLI's own list reach it, one
+	// fact per verb: a true field is a vendor command the durable job lane
+	// ADR-0087 built reserves and runs — the request is answered with the job,
+	// the CLI's fresh list follows from the lane's events, and a pane follows
+	// those events — while a false one is a mutation PiCode performs itself, in
+	// process, and answers with the CLI's fresh list.
+	//
+	// It is per-verb because a single bool could not describe a mixed CLI:
+	// OpenCode's install is its own `plugin` command while its removal is a
+	// splice of its own opencode.json, and declaring either transport for both
+	// verbs contradicts the other. It replaced the single `Async` bool, which
+	// said "a mutation on this CLI is reserved and run in the lane": `Async:
+	// true` is every field of `Lane` true, `Async: false` every field false,
+	// and a driver that declares a verb to be a write leaves that field false
+	// — the same polarity `Async` had, per verb.
+	Lane Transport `json:"lane"`
 	// IsolatedSwitch says the CLI has PiCode's "only this agent's packages"
 	// flag on the agent row — the agent loads its own list instead of the
 	// machine's and the workspace's. It is a fact about PiCode's agent rather

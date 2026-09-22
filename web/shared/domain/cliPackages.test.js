@@ -1,28 +1,60 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey, directMutation, paneTabs, rowToggle, rowInspect } from "./cliPackages.js";
+import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey, directMutation, laneMutation, anyLaneMutation, paneTabs, rowToggle, rowInspect } from "./cliPackages.js";
 import { cliLocation } from "./cliLaunch.js";
 
-// The transport rule: which mutation is one of PiCode's own calls and which is a
-// job in the CLI's own lane. A wrong answer here runs a vendor's command for a
-// layer the vendor does not own, or reserves a job that can never carry it out.
+// The transport declarations these rows re-table, as a report carries them
+// (`Caps.Lane`): Pi's, a guest's, and the mixed CLI's — OpenCode, whose install
+// is its own `plugin` command and whose removal is a write of its own config
+// file. Every `{ async: true }` row below became GUEST_LANE, every
+// `{ async: false }` row PI_LANE.
+const PI_LANE = { install: false, remove: false, update: false, marketplace: false };
+const GUEST_LANE = { install: true, remove: true, update: true, marketplace: true };
+const MIXED_LANE = { install: true, remove: false, update: false, marketplace: false };
+
+// The transport rule: which mutation is one of PiCode's own calls and which is
+// a verb the CLI's own surface takes. A wrong answer here runs a vendor's
+// command for a layer the vendor does not own, or reserves a job that can never
+// carry it out.
 test("the agent scope is PiCode's own write for every CLI", () => {
-  // A CLI whose mutations are direct calls (Pi's own pipkg) is always direct.
-  assert.equal(directMutation({ async: false }, {}), true);
-  assert.equal(directMutation({ async: false }, { scope: "project" }), true);
-  // A vendor's own layers are its lane's.
-  assert.equal(directMutation({ async: true }, { scope: "user" }), false);
-  assert.equal(directMutation({ async: true }, { scope: "project" }), false);
+  // A CLI whose mutations are all its own calls (Pi's own pipkg, nothing on the
+  // lane) is always direct.
+  assert.equal(directMutation({ lane: PI_LANE }, {}), true);
+  assert.equal(directMutation({ lane: PI_LANE }, { scope: "project" }), true);
+  // A vendor's own layers are the vendor's route — whether the declaration puts
+  // the verb on the lane or, like the mixed CLI's removal, makes it a write.
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "user" }), false);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "project" }), false);
+  assert.equal(directMutation({ lane: MIXED_LANE }, { scope: "user" }), false);
+  assert.equal(directMutation({ lane: MIXED_LANE }, { row: { scope: "workspace" } }), false);
   // The agent layer is PiCode's list on the agent row, so writing it is direct
   // whichever CLI the pane is showing...
-  assert.equal(directMutation({ async: true }, { scope: "agent" }), true);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "agent" }), true);
+  assert.equal(directMutation({ lane: MIXED_LANE }, { scope: "agent" }), true);
   // ...and so is a row that lives there, whatever the pane's own scope is.
-  assert.equal(directMutation({ async: true }, { scope: "agent", row: { scope: "agent" } }), true);
-  assert.equal(directMutation({ async: true }, { scope: "user", row: { scope: "agent" } }), true);
-  assert.equal(directMutation({ async: true }, { row: { scope: "workspace" } }), false);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "agent", row: { scope: "agent" } }), true);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { scope: "user", row: { scope: "agent" } }), true);
+  assert.equal(directMutation({ lane: GUEST_LANE }, { row: { scope: "workspace" } }), false);
   // Before a report arrives nothing may be sent to a lane on a guess.
   assert.equal(directMutation(null, { scope: "user" }), true);
   assert.equal(directMutation(undefined, { scope: "project" }), true);
+});
+
+// The per-verb half of that declaration: a mixed CLI answers for each verb on
+// its own, which is what a removal read as PiCode's own write depends on.
+test("the transport declaration is read one verb at a time", () => {
+  assert.equal(laneMutation({ lane: GUEST_LANE }, "remove"), true);
+  assert.equal(laneMutation({ lane: MIXED_LANE }, "install"), true);
+  assert.equal(laneMutation({ lane: MIXED_LANE }, "remove"), false);
+  assert.equal(laneMutation({ lane: PI_LANE }, "install"), false);
+  assert.equal(laneMutation(undefined, "remove"), false);
+  // A verb the lane never carries is false however the declaration is spelled.
+  assert.equal(laneMutation({ lane: GUEST_LANE }, "toggle"), false);
+  // The lane subscription is the aggregate the single `Async` bool answered: a
+  // CLI with any verb on the lane follows its events, and Pi follows none.
+  assert.equal(anyLaneMutation({ lane: MIXED_LANE }), true);
+  assert.equal(anyLaneMutation({ lane: PI_LANE }), false);
+  assert.equal(anyLaneMutation(undefined), false);
 });
 
 // The pair of tabs is offered where there is something to switch to: a report

@@ -385,6 +385,88 @@ func TestCLIPackageJobCarriesTheCommand(t *testing.T) {
 	t.Fatal("the install job did not settle")
 }
 
+// TestCLIPackagesOpenCodeRemoveIsPiCodeOwnWrite: OpenCode keeps its plugins in
+// its own config array and exposes no removal command, so the route must not
+// reserve a job that would run nothing — the answer is the CLI's own fresh list
+// (200). The 400 this route used to give (*"this CLI does not expose that
+// operation: opencode remove"*, while the pane drew the button) is gone, and the
+// plugin is out of the config file that named it with every other byte intact.
+// A module the CLI's own configs do not name is still refused, by name.
+func TestCLIPackagesOpenCodeRemoveIsPiCodeOwnWrite(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "") // resolve OpenCode's user file from HOME
+	cfg := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(cfg, "opencode.json")
+	body := "{\n  // the module list\n  \"plugin\": [\"opencode-wakatime\", \"keep-me\"],\n  \"theme\": \"dark\"\n}\n"
+	if err := os.WriteFile(file, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ts := newTestServer(t, "cat")
+	clipkgs.Invalidate("opencode")
+
+	// The declaration the pane reads says the removal is not the lane's: the
+	// unified report carries it (`Caps.Lane`), while the guest family's payload
+	// stays the bytes that pane has always parsed.
+	rep := cliRequest(t, ts, "GET", "/api/packages/report?cli=opencode&vendor=user&refresh=1", nil, 200)
+	caps, _ := rep["caps"].(map[string]any)
+	lane, _ := caps["lane"].(map[string]any)
+	if lane["install"] != true || lane["remove"] != false {
+		t.Fatalf("caps.lane = %v, want the install on the lane and the removal a write", lane)
+	}
+	v := cliRequest(t, ts, "GET", "/api/cli-packages?cli=opencode&scope=user&refresh=1", nil, 200)
+	rowBySource(t, v, "opencode-wakatime") // it must be there before the removal
+
+	v = cliRequest(t, ts, "POST", "/api/cli-packages/remove", map[string]any{
+		"cli": "opencode", "scope": "user", "name": "opencode-wakatime", "source": "opencode-wakatime",
+	}, 200)
+	rows, _ := v["rows"].([]any)
+	for _, raw := range rows {
+		if m, _ := raw.(map[string]any); m["source"] == "opencode-wakatime" {
+			t.Fatalf("the answer still lists the removed module: %v", m)
+		}
+	}
+	if len(rows) != 1 {
+		t.Fatalf("the answer is not the CLI's fresh list: %v", rows)
+	}
+	rowBySource(t, v, "keep-me")
+	at := strings.Index(body, `"opencode-wakatime", `)
+	if at < 0 {
+		t.Fatal("the fixture does not name the removed module")
+	}
+	want := body[:at] + body[at+len(`"opencode-wakatime", `):]
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want {
+		t.Fatalf("the config after the removal = %q, want %q", got, want)
+	}
+
+	// The module the configs do not name: refused by name, and nothing written.
+	res := cliRequestRaw(t, ts, "POST", "/api/cli-packages/remove", map[string]any{
+		"cli": "opencode", "scope": "user", "name": "ghost", "source": "ghost",
+	})
+	if res.StatusCode != 409 {
+		t.Fatalf("status = %d, want 409 for a module no config names", res.StatusCode)
+	}
+	var refusal struct {
+		Error string `json:"error"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&refusal); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(refusal.Error, "ghost") {
+		t.Fatalf("the refusal does not name the module: %q", refusal.Error)
+	}
+	if after, err := os.ReadFile(file); err != nil || string(after) != string(got) {
+		t.Fatalf("a refused removal wrote the config: %q (%v)", after, err)
+	}
+}
+
 // TestCLIPackageUpdatesMarksWhatIsBehind: the badge comes from the CLI's own
 // catalog compared with its own roster, and a row is marked only when the
 // catalog offers something newer.

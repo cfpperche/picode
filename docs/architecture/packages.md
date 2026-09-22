@@ -28,9 +28,13 @@ type Caps struct {
     List, Available, Install, Remove, Update, Toggle, Inspect bool
     Config, Marketplace                                       bool
     CatalogInstall bool // the CLI's catalog names the spec an install takes
-    Async          bool // mutations are durable jobs, not direct calls
+    Lane           Transport // per verb: a vendor command, or PiCode's own write
     IsolatedSwitch bool // the agent row's "only this agent's packages" flag
 }
+
+// Transport is how the mutations the job lane can carry reach the CLI: true is
+// a vendor command, false a write PiCode performs itself.
+type Transport struct{ Install, Remove, Update, Marketplace bool }
 
 type Row struct {
     CLI, ID, Name, Source, Kind string
@@ -84,7 +88,8 @@ the agent's stored list, and declares `List`, `Available`, `Install`, `Remove`,
 `Update`, `Config`, `CatalogInstall` and `IsolatedSwitch` — `Catalog` is
 PiCode's own npm gallery (`CatalogGallery`), its scopes are `Global`,
 `This workspace` and `This agent`, and `Report.Capabilities` carries the derived
-`webSearch` fact. `Async` is false, and its `Install`/`Remove`/`Update`/`Toggle`/
+`webSearch` fact. `Caps.Lane` names no verb — nothing of Pi's is reserved as a
+job — and its `Install`/`Remove`/`Update`/`Toggle`/
 `Inspect`/`Marketplace` on this interface refuse with `ErrNoMutation`: Pi's
 mutations still run through `pipkg` on PiCode's own routes, which answer the
 CLI's fresh list directly. A read that named no workspace or no agent declares
@@ -96,7 +101,12 @@ vendor's argv builders, parsers, fixtures and file writes; the driver maps them
 onto the model — scopes with their vendor words (`claude-code` keeps `local`,
 the uncommitted project layer), `Caps` derived from the CLI's own verb table, a
 `CatalogVendor` where the CLI has an available list, the CLI's `notes` verbatim,
-and `Async: true` because a vendor mutation is a job in the lane below.
+and `Lane` derived from that same table — a verb the CLI reaches with its own
+command is the lane's, a verb whose only path is PiCode's write of its config
+file is not, and the marketplace fetches are the lane's wherever the CLI manages
+sources. The declaration is per verb because a CLI can be mixed: OpenCode's
+install is its own `plugin` command while its removal is a splice of its own
+config file, so no single bool could describe it.
 `IsolatedSwitch` is declared by `omp` alone. The agent layer is PiCode's own
 list, so a read that asks for it is answered from `Query.AgentSources` with no
 vendor call at all — under both names a pane may use (`scope=agent` and
@@ -145,11 +155,20 @@ The pane's own routes and hashes are unchanged: `#/clis/<cli>/packages`,
 
 ## The job lane, and the verbs that answer directly
 
-A driver's `Caps.Async` decides the transport, and that is the only difference
-between the two. Pi's mutations are calls that answer the new list, so its pane
-runs them, shows the transcript and re-reads the report. A guest's install,
-remove, update and marketplace add/update **reserve a durable job** in the lane
-ADR-0087 built (`internal/clijob`): the answer is 202 with the job row, the
+A driver's `Caps.Lane` decides the transport, one verb at a time, and that is
+the only difference between the two. Pi's mutations are calls that answer the
+new list, so its pane runs them, shows the transcript and re-reads the report,
+and it declares no verb on the lane at all. A guest's install, removal, update
+and marketplace add/update **reserve a durable job** in the lane
+ADR-0087 built (`internal/clijob`) — that is what its `Lane` says true — while a
+verb it leaves false is a mutation PiCode performs itself, in process, answering
+the CLI's fresh list. The declaration is per verb because a CLI can be mixed
+(**OpenCode**: its install is `opencode plugin <module>`, its removal a splice of
+its own `opencode.json`), which a single bool could only have contradicted.
+`Lane.Marketplace` covers the two source actions that fetch; a marketplace
+removal is always a local change, so it is never on the lane.
+
+For the lane's verbs the answer is 202 with the job row, the
 request carries a request-key so a retry is the same job, at most one package
 job is active per CLI, and the lane refuses while that CLI's terminals are
 running (a plugin lands at the next start) unless the caller confirms.
@@ -158,7 +177,10 @@ driver is asked twice, once before the job is reserved and once inside the lane
 — and a job that succeeds publishes the ephemeral `cli.packages` event and drops
 that CLI's roster cache. The pane follows `cli.job` events and re-reads the
 roster when one settles; a failed job carries the command it ran, so the copy
-affordance works for the asynchronous half too.
+affordance works for the asynchronous half too. The pane's own rule is the same
+declaration: `laneMutation(caps, verb)` picks the job path, and a verb off the
+lane takes the flow Pi's direct mutations take — the transcript while it runs,
+then the CLI's fresh list read back.
 
 Three verbs run in the driver and answer immediately, because their answer
 depends on the result: `Toggle` (the CLI's own enable/disable verb — or, for one
@@ -168,17 +190,23 @@ produced it) and a marketplace **removal** (a local change — the sources that
 are left). Add and update fetch, so they are the lane's.
 
 Two mutations have no argv at all and are PiCode's own writes, answered with the
-CLI's fresh list instead of a job: **OpenCode's removal**, because the CLI
-exposes `opencode plugin <module> [-g]` to add and nothing to remove or disable
-— PiCode deletes one element from the `plugin` array of the config file that
+CLI's fresh list instead of a job, and both are declared (`Lane` false for their
+verb) rather than inferred: **OpenCode's removal**, because the CLI exposes
+`opencode plugin <module> [-g]` to add and nothing to remove or disable — PiCode
+deletes one element from the `plugin` array of the config file that
 names it (the precedence `internal/connectors` measured, `.jsonc` first), with
 comments and every other byte preserved, the result re-parsed and compared
 before the atomic write, and a shape the scanner does not recognize refused
-(409) rather than saved; and **Omp's workspace `extensions` entry**, spliced out
+(409) rather than saved. A module the CLI's own configs do not name is refused
+by name (`ErrStale`, 409), so the answer is never a silent success; and
+**Omp's workspace `extensions` entry**, spliced out
 of `<ws>/.omp/settings.json` by the same splice (its id leaves
 `disabledExtensions` too), while the user layer goes through `omp config set`.
 An agent-layer write is PiCode's own call for every CLI, which the pane's
-`directMutation` states once.
+`directMutation` states once. A driver can also be mixed per *row* — an Omp
+`extensions` entry is that write while the same CLI's plugin rows are lane
+commands — so a mutation answered with the CLI's fresh list is read as that write
+wherever the declaration could not predict it.
 
 **An Omp extension's toggle is that array read the other way.** The CLI's plugin
 verbs cannot move a configured extension — measured 2026-09-21: `omp plugin
@@ -280,7 +308,7 @@ conventions:
 | Codex | `codex plugin list --json` (+ `--available`) | remote marketplaces need the network and a sign-in |
 | Grok | `grok plugin list --json` (+ `--available`) | |
 | Hermes | `hermes plugins list --json`, catalog via `plugins search --json` | `picode-native` is PiCode's own integration |
-| OpenCode | its own configs and plugin directories | no list, remove, disable or marketplace command exists |
+| OpenCode | its own configs and plugin directories | no list, remove, disable or marketplace command exists — the removal is PiCode's own splice of the `plugin` array, declared off the lane (`Lane.Remove: false`) |
 | Muse Code | `muse plugins list --json` (+ `--available`) | the id lives in the row's `record`, not on the row; capability trust stays with the user. The CLI gates its whole plugin surface per machine through its own cached feature config — where that gate is off, every verb answers *"plugins are not available in this build"* and the pane shows that sentence. The catalog does **not** mark an installed plugin (`status: "available"` survives an install), so `catalogNeedsRoster` joins it with the CLI's own roster; and the CLI's list omits the app's built-in first-party plugins, which only its TUI shows (all measured 2026-09-21) |
 | Antigravity | `agy plugin list` (a JSON envelope once plugins exist, one sentence while none do) | its subcommands take no flags: a leading `--help` is read as the plugin name (measured 2026-09-20) |
 | Omp | `omp plugin list --json`; catalog via `omp plugin discover` (prose — `--json` is accepted and ignored); plus the configured `extensions`/`disabledExtensions` the list never names | the catalog is information only: discover prints a name and a version and never names the source an install needs, while `omp plugin install <name>` resolves through npm (measured 2026-09-21: it 404s on the registry), so `catalogInstall` is false and the list note states the `name@marketplace` form |
@@ -360,9 +388,11 @@ instead of drawing a roster under a configuration hash.
 ## Open work
 
 `docs/handoff/open/packages.md` carries what is measured but not yet done:
-OpenCode's removal is unreachable from the pane because every removal is
-reserved as a job and that mutation has no argv. Muse's built-in first-party
-plugins stay outside every surface PiCode may read. An extension row's
-Enable/Disable used to draw the CLI's plugin verb, which does not know an
-extension; it now writes `disabledExtensions` itself (slice 5's debt, paid
-2026-09-22 by `feat/packages-toggle`).
+Muse's built-in first-party plugins stay outside every surface PiCode may read.
+An extension row's Enable/Disable used to draw the CLI's plugin verb, which does
+not know an extension; it now writes `disabledExtensions` itself (slice 5's
+debt, paid 2026-09-22 by `feat/packages-toggle`). OpenCode's removal used to
+answer 400 from the pane because every removal was reserved as a job and that
+mutation has no argv; the transport declaration is per verb now
+(`Caps.Lane`), so the removal is PiCode's own write and the pane shows its
+transcript (paid 2026-09-22 by `feat/packages-opencode`).
