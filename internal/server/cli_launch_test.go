@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -174,7 +175,9 @@ exec cat
 		t.Fatalf("argv=%q", got)
 	}
 	env := strings.Split(string(waitCLIFile(t, filepath.Join(home, "first.env"))), "\x00")
-	if env[0] != base.Env["QA_VALUE"] || !strings.HasPrefix(env[1], toolDir+":") || env[2] != home {
+	// PATH leads with the intercept bin dir (ADR-0180: CLI panes resolve
+	// openers by PATH), then the CLI's own configured dirs.
+	if env[0] != base.Env["QA_VALUE"] || !strings.HasPrefix(env[1], interceptBinDir(dataDir)+":"+toolDir+":") || env[2] != home {
 		t.Fatalf("environment=%q", env)
 	}
 	if _, err := os.Stat(filepath.Join(home, "NEVER_RUN")); !os.IsNotExist(err) {
@@ -622,5 +625,65 @@ func TestNewWiresOpenCodeActivityByDefault(t *testing.T) {
 	}
 	if _, err := os.Stat(wrapperPath(dataDir, "opencode")); err != nil {
 		t.Fatalf("opencode wrapper missing: %v", err)
+	}
+}
+
+// Regression for the ADR-0180 follow-up: CLI panes are /bin/sh launch
+// scripts, not interactive shells, so the rcfile PATH prepend never runs
+// for them. omp resolves its opener by PATH lookup (wslview, then
+// xdg-open) and /login opened WSL chromium even with BROWSER set. Both the
+// launch script's export and the pane's tmux environment must put the
+// intercept bin dir first.
+func TestCLILaunchPutsTheInterceptBinFirstOnPATH(t *testing.T) {
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	ts, dataDir, home := cleanupServer(t)
+	t.Setenv("SHELL", "/bin/bash")
+	binary := filepath.Join(home, "tool")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\nexec cat\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(wrapperPath(dataDir, "xdg-open")); err != nil {
+		ensureOpenURLWrappers(dataDir)
+	}
+	cliRequest(t, ts, "PUT", "/api/clis/pi", clilaunch.Config{Executable: binary}, 200)
+	created := cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"name": "PATH fixture", "cwd": home}, 201)
+	id := created["id"].(string)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id)) })
+
+	matches, err := filepath.Glob(filepath.Join(dataDir, "cli-launch", id, "run-*", "launch.sh"))
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("launch.sh runs = %v, %v", matches, err)
+	}
+	raw, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pathLine string
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.HasPrefix(line, "export PATH=") {
+			pathLine = line
+			break
+		}
+	}
+	if pathLine == "" {
+		t.Fatalf("launch.sh has no PATH export:\n%s", raw)
+	}
+	if bin := interceptBinDir(dataDir); !strings.Contains(pathLine, "'"+bin+":") && !strings.HasPrefix(strings.TrimPrefix(pathLine, "export PATH="), bin+":") {
+		t.Fatalf("launch.sh PATH does not lead with the intercept bin dir (%q): %s", bin, pathLine)
+	}
+
+	// The pane's own environment agrees (tmux -e PATH=…). The probe must
+	// see the same server the Manager used, so it inherits the process env
+	// ($TMUX included); the target name is this fixture's unique session
+	// and show-environment is read-only.
+	out, err := exec.Command("tmux", "show-environment", "-t", tmux.ShellSessionName(id), "PATH").CombinedOutput()
+	if err != nil {
+		t.Fatalf("show-environment: %v: %s", err, out)
+	}
+	envPath := strings.TrimSpace(strings.TrimPrefix(string(out), "PATH="))
+	if !strings.HasPrefix(envPath, interceptBinDir(dataDir)+string(os.PathListSeparator)) {
+		t.Fatalf("session PATH = %q, want the intercept bin dir first", envPath)
 	}
 }

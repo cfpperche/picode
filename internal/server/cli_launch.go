@@ -67,6 +67,21 @@ func cliPath(c clilaunch.Config) string {
 	return strings.Join(parts, string(os.PathListSeparator))
 }
 
+// interceptCLIPath is the PATH a launched CLI pane runs with: the intercept
+// bin dir first when it holds wrappers, then the CLI's own path. CLI panes
+// are /bin/sh launch scripts, not interactive shells — the rcfile prepend
+// never runs for them — so without this a CLI's opener lookup resolves to
+// the system binary and /login opens a browser inside WSL (measured
+// 2026-09-22: omp login reached WSL chromium after ADR-0180's BROWSER
+// landed, because omp resolves wslview/xdg-open by PATH, not $BROWSER).
+func interceptCLIPath(dataDir string, c clilaunch.Config) string {
+	bin := interceptBinDir(dataDir)
+	if ents, err := os.ReadDir(bin); err != nil || len(ents) == 0 {
+		return cliPath(c)
+	}
+	return bin + string(os.PathListSeparator) + cliPath(c)
+}
+
 func isCLIWrapper(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {
@@ -1287,7 +1302,7 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	for _, k := range keys {
 		fmt.Fprintf(&body, "export %s=%s\n", k, shellQuote(c.Env[k]))
 	}
-	fmt.Fprintf(&body, "export PATH=%s\n", shellQuote(cliPath(c)))
+	fmt.Fprintf(&body, "export PATH=%s\n", shellQuote(interceptCLIPath(deps.DataDir, c)))
 	if len(peerOptions.Env) > 0 {
 		body.WriteString("env ")
 		peerKeys := []string{}
@@ -1335,8 +1350,13 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		plan, _ := launchPlan(deps, cli, c, clilaunch.Overrides{}, dir)
 		snapshot.Injection = &plan.Injection
 	}
+	// The pane environment carries the same PATH as the script: tmux -e
+	// sets it from the first pane on, and dropEnv keeps a single PATH key
+	// (tmux's -e is last-wins, but one key beats hoping).
+	paneEnv := dropEnv(cliEnvironment(c), "PATH")
+	paneEnv = append(paneEnv, "PATH="+interceptCLIPath(deps.DataDir, c))
 	started = true // ownership transfers to the prepared object
-	return &preparedCLILaunch{dir: dir, script: script, id: v.TerminalID, snapshot: snapshot, environment: cliEnvironment(c)}, nil
+	return &preparedCLILaunch{dir: dir, script: script, id: v.TerminalID, snapshot: snapshot, environment: paneEnv}, nil
 }
 
 func (p *preparedCLILaunch) start(deps Deps, r *http.Request, name, cwd string) error {
