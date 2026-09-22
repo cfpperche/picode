@@ -49,6 +49,10 @@ type Provider struct {
 	// Provider is the vault's provider id ("anthropic", "openai-codex", …) —
 	// the same vocabulary pi uses, so usage adapters and identity keep working.
 	Provider string `json:"provider"`
+	// Name is the vendor's own name for a provider read from a CLI's own
+	// catalog (Omp's rules.json); empty for a declared row, whose name is the
+	// pane's vocabulary.
+	Name string `json:"name,omitempty"`
 	// Kinds lists the credential shapes this CLI accepts for that provider.
 	Kinds []string `json:"kinds"`
 	// Env names the variable each kind is passed in, when the vendor ships
@@ -120,13 +124,19 @@ type Login struct {
 }
 
 // Declarations returns every CLI's declaration.
-func Declarations() []Spec { return catalog }
+func Declarations() []Spec {
+	out := make([]Spec, len(catalog))
+	for i, s := range catalog {
+		out[i] = withOMPCatalog(s)
+	}
+	return out
+}
 
 // For returns one CLI's declaration.
 func For(cli string) (Spec, bool) {
 	for _, s := range catalog {
 		if s.CLI == cli {
-			return s, true
+			return withOMPCatalog(s), true
 		}
 	}
 	return Spec{}, false
