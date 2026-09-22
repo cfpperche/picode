@@ -243,6 +243,13 @@ func TestRecoveredPiWaitsForReceiverWithoutRestart(t *testing.T) {
 }
 
 func TestNativeObservationRecorderFailureAndCodexPrecedence(t *testing.T) {
+	// The recorder refuses on any host without /proc/sys/kernel/random/boot_id
+	// — its first two lines say so, because an unsupported host must not write
+	// a fence that poisons its otherwise valid HTTP reports. This test asserts
+	// the writes succeed, so it belongs where they can.
+	if !nativeObservationSupported() {
+		t.Skip("the observation recorder is Linux-only by construction")
+	}
 	if processStartToken(os.Getpid()) == "" {
 		t.Skip("Linux process metadata required")
 	}
