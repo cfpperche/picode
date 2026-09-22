@@ -19,13 +19,16 @@
   understanding it, which is the failure the other four fixes in that branch
   were about. Whoever reproduces it owns the fix.
 
-- [ ] **Should `/pair` be guarded-and-exempt instead of unguarded?** Today
+- [x] **Should `/pair` be guarded-and-exempt instead of unguarded?** Today
   `guarded()` covers `/api/`, `/ws/` and `/mcp/communication` only, so the
   pairing page and form never reach the Host or Origin checks. An unreachable
   `case p == "/pair"` in `exempt()` made it read as a deliberate pass; the
   dead line is gone (feat/audit-fixes, 2026-09-21) and the question is not.
   Guarding it would apply `HostAllowed` to the one route someone uses when
   they cannot reach PiCode yet, so it is the owner's call, not a tidy-up.
+  **Decided 2026-09-22:** the cross-site check applies to a `/pair`
+  submission; the `Host` check deliberately does not. That closes the
+  tab-in-another-window case with no way to lock anyone out of pairing.
 
 - [x] **ADR-0154 (picode-mcp) and ADR-0156 (computer foreground guard) are
   still `proposed` in both the file and the index, and both shipped.**
