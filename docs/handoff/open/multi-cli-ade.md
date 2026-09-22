@@ -8,7 +8,7 @@ All five planned branches landed on 2026-09-22; what remains is the debts below.
 ## Debts
 
 - [ ] Windows installer without pi: scenario run on the `picode-test` VM (owner); `feat/runtime-without-pi` has landed.
-- [ ] GitHub repository description and topics still say "for Pi coding agents" (owner: `gh repo edit cfpperche/picode --description …`).
+- [x] GitHub repository description and topics still say "for Pi coding agents" — paid 2026-09-22: description names the nine CLIs; topics gain claude-code, codex, opencode (owner-approved `gh repo edit`).
 - [ ] Backup snapshots only `~/.pi`; the other CLIs' sessions and settings are not covered (`docs-site/guide/backup.md` says so since `feat/ade-copy-tail`; covering them is an owner decision).
 - [ ] What's new: check whether the 0.1.0 headline "Run real Pi agents from your browser" (`web/shared/data/whats-new.json:8`) renders on a fresh install; reword if it does.
 - [x] `docs-site/guide/remote-server.md` (one caveat sentence) and `docs/architecture.md:52` still describe `pi` on PATH as a doctor step — paid by `feat/runtime-without-pi` (`clisStep`, informational).
