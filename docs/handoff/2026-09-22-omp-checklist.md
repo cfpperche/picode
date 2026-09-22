@@ -7,11 +7,13 @@ the current step, the disclosure the full list, the way `pi-checklist` serves pi
 registered and nothing is gated; uninstall removes both extension files.
 Verified: decision-table test runs the generated template under node against a recording daemon
 (omp_checklist_test.go); wrapper shape and uninstall pinned in cli_wrapper_test.go. Scoped CI green
-except TestUsageSummaryIsCacheOnlyAndSaysUnknown, which fails identically on main without this diff
-(login-state dependent). Live on production: omp terminal checklist-mirror-2ef6f2 (workspace
+— TestUsageSummaryIsCacheOnlyAndSaysUnknown failed on every session here because the catalog reads
+provider keys from the env a PiCode terminal carries; the test now scrubs catalog.APIKeyEnvVars
+(proven root cause, fix committed). Repeated `-e` on omp 18.2.8 probed live: two flags parse and
+both extensions load. Live on production: omp terminal checklist-mirror-2ef6f2 (workspace
 picode-5fd7eb, ~/picode) loaded the extension from user-scope ~/.omp/agent/settings.json and mirrored
 todo init/start/done into GET /api/terminals/checklist-mirror-2ef6f2/checklist (status mapping and
-sessionId correct). Blind spot: validated via user-scope settings, not the `-e` injection itself.
+sessionId correct). Blind spot: the live run used the settings entry, not the wrapper's own -e.
 visual-review: n/a (server-side injection; the checklist UI already exists)
 Merge: fast-forward ready.
 
