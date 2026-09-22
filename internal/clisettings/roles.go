@@ -61,6 +61,10 @@ type rolesSpec struct {
 	chainAddHint string
 	// levels are the thinking suffixes the CLI accepts after a selector.
 	levels []string
+	// pane is where the matrix is drawn. omp's own model hub keeps roles and
+	// the model list on one screen, and so does PiCode (owner, 2026-09-22):
+	// a role and the catalog it picks from answer one question.
+	pane string
 }
 
 // report is the part of a role matrix that is not a row: what the pane needs to
@@ -125,6 +129,7 @@ func (rs *rolesSpec) roleFields(docs []map[string]any) []Field {
 			Label:    label,
 			Tag:      def.Tag,
 			Kind:     KindRole,
+			Pane:     rs.pane,
 			Group:    rs.group,
 			Help:     def.Help,
 			Fallback: "auto",
@@ -168,6 +173,7 @@ func (rs *rolesSpec) roleFields(docs []map[string]any) []Field {
 			Path:  append([]string{}, rs.cyclePath...),
 			Label: rs.cycleLabel,
 			Kind:  KindList,
+			Pane:  rs.pane,
 			Group: rs.group,
 			Help:  rs.cycleHelp,
 		})
@@ -176,8 +182,9 @@ func (rs *rolesSpec) roleFields(docs []map[string]any) []Field {
 		out = append(out, Field{
 			Key:   strings.Join(rs.chainsPath, ".") + "." + key,
 			Path:  append(append([]string{}, rs.chainsPath...), key),
-			Label: key,
+			Label: chainLabel(key),
 			Kind:  KindList,
+			Pane:  rs.pane,
 			Group: rs.chainGroup,
 		})
 	}
@@ -225,6 +232,7 @@ func (rs *rolesSpec) synth(key string) (Field, bool, error) {
 			Label:    id,
 			Tag:      strings.ToUpper(id),
 			Kind:     KindRole,
+			Pane:     rs.pane,
 			Group:    rs.group,
 			Fallback: "auto",
 		}, true, nil
@@ -246,6 +254,7 @@ func (rs *rolesSpec) synth(key string) (Field, bool, error) {
 				Path:  append(append([]string{}, rs.tagsPath...), id, "name"),
 				Label: id,
 				Kind:  KindText,
+				Pane:  rs.pane,
 				Group: rs.group,
 			}, true, nil
 		}
@@ -256,6 +265,7 @@ func (rs *rolesSpec) synth(key string) (Field, bool, error) {
 			Path:  append([]string{}, rs.cyclePath...),
 			Label: rs.cycleLabel,
 			Kind:  KindList,
+			Pane:  rs.pane,
 			Group: rs.group,
 			Help:  rs.cycleHelp,
 		}, true, nil
@@ -270,13 +280,24 @@ func (rs *rolesSpec) synth(key string) (Field, bool, error) {
 			return Field{
 				Key:   key,
 				Path:  append(append([]string{}, rs.chainsPath...), name),
-				Label: name,
+				Label: chainLabel(name),
 				Kind:  KindList,
+				Pane:  rs.pane,
 				Group: rs.chainGroup,
 			}, true, nil
 		}
 	}
 	return Field{}, false, nil
+}
+
+// chainLabel says what a chain is for, in words: the key alone ("default",
+// "openai/*") read as a bare word beside the role rows (visual review,
+// 2026-09-22).
+func chainLabel(key string) string {
+	if strings.HasSuffix(key, "/*") {
+		return "When any " + strings.TrimSuffix(key, "/*") + " model fails"
+	}
+	return "When " + key + " fails"
 }
 
 // stringsAt reads a list of strings at a path, ignoring any other shape: a
