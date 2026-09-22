@@ -682,7 +682,7 @@ export default function App({ shellChrome = false } = {}) {
       scrollToEnd();
       if ((t.bytes || 0) > 32 * 1024 * 1024) {
         if (t.compacted) {
-          toast.info("Compacted — the file stays large on disk, so cold boots stay slow until pi loads sessions lazily.");
+          toast.info("Compacted — the session file stays large on disk, so this agent keeps loading slowly after a restart.");
         } else {
           toast.info("Huge session — run /compact to shrink future boots.");
         }
@@ -2199,7 +2199,7 @@ export default function App({ shellChrome = false } = {}) {
     const loc = locate(fleetRef.current.workspaces, fleetRef.current.freeAgents, agentId);
     const found = loc && loc.agent;
     notify(agentFinishNotice({
-      agent: { id: agentId, name: found ? displayAgentName(found) : "Agent", cli: "pi" },
+      agent: { id: agentId, name: found ? displayAgentName(found) : "Agent", cli: (found && found.cli) || "pi" },
       turn: last,
       target: workspaceHash(agentId),
     }));
@@ -3746,7 +3746,7 @@ export default function App({ shellChrome = false } = {}) {
           inShell: shellChrome,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id }),
+          onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id, cli: agent?.cli }),
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,
@@ -4339,7 +4339,7 @@ export default function App({ shellChrome = false } = {}) {
             location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : "");
             return;
           }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id, cli: agent?.cli }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
             const via = loc && loc.agent && loc.agent.mode === "interactive" ? "tui" : undefined;

@@ -227,9 +227,14 @@ export function providersLlama(hash) {
 
 export function go(name, agentId, extra = {}) {
   const ctx = { agentId: extra.agentId || agentId || "", workspaceId: extra.workspaceId || "" };
-  if (name === "settings") { location.hash = cliSettingsHash("pi", ctx); return; }
-  if (name === "packages") { location.hash = cliPackagesHash("pi", ctx); return; }
-  if (name === "mcps" || name === "connectors") { location.hash = cliConnectorsHash("pi", ctx); return; }
+  // The generic CLI panes open on the selected agent's CLI (ADR-0179: Pi is
+  // one CLI among nine); with no agent in context they keep Pi's pane, the
+  // legacy address these commands had before every CLI had one.
+  const cli = String(extra.cli || "").trim() || "pi";
+  if (name === "settings") { location.hash = cliSettingsHash(cli, ctx); return; }
+  if (name === "packages") { location.hash = cliPackagesHash(cli, ctx); return; }
+  if (name === "mcps" || name === "connectors") { location.hash = cliConnectorsHash(cli, ctx); return; }
+  if (name === "providers" && extra.cli) { location.hash = cliProvidersHash(cli); return; }
   if (typeof name === "string" && name.startsWith("preferences")) {
     const sec = name === "preferences" ? "" : name.slice("preferences-".length);
     location.hash = sec ? "#/preferences/" + sec : "#/preferences";

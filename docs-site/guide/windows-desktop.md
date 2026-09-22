@@ -181,7 +181,7 @@ force it.
 **Clean** — the caches `picode disk` measures, with sizes: build caches,
 package caches, downloaded engines and models. Select and prune; nothing
 stops. Caches marked *redownload* come back from the network the next time
-something needs them. Pi sessions and the PiCode database never appear
+something needs them. Agent CLI sessions and the PiCode database never appear
 here — their cleanup is not a delete. This runs `picode clean`; the
 subcommand refuses any id that is not a cache, even when asked for by exact
 name.
