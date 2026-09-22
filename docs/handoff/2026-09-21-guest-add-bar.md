@@ -11,4 +11,5 @@ perProviderAdd suppression).
 Verified: ci-scoped green (fmt, vet, hooks, test-js, build) at commit ca64b918.
 visual-review: PASS (2 stills: bar with primary; dialog listing omp's 11 providers).
 Not done / debts: none.
-Merge: fast-forward ready.
+Merge: done — landed at `e0bd79ab` (full ci green); serving in `0.4.0+b0f4ba4`. Branch and
+worktree removed.

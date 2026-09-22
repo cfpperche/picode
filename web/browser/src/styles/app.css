@@ -6523,13 +6523,18 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 .insp-pill-label strong { color: var(--text-primary); }
 .insp-pill-also { display: inline-flex; align-items: center; gap: 6px; }
-.insp-group + .insp-group { margin-top: 2px; border-top: 1px solid var(--border); padding-top: 2px; }
-.insp-group-head {
+/* One dirty checkout inside the grouped Changes view. Its classes are
+   deliberately NOT .insp-group — that name is the Servers panel's section
+   label (10px, uppercase, tracked), and sharing it leaked that face into
+   every row here through inheritance, reading bolder and wider than the
+   Files tab. The head rides the Files tree's own scale: 13px like .ft-row. */
+.insp-checkout + .insp-checkout { margin-top: 2px; border-top: 1px solid var(--border); padding-top: 2px; }
+.insp-checkout-head {
   display: flex; align-items: center; gap: 6px; padding: 6px 4px 2px;
-  font-size: 12px; min-width: 0;
+  font-size: 13px; min-width: 0;
 }
-.insp-group-branch { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
-.insp-group-head .insp-stat-counts { margin-left: auto; flex: none; }
+.insp-checkout-branch { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.insp-checkout-head .insp-stat-counts { margin-left: auto; flex: none; }
 .insp-note { font-style: italic; }
 #inspector .ft-name { flex: 1 1 auto; min-width: 0; }
 .insp-count { display: inline-flex; gap: 6px; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; }

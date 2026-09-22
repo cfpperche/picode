@@ -470,3 +470,40 @@ func TestCredentialImportPreviewDoesNotWrite(t *testing.T) {
 		t.Fatalf("rows = %d, want the live login named, not copied", len(rows))
 	}
 }
+
+// "Keep both": the login already saved is named from what the vault knows
+// and the new login lands as its own row — two rows, the live file matching
+// the new one, the old one kept for Use.
+func TestCredentialImportKeepKeepsBothLogins(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	writeClaudeLogin(t, home, "access-first", "refresh-first")
+	cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code"}, 201)
+
+	// The CLI signs into the second account.
+	writeClaudeLogin(t, home, "access-second", "refresh-second")
+	// The pane's preview flags the replace, and the person keeps both.
+	cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code", "preview": true}, 200)
+	kept := cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code", "keep": true}, 201)
+
+	provider := rosterFor(t, ts, "claude-code", "anthropic")
+	accounts := provider["accounts"].([]any)
+	if len(accounts) != 2 {
+		t.Fatalf("accounts = %d, want the old login kept and the new one filed", len(accounts))
+	}
+	live := 0
+	for _, a := range accounts {
+		row := a.(map[string]any)
+		if row["active"] == true {
+			live++
+			if got, _ := row["origin"].(string); got != "imported:claude-code" {
+				t.Fatalf("active row = %v, want the new login", row)
+			}
+		}
+	}
+	if live != 1 {
+		t.Fatalf("active rows = %d, want exactly the live file's login", live)
+	}
+	if kept["created"] != true {
+		t.Fatalf("keep = %v, want the new login filed as its own row", kept)
+	}
+}

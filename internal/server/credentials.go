@@ -419,8 +419,12 @@ func handleCredentialImport(deps Deps) http.HandlerFunc {
 			// sign-in of a store that carries no account name has to be kept
 			// beside the first instead of replacing it (ADR-0166's rule: the
 			// vault never silently eats a login).
-			As      string `json:"as"`
-			Preview bool   `json:"preview"`
+			As string `json:"as"`
+			// Keep asks the handler to keep the login that is already saved
+			// (named from its own known identity) and file the new login as
+			// its own row — "keep both", the pane's second door.
+			Keep    bool `json:"keep"`
+			Preview bool `json:"preview"`
 		}
 		if !readCLIJSON(w, r, &req) {
 			return
@@ -483,6 +487,35 @@ func handleCredentialImport(deps Deps) http.HandlerFunc {
 		}
 		if identity == "" {
 			identity = who
+		}
+		// Keep both: the login already saved is named from what the vault
+		// knows about it (its email, else its label), and the new login
+		// lands as its own unnamed row — the roster then shows both, with
+		// the live file matching the new one.
+		if req.Keep {
+			id := credentials.Key(login.Cred, "")[:12]
+			old, found, err := credentials.Default().Row(login.Provider, id)
+			if err != nil {
+				writeVaultErr(w, err)
+				return
+			}
+			if found {
+				oldName := old.Email
+				if oldName == "" {
+					oldName = old.Label
+				}
+				if isDefaultLabel(oldName) || oldName == "" {
+					oldName = "Previous login"
+				}
+				if _, err := credentials.Default().Adopt(login.Provider, oldName, old.Cred); err != nil {
+					writeVaultErr(w, err)
+					return
+				}
+				if err := catalog.RenameAccount(login.Provider, credentials.Key(old.Cred, oldName)[:12], oldName); err != nil {
+					writeVaultErr(w, err)
+					return
+				}
+			}
 		}
 		before, _ := credentials.Default().Accounts(login.Provider)
 		var row credentials.Row
