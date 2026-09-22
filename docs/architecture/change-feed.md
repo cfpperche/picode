@@ -9,7 +9,9 @@ fans out to `GET /api/events` subscribers (SSE: `hello` with the bootId,
 `change` frames with `id:` for durable rows, `reset` when a cursor is
 older than the seven-day retention) and to in-process listeners (the
 push notifier). Ephemeral notices — `device.online` from presence,
-`agent.state` on every streaming / dialog edge, and `agent.waiting` — ride
+`agent.state` on every streaming / dialog edge, `agent.waiting`, and
+`terminal.open_url` (ADR-0180, the browser hand-off a CLI's login page
+rides) — ride
 the same stream with id 0. Clients (`web/shared/client/feed.js`) keep one
 `EventSource` per shell, resume from a `sessionStorage` cursor, patch
 lists with `lib/feedReducers.js` and refetch when a reducer returns

@@ -365,6 +365,12 @@ func wiringRows(dataDir string) []wiringRow {
 			Wired:     interceptWired(dataDir, TmuxGuardID, "tmux"),
 			Note:      "On by default. Refuses kill-server, pattern kills and other terminals' sessions inside PiCode terminals.",
 		},
+		{
+			ID: OpenURLID, Label: "browser hand-off", Bin: "picode-open",
+			Installed: true,
+			Wired:     interceptWired(dataDir, OpenURLID, "picode-open"),
+			Note:      "On by default. A CLI's 'open in browser' (logins) opens in the desktop app's own tab or the host's default browser instead of a Linux chromium.",
+		},
 	}
 }
 
@@ -375,6 +381,7 @@ func handleWiringStatus(deps Deps) http.HandlerFunc {
 		// state the toggle shows (ADR-0138, 2026-09-15: a scratch with no
 		// terminals read as "off").
 		ensureTmuxGuard(deps.DataDir)
+		ensureOpenURLWrappers(deps.DataDir)
 		writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows(deps.DataDir)})
 	}
 }
@@ -386,6 +393,16 @@ func handleWiringEnable(deps Deps) http.HandlerFunc {
 			unlock := terminalLock(deps, "cli-config")
 			defer unlock()
 			if err := installTmuxGuard(deps.DataDir); err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows(deps.DataDir)})
+			return
+		}
+		if cli == OpenURLID {
+			unlock := terminalLock(deps, "cli-config")
+			defer unlock()
+			if err := installOpenURL(deps.DataDir); err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -429,6 +446,16 @@ func handleWiringDisable(deps Deps) http.HandlerFunc {
 			unlock := terminalLock(deps, "cli-config")
 			defer unlock()
 			if err := uninstallTmuxGuard(deps.DataDir); err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows(deps.DataDir)})
+			return
+		}
+		if cli == OpenURLID {
+			unlock := terminalLock(deps, "cli-config")
+			defer unlock()
+			if err := uninstallOpenURL(deps.DataDir); err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
 			}

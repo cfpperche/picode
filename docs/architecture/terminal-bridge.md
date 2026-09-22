@@ -236,6 +236,33 @@ dedicated socket since ADR-0139 — and from outside a pane they ask the
 default server, where an exact-name kill for a session on another socket
 finds no marker and is refused (fail-closed).
 
+### Browser hand-off (ADR-0180)
+
+The same session PATH also carries a browser hand-off: a `picode-open`
+wrapper, `xdg-open` and `wslview` shadows, and `BROWSER=<dataDir>/bin/picode-open`
+in the session environment. A CLI's "open in the browser" moment (OAuth
+`/login` above all) used to resolve inside WSL — an installed chromium
+opened in a window nobody watches. The wrapper forwards exactly its first
+`http(s)` argument to `POST /api/terminals/{id}/open-url` (bearer token
+from `<dataDir>/token`, the hook reporters' auth); anything else — other
+arguments, missing curl, a failed POST — falls through to the real opener
+it shadows. Outside managed terminals the wrappers are not on PATH.
+
+The endpoint routes by audience:
+
+| Condition | Action |
+|---|---|
+| feed has a subscriber | ephemeral `terminal.open_url` → the visible client opens it |
+| no subscriber | `osopen.OpenURL` — the Windows default browser via PowerShell `Start-Process` (the URL rides the `PICODE_OPEN_URL` environment variable, never a command line) |
+| refused URL (non-http(s), control characters, > 2048 bytes) | 400, nothing opened |
+
+A visible client answers the event through the clicked-link path, so the
+link-destination preference governs: the desktop app opens its integrated
+tab, a plain browser opens a tab in itself. The event is ephemeral — a feed
+reconnect never replays a login page. The wiring row (`open-url`, Agent
+CLIs page) defaults on like the guard; an explicit opt-out removes the
+wrappers and the `BROWSER` entry.
+
 ### Dedicated socket and the drain (ADR-0139)
 
 Every instance's sessions live on their own server: the daemon runs tmux

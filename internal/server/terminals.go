@@ -23,6 +23,7 @@ func registerTerminalRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("PATCH /api/terminals/{id}", handleRenameTerminal(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/open", handleOpenTerminal(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/state", handleSetTerminalState(deps))
+	mux.HandleFunc("POST /api/terminals/{id}/open-url", handleTerminalOpenURL(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/runtime", handleSetTerminalRuntime(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/text", handleGetTerminalText(deps))
 	mux.HandleFunc("PUT /api/terminals/{id}/text", handlePutTerminalText(deps))
@@ -549,6 +550,7 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) (bool, er
 		if b := interceptBinEnv(deps.DataDir); b != "" {
 			env = append(env, b)
 		}
+		env = append(env, openURLEnv(deps.DataDir)...) // ADR-0180: a CLI's "open in browser" leaves WSL
 		cmd := defaultShell()
 		var args []string
 		if shellTakesRcfile(cmd) {

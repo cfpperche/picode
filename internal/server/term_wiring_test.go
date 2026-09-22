@@ -99,12 +99,29 @@ func TestInterceptDoesNotWriteUserClaudeSettings(t *testing.T) {
 	if _, err := os.Stat(wrap); !os.IsNotExist(err) {
 		t.Fatal("wrapper should be gone after disable")
 	}
-	// The tmux guard defaults on (ADR-0138): with the CLI wrappers gone it is
-	// still an intercept, and it is the one wrapper left.
+	// Two surface policies default on: the tmux guard (ADR-0138) and the
+	// browser hand-off (ADR-0180). With the CLI wrappers gone they are what
+	// remains, and they keep the intercept bin dir on PATH.
 	if interceptSessionPath(dataDir) == "" {
-		t.Fatal("the guard must keep the intercept bin dir on PATH")
+		t.Fatal("the default-on wrappers must keep the intercept bin dir on PATH")
 	}
 	entries, err := os.ReadDir(interceptBinDir(dataDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := []string{}
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	want := strings.Join([]string{"picode-open", "tmux", "wslview", "xdg-open"}, ",")
+	if strings.Join(names, ",") != want {
+		t.Fatalf("intercept dir = %v, want %s", names, want)
+	}
+	// Disabling the hand-off leaves only the guard.
+	if res := postJSON(t, ts, "/api/terminals/wiring/open-url/disable", map[string]any{}); res.StatusCode != http.StatusOK {
+		t.Fatalf("disable open-url = %d", res.StatusCode)
+	}
+	entries, err = os.ReadDir(interceptBinDir(dataDir))
 	if err != nil || len(entries) != 1 || entries[0].Name() != "tmux" {
 		t.Fatalf("intercept dir = %v (err %v), want only the tmux guard", entries, err)
 	}

@@ -1,10 +1,13 @@
-// Package osopen opens paths in the host operating system's own UI —
-// the file manager today. It knows the WSL bridge (explorer.exe with a
-// converted or UNC path); plain Linux, macOS and Windows are one exec each.
+// Package osopen opens paths and URLs in the host operating system's own
+// UI — the file manager or the default browser. It knows the WSL bridge
+// (explorer.exe for folders, PowerShell Start-Process for links, the URL
+// handed over through an environment variable so no shell ever parses it);
+// plain Linux, macOS and Windows are one exec each.
 package osopen
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,5 +116,72 @@ func Reveal(path string) error {
 		return exec.Command("open", path).Start()
 	default:
 		return exec.Command("xdg-open", path).Start()
+	}
+}
+
+// ValidOpenURL applies the same allowlist the desktop shell applies before
+// handing a target to the OS (desktop-shell/src/external.rs): a trimmed
+// http(s) URL, bounded length, no whitespace or characters that could read
+// as a second command. '&' stays legal — a link is one argv element here,
+// and OAuth login URLs carry query strings.
+func ValidOpenURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || len(raw) > 2048 {
+		return "", fmt.Errorf("osopen: no openable URL")
+	}
+	if strings.IndexFunc(raw, func(r rune) bool {
+		return r <= 0x20 || r == 0x7f || strings.ContainsRune("\"'`<>^", r)
+	}) >= 0 {
+		return "", fmt.Errorf("osopen: unsafe character in URL")
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("osopen: only http(s) URLs open")
+	}
+	return raw, nil
+}
+
+// windowsPowerShell finds the bridge Start-Process runs on from WSL.
+func windowsPowerShell() string {
+	if p, err := exec.LookPath("powershell.exe"); err == nil {
+		return p
+	}
+	for _, p := range []string{
+		"/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+	} {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+// OpenURL opens url in the host's default browser:
+// WSL → the Windows browser via Start-Process (the URL travels in an
+// environment variable: Powershell reads $Env:PICODE_OPEN_URL, so the link
+// is never parsed as a command line), macOS → open, Linux → xdg-open,
+// Windows → rundll32's file-protocol handler. All forms pass the URL as
+// one argv element; no shell sees it.
+func OpenURL(raw string) error {
+	url, err := ValidOpenURL(raw)
+	if err != nil {
+		return err
+	}
+	if RunningWSL() {
+		exe := windowsPowerShell()
+		if exe == "" {
+			return fmt.Errorf("can't find powershell.exe")
+		}
+		cmd := exec.Command(exe, "-NoProfile", "-NonInteractive", "-Command", "Start-Process -FilePath $Env:PICODE_OPEN_URL")
+		cmd.Env = append(os.Environ(), "PICODE_OPEN_URL="+url)
+		return cmd.Start()
+	}
+	switch runtime.GOOS {
+	case "windows":
+		return exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		return exec.Command("open", url).Start()
+	default:
+		return exec.Command("xdg-open", url).Start()
 	}
 }

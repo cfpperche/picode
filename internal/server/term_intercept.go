@@ -54,9 +54,14 @@ func wrapperPath(dataDir, binName string) string {
 
 func interceptOn(dataDir, cliID string) bool {
 	m := loadInterceptEnabled(dataDir)
-	if cliID == TmuxGuardID {
+	switch cliID {
+	case TmuxGuardID:
 		// ADR-0138: the tmux guard defaults on — three measured incidents are
 		// the context. Only an explicit opt-out (wiring disable) turns it off.
+		on, seen := m[cliID]
+		return !seen || on
+	case OpenURLID:
+		// ADR-0180: the browser hand-off defaults on for the same reason.
 		on, seen := m[cliID]
 		return !seen || on
 	}
