@@ -4,6 +4,17 @@ export function agentsOf(ws) {
   return list.filter((a) => a && a.id);
 }
 
+// ownerOfTerminal: the agent bound to a terminal (a CLI agent's launch
+// terminal, ADR-0160), in a workspace or the free list; null when none.
+export function ownerOfTerminal(workspaces, freeAgents, terminalId) {
+  if (!terminalId) return null;
+  for (const ws of workspaces || []) {
+    for (const a of agentsOf(ws)) if (a.terminalId === terminalId) return a;
+  }
+  for (const a of freeAgents || []) if (a && a.terminalId === terminalId) return a;
+  return null;
+}
+
 export function locate(workspaces, freeAgents, agentId) {
   if (!agentId) return null;
   for (const ws of workspaces || []) {

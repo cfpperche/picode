@@ -16,7 +16,7 @@ a rule's cron or zone clears its last fire, so it never catches up a slot
 it was not yet asked for. `internal/cron` is a stdlib 5-field matcher. The runner lives in `internal/server` (`automations_run.go`):
 the decision table (`decideFire` — Pi is required only for `start`, which
 creates a Pi agent, and for a `message` whose target is a stopped Pi agent;
-a guest agent is reached through its launch terminal, ADR-0179) then, for `start`, one agent per
+a guest agent is reached through its launch terminal while it is open — `Fire` hands an interactive guest to `doorRun`, a stopped one skips as `terminal closed` before any door call; the Pi-only `agent in terminal` skip does not apply to guests, ADR-0179) then, for `start`, one agent per
 automation (created lazily) whose `session_path` is cleared so
 `Runtime.Start` mints a fresh session (ADR-0039), `startManaged` +
 `SendTurn`, a `RunObserver` on the managed agent for settle / exit /

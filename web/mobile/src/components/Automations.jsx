@@ -36,7 +36,7 @@ const CATEGORIES = [
 // automations.md): schedule + webhook only, bounds instead of babysitting,
 // results in the Inbox. Polls like the dashboard (ADR-0042): 15 s, paused
 // while hidden, last good results kept.
-export default function Automations({ hidden, catalog, workspaces, freeAgents, system, clis = [] }) {
+export default function Automations({ hidden, catalog, workspaces, freeAgents, system, clis = [], clisLoaded = true }) {
   const [sub, setSub] = useState(() => automationRoute());
   const [items, setItems] = useState(null);
   const [loadErr, setLoadErr] = useState("");
@@ -108,7 +108,7 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
 
   // Pi is one CLI among nine (ADR-0179): the banner appears only when Pi is
   // absent AND some automation would need it (a start, or a message to a Pi agent).
-  const piMissing = useMemo(() => automationsBlockedByPi(clis, items, workspaces, freeAgents), [clis, items, workspaces, freeAgents]);
+  const piMissing = useMemo(() => clisLoaded && automationsBlockedByPi(clis, items, workspaces, freeAgents), [clisLoaded, clis, items, workspaces, freeAgents]);
   const agents = useMemo(() => mentionAgents(workspaces, freeAgents, null), [workspaces, freeAgents]);
   const current = sub && sub !== "new" && items ? items.find((a) => a.id === sub) : null;
 

@@ -29,6 +29,7 @@
     "./domain/agentStatus.js": "./domain/agentStatus.js",
     "./domain/agentTerminal.js": "./domain/agentTerminal.js",
     "./domain/agentRowMenu.js": "./domain/agentRowMenu.js",
+    "./domain/workspaceRowMenu.js": "./domain/workspaceRowMenu.js",
     "./domain/appGroups.js": "./domain/appGroups.js",
     "./domain/appRefreshQueue.js": "./domain/appRefreshQueue.js",
     "./domain/appSearch.js": "./domain/appSearch.js",

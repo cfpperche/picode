@@ -20,7 +20,9 @@ Omp (ADR-0160, ADR-0179). Only Pi has a **managed** mode (`pi --mode rpc`:
 structured chat, composer, Pi's Packages and Settings panes — ADR-0091); every
 other CLI runs its own TUI in a PiCode terminal. **Pi is one CLI among nine,
 never a dependency**: PiCode installs, provisions and runs with none of them
-present, and tmux is the only runtime requirement. Copy or code that presents
+present, and tmux is its only runtime requirement (git for workspaces, and
+Node.js/npm to install CLIs from Agent CLIs, are conveniences, not PiCode's
+own needs). Copy or code that presents
 Pi as required, or PiCode as "for Pi", is a defect. Managed mode for the other
 CLIs is future work, not a capability to infer from a terminal integration.
 

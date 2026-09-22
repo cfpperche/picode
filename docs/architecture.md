@@ -8,7 +8,7 @@
 PiCode is a **single Go binary that serves a browser UI** and manages **real
 coding-agent CLI processes** — Pi, Claude Code, Codex, Grok, Hermes Agent,
 OpenCode, Muse Code, Antigravity, Omp — on the machine where it runs. None of
-them is a dependency; tmux is the only runtime requirement (ADR-0179). A Pi
+them is a dependency; tmux is PiCode's only runtime requirement (ADR-0179). A Pi
 agent can use one of two exclusive channels: a tmux-backed PTY that renders the genuine Pi TUI inside a
 browser terminal, or an RPC bridge (`pi --mode rpc`, JSONL over stdio) that
 feeds the rich UI with structured events. An Inbox reply may borrow the RPC
@@ -73,11 +73,14 @@ registers the logon task. `install` walks a state machine
 (`internal/desktop.NextStage`, derived from observation so any interruption
 resumes): WSL, distro, account, then — since ADR-0098's stages landed — the
 picode binary (the tool's own release, verified) and the runtime (tmux, git,
-curl, Node.js 22 from NodeSource when node or npm is missing — a node already
-present is left alone; Ubuntu only), asking first on a distro PiCode did not
-register, and ends with the shell running. No agent CLI is installed by the
-tool (ADR-0179): the user adds the ones they use from Agent CLIs after the
-first login. `--user <name>` aims the binary at one account (its
+curl, Node.js 22 from NodeSource when node or npm is missing or older than
+22; Ubuntu only), asking first on a distro PiCode did not register, and ends
+with the shell running. No agent CLI is installed by the tool (ADR-0179): the
+user adds the ones they use from Agent CLIs after the first login, and that
+Install runs `npm install -g` as the account — so when the global npm prefix
+is root-owned (under `/usr`, NodeSource's or the distro's) the stage sets the
+account's prefix to `~/.local` (`npm config set prefix`, as that account),
+whose `bin` the login shell already carries. An nvm prefix is left alone. `--user <name>` aims the binary at one account (its
 `~/.local/bin`); the observation probe runs as the target account so a binary
 only it can see still converges. The
 launcher waits for the elevated child and reports a failing exit code instead

@@ -3,7 +3,7 @@ import { api } from "@picode/shared/client/api.js";
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 import PageFrame from "./PageFrame.jsx";
 
-export default function System({ hidden, version, system: systemProp, clis = [] }) {
+export default function System({ hidden, version, system: systemProp, clis = [], clisState = "ok" }) {
   const [fetched, setFetched] = useState(null);
   const [ver, setVer] = useState(version || "");
   useEffect(() => {
@@ -43,8 +43,13 @@ export default function System({ hidden, version, system: systemProp, clis = [] 
 
       <section className="settings-section">
         <h3>Agent CLIs</h3>
-        <dl className="sys-rows" id="system-clis">
-          {cliRows(clis).map(([k, v, href]) => (
+        {clisState === "error" ? (
+          <p className="settings-desc" role="status">Could not read the list of CLIs. <a className="settings-link" style={{ whiteSpace: "nowrap" }} href={cliPaneHash("")}>Open Agent CLIs</a></p>
+        ) : null}
+        <dl className="sys-rows" id="system-clis" aria-busy={clisState === "loading" ? "true" : undefined}>
+          {clisState === "loading" ? [0, 1, 2].map((i) => (
+            <div className="sys-row" key={"cs" + i} aria-hidden="true"><dt><span className="skel-line w-40" style={{ display: "inline-block", width: "8em" }} /></dt><dd><span className="skel-line" style={{ display: "inline-block", width: "6em" }} /></dd></div>
+          )) : clisState === "error" ? null : cliRows(clis).map(([k, v, href]) => (
             <div className="sys-row" key={"c" + k}><dt>{href ? <a className="settings-link" href={href}>{k}</a> : k}</dt><dd>{v}</dd></div>
           ))}
         </dl>
@@ -100,11 +105,12 @@ function depRows(system) {
 }
 
 // cliRows: one line per agent CLI in the catalog (`GET /api/clis`), the
-// name linking to its page. None is required (ADR-0179); the empty state
-// says where to install one.
+// name linking to its page. None is required (ADR-0179). The catalog lists
+// every CLI whether installed or not, so an empty answer is unusual; while
+// it loads the section shows skeleton rows, and a failed read says so.
 function cliRows(clis) {
   const rows = (clis || []).filter((c) => c && c.id);
-  if (!rows.length) return [["Agent CLIs", "none installed yet — open Agent CLIs to install one", cliPaneHash("")]];
+  if (!rows.length) return [["Agent CLIs", "none listed", cliPaneHash("")]];
   return rows.map((c) => {
     const d = c.diagnostic || {};
     let v = "not installed · optional";

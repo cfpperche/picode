@@ -9,12 +9,12 @@
 
 import { createHash } from "node:crypto";
 
-/** The actions the daemon serves; queues and deploy are not among them. */
-export const ACTIONS = ["capabilities", "register", "update", "request-review", "withdraw-review", "show", "list"] as const;
+/** The actions the daemon serves; deploy is not among them. */
+export const ACTIONS = ["capabilities", "register", "update", "request-review", "withdraw-review", "request-integration", "withdraw-integration", "show", "list"] as const;
 export type Action = (typeof ACTIONS)[number];
 
 /** Mutations carry a retry key and answer with a version. */
-export const MUTATIONS: readonly string[] = ["register", "update", "request-review", "withdraw-review"];
+export const MUTATIONS: readonly string[] = ["register", "update", "request-review", "withdraw-review", "request-integration", "withdraw-integration"];
 
 /**
  * What each action may carry (`store.ValidateDeliveryMutation`). The daemon
@@ -28,6 +28,11 @@ export const FIELDS_BY_ACTION: Record<Action, readonly string[]> = {
 	update: ["id", "expectedVersion", "title", "branch", "revision", "target"],
 	"request-review": ["id", "expectedVersion"],
 	"withdraw-review": ["id", "expectedVersion"],
+	// The entry is bound to what the delivery declares, so the revision and
+	// target are named here and must match it.
+	"request-integration": ["id", "revision", "target"],
+	// The id is the queue entry's, from the request or from show.
+	"withdraw-integration": ["id", "expectedVersion"],
 	show: ["id"],
 	list: ["before"],
 };

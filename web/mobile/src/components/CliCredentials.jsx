@@ -167,8 +167,18 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // roster carries an oauth kind and the CLI has a sign-in at all, the dialog
   // offers the guided flow — the vendor's OAuth happens in the CLI (ADR-0168),
   // never here.
+  const picked = providers.find((p) => p.id === form.provider);
+  const pickedName = providerName(form.provider, picked?.name);
   const guidedPick = !!addSpec && !!data && data.signin && data.signin.available
-    && (providers.find((p) => p.id === form.provider)?.kinds || []).includes("oauth");
+    && (picked?.kinds || []).includes("oauth");
+  // A provider that takes no key (a subscription-only one, like most of Omp's
+  // own catalog) offers no key field and no Save: a key saved for it would be
+  // a vault row nothing ever reads.
+  const keyless = !!picked && !(picked.kinds || []).includes("api_key");
+  // The Add select can hold Omp's whole /login roster (~80): alphabetical is
+  // the only order a person can scan.
+  const pickList = [...providers].sort((a, b) =>
+    providerName(a.id, a.name).localeCompare(providerName(b.id, b.name), undefined, { sensitivity: "base" }));
 
   function openPrimary() {
     if (addKind === "provider") setAddProviderOpen(true);
@@ -220,6 +230,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
 
   async function save(e) {
     e.preventDefault();
+    if (keyless) return;
     const parsed = parseForm(apiKeySchema, { key: form.key });
     if (!parsed.ok) { setFormError(parsed.error); return; }
     setSaving(true);
@@ -350,7 +361,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
 
   async function rename(provider, account) {
     const name = await askPrompt({
-      title: "Rename " + (account.label || providerName(provider.id)),
+      title: "Rename " + (account.label || providerName(provider.id, provider.name)),
       message: "The name only — the credential is untouched.",
       defaultValue: account.label || "",
       confirmLabel: "Save",
@@ -376,7 +387,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
       // endpoint — the saved models.yml key spent on one minimal request.
       const res = await api("/api/providers/" + encodeURIComponent(provider.id) + "/verify", json("POST", { cli }));
       setVerdicts((prev) => ({ ...prev, [provider.id]: res }));
-      if (res && res.ok) toast.ok(res.label ? provider.id + ": " + res.label + "." : cliName + " can use " + providerName(provider.id) + ".");
+      if (res && res.ok) toast.ok(res.label ? provider.id + ": " + res.label + "." : cliName + " can use " + providerName(provider.id, provider.name) + ".");
       else toast.error(provider.id + ": " + ((res && (res.reason || res.status)) || "not ready"));
     } catch (ex) {
       toastError(ex);
@@ -389,7 +400,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // file: removing it is the only way to un-key a gateway, so the confirm
   // names both halves.
   async function removeProvider(provider) {
-    const name = providerName(provider.id);
+    const name = providerName(provider.id, provider.name);
     const ok = await askConfirm({
       title: "Remove " + name,
       message: "Removes the definition and its saved key from " + cliName + "’s models.yml. The gateway itself is not touched.",
@@ -455,7 +466,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // the file the CLI already reads, never a new home and never an env var.
   // The confirm says what is replaced; the first write keeps a copy of it.
   async function use(provider, account) {
-    const label = account.label || providerName(provider.id);
+    const label = account.label || providerName(provider.id, provider.name);
     const ok = await askConfirm({
       title: "Use " + label + " in " + cliName + "?",
       message: cliName + "’s own login file is replaced. The first time, PiCode keeps a copy of what is in it now.",
@@ -471,7 +482,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   async function signOut(provider, account) {
     const identity = identityLine(account, account.usage);
     const ok = await askConfirm({
-      title: "Sign out " + (account.label || providerName(provider.id)),
+      title: "Sign out " + (account.label || providerName(provider.id, provider.name)),
       message: "Removes this login from the vault." + (identity ? " " + identity + "." : ""),
       confirmLabel: "Sign out",
       danger: true,
@@ -624,7 +635,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
               </div>
             ) : null}
             {shown.map((p) => {
-              const name = providerName(p.id);
+              const name = providerName(p.id, p.name);
               const note = String(p.note || "").trim();
               const rows = orderAccounts(p.accounts);
               const rowSpend = spend.get(p.id);
@@ -748,10 +759,16 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                   value={form.provider}
                   onChange={(e) => setForm({ provider: e.target.value, key: form.key })}
                 >
-                  {providers.map((p) => <option key={p.id} value={p.id}>{providerName(p.id)}</option>)}
+                  {pickList.map((p) => <option key={p.id} value={p.id}>{providerName(p.id, p.name)}</option>)}
                 </select>
               </label>
-              <label className="cred-field">
+              {keyless ? (
+                <p className="cred-help">
+                  {guidedPick
+                    ? pickedName + " signs in through " + cliName + " — no key needed."
+                    : pickedName + " signs in inside " + cliName + " itself; there is no key to save here."}
+                </p>
+              ) : <label className="cred-field">
                 <span>API key</span>
                 <input
                   className="cred-input"
@@ -763,10 +780,10 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                   onChange={(e) => setForm({ provider: form.provider, key: e.target.value })}
                 />
                 <em className="cred-help">This key stays on this machine. Nothing here uploads it.</em>
-              </label>
-              {guidedPick ? (
+              </label>}
+              {guidedPick && !keyless ? (
                 <p className="cred-help">
-                  {providerName(form.provider)} also signs in — the OAuth happens in {cliName}, not here.
+                  {pickedName} also signs in — the OAuth happens in {cliName}, not here.
                 </p>
               ) : null}
               <p className="form-error" role="alert" hidden={!formError}>{formError}</p>
@@ -774,7 +791,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                 {guidedPick ? (
                   <button
                     type="button"
-                    className="btn btn-ghost btn-sm"
+                    className={keyless ? "btn btn-primary btn-sm" : "btn btn-ghost btn-sm"}
                     disabled={busy === "signin"}
                     onClick={guidedSignin}
                   >
@@ -782,7 +799,9 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                   </button>
                 ) : null}
                 <button type="button" className="btn btn-ghost btn-sm" onClick={closeAdd}>Cancel</button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                {keyless ? null : (
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                )}
               </div>
             </form>
           </Dialog.Content>
@@ -798,7 +817,7 @@ function AccountRow({
   provider, account, first, cliName, money, verdict, busy, addLabel,
   onUse, onRename, onVerify, onVerifyProvider, onCheck, onPause, onSignOut, onEdit, onAdd,
 }) {
-  const name = providerName(provider.id);
+  const name = providerName(provider.id, provider.name);
   const label = account.label || name;
   const identity = identityLine(account, account.usage);
   const kind = kindLabel(account.type);

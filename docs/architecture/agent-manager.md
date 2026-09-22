@@ -124,6 +124,22 @@ HTTP API (Go 1.22 method patterns):
   public/static/app/src/app/www/docs and nested frontends, including Next.js
   App Router `icon.svg` under `app/` or `apps/<name>/app/`; svg > png > ico),
   read-only and confined to the folder; the workspace card wears it.
+- The workspace list carries the card menu's ways out of PiCode: `remote`
+  (`internal/gitinfo/remote.go` — origin, else the first remote, turned into
+  the repository's web page with credentials and ports dropped; `host`,
+  `kind` github/gitlab/bitbucket/azure, and `defaultBranch` from
+  `refs/remotes/<name>/HEAD`) and, under WSL, `winPath` (the drive or
+  `\\wsl.localhost` path, `osopen.WindowsPath`). Two local git execs per
+  repository workspace; a plain folder or an ssh alias remote carries none.
+  The menu itself is `@picode/shared/domain/workspaceRowMenu.js`: inside
+  PiCode (Communication, Files, Git graph, Sessions), out of it (Show in
+  Explorer / file manager through `POST /api/workspaces/{id}/reveal`, Open
+  on <host>, the branch's pull request, Copy path — Linux and Windows under
+  WSL), order moves, then Remove. The pull-request row asks
+  `GET /api/workspaces/{id}/pr` (gh, cached a minute) only when the menu
+  opens on a GitHub branch other than the default; with no PR or no gh it
+  links the host's new-request page, and never offers one for the default
+  branch.
 - `DELETE /api/workspaces/{id}` — remove (stops **all** agents first, then
   kills the workspace's terminals — sessions best-effort, records and
   settings overrides in one transaction; ADR-0026). With

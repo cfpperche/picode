@@ -44,7 +44,8 @@ does not replace the CLIs: every agent is the real CLI process, and its
 genuine TUI remains one tab away.
 
 PiCode works with whichever of those CLIs you install; none is required, and
-tmux is the only runtime dependency (ADR-0179). An agent is a workspace or
+PiCode itself needs only tmux (ADR-0179); installing a CLI from Agent CLIs
+uses Node.js and npm. An agent is a workspace or
 free instance of any of them (ADR-0160). Pi is the one CLI that also has a
 managed mode — structured chat and a composer over its own RPC (ADR-0091);
 the others run their TUI in a PiCode terminal until they get a managed

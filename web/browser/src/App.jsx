@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { OPEN_LINK_EVENT } from "./lib/externalLinks.js";
+import { installOpenUrlFeed } from "./lib/openUrlFeed.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
@@ -107,7 +108,7 @@ import { isSearchTool, hitsFromResult } from "@picode/shared/domain/searchCards.
 import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import PromptDialog from "./components/PromptDialog.jsx";
 import { askPrompt } from "./lib/prompt.js";
-import { locate, firstAgentId, displayAgentName, mentionAgents } from "@picode/shared/domain/tree.js";
+import { locate, ownerOfTerminal, firstAgentId, displayAgentName, mentionAgents } from "@picode/shared/domain/tree.js";
 import { leafUserId } from "./lib/sessionCards.js";
 
 function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
@@ -341,6 +342,7 @@ export default function App({ shellChrome = false } = {}) {
 
   const [terminals, setTerminals] = useState([]);
   const [clis, setClis] = useState([]);
+  const [clisState, setClisState] = useState("loading"); // loading | ok | error
   const clisRef = useRef([]);
   clisRef.current = clis;
   const [termHandoff, setTermHandoff] = useState(null);
@@ -409,6 +411,9 @@ export default function App({ shellChrome = false } = {}) {
   const located = locate(workspaces, freeAgents, selectedId);
   const selected = located && located.workspace;
   const agent = located && located.agent;
+  // A CLI agent opens as its bound terminal's tab (ADR-0160), so "the selected
+  // agent" for the CLI panes is the agent that owns the selected terminal.
+  const ctxAgent = agent || (isTermTab(selectedId) ? ownerOfTerminal(workspaces, freeAgents, tabTermId(selectedId)) : null);
   // A workspace terminal tab still has that folder as the packages/MCP context
   // (machine list must not disappear — same rule as GET /api/packages).
   const paneWs = selected || (isTermTab(selectedId) ? workspaceForTerminal(terminals, workspaces, tabTermId(selectedId)) : null);
@@ -815,6 +820,10 @@ export default function App({ shellChrome = false } = {}) {
 
   useEffect(() => {
     (async () => {
+      // The CLI catalog starts with the boot, not after the Pi model catalog:
+      // System and the Automations banner read it (ADR-0179).
+      const clisBoot = api("/api/clis");
+      clisBoot.then(() => setClisState("ok"), () => setClisState("error"));
       try {
         const [sys, ver] = await Promise.all([api("/api/system"), api("/api/version")]);
         setSystem(sys);
@@ -825,7 +834,7 @@ export default function App({ shellChrome = false } = {}) {
       } catch { /* offline */ }
       try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
       try {
-        const cliCatalog = await api("/api/clis");
+        const cliCatalog = await clisBoot;
         setClis(cliCatalog.clis || []);
       } catch { /* Continue in… stays hidden until this lands */ }
       try {
@@ -1060,7 +1069,7 @@ export default function App({ shellChrome = false } = {}) {
   }, [webapps, webappsLoaded, tabs, tabsReady]);
   useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("cli."))) {
-      api("/api/clis").then((d) => setClis(d.clis || [])).catch(() => {});
+      api("/api/clis").then((d) => { setClis(d.clis || []); setClisState("ok"); }).catch(() => setClisState((s) => (s === "ok" ? s : "error")));
     }
   }), []);
   useEffect(() => subscribeFeed((ev) => {
@@ -2916,7 +2925,10 @@ export default function App({ shellChrome = false } = {}) {
         created = await api("/api/agents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: snap.name, path: snap.workPath || "" }),
+          body: JSON.stringify({
+            cli: snap.cli, name: snap.name, path: snap.workPath || "",
+            provider: snap.provider || "", model: snap.model || "", thinking: snap.thinking || "",
+          }),
         });
       }
       const patch = {};
@@ -3576,6 +3588,18 @@ export default function App({ shellChrome = false } = {}) {
       .catch(() => openWebTab(url));
   }, []);
 
+  // A CLI's "open in the browser" (ADR-0180: login pages above all) comes
+  // in over the feed — the wrapper in the terminal posts to the daemon,
+  // which turns it into terminal.open_url. The client actually on screen
+  // answers through the clicked-link path, so the destination preference
+  // governs it too; a hidden client stays out (the daemon's host fallback
+  // covers the nobody-watching case).
+  useEffect(() => installOpenUrlFeed({
+    subscribe: subscribeFeed,
+    open: openTermLink,
+    hidden: () => typeof document !== "undefined" && document.visibilityState !== "visible",
+  }), [openTermLink]);
+
   // The wordmark's one action, shared by the shell's top row and the
   // browser's sidebar: show the dashboard. Pinning alone was not enough.
   //  - The dashboard is rendered inside the workspace view, which the
@@ -3746,7 +3770,7 @@ export default function App({ shellChrome = false } = {}) {
           inShell: shellChrome,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id, cli: agent?.cli }),
+          onNavigate: (kind) => go(kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }),
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,
@@ -4268,13 +4292,13 @@ export default function App({ shellChrome = false } = {}) {
           themeMode={themeMode}
           onTheme={setTheme}
         />
-        <System hidden={route !== "system"} version={version} system={system} clis={clis} />
+        <System hidden={route !== "system"} version={version} system={system} clis={clis} clisState={clisState} />
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
         <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
         <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
-        <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} />
+        <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} clisLoaded={clisState === "ok"} />
         <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
@@ -4339,7 +4363,7 @@ export default function App({ shellChrome = false } = {}) {
             location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : "");
             return;
           }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id, cli: agent?.cli }); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
             const via = loc && loc.agent && loc.agent.mode === "interactive" ? "tui" : undefined;

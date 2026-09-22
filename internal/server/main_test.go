@@ -41,6 +41,10 @@ func TestMain(m *testing.M) {
 	// 2026-09-21. Same class as the 2026-09-16 HOME leak below, one variable
 	// further along — so it gets the same sandbox and its own guardrail.
 	os.Setenv("PICODE_DATA", filepath.Join(home, ".picode"))
+	// Omp's roster appends the providers of the omp on PATH (clicreds'
+	// omp_catalog.go): a developer machine with Omp installed would get a
+	// different roster than CI. Point the reader at nothing.
+	os.Setenv("PICODE_OMP_RULES", filepath.Join(home, "no-omp-rules.json"))
 	os.Exit(tmuxtest.Main(m))
 }
 

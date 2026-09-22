@@ -15,7 +15,7 @@ Clone the repo only when you are changing PiCode.
 
 ## 1. Install tmux
 
-PiCode keeps every agent and terminal alive in tmux, so work survives a closed browser tab. Install tmux 3.5+ from your distro's package. Nothing else is required: the coding-agent CLIs come in step 3.
+PiCode keeps every agent and terminal alive in tmux, so work survives a closed browser tab. Install tmux 3.5+ from your distro's package. PiCode itself needs nothing else; the coding-agent CLIs come in step 3, and installing them from Agent CLIs uses Node.js and npm.
 
 ## 2. Install PiCode
 
@@ -32,7 +32,7 @@ chmod +x picode-linux-amd64
 
 ## 3. Install the CLIs you use
 
-PiCode runs the real CLIs — Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and Omp — and works with whichever of them you install; none is required. Open `https://localhost:8445`, then **Agent CLIs**: the page shows which CLIs are on this machine, offers **Install** for Pi, Codex and Claude Code, and links the vendor's own command for the others. For example:
+PiCode runs the real CLIs — Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and Omp — and works with whichever of them you install; none is required. Open `https://localhost:8445`, then **Agent CLIs**: the page shows which CLIs are on this machine and offers **Install** for Pi, Claude Code, Codex, OpenCode and Omp (through npm, so Node.js and npm must be present); the others link their vendor's install guide. By hand, for example:
 
 ```bash
 npm install -g @earendil-works/pi-coding-agent   # Pi

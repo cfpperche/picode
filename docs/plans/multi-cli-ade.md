@@ -2,6 +2,11 @@
 
 > **Status: approved by the owner (2026-09-22).** Decision: [ADR-0179](../decisions/0179-agent-clis-optional.md).
 > Progress and debts: [`docs/handoff/open/multi-cli-ade.md`](../handoff/open/multi-cli-ade.md).
+> **Executed 2026-09-22.** All five branches landed; the pi-update route and
+> `errAgentCmdMissing` named below as current are gone. An adversarial review
+> the same day found and fixed three defects in what landed (guest automations,
+> the installer's npm prefix, CLI panes for guest tabs): see the session notes
+> `2026-09-22-guest-automations`, `-npm-user-prefix` and `-ade-review-tail`.
 
 ## Why
 
@@ -204,7 +209,7 @@ CLI → X" and name Pi only where it is the only one.
    `/api/system` without a `pi` key or npm warning; System shows tmux as the
    only requirement and the Agent CLIs section with "not installed" for Pi;
    no Automations banner when only guest-agent automations exist; a message
-   automation to a Claude Code or Omp agent delivers through the door;
+   automation to a Claude Code or Omp agent with its terminal open delivers through the door;
    `picode provision --dry-run` converges with an informational `clis` step;
    a free Omp agent from the sidebar opens its free terminal.
 3. Instance with `pi` on the PATH: nothing regresses (System shows Pi's

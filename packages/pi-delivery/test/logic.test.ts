@@ -98,6 +98,30 @@ test("each action carries exactly its own fields", () => {
 	assert.deepEqual(okBody({ action: "capabilities" }), { action: "capabilities", agent: "a1", term: "t1" });
 });
 
+// A queue request names the revision and target the delivery declares, and a
+// withdraw names the entry's own id and version — nothing else travels.
+test("the queue actions carry the declaration's revision and the entry's version", () => {
+	assert.deepEqual(okBody({ action: "request-integration", id: "d1", revision: "c".repeat(40), target: "main" }), {
+		action: "request-integration",
+		id: "d1",
+		revision: "c".repeat(40),
+		target: "main",
+		requestId: stableRequestId("s1", "request-integration", { action: "request-integration", id: "d1", revision: "c".repeat(40), target: "main" }),
+		agent: "a1",
+		term: "t1",
+	});
+	assert.match(refused({ action: "request-integration", id: "d1", revision: "c".repeat(40), target: "main", expectedVersion: 2 }), /request-integration does not take expectedVersion — it takes id, revision, target/);
+	assert.match(refused({ action: "withdraw-integration", id: "q1", expectedVersion: 3, title: "T" }), /withdraw-integration does not take title — it takes id, expectedVersion/);
+	assert.deepEqual(okBody({ action: "withdraw-integration", id: "q1", expectedVersion: 3 }), {
+		action: "withdraw-integration",
+		id: "q1",
+		expectedVersion: 3,
+		requestId: stableRequestId("s1", "withdraw-integration", { action: "withdraw-integration", id: "q1", expectedVersion: 3 }),
+		agent: "a1",
+		term: "t1",
+	});
+});
+
 test("empty values are left out of the payload", () => {
 	assert.deepEqual(okBody({ action: "update", id: "d1", expectedVersion: 2, title: "T", branch: "", revision: null, target: undefined }), {
 		action: "update",
@@ -140,6 +164,6 @@ test("summarize reads the daemon's answer", () => {
 // Every action the daemon serves is reachable from the tool; the field
 // table above is what the schema descriptions promise.
 test("the action list matches the field table", () => {
-	assert.deepEqual(ACTIONS, ["capabilities", "register", "update", "request-review", "withdraw-review", "show", "list"]);
+	assert.deepEqual(ACTIONS, ["capabilities", "register", "update", "request-review", "withdraw-review", "request-integration", "withdraw-integration", "show", "list"]);
 	assert.deepEqual(Object.keys(FIELDS_BY_ACTION).sort(), [...ACTIONS].sort());
 });

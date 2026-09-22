@@ -195,14 +195,15 @@ activity through the omp-shaped terminal-state extension injected with
 `agent_end` settles it only when `willContinue` is unset, approvals arrive
 as `tool_approval_requested`/`resolved` and the ask card as
 `tool_execution_start`/`tool_result`, so omp reports Ready, Working and
-needs-you; the pi events `agent_settled`/`ui_prompt_*` never fire). The same
-`-e` branch carries a second extension, the checklist mirror (ADR-0055):
-omp's native `todo` tool is the plan, and the mirror POSTs its committed
-phases to the terminal (or bound agent's) checklist routes, so the sidebar
-shows the current step the way `pi-checklist` does for pi. It registers no
-tool and gates nothing — the todo contract and omp's own reminder stay
-authoritative — and headless `-p` runs stay silent through the TUI-mode
-guard. `Check setup`
+needs-you; the pi events `agent_settled`/`ui_prompt_*` never fire). The
+checklist is not injected: `packages/omp-checklist` is an installable omp
+package (ADR-0055) the user puts at whatever scope they want — Global
+(Omp's user layer), This workspace (`.omp/settings.json`, like
+`pi-browser`) or an agent's package list (each entry launches as `-e`).
+It watches omp's native `todo` tool — no new tool, nothing gated — and
+mirrors the committed phases to the checklist routes, so the sidebar
+shows the current step the way `pi-checklist` does for pi.
+`Check setup`
 runs `omp --version`, which needs
 Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
 bundle. Lifecycle mirrors pi with the real npm package

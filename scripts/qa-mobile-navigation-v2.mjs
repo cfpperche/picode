@@ -141,13 +141,10 @@ try {
       return route.fulfill({ json: newAgent });
     });
     await page.goto(mobile("#/work/agents"), { waitUntil: "domcontentloaded" });
-    await page.getByText("No free agents yet.", { exact: true }).waitFor();
+    await page.getByText("No agents yet.", { exact: true }).waitFor();
     await page.waitForTimeout(650);
     await page.getByRole("button", { name: "New agent", exact: true }).first().click();
     await page.locator('.dlg-create input[name="name"]').fill(newAgent.name);
-    await page.locator("#create-provider").selectOption("qa-provider");
-    await page.locator("#create-model").selectOption("qa-model");
-    await page.locator("#create-thinking").selectOption("low");
     holdNext = true;
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await waitFor(oldStarted, "pre-mutation read starts");

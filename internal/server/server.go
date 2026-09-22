@@ -4,7 +4,7 @@
 //
 //	GET  /api/health, /api/version          — liveness/identity
 //	GET  /api/deploy/readiness              — who is working (loopback, no session)
-//	GET  /api/system                        — pi/tmux detection + warnings
+//	GET  /api/system                        — host, network, tmux/mkcert/tailscale
 //	GET/POST /api/workspaces                — registry CRUD
 //	DELETE /api/workspaces/{id}             — remove (+ stop agent)
 //	POST /api/workspaces/{id}/open|close    — start/stop the pi agent (tmux)
@@ -154,6 +154,7 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.DataDir != "" {
 		_, _ = ensureHookScript(deps.DataDir)
 		_, _ = ensurePiReplyExtension(deps.DataDir) // ADR-0060 receiver: fresh on every boot
+		ensureOpenURLWrappers(deps.DataDir)         // ADR-0180: refresh like the hook scripts (or strip on opt-out)
 		for _, cli := range clilaunch.Catalog() {
 			if !cli.Integrable() {
 				continue
@@ -263,7 +264,6 @@ func registerAll(mux Registrar, deps Deps) {
 	registerPeerCommunication(mux, deps)
 	registerPeerOnboarding(mux, deps)
 	registerPackageRoutes(mux, deps)
-	registerCLIPackageRoutes(mux, deps)
 	registerDockerRoutes(mux, deps)
 	registerDeviceRoutes(mux, &deps)
 

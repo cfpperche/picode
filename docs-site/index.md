@@ -18,7 +18,7 @@ hero:
 
 features:
   - title: Real CLIs, not a re-implementation
-    details: Every agent is the real CLI process, and its own TUI stays one tab away — a door, not a cage. None of the CLIs is required; tmux is the only dependency.
+    details: Every agent is the real CLI process, and its own TUI stays one tab away — a door, not a cage. None of the CLIs is required; PiCode itself needs only tmux.
   - title: A terminal that lives in the browser
     details: Each agent gets a web terminal backed by tmux, so work survives reloads, laptops and browser crashes.
   - title: Sessions stay with the CLI
@@ -28,7 +28,7 @@ features:
   - title: Nine CLIs, one fleet
     details: Several agents per workspace, several workspaces per machine, whichever CLI each one runs — all in one sidebar with live state.
   - title: Automations on a schedule
-    details: Trigger an agent run on a timer or a webhook, with templates, cost caps and a full activity log.
+    details: Message any agent on a timer or a webhook while its terminal is open, or start a fresh Pi agent each run — with templates, cost caps and a full activity log.
   - title: Built for the phone too
     details: Approve, reply and supervise from your pocket — push notifications included, no app store needed.
 ---

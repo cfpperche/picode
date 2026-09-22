@@ -19,13 +19,18 @@ const deliveryHelp = `Usage: picode delivery <action> [options]
   update --id ID --expected-version N --title TEXT --branch NAME --revision FULL_SHA --target NAME --request-id KEY
   request-review --id ID --expected-version N --request-id KEY
   withdraw-review --id ID --expected-version N --request-id KEY
+  request-integration --id ID --revision FULL_SHA --target NAME --request-id KEY
+  withdraw-integration --id QUEUE_ID --expected-version N --request-id KEY
   show --id ID
   list [--before SEQUENCE]
 
 Output is JSON. Mutations require a retry key; reuse the exact payload for retries.
 Use the returned version for your next change. An update clears the review request.
 The repository comes from your PiCode launch folder, not the shell's current directory.
-Review requested is not approved. Integration queues and deploy are unavailable.
+Review requested is not approved, and a queue request is a request: the owner
+orders and authorizes it, then PiCode runs it through what the project declares.
+Request only your own delivery, at the revision and target it declares; a queue
+entry carries its own ID and version (show prints them). Deploy is unavailable.
 Requires an existing PiCode agent or terminal identity and daemon access.
 Optional MCP interface: picode mcp delivery (the same contract).
 `

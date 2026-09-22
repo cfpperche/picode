@@ -98,3 +98,51 @@ func TestWorkspaceAgentsCarryTheirOwnGit(t *testing.T) {
 		t.Fatalf("agents = %+v; want one on feature-x (own workPath repo) and one on trunk", ws.Agents)
 	}
 }
+
+// The workspace menu's "Open on GitHub" reads the list: a repository with a
+// web remote carries its page, and a plain folder or a repository without a
+// remote carries none — the menu hides the item instead of greying it.
+func TestWorkspaceListCarriesTheRemotePage(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	plain := t.TempDir()
+	local := t.TempDir()
+	gitInit(t, local)
+	hosted := t.TempDir()
+	gitInit(t, hosted)
+	cmd := exec.Command("git", "remote", "add", "origin", "https://ci:secret@github.com/o/r.git")
+	cmd.Dir = hosted
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("remote: %v: %s", err, out)
+	}
+	for name, dir := range map[string]string{"plain": plain, "local": local, "hosted": hosted} {
+		res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": name, "path": dir})
+		if res.StatusCode != http.StatusCreated {
+			t.Fatalf("workspace %s = %d", name, res.StatusCode)
+		}
+		res.Body.Close()
+	}
+	list, err := ts.Client().Get(ts.URL + "/api/workspaces")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer list.Body.Close()
+	var out []struct {
+		Name   string `json:"name"`
+		Remote *struct {
+			URL  string `json:"url"`
+			Host string `json:"host"`
+		} `json:"remote"`
+	}
+	if err := json.NewDecoder(list.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, w := range out {
+		if w.Remote != nil {
+			got[w.Name] = w.Remote.Host + " " + w.Remote.URL
+		}
+	}
+	if len(got) != 1 || got["hosted"] != "GitHub https://github.com/o/r" {
+		t.Fatalf("remotes = %v, want only hosted on GitHub without its credentials", got)
+	}
+}

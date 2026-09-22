@@ -1364,6 +1364,7 @@ func (p *preparedCLILaunch) startSized(deps Deps, r *http.Request, name, cwd str
 	if b := interceptBinEnv(deps.DataDir); b != "" {
 		env = append(env, b)
 	}
+	env = append(env, openURLEnv(deps.DataDir)...) // ADR-0180: login pages open where the user is looking
 	if err := deps.Tmux.NewSessionEnvSize(r.Context(), name, cwd, width, height, env, "/bin/sh", p.script); err != nil {
 		return err
 	}
