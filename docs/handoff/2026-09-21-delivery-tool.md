@@ -1,0 +1,16 @@
+# 2026-09-21 — delivery-tool: the delivery tool reaches CLIs and pi agents
+Shipped: the launch form's **PiCode tools** switch now offers **Delivery** (`PICODE_TOOL_FAMILIES`, web/shared/domain/cliLaunch.js), so a guest CLI (Claude Code, Codex, OpenCode) receives `picode mcp delivery` injected as `picode-delivery`; before, the family sat in the daemon catalog (`internal/mcptool/delivery.go`) while the form offered four. `packages/pi-delivery` gives a Pi agent the same tool (capabilities/register/update/request-review/withdraw-review/show/list), deriving a mutation's retry key from session + action + payload so a repeat replays. `picode help`/`picode mcp` list the families from the catalog, and `scripts/qa-scratch.sh` no longer passes the caller's `PICODE_AGENT_ID`/`PICODE_TERM_ID`/`PICODE_INSTANCE`/`TMUX` into the daemon it starts.
+Guards: `TestToolFamiliesMatchTheForm` (internal/server) holds the form's list against `mcptool.FamilyNames()`; `TestDeliveryPiPackageMatchesFamily` (internal/mcptool) holds the package's actions and parameters against the MCP schema; 13 package tests in `packages/pi-delivery/test/logic.test.ts`, with `node --test packages/pi-delivery/test/*.test.ts` wired into `make test-js`.
+Verified: on the Linux scratch (localhost, never production) the managed terminal ran `picode delivery capabilities` → `principal: term:qa-34dd88`, `identityScope: launch`, then `register → request-review → show`; the real MCP server over stdio answered `initialize` (`serverInfo.name=picode-delivery`), `tools/list=[delivery]` and a `tools/call` register under the inherited identity; switching Delivery on produced `mcp_servers.picode-delivery.args=["mcp","delivery"]` in the launch plan; `GET /api/workspaces/…/delivery` listed both records; `pi install -l` accepted the package with the global settings untouched. `make ci-scoped: PASS (full)` before the merge, `make close` green after it.
+visual-review: PASS (two screenshots read — the picker fieldset with five switches and the launch pane with the injection) — uiux-review: PASS (no JSX/CSS edit: one data row plus tests)
+Honesty: the tool is a declaration only — no merge, queue, deploy or approval; `request-integration`/`request-deployment` answer `capability unavailable`.
+Docs: `docs/changelog.d/delivery-tool.md` (new), `docs/architecture/delivery.md` (three faces), `docs-site/guide/delivery.md` (three-face table + retry-key line) and `docs-site/guide/packages.md` (pi-delivery row); the "tool picker has no delivery option" debt line in `docs/handoff/open/delivery-flow.md` is flipped to `- [x]`, and its sibling line now records what the scratch exercised.
+Merge: `main` can fast-forward to `feat/delivery-tool`.
+
+## Next up
+
+- The other half of the delivery-flow debt stays open (2026-09-21): no vendor CLI process (Claude Code, Codex, …) has run the tool in a live session — the inherited identity, stdio MCP call and package install are proven, the vendor session is not.
+
+## Debts
+
+- The pi tool's own path is proven by unit tests, MCP-schema parity, `pi install -l` and the identical payload the daemon accepted — not by a live model turn; the QA scratch's data dir under `var/qa/delivery-tool/` (gitignored) still holds that scratch's records.
