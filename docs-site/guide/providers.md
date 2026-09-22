@@ -58,7 +58,7 @@ it — plus the five actions that belong to a CLI whose login is its own file:
 
 | Action | What it does |
 |---|---|
-| **Sign in** | opens a terminal running that CLI's own login (its binary, its browser or device-code flow). **Open terminal** takes you straight to it; finish the login there, press **Check now**, and the account appears above. The sign-in terminal is not an agent and is not in the sidebar: PiCode closes it once the account is saved, when the login exits, after 15 minutes, or when you press **Cancel** |
+| **Sign in** | opens a terminal running that CLI's own login (its binary, its browser or device-code flow). **Open terminal** shows it in a window on this page; finish the login there, press **Check now**, and the account appears above. The sign-in terminal is not an agent and is not in the sidebar: PiCode closes it once the account is saved, when the login exits, after 15 minutes, or when you press **Cancel** |
 | **Import** | reads the login that CLI already has on this machine and stores a copy in the vault. The CLI's own file is never changed, and nothing is activated by importing |
 | **Add provider** | stores a key for a provider this CLI can use — or starts the CLI's own guided sign-in when the provider supports one |
 | **Verify** | spends exactly one listing call to the provider with the stored key — the button says so — and remembers the answer with its age |
@@ -82,8 +82,8 @@ provider:
 ![The sign-in strip: Open terminal, Name and add, Keep both](../img/app-providers-signin.png)
 
 1. **Sign in**. PiCode opens a terminal running that CLI's own login — the
-   vendor's binary, the vendor's OAuth. **Open terminal** takes you straight
-   to it.
+   vendor's binary, the vendor's OAuth. **Open terminal** shows it in a window
+   on this page.
 2. Sign in with the **other** account there. Two things trip people up:
    - A CLI on its first run opens on its own setup (Claude Code offers a
      theme before anything else). Finish that and you reach its prompt.

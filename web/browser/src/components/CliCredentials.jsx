@@ -5,6 +5,7 @@ import PageFrame from "./PageFrame.jsx";
 import AddProviderDialog from "./AddProviderDialog.jsx";
 import CustomEndpointPage from "./CustomEndpointPage.jsx";
 import QuotaStrip from "./QuotaStrip.jsx";
+import TermSurface from "./TermSurface.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -135,15 +136,30 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     return subscribeFeed((e) => {
       if (e.type === "terminal.deleted" && e.data && e.data.id === signinTerm) {
         setSignin((prev) => (prev && prev.terminalId === signinTerm ? { ...prev, terminalId: "", closed: true } : prev));
+        setSigninTerm(null);
       }
     });
   }, [signinTerm]);
+
+  // The sign-in terminal opens here, in a dialog of the card that owns it —
+  // it is not in the sidebar or any terminal list (ADR-0184).
+  const [signinView, setSigninTerm] = useState(null);
+  async function openSigninTerm() {
+    const id = signin && signin.terminalId;
+    if (!id) return;
+    try {
+      setSigninTerm(await api("/api/terminals/" + encodeURIComponent(id) + "/open", { method: "POST" }));
+    } catch (ex) {
+      toastError(ex);
+    }
+  }
 
   // Cancel ends the sign-in terminal with the strip: nothing keeps running
   // where nobody sees it.
   async function cancelSignin() {
     const id = signin && signin.terminalId;
     setSignin(null);
+    setSigninTerm(null);
     if (id) await api("/api/terminals/" + encodeURIComponent(id), { method: "DELETE" }).catch(() => {});
   }
 
@@ -620,7 +636,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
             {signin.error ? <span className="cred-signin-error" role="alert">{signin.error}</span> : null}
             <span className="cred-signin-actions">
               {signin.terminalId ? (
-                <a className="btn btn-ghost btn-sm" href={"#/term/" + encodeURIComponent(signin.terminalId)}>Open terminal</a>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={openSigninTerm}>Open terminal</button>
               ) : signin.closed ? (
                 <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "signin"} onClick={startSignin}>Sign in again</button>
               ) : null}
@@ -774,6 +790,20 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
         }}
       />
 
+      <Dialog.Root open={!!signinView} onOpenChange={(open) => { if (!open) setSigninTerm(null); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="dlg-overlay" />
+          <Dialog.Content className="dlg dlg-signin-term">
+            <Dialog.Title className="dlg-title">{cliName} sign-in</Dialog.Title>
+            <Dialog.Description className="dlg-body">{(signin && signin.hint) || "Finish the sign-in, then check again."} Closing this keeps the sign-in running; Cancel ends it.</Dialog.Description>
+            <div className="cred-signin-term">{signinView ? <TermSurface term={signinView} hidden={false} /> : null}</div>
+            <div className="dlg-actions">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSigninTerm(null)}>Close</button>
+              <button type="button" className="btn btn-primary btn-sm" disabled={busy === "check"} onClick={() => { setSigninTerm(null); checkSignin(); }}>Check now</button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
       <Dialog.Root open={addOpen} onOpenChange={(open) => { if (!open) closeAdd(); }}>
         <Dialog.Portal>
           <Dialog.Overlay className="dlg-overlay" />
