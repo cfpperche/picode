@@ -77,7 +77,9 @@ naming, and the CLI's file still holds one login at a time.
 The pane looks like this — the bar on top, and one row per account under its
 provider:
 
-![Claude Code's Providers pane: its own login waiting to be imported, the naming note, and the vault row with Usage](../img/app-providers.png)
+![Claude Code's Providers pane: its own login waiting to be imported, and the vault row with Usage — with the sign-in strip offering Name and add, or Keep both](../img/app-providers.png)
+
+![The sign-in strip: Open terminal, Name and add, Keep both](../img/app-providers-signin.png)
 
 1. **Sign in**. PiCode opens a terminal running that CLI's own login — the
    vendor's binary, the vendor's OAuth. **Open terminal** takes you straight

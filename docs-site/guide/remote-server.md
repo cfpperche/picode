@@ -43,9 +43,12 @@ once; it says so).
 `picode update` checks GitHub, verifies the download against the
 release's `SHA256SUMS`, and only then restarts on the new binary.
 
-Also needed on the box: `pi` (`npm install -g @earendil-works/pi-coding-agent`),
-tmux 3.5+, and `mkcert` if you want a certificate browsers trust without
-a warning (`provision` issues it).
+Also needed on the box: tmux 3.5+, and `mkcert` if you want a certificate
+browsers trust without a warning (`provision` issues it). The agent CLIs
+you use (Pi, Claude Code, Codex, …) are installed the same way as on a
+laptop — from **Agent CLIs** or with the vendor's command; none is
+required. Until ADR-0179's informational check lands, `provision --dry-run`
+still lists `pi` on PATH as a blocked step when Pi is absent.
 
 ## 2. Tell it where it lives
 

@@ -54,8 +54,10 @@ Launch settings offer the group only for the CLIs that take servers on the
 command line or environment: Claude Code, Codex and OpenCode. Grok, Hermes
 Agent, Muse Code and Antigravity have no such mechanism (verified against
 their binaries and docs, 2026-09-19): only their config files, so use the
-Connectors pane at workspace or machine scope. Omp is a pi fork and can
-take pi's own packages with `-e` per launch; that path is not built.
+Connectors pane at workspace or machine scope. Omp is a pi fork, and its launch
+does carry PiCode's per-agent **package** entries as `-e` (Packages → This
+agent) — that is the packages pane's own list, not these servers, and the group
+above stays off for Omp's Launch settings.
 
 ## By hand
 
@@ -118,4 +120,6 @@ is found on its new port.
 ## Where it goes next
 
 Launch injection for a CLI the day its vendor adds a flag or environment
-variable for it; the Omp `-e` path if there is demand.
+variable for it. Omp's launch does carry PiCode's per-agent package entries
+as `-e` (Packages → This agent); these MCP families are still not injected
+there.

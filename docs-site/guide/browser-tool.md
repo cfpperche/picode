@@ -55,8 +55,9 @@ live for the agent's next command.
    there. Without it the agent is told plainly: *the desktop app is not
    connected*.
 2. **A visible package.** Install scope decides who sees it: **This agent**
-   is private to that agent, **Global** (`~/.pi/agent`) and
-   **this project** are visible to a plain `pi` too.
+   is private to that agent, and the pane offers it for the CLIs whose launch
+   can carry the entries (Pi and Omp); **Global** (`~/.pi/agent`) and the
+   workspace layer are visible to a plain `pi` too.
 
 ## Managed agent, or a plain `pi` TUI?
 

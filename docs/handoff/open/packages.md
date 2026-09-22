@@ -126,3 +126,14 @@
   engine's own refusal, byte-identical to the handlers it replaced). Closes when
   a mutation can be an in-process write on the lane, or OpenCode's removal moves
   to the synchronous path its toggle already uses.
+
+- [ ] **The `/api/cli-packages*` family is an alias for one release
+  (ADR-0176).** The guest routes answer from `pkgs.DriverFor(cli)` and are
+  mapped back to the bytes the pane has always parsed
+  (`internal/pkgs/guest_view.go`), so a caller can be moved over deliberately;
+  `docs/architecture/packages.md` and `docs/architecture/routes.md` carry the
+  deadline. The one in-repo caller left is `web/shared/domain/cliPackages.js`
+  (`available`, `marketplaces`, install/remove/update/toggle/marketplace/
+  inspect) — the unified reads already go to `/api/packages*`. Closes when that
+  module reads the unified paths for every CLI and the handlers,
+  `guest_view.go`'s route mappers and their tests are removed together.

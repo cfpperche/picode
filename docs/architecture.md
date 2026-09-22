@@ -6,8 +6,10 @@
 ## The one-paragraph version
 
 PiCode is a **single Go binary that serves a browser UI** and manages **real
-`pi` processes** on the machine where it runs. Each agent can use one of two
-exclusive channels: a tmux-backed PTY that renders the genuine Pi TUI inside a
+coding-agent CLI processes** — Pi, Claude Code, Codex, Grok, Hermes Agent,
+OpenCode, Muse Code, Antigravity, Omp — on the machine where it runs. None of
+them is a dependency; tmux is the only runtime requirement (ADR-0179). A Pi
+agent can use one of two exclusive channels: a tmux-backed PTY that renders the genuine Pi TUI inside a
 browser terminal, or an RPC bridge (`pi --mode rpc`, JSONL over stdio) that
 feeds the rich UI with structured events. An Inbox reply may borrow the RPC
 channel for one correlated turn while a holder preserves the same tmux pane;
@@ -19,8 +21,9 @@ Agent CLIs (ADR-0069) is the **interactive** stack for installed Pi, Claude
 Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and Omp:
 catalog, launch, tmux, sensors, pins. A workspace *instance* of a launchable
 CLI is an **agent** (`agents.cli`, ADR-0160) — the same class as Pi, with
-only interactive mode until that CLI gets a managed adapter. Structured
-chat, JSON-RPC and Pi packages stay Pi-only (ADR-0091). `Runtime.Start`
+only interactive mode until that CLI gets a managed adapter. Structured chat
+and JSON-RPC stay Pi-only (ADR-0091); packages are one subsystem for every CLI
+([packages.md](architecture/packages.md), ADR-0176). `Runtime.Start`
 (`pi --mode rpc`) refuses a non-Pi agent. Unbound `#/clis/new` terminals
 and project shells stay terminals, not agents. Leftover `managed_clis`
 rows (ADR-0159) migrated onto `agents` (Fatia C) and the table is gone.
@@ -234,7 +237,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [File preview: HTML (ADR-0136)](architecture/file-preview.md) | `docs/architecture/file-preview.md` |
 | [Native CLI settings (ADR-0101, ADR-0163)](architecture/cli-settings.md) | `docs/architecture/cli-settings.md` |
 | [Agent CLI memory (ADR-0163)](architecture/cli-memory.md) | `docs/architecture/cli-memory.md` |
-| [Native CLI packages (ADR-0102)](architecture/cli-packages.md) | `docs/architecture/cli-packages.md` |
+| [Packages (ADR-0102, ADR-0167, ADR-0176)](architecture/packages.md) | `docs/architecture/packages.md` |
 | [Native CLI providers (ADR-0103)](architecture/cli-providers.md) | `docs/architecture/cli-providers.md` |
 | [Credentials (ADR-0165)](architecture/credentials.md) | `docs/architecture/credentials.md` |
 | [CLI terminal launch settings (ADR-0069)](architecture/cli-terminal-launch.md) | `docs/architecture/cli-terminal-launch.md` |

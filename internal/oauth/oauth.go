@@ -44,9 +44,24 @@ type pending struct {
 	verifier string
 	state    string
 	returnTo string
+	sink     Sink
 	ln       net.Listener
 	cancel   context.CancelFunc
 	done     chan result
+}
+
+// Sink receives the credential a completed login minted. nil means pi's own
+// store (auth.json, ADR-0129's channel); a non-nil sink is how another
+// CLI's login lands somewhere else — the vault, for omp (ADR-0176).
+type Sink func(provider string, cred map[string]any) error
+
+// writeCred routes a minted credential to the run's sink, defaulting to
+// pi's auth.json.
+func writeCred(sink Sink, provider string, cred map[string]any) error {
+	if sink != nil {
+		return sink(provider, cred)
+	}
+	return catalog.PutOAuth(provider, cred)
 }
 
 type result struct {
@@ -71,8 +86,23 @@ func pkce() (verifier, challenge string, err error) {
 	return verifier, challenge, nil
 }
 
+// Supports reports whether the engine can run this provider's login.
+func Supports(provider string) bool {
+	switch provider {
+	case "anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai":
+		return true
+	}
+	return false
+}
+
 // Start begins loopback OAuth. Returns the URL to open in the browser.
+// The minted credential goes to pi's auth.json.
 func Start(provider, returnTo string) (authorizeURL, userCode string, err error) {
+	return StartSink(provider, returnTo, nil)
+}
+
+// StartSink begins loopback OAuth and routes the minted credential to sink.
+func StartSink(provider, returnTo string, sink Sink) (authorizeURL, userCode string, err error) {
 	mu.Lock()
 	defer mu.Unlock()
 	if cur != nil {
@@ -98,12 +128,12 @@ func Start(provider, returnTo string) (authorizeURL, userCode string, err error)
 		}
 		state = fmt.Sprintf("%x", b)
 	case "github-copilot", "kimi-coding", "xai":
-		dc, err := beginDevice(provider)
+		dc, err := beginDevice(provider, sink)
 		if err != nil {
 			return "", "", err
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
-		p := &pending{provider: provider, returnTo: returnTo, cancel: cancel, done: make(chan result, 1)}
+		p := &pending{provider: provider, returnTo: returnTo, sink: sink, cancel: cancel, done: make(chan result, 1)}
 		cur = p
 		go func() { p.finish(dc.poll(ctx)) }()
 		return dc.url, dc.code, nil
@@ -119,7 +149,7 @@ func Start(provider, returnTo string) (authorizeURL, userCode string, err error)
 			returnTo = ""
 		}
 	}
-	p := &pending{provider: provider, verifier: verifier, state: state, returnTo: returnTo, ln: ln, done: make(chan result, 1)}
+	p := &pending{provider: provider, verifier: verifier, state: state, returnTo: returnTo, sink: sink, ln: ln, done: make(chan result, 1)}
 	cur = p
 	go serve(p, path, redirect, clientID)
 
@@ -163,7 +193,7 @@ func serve(p *pending, path, redirect, clientID string) {
 			p.finish(fmt.Errorf("oauth callback invalid"))
 			return
 		}
-		if err := exchange(p.provider, code, st, p.verifier, redirect, clientID); err != nil {
+		if err := exchange(p.provider, code, st, p.verifier, redirect, clientID, p.sink); err != nil {
 			htmlFail(w, "token exchange failed")
 			p.finish(err)
 			return
@@ -221,7 +251,7 @@ func Cancel() {
 	}
 }
 
-func exchange(provider, code, state, verifier, redirect, clientID string) error {
+func exchange(provider, code, state, verifier, redirect, clientID string, sink Sink) error {
 	var access, refresh string
 	var expires int64
 	var extra map[string]any
@@ -289,7 +319,7 @@ func exchange(provider, code, state, verifier, redirect, clientID string) error 
 	for k, v := range extra {
 		cred[k] = v
 	}
-	return catalog.PutOAuth(provider, cred)
+	return writeCred(sink, provider, cred)
 }
 
 func postJSON(u string, body []byte) ([]byte, error) {

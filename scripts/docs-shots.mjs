@@ -67,8 +67,21 @@ const surfaces = [
   // Claude Code's pane with its native strip — the two states the guide's
   // sign-in walkthrough walks through. catalog.Load shells out to
   // `pi --list-models --offline`, so these settle longer.
-  { name: "app-providers-pi", profile: DOC_SCREENSHOT_SURFACES["app-providers-pi"], path: "/browser/#/clis/pi/providers", w: 1440, h: 900, settle: 8000, waitText: "Add provider" },
-  { name: "app-providers", profile: DOC_SCREENSHOT_SURFACES["app-providers"], path: "/browser/#/clis/claude-code/providers", w: 1440, h: 900, settle: 6000, waitText: "is signed in here" },
+  { name: "app-providers-pi", profile: DOC_SCREENSHOT_SURFACES["app-providers-pi"], path: "/browser/", w: 1440, h: 900, settle: 8000, waitText: "Add provider",
+    hashEval: "(async () => { location.hash = '#/clis/pi/providers'; for (let i = 0; i < 40; i++) { await new Promise(r => setTimeout(r, 500)); if ([...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Add provider')) return 'READY'; } return 'TIMEOUT'; })()" },
+  { name: "app-providers", profile: DOC_SCREENSHOT_SURFACES["app-providers"], path: "/browser/", w: 1440, h: 900, settle: 6000, waitText: "Add provider",
+    hashEval: "(async () => { location.hash = '#/clis/claude-code/providers'; for (let i = 0; i < 40; i++) { await new Promise(r => setTimeout(r, 500)); if ([...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Add API key')) return 'READY'; } return 'TIMEOUT'; })()",
+    rehash: "#/clis/claude-code/providers" },
+  // The transient sign-in strip: the fixture pre-creates a live "Claude Code
+  // sign-in" terminal, so clicking Sign in reuses it (no CLI spawns) and the
+  // strip renders its two doors. hashEval re-clicks per round — reuse makes
+  // that safe.
+  // The sign-in surface chains three blocking waits (Providers tab, the
+  // CLI's Sign in, then Check now), so the strip photographs its two doors —
+  // the pane's honest answer to a login that would replace an unnamed one.
+  { name: "app-providers-signin", profile: DOC_SCREENSHOT_SURFACES["app-providers-signin"], path: "/browser/", w: 1440, h: 900, settle: 4000,
+    waitText: "Keep both", rehash: "#/clis/claude-code/providers",
+    hashEval: "(async () => { location.hash = '#/clis/claude-code/providers'; const wait = async fn => { for (let i = 0; i < 50; i++) { const v = fn(); if (v) return v; await new Promise(r => setTimeout(r, 400)); } return null; }; (await wait(() => [...document.querySelectorAll('[role=tab]')].find(x => x.textContent.trim() === 'Providers'), 20000))?.click(); (await wait(() => [...document.querySelectorAll('button')].find(x => x.textContent.trim() === 'Sign in'), 20000))?.click(); (await wait(() => [...document.querySelectorAll('button')].find(x => x.textContent.trim() === 'Check now'), 20000))?.click(); const doors = await wait(() => [...document.querySelectorAll('button')].find(x => x.textContent.trim() === 'Keep both'), 30000); return doors ? 'DOORS_OK' : 'NO_DOORS'; })()" },
   { name: "app-fleet", profile: DOC_SCREENSHOT_SURFACES["app-fleet"], path: "/browser/", w: 1440, h: 900, settle: 4000, waitText: "Atlas" },
   // The Inspector rail beside Atlas's conversation: the fixture seeds a dirty
   // repository under the picode workspace, so Changes lists real counts. The

@@ -143,6 +143,47 @@ export function paneWords(surface) {
   return PANE_WORDS[surface] || PANE_WORDS.vendor;
 }
 
+// directMutation says whether a mutation is one of PiCode's own calls — the
+// source, its layer, and the target the answer comes back for — rather than a
+// job in the CLI's own lane. A CLI whose mutations are direct calls (`Caps.Async`
+// false, Pi's own pipkg) always is; so is any write into the agent scope, and any
+// row that lives there, because that layer is PiCode's own list on the agent row
+// for every CLI — the CLI's launch is what passes the entries on (ADR-0176 slice
+// 4). A vendor row in a vendor's layer is the lane's, and only its.
+export function directMutation(caps, { scope = "user", row = null } = {}) {
+  if (!caps || !caps.async) return true;
+  return (row ? row.scope : scope) === "agent";
+}
+
+// vendorKnowsRow says the two controls the *vendor* owns — its on/off verb and
+// its inspection — may be offered for this row. A row in the agent layer is
+// PiCode's own entry, not the vendor's plugin: the CLI learns about it at
+// launch, so its own commands do not know the name, and PiCode's list has no
+// disabled state to write. Both controls are therefore absent rather than dead
+// (ADR-0176 slice 4), exactly as they are for Pi, whose rows carry neither.
+// Remove and Update are PiCode's own calls for that layer, and stay.
+function vendorKnowsRow(row) {
+  return !(row && row.scope === "agent");
+}
+
+export function rowToggle(caps, row) {
+  return !!(caps && caps.toggle) && vendorKnowsRow(row);
+}
+
+export function rowInspect(caps, row) {
+  return !!(caps && caps.inspect) && vendorKnowsRow(row);
+}
+
+// paneTabs says whether the Installed/Marketplace pair is offered. A report with
+// no catalog holds one list and has nothing to switch to; and a vendor's catalog
+// does not exist for the agent layer — that list is PiCode's own on the agent
+// row, so the Marketplace tab there would be a control that cannot work
+// (ADR-0176 slice 4). Pi's gallery, which is PiCode's own, stays offered.
+export function paneTabs(report, scope = "user") {
+  if (!report || report.catalog === "") return false;
+  return !(scope === "agent" && report.catalog !== "gallery");
+}
+
 // behindFor finds the catalog's answer for one installed row. The CLI's own
 // update check names the source, the layer it lives in and the version pair; a
 // row the check did not name is not behind, and nothing else may invent one — a

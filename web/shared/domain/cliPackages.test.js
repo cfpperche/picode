@@ -1,7 +1,56 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey } from "./cliPackages.js";
+import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey, directMutation, paneTabs, rowToggle, rowInspect } from "./cliPackages.js";
 import { cliLocation } from "./cliLaunch.js";
+
+// The transport rule: which mutation is one of PiCode's own calls and which is a
+// job in the CLI's own lane. A wrong answer here runs a vendor's command for a
+// layer the vendor does not own, or reserves a job that can never carry it out.
+test("the agent scope is PiCode's own write for every CLI", () => {
+  // A CLI whose mutations are direct calls (Pi's own pipkg) is always direct.
+  assert.equal(directMutation({ async: false }, {}), true);
+  assert.equal(directMutation({ async: false }, { scope: "project" }), true);
+  // A vendor's own layers are its lane's.
+  assert.equal(directMutation({ async: true }, { scope: "user" }), false);
+  assert.equal(directMutation({ async: true }, { scope: "project" }), false);
+  // The agent layer is PiCode's list on the agent row, so writing it is direct
+  // whichever CLI the pane is showing...
+  assert.equal(directMutation({ async: true }, { scope: "agent" }), true);
+  // ...and so is a row that lives there, whatever the pane's own scope is.
+  assert.equal(directMutation({ async: true }, { scope: "agent", row: { scope: "agent" } }), true);
+  assert.equal(directMutation({ async: true }, { scope: "user", row: { scope: "agent" } }), true);
+  assert.equal(directMutation({ async: true }, { row: { scope: "workspace" } }), false);
+  // Before a report arrives nothing may be sent to a lane on a guess.
+  assert.equal(directMutation(null, { scope: "user" }), true);
+  assert.equal(directMutation(undefined, { scope: "project" }), true);
+});
+
+// The pair of tabs is offered where there is something to switch to: a report
+// with no catalog holds one list, and the agent layer has no vendor catalog —
+// it is PiCode's own — while Pi's gallery stays PiCode's own at every layer.
+test("the marketplace tab is offered only where a catalog exists for that layer", () => {
+  assert.equal(paneTabs(null, "user"), false);
+  assert.equal(paneTabs({ catalog: "" }, "user"), false);
+  assert.equal(paneTabs({ catalog: "vendor" }, "user"), true);
+  assert.equal(paneTabs({ catalog: "vendor" }, "project"), true);
+  assert.equal(paneTabs({ catalog: "vendor" }, "agent"), false);
+  assert.equal(paneTabs({ catalog: "gallery" }, "agent"), true);
+});
+
+// The on/off and inspection controls belong to the CLI's own verbs, and a row in
+// PiCode's own agent list is one those commands do not know.
+test("the vendor's row controls are offered only where its own verbs can act", () => {
+  assert.equal(rowToggle({ toggle: true }, { scope: "user" }), true);
+  assert.equal(rowToggle({ toggle: true }, { scope: "workspace" }), true);
+  assert.equal(rowToggle({ toggle: true }, { scope: "agent" }), false);
+  assert.equal(rowToggle({ toggle: false }, { scope: "user" }), false);
+  assert.equal(rowToggle(null, { scope: "user" }), false);
+  assert.equal(rowToggle({ toggle: true }, null), true);
+  assert.equal(rowInspect({ inspect: true }, { scope: "user" }), true);
+  assert.equal(rowInspect({ inspect: true }, { scope: "agent" }), false);
+  assert.equal(rowInspect({ inspect: false }, { scope: "workspace" }), false);
+  assert.equal(rowInspect(null, null), false);
+});
 
 test("canonical links round-trip CLI, package, scope and explicit context", () => {
   const context = { workspaceId: "w /&", agentId: "a /?", scope: "agent", pkg: "@scope/roles" };

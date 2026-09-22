@@ -394,6 +394,43 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
       () => toast.ok(name + " removed."));
   }
 
+  // Guided sign-in from the Add provider dialog: the server either starts
+  // the CLI's own browser flow — the authorize page opens in a tab, PiCode
+  // polls until the callback lands, the vault row appears — or runs the
+  // terminal strip, per the CLI and the provider that was picked.
+  async function guidedSignin() {
+    const provider = form.provider;
+    setBusy("signin");
+    try {
+      const res = await api("/api/credentials/signin", json("POST", { cli, provider }));
+      if (res.oauth) {
+        closeAdd();
+        if (res.url) window.open(res.url, "_blank", "noopener");
+        const t0 = Date.now();
+        while (Date.now() - t0 < 5 * 60 * 1000) {
+          await new Promise(r => setTimeout(r, 1000));
+          const st = await api("/api/oauth/status");
+          if (st && st.done) {
+            setBusy("");
+            if (st.error) { toastError(new Error(st.error)); return; }
+            toast.ok("Signed in to " + providerName(provider) + ".");
+            await load();
+            return;
+          }
+        }
+        setBusy("");
+        return;
+      }
+      closeAdd();
+      const launchError = res.terminal && res.terminal.launchError;
+      setSignin({ hint: res.hint || "", error: launchError ? String(launchError) : "", terminalId: res.terminalId || "", stamp: res.stamp || "" });
+      setBusy("");
+    } catch (ex) {
+      setBusy("");
+      toastError(ex);
+    }
+  }
+
   // One vendor call, on this click, under ADR-0129's rule: the roster comes
   // back carrying the report (and whatever identity the vendor volunteered).
   async function checkUsage(provider, account) {
@@ -731,7 +768,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                     type="button"
                     className="btn btn-ghost btn-sm"
                     disabled={busy === "signin"}
-                    onClick={() => { closeAdd(); startSignin(); }}
+                    onClick={guidedSignin}
                   >
                     {busy === "signin" ? "Opening…" : "Guided sign-in"}
                   </button>

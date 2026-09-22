@@ -1,5 +1,5 @@
 // Package main is the picode entrypoint: a single binary that serves the
-// PiCode web UI and manages Pi agent processes (see docs/architecture.md).
+// PiCode web UI and manages coding-agent CLI processes (see docs/architecture.md).
 //
 // Serve loop (ADR-0007): bind (port range from config.Resolve) → serve →
 // wait (rebind signal | shutdown signal). Rebind binds the NEW listener
@@ -148,7 +148,7 @@ func dispatch(cmd string, args []string) bool {
 }
 
 func usage() {
-	fmt.Println(`picode — a browser ADE for Pi agents (server mode is the default)
+	fmt.Println(`picode — a browser ADE for coding-agent CLIs (server mode is the default)
 
 Usage:
   picode [flags]              start the server

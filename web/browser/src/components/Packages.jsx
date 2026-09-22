@@ -4,7 +4,7 @@ import { api, humanizeError } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import {
   packagesApi, packagesNotes, packagesSurface, paneWords, behindFor,
-  catalogRowAction, refusalCommand, matchParts, groupInstalledRows,
+  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation, paneTabs, rowToggle, rowInspect,
   loadPiPackagesContext, packageContextKey, cliPackagesHash,
 } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
@@ -269,8 +269,10 @@ export default function Packages({ hidden, route, catalog, describe = false, onP
     const id = row ? keyOf(row) : "";
     if (id) setRowError(prev => ({ ...prev, [id]: null })); else setSourceProblem(null);
     // A direct mutation answers the CLI's fresh list, so the pane shows the
-    // transcript PiCode ran and re-reads the report (Pi's own transport).
-    if (!caps.async) {
+    // transcript PiCode ran and re-reads the report (Pi's own transport); the
+    // agent scope is that kind of write for every CLI, and `directMutation` is
+    // where that rule lives (ADR-0176 slice 4).
+    if (directMutation(caps, { scope })) {
       setRun({ action: "install", source: target, scope, cwd: scope === "project" ? (report.workspacePath || "") : "", step: 0, error: "", done: false });
       const tick = startJobTick(setRun, 2);
       try {
@@ -334,11 +336,13 @@ export default function Packages({ hidden, route, catalog, describe = false, onP
     }
   }
 
-  // A direct update is PiCode's own call and answers the fresh list.
+  // A direct update is PiCode's own call and answers the fresh list — including
+  // any row in the agent's own list, which is PiCode's store for every CLI
+  // (`directMutation`, ADR-0176 slice 4).
   async function updateRow(row, entry) {
     if (guard || !report) return;
-    if (!caps.async) {
-      const layer = row.scope === "workspace" ? "project" : "user";
+    if (directMutation(caps, { row })) {
+      const layer = row.scope === "workspace" ? "project" : row.scope === "agent" ? "agent" : "user";
       setRun({ action: "update", source: row.source, scope: layer, cwd: layer === "project" ? (report.workspacePath || "") : "", step: 0, error: "", done: false });
       const tick = startJobTick(setRun, 2);
       try {
@@ -360,7 +364,7 @@ export default function Packages({ hidden, route, catalog, describe = false, onP
   async function removeRow(row) {
     if (guard || !report) return;
     const name = row.name || row.id || row.source;
-    if (!caps.async) {
+    if (directMutation(caps, { row })) {
       const ok = await askConfirm({
         title: "Remove package",
         message: "Remove " + row.source + " from " + cli + "? This does not uninstall " + cli + " itself.",
@@ -500,7 +504,7 @@ export default function Packages({ hidden, route, catalog, describe = false, onP
     : [...new Set(marketRows.map(row => row.marketplace).filter(Boolean))];
   const verbFor = row => (busy && busy.id && busy.id === keyOf(row) ? busy.verb : "");
   const marketplace = surface !== "gallery" && tab === "marketplace";
-  const tabs = report && report.catalog !== "";
+  const tabs = paneTabs(report, scope);
   // The empty state points at the CLI's own catalog instead of asking the user
   // to guess a name: real entries, and only where the CLI can install.
   const emptyPicks = rows.length === 0
@@ -886,7 +890,7 @@ function VendorBody({
           </div>
           <Problem entry={rowError[keyOf(row)]} />
           <div className="gpkg-card-foot">
-            {caps.toggle ? (
+            {rowToggle(caps, row) ? (
               <button type="button" className="btn btn-sm" disabled={guard} onClick={() => onToggle(row, !row.enabled)}>
                 {verbFor(row) === "toggle" ? busy.label : row.enabled ? "Disable" : "Enable"}
               </button>
@@ -894,7 +898,7 @@ function VendorBody({
             {behindFor(behind, row) ? (
               <button type="button" className="btn btn-sm" disabled={guard} title={"Update to " + behindFor(behind, row).latest} onClick={() => onUpdate(row)}>{verbFor(row) === "update" ? busy.label : "Update"}</button>
             ) : null}
-            {caps.inspect ? (
+            {rowInspect(caps, row) ? (
               <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => onInspect(row)}>{verbFor(row) === "inspect" ? busy.label : "Inspect"}</button>
             ) : null}
             {caps.remove ? (

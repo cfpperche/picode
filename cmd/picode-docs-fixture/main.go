@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/apps"
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/credentials"
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/llamaservice"
@@ -125,6 +126,13 @@ func main() {
 		if d.Online {
 			changes.Ephemeral("device.online", d)
 		}
+	}
+
+	// A live "Claude Code sign-in" terminal, so the capture runner can click
+	// Sign in and reuse it (ADR-0169's strip photographs without spawning a
+	// CLI process into the fixture's tmux).
+	if err := seedSignInTerminal(st, fxTmux); err != nil {
+		log.Fatalf("fixture: seed sign-in terminal: %v", err)
 	}
 
 	deps := server.Deps{
@@ -420,10 +428,12 @@ func seedProviders() error {
 	home := filepath.Join(dataDir, "home")
 	// pi's own auth.json: the vault sync turns every entry into a row.
 	piAuth := map[string]any{
+		// No accountId: the vault keeps this login unnamed, which is the
+		// state the second-account walkthrough photographs (the pane offers
+		// Name and add / Keep both).
 		"anthropic": map[string]any{
 			"type": "oauth", "access": "fixture-anthropic-access",
 			"refresh": "fixture-anthropic-refresh", "expires": int64(4102444800),
-			"accountId": "acct-fixture-01",
 		},
 		"google":           map[string]any{"type": "api_key", "key": "AIzaSxFIXTURE0000001"},
 		"cheaperinference": map[string]any{"type": "api_key", "key": "ci_live-fixture-000000000000000000"},
@@ -458,7 +468,7 @@ func seedProviders() error {
 	// balance), one healthy api_key left un-checked — the pane's honest
 	// variety on one screen.
 	vault := credentials.For(filepath.Join(home, ".picode"))
-	anthropic := json.RawMessage(`{"type":"oauth","access":"fixture-anthropic-access","refresh":"fixture-anthropic-refresh","expires":4102444800000,"accountId":"acct-fixture-01"}`)
+	anthropic := json.RawMessage(`{"type":"oauth","access":"fixture-anthropic-access","refresh":"fixture-anthropic-refresh","expires":4102444800000}`)
 	row, err := vault.Import("anthropic", anthropic, "", "vault", "")
 	if err != nil {
 		return err
@@ -495,4 +505,22 @@ func agentDir() string {
 	d := filepath.Join(dataDir, "home", ".pi", "agent")
 	_ = os.MkdirAll(d, 0o755)
 	return d
+}
+
+// seedSignInTerminal pre-creates the CLI's guided sign-in terminal: the store
+// record plus a live tmux session running the plain shell. The Providers pane's
+// Sign in reuses a live sign-in terminal instead of spawning the CLI, so a
+// capture run photographs the strip without any process left behind.
+func seedSignInTerminal(st *store.Store, fx *tmux.Manager) error {
+	if !fx.Available() {
+		return nil // no tmux on this machine: the strip is simply not photographed
+	}
+	t, err := st.CreateTerminalIn(store.FreeWorkspaceID, "Claude Code sign-in", dataDir)
+	if err != nil {
+		return err
+	}
+	if err := st.SetTerminalLaunch(t.ID, "claude-code", clilaunch.Overrides{}); err != nil {
+		return err
+	}
+	return fx.NewSession(context.Background(), tmux.ShellSessionName(t.ID), dataDir, "bash")
 }
