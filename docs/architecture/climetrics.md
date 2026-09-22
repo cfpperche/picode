@@ -141,6 +141,22 @@ Above it, `internal/server/session_stats.go` caches the finished
 component forces a miss: a meter that cannot describe its own state must
 not be served from a cache that assumes it can.
 
+## Limits: two sources, one card
+
+`Window.Limits` is what a CLI wrote about its own quota — today Codex's
+rollouts alone. The plan windows every other vendor publishes (Anthropic,
+xAI, Z.ai, OpenCode Go, Kimi, Copilot) are fetched by `internal/usage` for
+the Providers roster (ADR-0031), on its own 5-minute loop for each active
+account. `/api/sessions/stats` adds that cache as `plans` (`usage.Cached`:
+a map read — no provider list, no `pi`, no vendor call on a dashboard
+poll), failed rows included so a plan that needs a new sign-in says so.
+`limitRows` (`web/shared/domain/dashboardStats.js`) joins the two: a
+Codex rollout reading older than a fetched `openai-codex` plan is the same
+window seen earlier and gives way, and a plan window with no percentage
+(prepaid credits) is not drawn as a bar. t3code's usage page reads plan
+limits for five vendors the same way; PiCode's difference is that it reads
+the roster's cache instead of opening a fetch of its own.
+
 ## What it never does
 
 - **Never writes.** Every store belongs to another vendor's CLI.
