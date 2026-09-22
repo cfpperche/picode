@@ -91,12 +91,12 @@ export function InspectorChangeGroup({ group, changes, totals, activePath, onOpe
     });
   }
   return (
-    <section className="insp-group" aria-label={group.branch ? `Changes on ${group.branch}` : "Changes"}>
-      <div className="insp-group-head" title={group.path}>
-        <span className="insp-group-branch">{group.branch || shortPath(group.path)}</span>
+    <section className="insp-checkout" aria-label={group.branch ? `Changes on ${group.branch}` : "Changes"}>
+      <div className="insp-checkout-head" title={group.path}>
+        <span className="insp-checkout-branch">{group.branch || shortPath(group.path)}</span>
         {group.detached ? <span className="insp-branch-note">detached</span> : null}
         {label ? (
-          <span className="insp-stat-counts">
+          <span className="insp-stat-counts insp-count">
             {totals && totals.add ? <span className="gg-add">+{compactCount(totals.add)}</span> : null}
             {totals && totals.del ? <span className="gg-del">−{compactCount(totals.del)}</span> : null}
           </span>

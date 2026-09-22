@@ -99,7 +99,26 @@
   reproduced: the run stopped at the same blocked-project-layer `ready()`. Row
   (2) lives in `qa-cli-settings-recovery.mjs`, not re-measured here.
 
-- **No live CLI session has been observed applying a map PiCode wrote** (2026-09-21,
+- **Codex's catalog is missing three rows the CLI accepts** (found 2026-09-21 by the
+  live check below). Setting an action the config does not know makes codex refuse
+  the file and print its own list for that context:
+  `[tui.keymap.global]` takes **12** names — `open_agents, open_transcript,
+  open_external_editor, copy, clear_terminal, submit, queue, toggle_shortcuts,
+  toggle_vim_mode, toggle_fast_mode, toggle_raw_output, toggle_side_conversation`
+  — while `CodexCatalog` has 9 there: `submit`, `queue` and `toggle_shortcuts` are
+  absent. They are real: the resolver reads `keymap.global.submit` /
+  `.queue` as the *global fallback* for the composer's own slots
+  (`configured_binding_for_action`, bindings.rs) when the composer's are unset, so
+  a user can set them today and PiCode's pane cannot show or change them. The
+  cause: the catalog was built from the runtime inventory (146 actions, the set
+  `/keymap` exposes), while the *file's* vocabulary is the generated schema (149
+  keys) — the three extra are exactly these fallback slots. The fix is to take the
+  schema's per-context key list as the catalog's source (149 rows) and to render
+  these three rows' defaults honestly (the fallback resolves to the built-in
+  default of the action they stand in for), with a test that every key the CLI's
+  own struct accepts is in the catalog.
+
+ (2026-09-21,
   the question that made it visible). The shipped rows rest on *the vendor's own
   code and docs*, read at the installed build's tag and cited per row — omp's
   bundle (the file it resolves, its parser, and that its manager reads at startup

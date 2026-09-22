@@ -14,10 +14,7 @@ Docs: `docs/decisions/0175`, `docs/architecture/cli-providers.md`,
 Verified: commit `3b1c362c` — ci-scoped green (fmt, vet, hooks, go[7], test-js, build, docs);
 `make close` green; reviewed on a scratch instance.
 Not done / debts: none.
-Merge: not fast-forward ready — main moved since the branch (45 behind).
-
-## Next up
-
-- Merge main into `feat/omp-custom-providers`, rerun `make close`, then fast-forward from the root; gc the worktree after.
+Merge: done — main carries `6396f58b`; shipped in the 2026-09-21 deploys (`0.4.0+b0f4ba4`
+serves it). Worktree and branch removed.
 
 visual-review: PASS (7 stills, overlayAudit ok, card 5/5) on scratch instance.
