@@ -12,7 +12,7 @@
 export const KEYBOARD_CLIS = [
   { id: "pi", label: "Pi", state: "shipped", pickup: "reload", keymap: "flat", vocab: "pi", editor: "pi-settings" },
   { id: "claude-code", label: "Claude Code", state: "planned", pickup: "live", keymap: "inverted", vocab: "claude", docs: "https://code.claude.com/docs/en/keybindings" },
-  { id: "codex", label: "Codex", state: "planned", pickup: "restart", keymap: "nested", vocab: "codex", docs: "https://developers.openai.com/codex/config-basic" },
+  { id: "codex", label: "Codex", state: "shipped", pickup: "restart", keymap: "nested", vocab: "codex", editor: "keymap" },
   { id: "grok", label: "Grok", state: "refused", pickup: "unknown", keymap: "none", vocab: "", docs: "https://docs.x.ai/build/keyboard-shortcuts", listHint: "Ctrl+. inside a Grok session lists its keys" },
   { id: "hermes", label: "Hermes Agent", state: "planned", pickup: "unknown", keymap: "partial", vocab: "pi" },
   { id: "opencode", label: "OpenCode", state: "planned", pickup: "unknown", keymap: "flat", vocab: "opencode", docs: "https://opencode.ai/docs/keybinds" },

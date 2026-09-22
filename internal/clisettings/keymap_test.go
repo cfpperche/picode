@@ -56,7 +56,7 @@ func TestDocSetStringsSplicesInPlace(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := d.SetStrings(tc.key, tc.values); err != nil {
+			if err := d.SetStrings([]string{tc.key}, tc.values); err != nil {
 				t.Fatal(err)
 			}
 			if err := d.Save(d.Revision()); err != nil {
@@ -97,7 +97,7 @@ func TestDocSetStringsInsertsAMissingKey(t *testing.T) {
 		if d.Exists() {
 			t.Fatal("a file that is not there is not there")
 		}
-		if err := d.SetStrings("app.exit", []string{"ctrl+q"}); err != nil {
+		if err := d.SetStrings([]string{"app.exit"}, []string{"ctrl+q"}); err != nil {
 			t.Fatal(err)
 		}
 		if err := d.Save(""); err != nil {
@@ -114,7 +114,7 @@ func TestDocSetStringsInsertsAMissingKey(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := d.SetStrings("tui.input.newLine", []string{"shift+enter", "ctrl+j"}); err != nil {
+		if err := d.SetStrings([]string{"tui.input.newLine"}, []string{"shift+enter", "ctrl+j"}); err != nil {
 			t.Fatal(err)
 		}
 		if err := d.Save(d.Revision()); err != nil {
@@ -140,10 +140,10 @@ func TestDocAddThenRemoveLeavesNoTrace(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := d.SetStrings("tui.input.newLine", []string{"shift+enter"}); err != nil {
+		if err := d.SetStrings([]string{"tui.input.newLine"}, []string{"shift+enter"}); err != nil {
 			t.Fatal(err)
 		}
-		if err := d.RemoveKey("tui.input.newLine"); err != nil {
+		if err := d.Remove("tui.input.newLine"); err != nil {
 			t.Fatal(err)
 		}
 		if err := d.Save(d.Revision()); err != nil {
@@ -159,10 +159,10 @@ func TestDocAddThenRemoveLeavesNoTrace(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := d.SetStrings("tui.editor.cursorUp", []string{"alt+x"}); err != nil {
+		if err := d.SetStrings([]string{"tui.editor.cursorUp"}, []string{"alt+x"}); err != nil {
 			t.Fatal(err)
 		}
-		if err := d.RemoveKey("tui.editor.cursorUp"); err != nil {
+		if err := d.Remove("tui.editor.cursorUp"); err != nil {
 			t.Fatal(err)
 		}
 		if err := d.Save(d.Revision()); err != nil {
@@ -178,7 +178,7 @@ func TestDocAddThenRemoveLeavesNoTrace(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := d.SetStrings("app.exit", []string{"ctrl+q", "ctrl+w"}); err != nil {
+		if err := d.SetStrings([]string{"app.exit"}, []string{"ctrl+q", "ctrl+w"}); err != nil {
 			t.Fatal(err)
 		}
 		if err := d.Save(d.Revision()); err != nil {
@@ -208,7 +208,7 @@ func TestDocRefusesAShapeItCannotRewrite(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = d.SetStrings(tc.key, []string{"ctrl+q"})
+			err = d.SetStrings([]string{tc.key}, []string{"ctrl+q"})
 			if !errors.Is(err, ErrShape) {
 				t.Fatalf("writing a table must be refused with ErrShape, got %v", err)
 			}
@@ -234,7 +234,7 @@ func TestDocRefusesAFileThatMoved(t *testing.T) {
 		t.Fatal(err)
 	}
 	rev := d.Revision()
-	if err := d.SetStrings("app.exit", []string{"ctrl+w"}); err != nil {
+	if err := d.SetStrings([]string{"app.exit"}, []string{"ctrl+w"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(path, []byte("app.exit: alt+q\n"), 0o644); err != nil {
@@ -265,7 +265,7 @@ func TestDocWritesIntoAnEmptyFile(t *testing.T) {
 	if !d.Exists() || d.Revision() == "" {
 		t.Fatalf("an empty file exists and has a revision: exists=%v rev=%q", d.Exists(), d.Revision())
 	}
-	if err := d.SetStrings("app.exit", []string{"ctrl+q"}); err != nil {
+	if err := d.SetStrings([]string{"app.exit"}, []string{"ctrl+q"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := d.Save(d.Revision()); err != nil {
@@ -278,9 +278,9 @@ func TestDocWritesIntoAnEmptyFile(t *testing.T) {
 
 // A key map is not a TOML document anywhere PiCode writes today; the primitive
 // says so instead of shipping an unexercised path.
-func TestListLiteralRefusesTOML(t *testing.T) {
-	if _, err := listLiteral(FormatTOML, []string{"ctrl+q"}); err == nil {
-		t.Fatal("TOML has no key-map literal here")
+func TestListLiteralPerFormat(t *testing.T) {
+	if lit, err := listLiteral(FormatTOML, []string{"ctrl+q"}); err != nil || lit != `["ctrl+q"]` {
+		t.Fatalf("a TOML array of strings is valid TOML: lit=%q err=%v", lit, err)
 	}
 	if lit, err := listLiteral(FormatYAML, nil); err != nil || lit != "[]" {
 		t.Fatalf("an empty list is how a CLI unbinds: lit=%q err=%v", lit, err)

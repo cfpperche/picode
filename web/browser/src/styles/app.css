@@ -4569,6 +4569,23 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   height: 32px; margin: 4px 0; border-radius: var(--radius-ctl);
   background: var(--bg-hover);
 }
+
+/* A narrow window gets the phone's two-column row: the four-column template
+   needs ~400px before it can hold a label, a note track, the keycaps and the
+   actions, and below that the keycap cell collapses and its chip draws over
+   the label (measured 2026-09-21 on codex's longer labels). */
+@media (max-width: 620px) {
+  .key-pane .key-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "name keys actions" "note note note";
+    column-gap: 8px; row-gap: 2px;
+  }
+  .key-pane .key-name { grid-area: name; }
+  .key-pane .key-keys { grid-area: keys; justify-content: flex-end; min-width: min-content; }
+  .key-pane .key-actions { grid-area: actions; }
+  .key-pane .key-note { grid-area: note; }
+}
+
 .set-rows { display: flex; flex-direction: column; gap: 10px; }
 .set-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

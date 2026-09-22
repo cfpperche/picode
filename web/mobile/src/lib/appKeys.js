@@ -25,10 +25,16 @@ export function primaryChord(id, overrides) {
 
 const PART_LABELS = { ctrl: "Ctrl", shift: "Shift", alt: "Alt", super: "Cmd" };
 
-export function formatChord(chord) {
+// A chord's separator is the CLI's own (the registry's vocab): codex writes
+// `ctrl-t`, pi and omp `ctrl+alt+k`. The display keeps that separator and only
+// title-cases the words — a vocabulary is never translated into another one
+// (ADR-0174), and a chord the user copies out of the pane is one they can paste
+// into their own file.
+export function formatChord(chord, vocab = "") {
   if (!chord) return "";
+  const sep = vocab === "codex" ? "-" : "+";
   return chord
-    .split("+")
+    .split(sep)
     .map((part) => PART_LABELS[part] || (part.length === 1 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)))
-    .join("+");
+    .join(sep);
 }

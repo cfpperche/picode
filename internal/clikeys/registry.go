@@ -97,11 +97,23 @@ var Registry = []CLI{
 	},
 	{
 		ID: "codex", Label: "Codex",
-		Keymap: Nested, Pickup: PickupRestart, State: Planned, Vocab: "codex",
-		Contexts: []string{"global", "composer", "chat", "editor", "vim_normal", "vim_operator", "vim_text_object", "pager", "list", "approval", "agents"},
-		Source: "developers.openai.com/codex config reference (2026-09-21): " +
-			"[tui.keymap.<context>.<action>] in ~/.codex/config.toml, [] unbinds, one key on two " +
-			"actions in a surface is a config error; the runtime keymap is built once at startup",
+		Keymap: Nested, Pickup: PickupRestart, State: Shipped, Vocab: "codex",
+		Contexts: []string{"global", "chat", "composer", "editor", "vim_normal", "vim_search", "vim_operator", "vim_text_object", "pager", "list", "agents", "approval"},
+		Source: "codex-cli 0.155.1 (installed as @openai/codex -> @openai/codex-linux-x64 " +
+			"0.155.1), read 2026-09-21 out of its own artifacts at that tag: " +
+			"codex-rs/core/config.schema.json (TuiKeymap) for the contexts and the " +
+			"labels, tui/src/keymap/bindings.rs for the runtime inventory " +
+			"(146 actions), tui/src/keymap.rs built_in_defaults() for the chords. " +
+			"~/.codex/config.toml, `[tui.keymap.<context>]` tables with " +
+			"`action = \"chord\"` rows — one key inside its context's table, not a " +
+			"table per action; chords are hyphen-joined (ctrl-t, page-down, esc); " +
+			"`[]` unbinds without falling through; a key the file omits inherits the " +
+			"built-in default; an unknown context or action, and one chord bound to " +
+			"two actions in the same context, are config errors codex refuses to " +
+			"start on. Pickup: tui/src/app/startup.rs resolves the runtime keymap " +
+			"when the app starts and there is no file watcher, so a hand edit (or " +
+			"PiCode's) needs a restart — only codex's own /keymap editor applies " +
+			"live, because it writes the file itself. ",
 	},
 	{
 		ID: "grok", Label: "Grok",
