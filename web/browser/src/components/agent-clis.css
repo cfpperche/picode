@@ -47,7 +47,11 @@
    the page gutter, cut mid-word — visual review, 2026-09-21). min-width: 0
    lets the nav shrink; the strip then scrolls, which is what CliPaneTabs'
    scrollIntoView effect was always written for. */
-.cli-pane-tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+/* overflow-y: hidden: overflow-x: auto computes the other axis to auto too,
+   and a sub-pixel overflow (the tabs' -1px margin + 2px underline under
+   fractional Windows DPI) then drew a vertical scrollbar beside the last
+   tab. The strip scrolls sideways only, by design. */
+.cli-pane-tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .cli-pane-tabs a {
   display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0 10px; margin-bottom: -1px;
   color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent;
@@ -150,7 +154,7 @@
   .cli-terminal-row { flex-wrap: wrap; gap: 10px; }
   .cli-terminal-row > .cli-actions { margin-left: auto; }
   .cli-pane-bar { flex-wrap: nowrap; align-items: center; }
-  .cli-pane-tabs { flex: 1; min-width: 0; overflow-x: auto; }
+  .cli-pane-tabs { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; }
   .cli-detail > #sessions-view { padding-top: 8px; }
   .cli-detail > #cli-settings-view { padding-top: 8px; }
   .cli-detail > #connectors-view, .cli-detail > #cli-connectors-view { padding-top: 8px; }
