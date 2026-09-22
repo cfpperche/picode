@@ -81,6 +81,24 @@ Omp reads its config when it starts. A change here reaches a running Omp
 terminal when that terminal restarts — and every other open Omp terminal reads
 the same global file, so they each pick it up on their own next start.
 
+## Models (Omp)
+
+The **Models** pane lists every model Omp reports it can reach in the
+workspace you opened it from, grouped by provider, with its context size and
+price per million tokens. The chips filter by kind (chat, tiny, image, speech,
+search, …) and the box filters by name.
+
+- **Allowed** limits Omp to the models you switch on. With none on, Omp may use
+  every model listed. With one or more on, it uses *only* those — and if none
+  of them is reachable in this folder, the pane says Omp has no model to use.
+- **Hide provider** removes a provider's models from Omp in the layer you are
+  editing; **Show** brings it back.
+
+Like Settings, the pane edits one layer at a time. A workspace list replaces
+the global one rather than adding to it, so the pane always writes the whole
+list for the layer — including what it inherited. The first answer takes a few
+seconds because PiCode asks Omp itself; **Refresh** asks again.
+
 ## Related pi documentation
 
 Canonical: [pi Settings](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/settings.md)

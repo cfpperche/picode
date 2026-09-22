@@ -196,3 +196,21 @@ test("the PiCode tools form offers every family the daemon serves", () => {
   assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.value.tools, ids);
 });
+
+// ADR-0181: only a CLI PiCode can ask for its catalog carries a Models pane.
+test("the Models pane is offered where the CLI answers, and its address round-trips", async () => {
+  const { cliPanes, cliLocation, cliModelsHash } = await import("./cliLaunch.js");
+  const omp = { id: "omp", launchable: true, integrationCapable: true, sessions: { list: true } };
+  const codex = { id: "codex", launchable: true, integrationCapable: true, sessions: { list: true } };
+  assert.ok(cliPanes(omp).includes("models"));
+  assert.equal(cliPanes(omp).indexOf("models"), cliPanes(omp).indexOf("providers") + 1);
+  assert.equal(cliPanes(codex).includes("models"), false);
+  const hash = cliModelsHash("omp", { workspaceId: "w1", layer: "project" });
+  assert.equal(hash, "#/clis/omp/models?workspaceId=w1&layer=project");
+  const loc = cliLocation(hash);
+  assert.equal(loc.pane, "models");
+  assert.equal(loc.workspaceId, "w1");
+  assert.equal(loc.layer, "project");
+  assert.equal(cliLocation("#/clis/omp/models/extra").invalid, true);
+  assert.equal(cliLocation("#/clis/omp/models?layer=elsewhere").layer, "");
+});

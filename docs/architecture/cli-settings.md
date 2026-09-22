@@ -176,6 +176,52 @@ its own `--session-dir` but a shared `~/.omp/agent`, so several live terminals
 share this file: the last save wins it, and each other terminal picks the
 change up when *it* restarts.
 
+## The Models pane (ADR-0181, slice 2)
+
+`#/clis/<cli>/models` exists only for a CLI PiCode can ask for its catalog
+(`internal/climodels`; omp today, and `TestJSListMatchesTheReaders` holds the
+JS list `MODELS_CLIS` equal to the server's). It shows what the CLI reports it
+can reach, grouped by provider, with kind chips, a filter, context size and the
+vendor's price pair, and it edits the two lists that decide which of those the
+CLI may use: `enabledModels` (**Allowed**) and `disabledProviders` (**Hide
+provider** / **Show**).
+
+Both lists are ordinary `list` rows of the settings report, marked `pane:
+"models"` so the Settings pane leaves them out: one file, one revision, one
+writer, and no key edited in two places that disagree about what it means.
+
+Two vendor facts decide the writes, both read from omp's own docs and source
+on 2026-09-22:
+
+- **Arrays replace across layers.** A workspace `disabledProviders` is the
+  whole list there, not an addition to the global one ("the most common
+  surprise", omp's `docs/settings.md`). So every toggle writes the layer's
+  **complete** list, starting from what the layer inherits when it sets none
+  (`toggledList` in `web/shared/domain/cliModels.js`). Measured on a scratch:
+  hiding `openai` in a workspace that inherited `[groq]` wrote
+  `["groq", "openai"]`, and the global file was untouched.
+- **`enabledModels` is a hard filter, not a favourite.** Once it holds
+  anything omp uses only the models it matches, and none matching means no
+  usable model (`resolveAllowedModels`, `src/config/model-resolver.ts`). The
+  pane says "uses only the N allowed models", and when every allowed entry is
+  an exact selector the CLI no longer reports, it says the folder has **no
+  model to use** — the case the QA found, a global allow-list naming a model
+  whose provider the workspace hid. A glob or a fuzzy entry is listed as
+  written and never judged: what it matches is the CLI's call.
+
+A folder-scoped entry (`{path, models}`) is a shape the writer does not
+rewrite; the layer reports the key `unreadable` and the pane offers "Open the
+file" instead of switches.
+
+**The catalog is cached by the files that decide it.** One probe costs about
+eleven seconds. `climodels.Read` keeps an answer while both config layers and
+`models.yml` are unchanged (path, size, mtime) and for at most ten minutes, so
+a reopen is instant and a save in PiCode's own panes is never answered from
+before it. The credential store and the catalog cache are deliberately not in
+the fingerprint: omp rewrites both on every run (the first version keyed on
+them and never hit), and several omp terminals share them. **Refresh** sends
+`fresh=1`, which asks the CLI again regardless.
+
 ## Pi (ADR-0101, machine rows added 2026-09-20)
 
 Pi keeps its own API (`/api/pi-settings`), its three layers, its trust rule and

@@ -84,7 +84,9 @@ func handleCLIModelsGet(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForStore(err), err.Error())
 			return
 		}
-		rep, err := climodels.Read(r.Context(), cli, cwd)
+		// `fresh=1` is the pane's Refresh: ask again even when the files the
+		// cached answer depends on have not moved (a sign-in elsewhere).
+		rep, err := climodels.Read(r.Context(), cli, cwd, r.URL.Query().Get("fresh") == "1")
 		if err != nil {
 			// The vendor's own words, not a status code: a CLI that is not
 			// installed, not signed in, or slow says so differently each time.

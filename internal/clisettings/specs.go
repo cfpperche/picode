@@ -249,6 +249,16 @@ var catalog = []spec{
 				[2]string{"fail-closed", "Stop the turn"},
 			)},
 			{Key: "retry.waitForUsageReset", Label: "Wait for the allowance to reset", Kind: KindBool, Group: groupFallbacks, Fallback: "Off", Help: "Sleeps until the window resets instead of failing."},
+			// The Models pane's two keys (ADR-0181 list kind). Both are arrays,
+			// so a project layer that sets one *replaces* the global list
+			// rather than extending it (omp's own docs/settings.md: "the most
+			// common surprise") — the pane writes a layer's complete list for
+			// that reason. `enabledModels` is a hard filter, not a favourite:
+			// once it holds anything, omp uses only the models it matches, and
+			// none matching means no usable model (`resolveAllowedModels`,
+			// src/config/model-resolver.ts, read 2026-09-22).
+			{Key: "enabledModels", Label: "Allowed models", Kind: KindList, Pane: "models", Fallback: "Every model Omp can reach"},
+			{Key: "disabledProviders", Label: "Hidden providers", Kind: KindList, Pane: "models", Fallback: "None"},
 			{Key: "memory.backend", Label: "Memory", Kind: KindSelect, Group: groupMemory, Fallback: "Off", Options: opts(
 				[2]string{"off", "Off"},
 				[2]string{"local", "On this machine"},

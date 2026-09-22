@@ -21,6 +21,7 @@ import CliSettings from "./CliSettings.jsx";
 import CliMemory from "./CliMemory.jsx";
 import PeerMessages from "./PeerMessages.jsx";
 import CliProviders from "./CliProviders.jsx";
+import CliModels from "./CliModels.jsx";
 import CliPackages from "./CliPackages.jsx";
 import { supportsCliConnectors, cliConnectorsHash } from "@picode/shared/domain/integrations.js";
 import Mcps from "./Mcps.jsx";
@@ -71,7 +72,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     if (route.redirect && route.redirect !== hash) location.replace(route.redirect);
     if (!legacyContextReady || route.invalid) return;
     const paneName = route.pane || "launch";
-    if (!["packages", "connectors", "settings"].includes(paneName)) return;
+    if (!["packages", "connectors", "settings", "models"].includes(paneName)) return;
     if (route.workspaceId || route.agentId) return;
     if (!setupCtx.workspaceId && !setupCtx.agentId) return;
     const next = cliSetupHref(route.id || "pi", paneName, setupCtx, route.workspace || "");
@@ -244,6 +245,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           customId={route.customId || ""}
           onCatalogChange={onCatalogChange}
         /> : null}
+        {pane === "models" ? <CliModels cli={route.id} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} /> : null}
         {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} workspaceId={setupCtx.workspaceId} /> : null}
         {pane === "memory" ? <CliMemory route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} /> : null}
         {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} /> : null}

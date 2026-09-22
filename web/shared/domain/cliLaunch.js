@@ -2,8 +2,9 @@ import { cliProvidersLocation } from "./cliProviders.js";
 import { cliPackagesLocation } from "./cliPackages.js";
 import { cliKeysLocation, cliSettingsLocation } from "./cliSettings.js";
 import { cliConnectorsLocation } from "./integrations.js";
+import { supportsCliModels } from "./cliModels.js";
 
-const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "keyboard", "memory", "packages", "connectors"]);
+const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "models", "settings", "keyboard", "memory", "packages", "connectors"]);
 
 // cliCapabilities reads what the server says one catalog row can do.
 // launch: New terminal exists. integration: activity, launch settings and
@@ -31,7 +32,11 @@ export function cliPanes(cli) {
   // The setup tabs ride along for every CLI: the ones without a native
   // integration render them as in-development placeholders instead of
   // pretending the feature exists (owner, 2026-09-15).
-  return ["launch", "terminals", ...sessions, "providers", "settings", "keyboard", "memory", "packages", "connectors"];
+  // Models only where PiCode can ask the CLI what it reaches (ADR-0181): a
+  // pane that could only say "in development" for eight CLIs would be a
+  // placeholder, and the setup group already carries those.
+  const models = cli && supportsCliModels(cli.id) ? ["models"] : [];
+  return ["launch", "terminals", ...sessions, "providers", ...models, "settings", "keyboard", "memory", "packages", "connectors"];
 }
 
 // Setup panes (Settings / Packages / Connectors) read identity from the
@@ -50,6 +55,15 @@ export function cliPaneSetupContext(route = {}, legacy = {}) {
   };
 }
 
+// The Models pane's address: its workspace and the layer being edited.
+export function cliModelsHash(cli, { workspaceId = "", layer = "" } = {}) {
+  const q = new URLSearchParams();
+  if (workspaceId) q.set("workspaceId", workspaceId);
+  if (layer === "global" || layer === "project") q.set("layer", layer);
+  const qs = q.toString();
+  return "#/clis/" + encodeURIComponent(cli) + "/models" + (qs ? "?" + qs : "");
+}
+
 export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (!cli) return "#/clis";
   const id = encodeURIComponent(cli);
@@ -58,6 +72,7 @@ export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (pane === "sessions") return "#/clis/" + id + "/sessions";
   if (pane === "terminals") return "#/clis/" + id + "/terminals";
   if (pane === "providers") return "#/clis/" + id + "/providers";
+  if (pane === "models") return "#/clis/" + id + "/models";
   if (pane === "settings") return "#/clis/" + id + "/settings";
   if (pane === "keyboard") return "#/clis/" + id + "/keyboard";
   if (pane === "memory") return "#/clis/" + id + "/memory";
@@ -120,6 +135,13 @@ export function cliLocation(hash = "", legacy = {}) {
     else if (rest === "custom" && rest2 && !parts[5]) { loc.custom = "edit"; loc.customId = rest2; }
     else if (rest) loc.invalid = true;
     if (["agentId", "workspaceId", "scope"].some((key) => params.has(key))) loc.scoped = true;
+  }
+  if (pane === "models") {
+    // The catalog is read in a workspace and the lists are written to a layer,
+    // so both ride the address; a path after the pane is not a link we made.
+    loc.workspaceId = params.get("workspaceId") || "";
+    loc.layer = params.get("layer") === "project" ? "project" : params.get("layer") === "global" ? "global" : "";
+    if (parts[3]) loc.invalid = true;
   }
   if (pane === "memory") {
     loc.workspaceId = params.get("workspaceId") || "";

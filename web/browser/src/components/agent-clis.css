@@ -536,3 +536,77 @@
   #cli-settings-view .role-item { flex-wrap: wrap; }
   #cli-settings-view .role-item-name { flex-basis: 100%; }
 }
+
+/* Models (ADR-0181): what the CLI reaches, grouped by provider, and the two
+   lists that decide which of it it may use. Rows are the activity-feed
+   density the Cursor bar sets (≤32px collapsed); numbers are tabular so a
+   column of prices and context sizes lines up. */
+.cli-models { padding-top: 12px; min-width: 0; }
+.models-scope { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
+.models-scope-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; }
+.models-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.models-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: var(--ctl-h); box-sizing: border-box; padding: 0 2px 0 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl); background: var(--bg-base);
+}
+.models-chip code { font-family: var(--mono); font-size: 12px; }
+.models-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+.models-bar .pkg-scope { margin: 0; }
+.models-bar .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
+.models-list { display: flex; flex-direction: column; gap: 14px; transition: opacity 150ms ease; }
+.models-list.is-refreshing { opacity: 0.6; }
+.models-group { display: flex; flex-direction: column; }
+.models-group-head {
+  display: flex; align-items: center; gap: 8px; min-height: var(--ctl-h);
+  border-bottom: 1px solid var(--border); margin-bottom: 2px;
+}
+.models-provider { font-weight: 600; font-size: 13px; }
+.models-group-head .btn { margin-left: auto; }
+.models-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: 12px;
+  min-height: 32px; padding: 2px 0;
+}
+.models-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 13px; }
+.models-name > span { white-space: nowrap; }
+.models-sel {
+  font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.models-meta { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.models-num { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; min-width: 3.5rem; text-align: right; white-space: nowrap; }
+.models-num + .models-num { min-width: 7.5rem; }
+.models-allow { display: flex; justify-content: flex-end; width: 3rem; }
+.models-none { margin: 8px 0; }
+@media (max-width: 767px) {
+  /* The phone keeps the name, stacks the numbers under it, and keeps the
+     switch in reach on the right. */
+  .models-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; padding: 6px 0; }
+  .models-name { flex-direction: column; align-items: flex-start; gap: 0; }
+  .models-meta { grid-column: 1; grid-row: 2; justify-content: flex-start; }
+  .models-allow { grid-column: 2; grid-row: 1 / span 2; }
+  .models-num, .models-num + .models-num { min-width: 0; text-align: left; }
+}
+
+/* Review fixes (2026-09-22): a layer switcher whose buttons are links needs
+   its own flex centring (the label sat at the top of a 36px box); the kind
+   chips wrap instead of running off a phone; the search keeps one width from
+   loading to loaded; a button inside a chip carries no second border. */
+.settings-layer .pkg-scope-btn { display: inline-flex; align-items: center; }
+.models-bar .cli-memory-search { flex: 0 1 18rem; }
+.models-kinds { flex-wrap: wrap; }
+.models-chip .btn { border-color: transparent; height: calc(var(--ctl-h) - 2px); min-height: 0; }
+.models-cols { min-height: 24px; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.models-cols .models-num { font-size: 11px; }
+.models-warn { color: var(--danger); font-size: 12.5px; }
+@media (max-width: 767px) { .models-cols { display: none; } .models-bar { flex-wrap: nowrap; } .models-bar .cli-memory-search { flex: 1 1 auto; min-width: 0; max-width: none; } }
+.models-bar { margin-bottom: 8px; }
+.models-kinds { margin: 0 0 12px; }
+.models-kinds .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
+
+/* Columns: fixed widths, so the header labels sit over their numbers. */
+.models-num { width: 4.5rem; min-width: 0; }
+.models-num + .models-num { width: 8.5rem; min-width: 0; }
+.models-chips-label { font-size: 12.5px; color: var(--text-secondary); }
+@media (max-width: 767px) { .models-num, .models-num + .models-num { width: auto; } }
+.models-allow { width: 4.5rem; }

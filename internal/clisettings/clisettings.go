@@ -74,6 +74,12 @@ type Field struct {
 	Group    string   `json:"group,omitempty"`
 	Fallback string   `json:"fallback,omitempty"`
 	Scopes   []string `json:"scopes,omitempty"`
+	// Pane names the pane that draws this row when it is not Settings. The
+	// row lives in the same report and the same file — one revision, one
+	// writer — but a pane with its own surface for it (omp's Models pane for
+	// `enabledModels` and `disabledProviders`) keeps it out of Settings, so a
+	// key is never edited in two places that disagree about what it means.
+	Pane string `json:"pane,omitempty"`
 	// Tag is the short name the vendor's own UI prints for this row (omp's
 	// DEFAULT, SMOL, SLOW). Empty for every field whose label is the name.
 	Tag string `json:"tag,omitempty"`

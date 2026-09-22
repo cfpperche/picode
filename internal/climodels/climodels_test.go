@@ -1,6 +1,13 @@
 package climodels
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+)
 
 // The fixture is the shape omp 18.2.8 answered with on this machine
 // (`omp models --json --kind all`, 2026-09-22): a `models` array whose rows
@@ -77,7 +84,7 @@ func TestOnlyDeclaredCLIsAnswer(t *testing.T) {
 			t.Errorf("%s has no measured way to list its models", cli)
 		}
 	}
-	if _, err := Read(t.Context(), "codex", ""); err == nil {
+	if _, err := Read(t.Context(), "codex", "", false); err == nil {
 		t.Error("a CLI with no reader must be refused by name, not probed")
 	}
 }
@@ -85,5 +92,86 @@ func TestOnlyDeclaredCLIsAnswer(t *testing.T) {
 func TestGarbageIsNamed(t *testing.T) {
 	if _, err := parseOmp([]byte("not json"), ""); err == nil {
 		t.Error("output PiCode cannot read must be an error that says so")
+	}
+}
+
+// The pane asks for a Models tab only for a CLI the server can answer for; this
+// is the seam between the two lists (the TestJSListMatchesTheCatalog pattern).
+func TestJSListMatchesTheReaders(t *testing.T) {
+	body, err := os.ReadFile("../../web/shared/domain/cliModels.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	match := regexp.MustCompile(`MODELS_CLIS = \[([^\]]*)\]`).FindSubmatch(body)
+	if match == nil {
+		t.Fatal("MODELS_CLIS not found in web/shared/domain/cliModels.js")
+	}
+	var js []string
+	for _, part := range strings.Split(string(match[1]), ",") {
+		if id := strings.Trim(strings.TrimSpace(part), `"`); id != "" {
+			js = append(js, id)
+		}
+	}
+	if strings.Join(js, ",") != strings.Join(Supported(), ",") {
+		t.Fatalf("UI list %v, readers %v", js, Supported())
+	}
+}
+
+// The price pair is read, the time-of-day multiplier is not.
+func TestCostIsTheVendorsPair(t *testing.T) {
+	rep, err := parseOmp([]byte(`{"models":[{"provider":"deepseek","id":"deepseek-flash","cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"timeBased":{"offPeakMultiplier":0.5}},"input":["text","image"]}]}`), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := rep.Models[0].Cost
+	if c == nil || c.Input != 0.3 || c.Output != 1.2 {
+		t.Fatalf("cost = %+v", c)
+	}
+	if strings.Join(rep.Models[0].Input, ",") != "text,image" {
+		t.Errorf("input = %v", rep.Models[0].Input)
+	}
+}
+
+// A cached answer is valid only while the files that decide it are unchanged:
+// a write to either config layer must never be answered from before it.
+func TestFingerprintMovesWithTheFiles(t *testing.T) {
+	h := t.TempDir()
+	old := home
+	home = func() string { return h }
+	t.Cleanup(func() { home = old })
+	t.Setenv("PI_CODING_AGENT_DIR", "")
+	ws := t.TempDir()
+	a := fingerprint(ws)
+	cfg := filepath.Join(h, ".omp", "agent", "config.yml")
+	if err := os.MkdirAll(filepath.Dir(cfg), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfg, []byte("disabledProviders: [groq]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	b := fingerprint(ws)
+	if a == b {
+		t.Fatal("creating the global config did not move the fingerprint")
+	}
+	proj := filepath.Join(ws, ".omp", "config.yml")
+	if err := os.MkdirAll(filepath.Dir(proj), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(proj, []byte("disabledProviders: [openai]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := fingerprint(ws)
+	if c == b {
+		t.Fatal("writing the workspace config did not move the fingerprint")
+	}
+	later := time.Now().Add(2 * time.Second)
+	if err := os.Chtimes(proj, later, later); err != nil {
+		t.Fatal(err)
+	}
+	if fingerprint(ws) == c {
+		t.Fatal("a touched workspace config did not move the fingerprint")
+	}
+	if fingerprint("") == fingerprint(ws) {
+		t.Fatal("the machine answer and a workspace answer must not share a fingerprint")
 	}
 }

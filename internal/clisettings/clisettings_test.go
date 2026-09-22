@@ -419,6 +419,9 @@ func TestEveryDeclaredFieldRoundTrips(t *testing.T) {
 					value = 7
 				case KindSelect:
 					value = f.Options[0].Value
+				case KindList:
+					// A list field is written and read back as a list (ADR-0181).
+					value = []any{"picode-probe"}
 				default:
 					value = "picode-probe"
 				}
@@ -447,6 +450,13 @@ func TestEveryDeclaredFieldRoundTrips(t *testing.T) {
 						case float64:
 							got = int(n)
 						}
+					}
+					if f.Kind == KindList {
+						gotList, err := asStrings(got)
+						if err != nil || strings.Join(gotList, ",") != "picode-probe" {
+							t.Fatalf("%s layer: got %#v want [picode-probe]", layer.Scope, got)
+						}
+						continue
 					}
 					if got != value {
 						t.Fatalf("%s layer: got %#v want %#v", layer.Scope, got, value)

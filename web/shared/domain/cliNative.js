@@ -40,6 +40,9 @@ export function defaultLayer(layers = [], routeLayer = "") {
 export function groupFields(fields = []) {
   const out = [];
   for (const field of fields) {
+    // A row another pane owns (omp's allowed models and hidden providers live
+    // in Models) is in the report for the revision, not for this pane.
+    if (field.pane) continue;
     const name = field.group || "";
     let group = out.find((g) => g.name === name);
     if (!group) {
