@@ -22,5 +22,7 @@ in, which spawns a real CLI process in the fixture tmux; left out on purpose.
 
 ## Next up
 
-- The capture runner could seed a pre-created sign-in terminal so the strip
-  state photographs without spawning a CLI.
+- ~~The capture runner seeds a pre-created sign-in terminal~~ — paid
+  2026-09-21 (feat/providers-strip): the fixture seeds a live "Claude Code
+  sign-in" shell terminal, the runner clicks Sign in via a blocking hashEval,
+  and the strip photographs (app-providers-signin.png).

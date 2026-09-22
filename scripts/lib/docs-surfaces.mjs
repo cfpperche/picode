@@ -189,6 +189,7 @@ export const SURFACE_PROFILES = Object.freeze({
 
 export const DOC_SCREENSHOT_SURFACES = Object.freeze({
   "app-providers": "desktop-providers",
+  "app-providers-signin": "desktop-providers",
   "app-providers-pi": "desktop-providers",
   "app-fleet": "desktop-dashboard",
   "app-inspector": "desktop-inspector",
