@@ -594,6 +594,41 @@
         ]
       }
     },
+    "/api/agents/{id}/delivery/queue": {
+      "post": {
+        "operationId": "postApiAgentsDeliveryQueue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agents"
+        ]
+      }
+    },
     "/api/agents/{id}/drop": {
       "post": {
         "operationId": "postApiAgentsDrop",
@@ -3566,6 +3601,23 @@
         ]
       }
     },
+    "/api/cli-models": {
+      "get": {
+        "operationId": "getApiCli-models",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-models"
+        ]
+      }
+    },
     "/api/cli-packages": {
       "get": {
         "operationId": "getApiCli-packages",
@@ -5059,6 +5111,47 @@
         },
         "tags": [
           "credentials"
+        ]
+      }
+    },
+    "/api/delivery/integration": {
+      "get": {
+        "operationId": "getApiDeliveryIntegration",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "delivery"
+        ]
+      },
+      "put": {
+        "operationId": "putApiDeliveryIntegration",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "delivery"
         ]
       }
     },
@@ -9091,6 +9184,41 @@
         ]
       }
     },
+    "/api/terminals/{id}/delivery/queue": {
+      "post": {
+        "operationId": "postApiTerminalsDeliveryQueue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
     "/api/terminals/{id}/drop": {
       "post": {
         "operationId": "postApiTerminalsDrop",
@@ -10721,6 +10849,41 @@
         ]
       }
     },
+    "/api/workspaces/{id}/delivery/queue": {
+      "post": {
+        "operationId": "postApiWorkspacesDeliveryQueue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}/favicon": {
       "get": {
         "operationId": "getApiWorkspacesFavicon",
@@ -11488,6 +11651,9 @@
     },
     {
       "name": "cli-memory"
+    },
+    {
+      "name": "cli-models"
     },
     {
       "name": "cli-packages"

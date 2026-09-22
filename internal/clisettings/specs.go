@@ -25,12 +25,14 @@ import "path/filepath"
 //	hermes display.show_reasoning on   — same file; this pane had it wrong
 //	hermes display.compact        off  — same file
 const (
-	groupModel    = "Model"
-	groupApproval = "Approvals"
-	groupKeyboard = "Keyboard"
-	groupMemory   = "Memory"
-	groupSurface  = "Interface"
-	groupUpdates  = "Updates"
+	groupModel     = "Model"
+	groupRoles     = "Model roles"
+	groupFallbacks = "Fallbacks"
+	groupApproval  = "Approvals"
+	groupKeyboard  = "Keyboard"
+	groupMemory    = "Memory"
+	groupSurface   = "Interface"
+	groupUpdates   = "Updates"
 )
 
 func opts(pairs ...[2]string) []Option {
@@ -212,8 +214,41 @@ var catalog = []spec{
 			{scope: "user", label: "Global", format: FormatYAML, file: userFile(".omp", "agent", "config.yml")},
 			{scope: "project", label: "This workspace", format: FormatYAML, file: projectFile(".omp", "config.yml")},
 		},
+		// The role matrix owns `modelRoles.*` (ADR-0181): the rows come from
+		// Omp's own catalog plus whatever the files add, so the single
+		// `modelRoles.default` row this pane used to declare is now one row of
+		// fifteen and is not declared here.
+		roles: ompRoles,
 		fields: []Field{
-			{Key: "modelRoles.default", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Omp default"},
+			{Key: "modelRoleStorage", Label: "Omp's own picker saves to", Kind: KindSelect, Group: groupRoles, Fallback: "Global", Options: opts(
+				[2]string{"global", "Global"},
+				[2]string{"project", "This workspace"},
+			), Help: "Where a role you pick inside Omp is saved. This pane always writes the layer you are editing."},
+			{Key: "defaultThinkingLevel", Label: "Thinking level", Kind: KindSelect, Group: groupModel, Fallback: "High", Options: opts(
+				[2]string{"off", "Off"},
+				[2]string{"minimal", "Minimal"},
+				[2]string{"low", "Low"},
+				[2]string{"medium", "Medium"},
+				[2]string{"high", "High"},
+				[2]string{"xhigh", "Extra high"},
+				[2]string{"max", "Max"},
+				[2]string{"auto", "Auto"},
+			), Help: "Reasoning depth for models that support it. Auto lets Omp pick per turn."},
+			{Key: "retry.enabled", Label: "Retry after a provider error", Kind: KindBool, Group: groupFallbacks, Fallback: "On", DefaultOn: true},
+			{Key: "retry.maxRetries", Label: "Retry attempts", Kind: KindNumber, Group: groupFallbacks, Fallback: "10", Help: "How many times one request is retried before the chain below is used."},
+			{Key: "retry.modelFallback", Label: "Fall back to another model", Kind: KindBool, Group: groupFallbacks, Fallback: "On", DefaultOn: true, Help: "Off leaves the chains below unused."},
+			{Key: "retry.fallbackRevertPolicy", Label: "Return to the first model", Kind: KindSelect, Group: groupFallbacks, Fallback: "After its wait time", Options: opts(
+				[2]string{"cooldown-expiry", "After its wait time"},
+				[2]string{"never", "Never, until the session ends"},
+			)},
+			{Key: "retry.usageAwareFallback", Label: "Switch before the plan limit", Kind: KindBool, Group: groupFallbacks, Fallback: "Off", Help: "Reads the plan's remaining allowance and switches early."},
+			{Key: "retry.usageReservePct", Label: "Reserve margin (%)", Kind: KindNumber, Group: groupFallbacks, Fallback: "10", Help: "Below this much allowance left, the model counts as near its limit."},
+			{Key: "retry.usageReservePolicy", Label: "Inside the margin", Kind: KindSelect, Group: groupFallbacks, Fallback: "Ask", Options: opts(
+				[2]string{"confirm", "Ask"},
+				[2]string{"auto", "Switch without asking"},
+				[2]string{"fail-closed", "Stop the turn"},
+			)},
+			{Key: "retry.waitForUsageReset", Label: "Wait for the allowance to reset", Kind: KindBool, Group: groupFallbacks, Fallback: "Off", Help: "Sleeps until the window resets instead of failing."},
 			{Key: "memory.backend", Label: "Memory", Kind: KindSelect, Group: groupMemory, Fallback: "Off", Options: opts(
 				[2]string{"off", "Off"},
 				[2]string{"local", "On this machine"},

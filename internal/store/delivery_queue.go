@@ -183,6 +183,13 @@ func (s *Store) ApplyQueueMutation(repo, actor string, m QueueMutation) (QueueEn
 		} else if err != nil {
 			return e, err
 		}
+		// The entry belongs to whoever *declared* the delivery, not to whoever
+		// wrote it down: the owner may enqueue on an agent's behalf, and the
+		// agent keeps the right to withdraw its own.
+		var declared Delivery
+		if err = json.Unmarshal([]byte(body), &declared); err != nil {
+			return e, err
+		}
 		var active int
 		if err = tx.QueryRow(`SELECT count(*) FROM delivery_queue WHERE repo=? AND delivery_id=? AND state IN (?,?,?)`,
 			repo, m.DeliveryID, QueueWaiting, QueueAuthorized, QueueRunning).Scan(&active); err != nil {
@@ -197,7 +204,7 @@ func (s *Store) ApplyQueueMutation(repo, actor string, m QueueMutation) (QueueEn
 		if n >= 1000 {
 			return e, ErrQueueCapacity
 		}
-		e = QueueEntry{ID: "queue_" + rand.Text(), DeliveryID: m.DeliveryID, Principal: actor,
+		e = QueueEntry{ID: "queue_" + rand.Text(), DeliveryID: m.DeliveryID, Principal: declared.Principal,
 			Revision: m.Revision, Target: m.Target, State: QueueWaiting, Version: 1, CreatedAt: nowUTC()}
 	} else {
 		var raw string

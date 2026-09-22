@@ -625,6 +625,12 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, []string{"delivery.changed"}},
+		{"PutIntegrationSettings", func(s *Store) {
+			s.OnEvent = recorder(s)
+			if _, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{FFOnly: true, Checks: []string{"make ci"}}); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.changed"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

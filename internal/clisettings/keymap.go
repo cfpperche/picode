@@ -93,37 +93,58 @@ func (d *Doc) SetStrings(path []string, values []string) error {
 	if len(path) == 0 {
 		return errors.New("no key to write")
 	}
-	name := strings.Join(path, ".")
-	lit, err := listLiteral(d.format, values)
+	text, err := spliceList(d.text, d.format, path, values, d.path)
 	if err != nil {
 		return err
 	}
-	if v, ok := d.value(path); ok {
-		if _, err := asStrings(v); err != nil {
-			return fmt.Errorf("%s: %w", name, err)
-		}
-		start, end, ok := valueSpan(d.text, d.format, path)
-		if ok && !bytes.Contains(d.text[start:end], []byte("\n")) {
-			// The splice happens in memory, so a value whose one-line span is
-			// only the *start* of it — a TOML array or a YAML block the user
-			// broke across lines — is caught here, undone, and refused by name
-			// instead of reaching the CLI as a broken file (2026-09-21).
-			before := d.text
-			d.text = append(append(append([]byte{}, d.text[:start]...), lit...), d.text[end:]...)
-			if err := d.reparse(); err != nil {
-				d.text = before
-				return fmt.Errorf("%s in %s is not a value PiCode can replace in place — it looks written over several lines; edit it there", name, d.path)
-			}
-			return nil
-		}
-		if d.text, err = removeValue(d.text, d.format, path); err != nil {
-			return fmt.Errorf("%s: %w", name, err)
-		}
-	}
-	if d.text, err = insertValue(d.text, d.format, path, lit); err != nil {
-		return fmt.Errorf("%s: %w", name, err)
-	}
+	d.text = text
 	return d.reparse()
+}
+
+// spliceList writes a list of strings at one path, and is the whole of what
+// SetStrings does — extracted so the settings writer (ADR-0181's list fields)
+// and the key-map writer are one implementation of the same guarantees, rather
+// than two that drift. It never mutates the input: a splice that would not
+// parse is refused with the original bytes untouched.
+func spliceList(text []byte, f Format, path []string, values []string, file string) ([]byte, error) {
+	name := strings.Join(path, ".")
+	lit, err := listLiteral(f, values)
+	if err != nil {
+		return nil, err
+	}
+	// An empty document has nothing to replace; decoding it to find that out
+	// only risks a parser's opinion about zero bytes.
+	if len(bytes.TrimSpace(text)) > 0 {
+		doc, err := decode(text, f, file)
+		if err != nil {
+			return nil, err
+		}
+		if v, ok := lookup(doc, path); ok {
+			if _, err := asStrings(v); err != nil {
+				return nil, fmt.Errorf("%s: %w", name, err)
+			}
+			start, end, spanOK := valueSpan(text, f, path)
+			if spanOK && !bytes.Contains(text[start:end], []byte("\n")) {
+				// The splice happens on a copy, so a value whose one-line span
+				// is only the *start* of it — a TOML array or a YAML block the
+				// user broke across lines — is caught here and refused by name
+				// instead of reaching the CLI as a broken file (2026-09-21).
+				out := append(append(append([]byte{}, text[:start]...), lit...), text[end:]...)
+				if _, err := decode(out, f, file); err != nil {
+					return nil, fmt.Errorf("%s in %s is not a value PiCode can replace in place — it looks written over several lines; edit it there", name, file)
+				}
+				return out, nil
+			}
+			if text, err = removeValue(text, f, path); err != nil {
+				return nil, fmt.Errorf("%s: %w", name, err)
+			}
+		}
+	}
+	out, err := insertValue(text, f, path, lit)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+	return out, nil
 }
 
 // Remove drops one path, so the CLI falls back to its own default, and takes the

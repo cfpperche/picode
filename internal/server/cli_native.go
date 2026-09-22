@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cfpperche/picode/internal/climemory"
+	"github.com/cfpperche/picode/internal/climodels"
 	"github.com/cfpperche/picode/internal/clisettings"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -20,6 +21,7 @@ import (
 func registerCLINativeRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/cli-settings", handleCLISettingsGet(deps))
 	mux.HandleFunc("PATCH /api/cli-settings", handleCLISettingsPatch(deps))
+	mux.HandleFunc("GET /api/cli-models", handleCLIModelsGet(deps))
 	mux.HandleFunc("GET /api/cli-memory", handleCLIMemoryGet(deps))
 	mux.HandleFunc("GET /api/cli-memory/item", handleCLIMemoryRead(deps))
 	mux.HandleFunc("PUT /api/cli-memory/item", handleCLIMemoryWrite(deps))
@@ -58,6 +60,35 @@ func handleCLISettingsGet(deps Deps) http.HandlerFunc {
 		rep, err := clisettings.Read(cli, clisettings.Paths{Cwd: cwd})
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, rep)
+	}
+}
+
+// handleCLIModelsGet asks a CLI which models it can reach, for the role
+// matrix's picker (ADR-0181). It runs the vendor's own read-only command in the
+// workspace being edited, because the answer depends on the directory: a
+// project that disables a provider gets a shorter list than the folder next to
+// it (measured 2026-09-22, omp 18.2.8). The pane calls this when a picker
+// opens, never on mount — the probe costs a subprocess.
+func handleCLIModelsGet(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cli := r.URL.Query().Get("cli")
+		if !climodels.Supports(cli) {
+			writeErr(w, http.StatusBadRequest, "PiCode cannot ask "+cliLabel(cli)+" which models it has")
+			return
+		}
+		cwd, err := nativePaths(deps, r.URL.Query().Get("workspace"))
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return
+		}
+		rep, err := climodels.Read(r.Context(), cli, cwd)
+		if err != nil {
+			// The vendor's own words, not a status code: a CLI that is not
+			// installed, not signed in, or slow says so differently each time.
+			writeErr(w, http.StatusBadGateway, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, rep)
