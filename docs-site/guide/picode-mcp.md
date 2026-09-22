@@ -54,10 +54,25 @@ Launch settings offer the group only for the CLIs that take servers on the
 command line or environment: Claude Code, Codex and OpenCode. Grok, Hermes
 Agent, Muse Code and Antigravity have no such mechanism (verified against
 their binaries and docs, 2026-09-19): only their config files, so use the
-Connectors pane at workspace or machine scope. Omp is a pi fork, and its launch
+Connectors pane. Omp is a pi fork, and its launch
 does carry PiCode's per-agent **package** entries as `-e` (Packages → This
 agent) — that is the packages pane's own list, not these servers, and the group
 above stays off for Omp's Launch settings.
+
+**Hermes and Muse take one more step, and two of their own.** Each keeps a
+single config file, so PiCode refuses the workspace scope for them ("there is
+no per-workspace file") and saves the card globally — and each hands its MCP
+servers only a short fixed list of the environment: thirteen variables for
+Hermes, eight for Muse, and none of them PiCode's (measured 2026-09-21). The
+card alone therefore reaches the server without an identity, which answers
+`no identity` instead of acting.
+Fill the card's **Environment variables** with the identity of the terminal
+that will use it — `PICODE_TERM_ID`, plus `PICODE_AGENT_ID` when that terminal
+belongs to an agent, plus `PICODE_DATA` when PiCode does not run from the
+default data directory — and, if a second terminal needs its own, name that
+entry after it (`picode-delivery-<terminal>`). Claude Code, Codex, OpenCode,
+Grok, Omp and Antigravity need none of this: they inherit the launch or PiCode
+writes it for them.
 
 ## By hand
 
