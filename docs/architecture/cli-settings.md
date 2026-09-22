@@ -234,6 +234,50 @@ the fingerprint: omp rewrites both on every run (the first version keyed on
 them and never hit), and several omp terminals share them. **Refresh** sends
 `fresh=1`, which asks the CLI again regardless.
 
+## Checks: what a CLI resolves here, and what is wrong with it (slice 4)
+
+A CLI with a doctor (`internal/clidoctor`; omp today, `DOCTOR_CLIS` held equal
+by `TestJSListMatchesTheChecks`) gets a **Checks** card at the top of its
+Settings pane, above the layer switcher because it reads the folder, not a
+layer. `GET /api/cli-doctor?cli=&workspace=` is read-only.
+
+**The resolved list is the CLI's own.** `omp config list --json`, run in the
+workspace, answers every setting it knows (499 on 18.2.8) with type and
+description in about 0.6 s and writes neither file (measured 2026-09-22).
+PiCode adds only the **source** of each value — "This workspace", "Global", or
+"Not in either file" — by reading the two files omp layers. A value neither
+file sets is not called a default: it may come from an overlay or a foreign
+settings file omp also merges, which PiCode does not read.
+
+**Credentials never reach the browser.** What omp marks `redacted` is masked,
+and so is a key whose *last segment* names a credential (`token`, `…ApiKey`,
+`…Token`, `…Password`, `credentials`). The naive substring match masked
+`compaction.maxTokens` and `composer.tokenRate` too; the rule is pinned
+against the eight credential keys and the innocent look-alikes in omp's own
+list.
+
+**Findings are measured facts, each one line and one action:**
+
+| Finding | Measured how | Action |
+|---|---|---|
+| A quarantined copy (`config.yml.broken-*`) beside either file | glob, with the file's date | Open the file |
+| A file that does not parse | PiCode's own YAML read | Open the file |
+| Keys omp does not know — renamed, retired or a typo | the file's dotted paths against omp's own listing; a key under a record setting (a role, a chain) is known | Open the file |
+| A key written flat (`a.b:`) **and** nested | both forms in one file; omp uses the nested one | Open the file |
+| A key written only flat | omp reads it; PiCode's rows do not (open debt) | Open the file |
+| The older `.omp/settings.json` | the file exists | Open the file |
+| Pi settings (`.pi/`) with no `.omp/` | both checked | — |
+| A committed `.env` | `git ls-files --error-unmatch .env` | Open the file |
+| No approval mode set (omp's default is `yolo`) | the resolved value, and neither file sets it | **Change it** — focuses the Tool approval row |
+| N omp terminals running | the presence registry (ADR-0062) | — (a change reaches each at its restart) |
+
+The unknown-key check needs no list of retired keys: omp's own listing is the
+list, so a rename in any release shows up as soon as the file still carries
+the old name. `Tool approval` (`tools.approvalMode`, always-ask / write / yolo,
+from omp's schema) is a new declared row so the finding has somewhere to send
+the reader. The card re-reads on the `cli.settings` feed event, so fixing a
+row clears its finding without a reload.
+
 ## Pi (ADR-0101, machine rows added 2026-09-20)
 
 Pi keeps its own API (`/api/pi-settings`), its three layers, its trust rule and

@@ -119,6 +119,7 @@
     "./domain/cliSettings.js": "./domain/cliSettings.js",
     "./domain/cliNative.js": "./domain/cliNative.js",
     "./domain/cliModels.js": "./domain/cliModels.js",
+    "./domain/cliDoctor.js": "./domain/cliDoctor.js",
     "./domain/memoryTable.js": "./domain/memoryTable.js",
     "./domain/piRows.js": "./domain/piRows.js",
     "./domain/cliPackages.js": "./domain/cliPackages.js",

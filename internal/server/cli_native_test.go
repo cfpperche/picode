@@ -401,3 +401,13 @@ func TestCLIModelsAPIRefusesCLIsItCannotAsk(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIDoctorAPIRefusesCLIsWithoutChecks(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	for _, cli := range []string{"pi", "", "codex"} {
+		status, _ := getJSONBody(t, ts, ts.URL+"/api/cli-doctor?cli="+cli)
+		if status != http.StatusBadRequest {
+			t.Errorf("cli=%q: want 400, got %d", cli, status)
+		}
+	}
+}
