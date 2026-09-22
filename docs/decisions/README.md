@@ -147,7 +147,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0140](0140-handoff-note-debt-expiry.md) | Session-note debts expire from the board after 30 days | accepted, supersedes 0131 (note debts) |
 | [0141](0141-instance-stamp-and-the-reap-scope.md) | The instance stamp — one PiCode does not reap another's sessions | accepted |
 | [0142](0142-retire-go-tray.md) | retire-go-tray | accepted (owner approved 2026-09-15; amends 0120 and 0071) |
-| [0143](0143-terminal-agents-as-principals.md) | terminal-agents-as-principals | accepted |
+| [0143](0143-terminal-agents-as-principals.md) | terminal-agents-as-principals | accepted, terminal principals narrowed to shells/sign-in (no grants) by 0184 |
 | [0144](0144-developer-mode-cdp.md) | Developer mode — raw CDP for a full-tier agent | accepted |
 | [0145](0145-board-bounded-view.md) | The handoff board is a bounded view | accepted |
 | [0146](0146-agent-history-access.md) | agent-history-access | accepted |
@@ -164,7 +164,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0157](0157-curated-connector-catalog.md) | curated-connector-catalog | accepted (owner approved the direction and the three design decisions) |
 | [0158](0158-cli-restart-resumes-session.md) | Restart an Agent CLI terminal resumes its pinned conversation | accepted, amends 0069 and 0084 |
 | [0159](0159-managed-cli-principals.md) | CLI terminals as managed principals — bind a guest TUI to a workspace without an agent row or chat | superseded by 0160 |
-| [0160](0160-cli-runtimes-are-agents.md) | CLI runtimes are agents — catalog `cli` on `agents`; managed RPC stays Pi-only | accepted, supersedes 0159's never-an-agent-row, amends 0006/0011/0069 |
+| [0160](0160-cli-runtimes-are-agents.md) | CLI runtimes are agents — catalog `cli` on `agents`; managed RPC stays Pi-only | accepted, supersedes 0159's never-an-agent-row, amends 0006/0011/0069; unbound CLI terminals ended by 0184 |
 | [0161](0161-live-desktop-overlays.md) | Live desktop overlays | accepted |
 | [0162](0162-pi-interactive-shared-runtime.md) | Pi uses the shared interactive runtime | accepted, amends 0160 and 0089 |
 | [0163](0163-cli-native-config-and-memory.md) | Native settings and native memory for every agent CLI — one generic file driver per config shape plus a per-CLI declaration; memory reported in four honest tiers (editable, read-only, none, unknown); no PiCode memory store, no cross-CLI transfer | accepted, extends 0150, amends 0101's Pi-only registry; amended 2026-09-20 after an adversarial review — its store table describes what the vendors document, not what was probed (Hermes' folder is empty here, Omp's backend is off); only four of the six stores have a config-key switch, and the Memory pane links to Settings rather than owning a toggle; `force` exists in the API with no control yet. The corrected description is `docs/architecture/cli-memory.md` and `docs/architecture/cli-settings.md` |
@@ -188,3 +188,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0181](0181-structured-cli-settings.md) | A settings row may be a role or an ordered list, and its path may come from the vendor (omp's model roles, fallback chains and quick-switch cycle) | accepted (owner, 2026-09-22), amends 0163 |
 | [0182](0182-integration-queue.md) | The integration queue — a durable per-repository queue of integration intents, eligibility bound to the reviewed revision and expiring with it, executing the operation the project declares through PiCode's own runner (never one repository's land script); any project may use it and PiCode works without it | accepted (owner, 2026-09-22) |
 | [0183](0183-omp-native-provider-catalog.md) | Omp's provider roster appends the /login catalog of the installed Omp package (rules.json), with Omp's names and key variables; falls back to the declaration when the file is missing | accepted (owner, 2026-09-22), amends 0169 |
+| [0184](0184-one-cli-door.md) | One door for agent CLIs — every user-facing CLI launch is an agent; `POST /api/clis/{cli}/terminals` removed; sign-in terminals internal and reaped; Make agent for a CLI in a PiCode shell | accepted, amends 0160 and 0143 |
