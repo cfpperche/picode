@@ -16,4 +16,4 @@ One branch per session, in this order; each carries its decision table and tests
 - [ ] GitHub repository description and topics still say "for Pi coding agents" (owner: `gh repo edit cfpperche/picode --description …`).
 - [ ] Backup snapshots only `~/.pi`; the other CLIs' sessions and settings are not covered and `docs-site/guide/backup.md:23,39` does not say so.
 - [ ] What's new: check whether the 0.1.0 headline "Run real Pi agents from your browser" (`web/shared/data/whats-new.json:8`) renders on a fresh install; reword if it does.
-- [ ] `docs-site/guide/remote-server.md` and `docs/architecture.md:52` still describe `pi` on PATH as a doctor step — true until `feat/runtime-without-pi`; drop the caveat sentence there when it lands.
+- [ ] `docs-site/guide/remote-server.md` (one caveat sentence) and `docs/architecture.md:52` still describe `pi` on PATH as a doctor step — true until `feat/runtime-without-pi`; update both when it lands.
