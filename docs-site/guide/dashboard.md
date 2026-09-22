@@ -18,7 +18,7 @@ Some CLIs write down what each turn cost, and PiCode uses that figure. Codex
 never does, and Claude Code does not for a session still running. PiCode
 **estimates** the turns without a price at list price from
 [LiteLLM's public price table](https://github.com/BerriAI/litellm), the same
-table ccusage uses. Estimates are always marked:
+table the `ccusage` tool uses. Estimates are always marked:
 
 | Where | Mark |
 |---|---|
