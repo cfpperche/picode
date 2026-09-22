@@ -23,11 +23,9 @@ import (
 // roster instead of the dialog.
 func handleUsageSummary(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rep, err := catalog.Load(deps.AgentCmd)
-		if err != nil {
-			writeErr(w, http.StatusServiceUnavailable, err.Error())
-			return
-		}
+		// Every CLI's roster reads this summary; the accounts come from the
+		// vault, so it answers without pi (ADR-0179).
+		rep := catalog.LoadAccounts(deps.AgentCmd)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"entries": usage.Summary(rep.Providers, time.Now()),
 		})
@@ -277,10 +275,7 @@ func StartUsageRefresh(ctx context.Context, deps Deps, every time.Duration) {
 		return
 	}
 	run := func() {
-		rep, err := catalog.Load(deps.AgentCmd)
-		if err != nil {
-			return // pi missing or offline: keep whatever the cache holds
-		}
+		rep := catalog.LoadAccounts(deps.AgentCmd)
 		targets := usage.ActiveTargets(rep.Providers)
 		if len(targets) == 0 {
 			return

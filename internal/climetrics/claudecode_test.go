@@ -331,3 +331,101 @@ func TestClaudeCodeStaysOutOfTheCredentialRoster(t *testing.T) {
 		t.Fatalf("cost = %v, want 25.00", w.Stats.Current.Cost)
 	}
 }
+
+// block is one record of a multi-block API response: Claude Code writes a
+// record per content block and repeats the response's whole usage on each.
+func block(ts, id string, tools []any) map[string]any {
+	a := assistant(ts, "opus", 400, 100, 0, tools)
+	a["requestId"] = "req_" + id
+	a["message"].(map[string]any)["id"] = "msg_" + id
+	return a
+}
+
+func TestClaudeCodeCountsARepeatedResponseOnce(t *testing.T) {
+	root := withClaudeRoot(t)
+	writeTranscript(t, root, "-repo", "s1.jsonl", []map[string]any{
+		block(day(1), "a", nil),
+		block(day(1), "a", []any{toolUse("Bash")}),
+		block(day(1), "a", []any{toolUse("Read"), toolErr()}),
+		block(day(1), "b", nil),
+	})
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Two responses, not four records: 2 x 400 in, 2 x 100 out.
+	if w.Stats.Tokens.Input != 800 || w.Stats.Tokens.Output != 200 {
+		t.Fatalf("tokens = %+v, want 800 in / 200 out", w.Stats.Tokens)
+	}
+	if got := w.Stats.Current.Messages; got != 2 {
+		t.Fatalf("messages = %d, want 2", got)
+	}
+	// The repeats still carry their own blocks.
+	calls := map[string]int{}
+	for _, tb := range w.Stats.Tools {
+		calls[tb.Name] = tb.Calls
+	}
+	if calls["Bash"] != 1 || calls["Read"] != 1 || w.Stats.Turns.Errors != 1 {
+		t.Fatalf("tools = %+v errors = %d", calls, w.Stats.Turns.Errors)
+	}
+}
+
+func TestClaudeCodeReadsSubagentTranscripts(t *testing.T) {
+	root := withClaudeRoot(t)
+	parent := assistant(day(1), "opus", 400, 100, 0, nil)
+	parent["sessionId"] = "s1"
+	writeTranscript(t, root, "-repo", "s1.jsonl", []map[string]any{parent})
+	sub := assistant(day(1), "haiku", 40, 10, 0, []any{toolUse("Grep")})
+	sub["sessionId"] = "s1"
+	sub["isSidechain"] = true
+	writeTranscript(t, root, "-repo/s1/subagents", "agent-x.jsonl", []map[string]any{sub})
+
+	before := ClaudeCodeMeter{}.Fingerprint()
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Tokens.Input != 440 {
+		t.Fatalf("input = %d, want 440 (parent + subagent)", w.Stats.Tokens.Input)
+	}
+	// The subagent folds into its parent's session.
+	if got := w.Stats.Current.Sessions; got != 1 {
+		t.Fatalf("sessions = %d, want 1", got)
+	}
+	// A subagent writing alone must still move the fingerprint.
+	writeTranscript(t, root, "-repo/s1/subagents", "agent-x.jsonl", []map[string]any{sub, sub})
+	if (ClaudeCodeMeter{}).Fingerprint() == before {
+		t.Fatal("fingerprint ignored a subagent transcript")
+	}
+}
+
+// The output count can grow on a later record of the same response; the
+// largest is the response's final usage.
+func TestClaudeCodeKeepsTheFinalUsageOfARepeatedResponse(t *testing.T) {
+	root := withClaudeRoot(t)
+	early := block(day(1), "a", nil)
+	late := block(day(1), "a", []any{toolUse("Bash")})
+	late["message"].(map[string]any)["usage"].(map[string]any)["output_tokens"] = 180
+	writeTranscript(t, root, "-repo", "s1.jsonl", []map[string]any{early, late})
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Tokens.Output != 180 || w.Stats.Tokens.Input != 400 {
+		t.Fatalf("tokens = %+v, want 400 in / 180 out", w.Stats.Tokens)
+	}
+}
+
+func TestClaudeCodeReadsWorkflowAgentTranscripts(t *testing.T) {
+	root := withClaudeRoot(t)
+	a := assistant(day(1), "opus", 30, 3, 0, nil)
+	a["sessionId"] = "s1"
+	writeTranscript(t, root, "-repo/s1/subagents/workflows/wf_1", "agent-y.jsonl", []map[string]any{a})
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Tokens.Input != 30 {
+		t.Fatalf("input = %d, want the workflow agent's 30", w.Stats.Tokens.Input)
+	}
+}

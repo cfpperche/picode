@@ -237,6 +237,25 @@ func For(cli string) *spec {
 	return nil
 }
 
+// UserFiles names each CLI's machine-level settings files (the "user"
+// layers), keyed by CLI id, for a home directory — what a backup copies
+// (ADR-0014 amendment, ADR-0179). Project layers live in workspaces.
+func UserFiles(home string) map[string][]string {
+	out := map[string][]string{}
+	p := Paths{Home: home}
+	for _, s := range catalog {
+		for _, l := range s.layers {
+			if l.scope != "user" || l.file == nil {
+				continue
+			}
+			if f := l.file(p); f != "" {
+				out[s.id] = append(out[s.id], f)
+			}
+		}
+	}
+	return out
+}
+
 // Supported lists the CLIs with a declaration, in catalog order.
 func Supported() []string {
 	out := make([]string, 0, len(catalog))

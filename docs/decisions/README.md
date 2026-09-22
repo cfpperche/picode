@@ -18,7 +18,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0011](0011-workspaces-and-agents.md) | Workspaces contain many agents; unbound agents in `ws_free` | accepted, amended by 0026, 0027 |
 | [0012](0012-settings-vs-preferences.md) | `#/preferences` = PiCode; `#/settings` = pi GUI | accepted |
 | [0013](0013-provider-accounts.md) | Extra logins in `~/.picode/accounts.json`; `auth.json` is the active slot | accepted |
-| [0014](0014-local-backup.md) | Local directory snapshots of the PiCode environment | accepted |
+| [0014](0014-local-backup.md) | Local directory snapshots of the PiCode environment | accepted; amended 2026-09-22 (every agent CLI's settings, login files with secrets, file-based sessions with sessions) |
 | [0015](0015-browser-file-editor.md) | Browser file editor for the agent cwd (not an IDE) | accepted, explorer refusal amended by 0030 |
 | [0016](0016-project-shells.md) | Project shells in tmux, as editor tabs | superseded by 0017 |
 | [0017](0017-first-class-terminals.md) | First-class terminals (sidebar + main tabs) | accepted, amended by 0026 |

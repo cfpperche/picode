@@ -179,3 +179,15 @@ func TestPutLlamaPreservesKeyOnURLChange(t *testing.T) {
 		t.Fatal("credential or URL lost")
 	}
 }
+
+// Without pi the account list still comes back — the login set at least —
+// so the usage meter does not depend on Pi (ADR-0179).
+func TestLoadAccountsWithoutPi(t *testing.T) {
+	rep := LoadAccounts(filepath.Join(t.TempDir(), "no-such-pi"))
+	if len(rep.Providers) == 0 {
+		t.Fatal("no providers without pi")
+	}
+	if _, err := Load(filepath.Join(t.TempDir(), "no-such-pi")); err == nil {
+		t.Fatal("Load must still fail without pi: /api/catalog is Pi's")
+	}
+}
