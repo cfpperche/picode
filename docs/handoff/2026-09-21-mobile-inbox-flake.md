@@ -20,4 +20,4 @@ Not done / debts: no changelog fragment — capture harness, not user-visible. `
 with the measurement (its home for the record), and the duplicate bullet in `docs/handoff/open/docs-shots-mobile.md` is marked paid pointing
 there; the other open items in that file (`pi auth check` `invalid_state`; the 128-px budget) are untouched and still open. No new debt filed —
 nothing here outlives the branch beyond that record.
-Merge: fast-forward ready (main can ff-only to feat/mobile-inbox-flake; bf733ed0 merges main).
+Merge: merged as b0f4ba41 (fast-forward from the root, 2026-09-21; `make ci` green there).
