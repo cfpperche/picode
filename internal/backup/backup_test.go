@@ -12,6 +12,11 @@ import (
 func testEngine(t *testing.T) (*Engine, string, string) {
 	t.Helper()
 	root := t.TempDir()
+	// The CLI parts of a snapshot read $HOME (clis.go); a test must never
+	// copy the machine's real CLI sessions and credentials.
+	t.Setenv("HOME", filepath.Join(root, "home"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(root, "home", ".local", "share"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "home", ".config"))
 	data := filepath.Join(root, "data")
 	pi := filepath.Join(root, "pi")
 	if err := os.MkdirAll(data, 0o755); err != nil {

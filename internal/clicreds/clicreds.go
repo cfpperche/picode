@@ -243,6 +243,31 @@ func CredentialPath(cli, provider string) string {
 	return ""
 }
 
+// CredentialFiles names each CLI's own credential files (the declared Native
+// paths, expanded), keyed by CLI id, without duplicates. Pi is left out: the
+// backup already carries ~/.pi/agent/auth.json as its own part.
+func CredentialFiles() map[string][]string {
+	out := map[string][]string{}
+	for _, s := range catalog {
+		if s.CLI == "pi" {
+			continue
+		}
+		seen := map[string]bool{}
+		for _, p := range s.Providers {
+			if p.Native == nil {
+				continue
+			}
+			f := expandPath(p.Native.Path)
+			if f == "" || seen[f] {
+				continue
+			}
+			seen[f] = true
+			out[s.CLI] = append(out[s.CLI], f)
+		}
+	}
+	return out
+}
+
 // expandPath resolves a declaration's path: $HOME, $XDG_DATA_HOME, $XDG_CONFIG_HOME.
 func expandPath(p string) string {
 	p = strings.TrimSpace(p)
