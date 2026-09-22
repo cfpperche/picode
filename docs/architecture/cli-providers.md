@@ -56,7 +56,12 @@ limited to that CLI's providers, the key field with the line that says the
 key stays on this machine, Save — and, for a provider the CLI signs into
 (an `oauth` kind plus a declared sign-in), **Guided sign-in**, which closes
 the dialog and starts the ADR-0168 strip, because the vendor's OAuth
-happens in the CLI, never here. A provider with no accounts shows
+happens in the CLI, never here. The table lists only providers the user
+has something for — an account, a custom definition, or a CLI login waiting
+to be imported; the rest of the roster (pi's whole catalog, a guest's
+declaration) stays reachable through the Add dialog's select. With nothing
+to list, the pane says `No provider credentials for <CLI> yet.` under the
+bar's Add. A provider shown for its login alone reads
 `Name · No accounts yet.`, never an empty well, and a provider whose
 declaration carries a `note` shows
 that one line instead of a Verify control that could not answer.
