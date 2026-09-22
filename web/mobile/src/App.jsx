@@ -625,12 +625,12 @@ export default function MobileApp() {
       <Work section={section} focusWs={section === "workspaces" ? route.id : ""} onSection={setSection} loaded={loaded} error={fleetError} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
         workingIds={tuiWorking} busyId={busyId} checklists={checklists}
         onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onTermAction={onTermAction} onAgentAction={onAgentAction} clis={clis}
-        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal} onNewCliPrincipal={setCliPrincipalWs}
+        onCreate={(kind, ws) => (kind === "free" ? setCliPrincipalWs({ free: true }) : setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) }))} onNewTerm={newTerminal} onNewCliPrincipal={setCliPrincipalWs}
         onOpenInspector={openInspector} onOpenFiles={openFiles} onOpenGit={openGit} onRefresh={refreshAll} />
     );
   } else if (route.screen === "more") {
     body = (
-      <More fleetReady={loaded} legacyAgentId={lastAgentId} section={route.section} apps={apps} catalog={catalog} system={system} version={version} themeMode={themeMode} workspaces={workspaces} freeAgents={freeAgents}
+      <More fleetReady={loaded} legacyAgentId={lastAgentId} section={route.section} apps={apps} catalog={catalog} clis={clis} system={system} version={version} themeMode={themeMode} workspaces={workspaces} freeAgents={freeAgents}
         onAgentConfig={patchAgent}
         onTheme={(m) => { persistTheme(m); setThemeMode(m); }} last={last} onRefreshCatalog={loadCatalog} onCatalogChange={setCatalog}
         onShare={() => setShareOpen(true)} onWhatsNew={openWhatsNew} whatsNewUnread={whatsNewUnread} onBack={() => goBack(route)} />
@@ -640,7 +640,7 @@ export default function MobileApp() {
       <Now loaded={loaded && attentionReady} error={fleetError || attentionError} entries={entries} stats={stats} results={results}
         fleetTotal={fleetTotal + terminals.length} onAnswer={answerAsk} onRespond={respondInbox}
         onOpenAgent={openAgent} onOpenInbox={(id) => push(mobileHash("inbox", id))} onRefresh={refreshAll}
-        onCreate={(kind) => setCreate({ kind, workspace: null })} />
+        onCreate={(kind) => (kind === "free" ? setCliPrincipalWs({ free: true }) : setCreate({ kind, workspace: null }))} />
     );
   }
 

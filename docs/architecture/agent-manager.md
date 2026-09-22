@@ -166,9 +166,11 @@ HTTP API (Go 1.22 method patterns):
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent
   (idempotent); 409 on a workspace with no agents, like every
   workspace-scoped call that needs one (sessions, status)
-- `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX).
-  `pi.latest`/`pi.updateAvailable` ride along (registry check, 6 h cache);
-  `POST /api/system/pi-update` runs `pi update --self`.
+- `GET /api/system` — host and network facts plus the infrastructure PiCode
+  itself needs: tmux (required), mkcert and tailscale (optional). No agent
+  CLI is probed here (ADR-0179); presence, version and update state per CLI
+  come from `GET /api/clis`, and Pi updates through the same lifecycle lane
+  as every CLI (ADR-0087).
 - `GET /ws/term?session=<name>` — xterm.js bridge (Pi TUI or project shell).
   The bridge sets `status off`, `allow-passthrough on` and extended keys on the
   session, then applies the session's **resolved** tmux options (ADR-0024) — on

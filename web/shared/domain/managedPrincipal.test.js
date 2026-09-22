@@ -19,12 +19,22 @@ test("catalogForPrincipal is empty when nothing is installed", () => {
   assert.deepEqual(catalogForPrincipal([{ id: "grok", installed: false, launchable: true }]), []);
 });
 
-test("catalogForAgent always leads with Pi", () => {
+test("catalogForAgent leads with Pi when it is installed", () => {
   const rows = catalogForAgent([
     { id: "claude-code", name: "Claude Code", installed: true, launchable: true },
+    { id: "pi", name: "Pi", installed: true, launchable: true },
     { id: "grok", name: "Grok", installed: false, launchable: true },
   ]);
   assert.deepEqual(rows.map((c) => c.id), ["pi", "claude-code"]);
+});
+
+test("catalogForAgent omits an absent Pi like any other CLI (ADR-0179)", () => {
+  const rows = catalogForAgent([
+    { id: "pi", name: "Pi", installed: false, launchable: true },
+    { id: "claude-code", name: "Claude Code", installed: true, launchable: true },
+  ]);
+  assert.deepEqual(rows.map((c) => c.id), ["claude-code"]);
+  assert.deepEqual(catalogForAgent([]), []);
 });
 
 test("agentIsPi treats missing cli as Pi", () => {

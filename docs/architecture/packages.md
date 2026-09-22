@@ -161,8 +161,9 @@ roster when one settles; a failed job carries the command it ran, so the copy
 affordance works for the asynchronous half too.
 
 Three verbs run in the driver and answer immediately, because their answer
-depends on the result: `Toggle` (the CLI's own enable/disable verb, then the
-fresh list), `Inspect` (the vendor's own text, verbatim, with the command that
+depends on the result: `Toggle` (the CLI's own enable/disable verb — or, for one
+of Omp's own `extensions`, the `disabledExtensions` write below — then the fresh
+list), `Inspect` (the vendor's own text, verbatim, with the command that
 produced it) and a marketplace **removal** (a local change — the sources that
 are left). Add and update fetch, so they are the lane's.
 
@@ -178,6 +179,20 @@ of `<ws>/.omp/settings.json` by the same splice (its id leaves
 `disabledExtensions` too), while the user layer goes through `omp config set`.
 An agent-layer write is PiCode's own call for every CLI, which the pane's
 `directMutation` states once.
+
+**An Omp extension's toggle is that array read the other way.** The CLI's plugin
+verbs cannot move a configured extension — measured 2026-09-21: `omp plugin
+disable <entry>` answers *"not found in runtime config"* — so `Toggle` asks the
+engine for one before it asks for the vendor's verb, exactly as `Remove` does.
+The workspace layer splices the entry's id into `disabledExtensions` (out of it
+when the row is being enabled, and the key itself in when the file has none),
+every other byte preserved and the result re-parsed and compared; the user layer
+runs the CLI's own `omp config set disabledExtensions '<json array>'` in the
+user's directory, which is where that command always writes. Both directions
+answer the CLI's fresh list, the line the toggle ran rides the answer on a
+refusal — and the workspace write has none to ride, the same empty line the
+in-process OpenCode toggle has always answered. A row the plugin store owns
+keeps the vendor's own verb.
 
 ## The agent layer
 
@@ -345,8 +360,9 @@ instead of drawing a roster under a configuration hash.
 ## Open work
 
 `docs/handoff/open/packages.md` carries what is measured but not yet done:
-Omp's extension rows still draw Enable/Disable from the CLI's plugin verb rather
-than the `disabledExtensions` array, and OpenCode's removal is unreachable from
-the pane because every removal is reserved as a job and that mutation has no
-argv. Muse's built-in first-party plugins stay outside every surface PiCode may
-read.
+OpenCode's removal is unreachable from the pane because every removal is
+reserved as a job and that mutation has no argv. Muse's built-in first-party
+plugins stay outside every surface PiCode may read. An extension row's
+Enable/Disable used to draw the CLI's plugin verb, which does not know an
+extension; it now writes `disabledExtensions` itself (slice 5's debt, paid
+2026-09-22 by `feat/packages-toggle`).

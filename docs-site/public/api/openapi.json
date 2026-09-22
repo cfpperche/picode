@@ -8656,32 +8656,6 @@
         ]
       }
     },
-    "/api/system/pi-update": {
-      "post": {
-        "operationId": "postApiSystemPi-update",
-        "parameters": null,
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "system"
-        ]
-      }
-    },
     "/api/terminals": {
       "get": {
         "operationId": "getApiTerminals",

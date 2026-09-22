@@ -78,7 +78,7 @@ func TestNextStage(t *testing.T) {
 		},
 		{
 			name:  "a matching picode with missing tools installs the runtime",
-			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, DefaultUser: "goat", PicodeVersion: "0.3.1", WantPicode: "0.3.1", Missing: []string{"tmux", "pi"}},
+			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, DefaultUser: "goat", PicodeVersion: "0.3.1", WantPicode: "0.3.1", Missing: []string{"tmux", "npm"}},
 			want:  StageInstallRuntime,
 		},
 		{

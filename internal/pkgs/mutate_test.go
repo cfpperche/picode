@@ -226,6 +226,69 @@ esac`)
 	}
 }
 
+// The toggle of an Omp extension is the CLI's own `disabledExtensions` write,
+// asked of the engine before the plugin verbs — which do not know a configured
+// extension. The workspace layer is a file PiCode splices and answers no
+// command at all (the empty answer OpenCode's in-process toggle gives); the
+// user layer is the CLI's own `config set`, run here because a toggle is
+// synchronous, and the line the pane would copy is the one it ran.
+func TestGuestToggleOmpExtensionWritesTheCLIsOwnList(t *testing.T) {
+	ctx := context.Background()
+	stubGuest(t, "omp", `case "$*" in
+  *"config get disabledExtensions"*) printf '%s' '{"key":"disabledExtensions","value":[],"type":"array","description":""}' ;;
+  *"config get extensions"*) printf '%s' '{"key":"extensions","value":["pkgs/one/tool.ts"],"type":"array","description":""}' ;;
+  *) printf '%s' '{"npm":[],"marketplace":[]}' ;;
+esac`)
+
+	// The workspace layer: PiCode writes the settings file itself, so there is
+	// no argv to hand the lane and nothing for a person to copy.
+	ws := t.TempDir()
+	settings := filepath.Join(ws, ".omp", "settings.json")
+	mustWrite(t, settings, `{"extensions":["pkgs/ext/tool.ts"]}`)
+	cmd, err := DriverFor("omp").Toggle(ctx, Query{Vendor: "project", WorkspacePath: ws},
+		Target{Name: "tool", Source: "pkgs/ext/tool.ts", On: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Exe != "" || cmd.Line != "" || len(cmd.Args) != 0 {
+		t.Fatalf("a workspace write has no command to copy: %+v", cmd)
+	}
+	body, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"disabledExtensions"`) || !strings.Contains(string(body), "extension-module:tool") {
+		t.Fatalf("the toggle did not reach the CLI's own list: %s", body)
+	}
+
+	// The user layer: the CLI's own command, in the user's own directory, and
+	// it is run — against the stub on PATH and a temp HOME, never the real one.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cmd, err = DriverFor("omp").Toggle(ctx, Query{Vendor: "user"},
+		Target{Name: "tool", Source: "pkgs/one/tool.ts", On: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"config", "set", "disabledExtensions", `["extension-module:tool"]`}
+	if cmd.Exe != "omp" || cmd.Dir != home || !slices.Equal(cmd.Args, want) {
+		t.Fatalf("command = %+v, want %s %v in %s", cmd, "omp", want, home)
+	}
+	if !strings.Contains(cmd.Line, "config set disabledExtensions") {
+		t.Fatalf("line = %q, want the CLI's own command", cmd.Line)
+	}
+
+	// A plugin row is untouched by any of this: the vendor's own verb, as
+	// before.
+	cmd, err = DriverFor("omp").Toggle(ctx, Query{Vendor: "user"}, Target{Name: "probe@picode-probe-mp", On: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameCommand(t, cmd, engineCommand(t, "omp", clipkgs.VerbDisable, clipkgs.Paths{}, clipkgs.Target{
+		Name: "probe@picode-probe-mp", Scope: "user",
+	}))
+}
+
 // Inspect answers the vendor's own text and the command that produced it — the
 // two things a refusal and a dialog need — and a CLI that declares no
 // inspection refuses in its engine's own words.

@@ -1,0 +1,9 @@
+# 2026-09-22 — feat/runtime-without-pi
+
+Shipped: the second branch of `docs/handoff/open/multi-cli-ade.md`. Provision: `internal/provision/steps.go` replaces `piStep` with an informational `clisStep` — it walks `clilaunch.Catalog()` with `lookPath`, is always ok and has no fix (`TestCLIsStep`; the step-order test updated); `internal/provision/container.go` drops the pi npm install from the member rootfs. Desktop: `internal/desktop/stages.go` lists `RuntimeTools` without pi, the probe no longer reports `missing:pi`, `RuntimeNodeMajor = "22"` replaces `PiRegistryURL`/`ParsePiNodeMajor`, and `PiInstallArgs`/`UserPiInstallScript` are deleted; `cmd/picode-desktop/stages.go` drops the `needPi` branches and `piNodeMajor`, and the `--user` help text no longer mentions the pi install. Tests renamed or added: `TestRunInstallRuntimeInstallsNodeAtTheCIMajor`, `TestRunInstallRuntimeLeavesAnOldNodeAlone`, `TestRunInstallRuntimeUserModeInstallsNoCLI`, `TestRuntimeToolsNameNoAgentCLI`. Docs: `docs/architecture.md` (doctor and installer paragraphs), `docs-site/guide/remote-server.md` (the pi caveat dropped), `docs-site/guide/public-access.md`, and the ADR-0098 index row.
+
+Verified: `go test ./internal/provision/ ./internal/desktop/ ./cmd/picode-desktop/` green. Live: the branch binary's `picode provision --dry-run` with `pi` off the PATH printed `ok  agent CLIs on PATH  found: Claude Code, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity`; with the full PATH it listed all nine, Pi and Omp included.
+
+Not verified: the Windows installer change ran only under Go tests with the fake runner. The real acceptance is a scenario run on the `picode-test` VM, which is the owner's and is the open debt in the topic file; `make desktop-restart` is the owner's call. No UI changed, so no visual review.
+
+The remaining branches and debts live in `docs/handoff/open/multi-cli-ade.md`; nothing is repeated here.

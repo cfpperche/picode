@@ -1,0 +1,33 @@
+# ADR-0182: The integration queue
+
+- **Status**: proposed
+- **Date**: 2026-09-22
+- **Boundary**: persistence — one durable, per-repository queue of integration intents and its events; security model — who may enqueue, order and authorize, with eligibility bound to the reviewed revision and expiring with it; process — one integration operation per repository, serialized with the land that exists today and never bypassing the mutation lock.
+
+## Context
+
+D1a gives an agent a way to *declare* a change and ask for review (ADR-0171: a declaration, never an approval). D1b observes integration (`internal/delivery`, ADR-0170). Integration itself is still a person running this repository's `make land`/`git merge --ff-only` by hand — and the evidence side of that operation exists here: `scripts/delivery-receipts.mjs` records started/finished facts per command under the common Git directory, and `ci.sh`, `ci-scoped.sh` and `land.mjs` write them.
+
+**That script is this repository's workflow, not a part of the product** (owner, 2026-09-22): our development flow is a *consumer* of PiCode's delivery tooling, and the product never depends on the way one repository integrates. Everything below is written that way — the queue executes what a project declares, the receipt format is the product's contract, and this repository's land is one client of it.
+
+The plan (`docs/plans/delivery-flow.md`, slice D3) asks for explicit queue intent: enqueue, withdraw and order; one integration operation per repository with a named blocker for every waiting entry; a recheck of base and evidence before execution; and recovery from retries, duplicates, external merges and restarts that never repeats an operation whose result is uncertain. It also states that durable queue storage and events, execution authority, authorization expiry and restart recovery need a boundary decision before implementation — this one.
+
+D2 was built and removed the same day (ADR-0177) because the only environment its vocabulary could name was PiCode's own repository. The owner's rule from that review governs this slice too: **the queue serves any project that wants it, and PiCode works with and without it** (owner session, 2026-09-22). Two more decisions from the same session: the queue's *configuration* follows the workspace, falling back to the machine where a CLI or project keeps no workspace layer — and **identity is never a scope value**: it is carried by the launch (ADR-0160 Fatia E), as the Codex path now writes it (`toolIdentityEnv`).
+
+## Decision
+
+A queue entry is a durable **intent** stored beside the delivery record it names, in the pattern D1a established (migration, optimistic version, and the `delivery.changed` event appended in the same transaction): repository, delivery id, revision, target, requesting principal, state, and an order key. Entries are per repository and execute **one at a time per repository**, running the integration operation **the project declares** — target branch, merge policy, and the command(s) that must pass — through PiCode's own runner, never through a script one repository happens to own. This repository's `make land` is one such declaration, and may itself become a client of the queue; it is not the queue's engine. `internal/delivery` reads queue state the way it reads declaration state, so the surfaces that exist today gain a lane instead of a second store.
+
+Eligibility is bound to the **reviewed revision**. An entry is executable only while the delivery's branch still points at the revision that was reviewed, the target has not moved since, and the recorded evidence still covers that revision; any of those changing invalidates the entry and names the reason — never silently broadened, never re-authorized. Authorization expires with the entry: an entry that waits past the target moving or the revision changing is reviewed again. An agent may enqueue and withdraw **its own** delivery; only the owner may order or authorize execution. Recovery is explicit: entries and receipts reconcile on daemon start, an operation whose result is unknown stays unknown (no automatic retry, no inferred success), and a duplicate request replays its original receipt under the requestId rule of ADR-0171. Nothing here touches ADR-0105: deploy and publication remain the owner's separate operation, and the queue refuses to run while the mutation lock or an active turn says stop.
+
+## Consequences
+
+The owner gains a waiting list that names every blocker (target moved, evidence stale, another entry running), and an agent stops guessing when a change may land. Receipts are the product's format and any producer may write them — this repository's gates do, so its entries arrive with evidence; a project that writes none gets an operation observed as unknown, never a fabricated pass. Harder: a second durable structure to migrate, observe and keep honest; authority rules that must be enforced at the door rather than trusted to the client; a per-project declaration of how integration runs (its absence is a named blocker, not a guess); and a stuck entry now needs a visible way out (withdraw) instead of silence. If this is wrong, the expensive failure is a queue that only fits one repository — the mitigation is that an entry names a repository and a target like everything in D1, the engine is PiCode's own runner, and no row depends on one project's scripts.
+
+## Alternatives considered
+
+- **Keep integration hand-run.** Cheapest, and the receipts already make it observable; rejected because the owner asked for the queue explicitly and the evidence to support it exists.
+- **Execute this repository's `make land` as the queue's engine.** Rejected: it makes the product depend on one repository's workflow — the mirror image of D2's failure, where a surface only PiCode's own project could use. The engine is PiCode's runner; the project declares what it runs, and our land may call the queue rather than the other way round.
+- **An in-memory queue.** Rejected: restart recovery is an explicit requirement, and "unknown after a restart" is a fact the store must be able to express.
+- **Let the declaring agent order or execute.** Rejected: a declaration is not authority (ADR-0171); ordering and execution stay with the owner, and the agent keeps enqueue/withdraw.
+- **Carry the terminal identity as a workspace → machine scope value.** Rejected: identity is per launch, not per scope; the scope chain governs configuration only, and the Hermes/Muse case measured on 2026-09-21 shows exactly why a scope value cannot stand in for it.

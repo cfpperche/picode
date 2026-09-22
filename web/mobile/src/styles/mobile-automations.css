@@ -8,7 +8,10 @@
   border-radius: 8px; background: color-mix(in srgb, var(--warn) 10%, transparent);
 }
 .auto-blocked p { margin: 0; font-size: 13px; }
-.auto-blocked .btn { height: var(--ctl-h); }
+.auto-blocked .btn { height: var(--ctl-h); border-color: color-mix(in srgb, var(--warn) 70%, var(--text-primary)); color: var(--text-primary); background: color-mix(in srgb, var(--warn) 18%, transparent); }
+/* A wrapped action spans the banner instead of stranding at the left. */
+.auto-blocked p { flex: 1 1 220px; }
+.auto-blocked .btn { flex: 1 1 auto; justify-content: center; }
 .auto-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .auto-row {
   display: flex; align-items: center; gap: 12px;

@@ -490,9 +490,15 @@ func handleListFreeAgents(deps Deps) http.HandlerFunc {
 	}
 }
 
+// handleAddFreeAgent creates an agent outside any workspace. Like a
+// workspace agent it may run any launchable catalog CLI (ADR-0179 extends
+// ADR-0160 to the free list): `cli` empty or "pi" is a Pi agent with the
+// provider/model/thinking it was given; any other CLI gets a free launch
+// terminal on its work folder and never Runtime.Start.
 func handleAddFreeAgent(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
+			CLI      string `json:"cli"`
 			Name     string `json:"name"`
 			Path     string `json:"path"`
 			Provider string `json:"provider"`
@@ -508,15 +514,24 @@ func handleAddFreeAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		agent, err := deps.Store.AddAgent(store.FreeWorkspaceID, req.Name, dir)
+		agent, err := deps.Store.AddAgentWithCLI(store.FreeWorkspaceID, req.CLI, req.Name, dir)
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
+			writeErr(w, storeStatus(err), err.Error())
 			return
 		}
-		agent, err = patchNewAgent(deps, agent, req.Provider, req.Model, req.Thinking)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
+		if !agent.IsPi() {
+			agent, err = attachAgentTerminal(deps, store.FreeWorkspaceID, dir, agent)
+			if err != nil {
+				_ = deps.Store.DeleteAgent(agent.ID)
+				writeErr(w, storeStatus(err), err.Error())
+				return
+			}
+		} else {
+			agent, err = patchNewAgent(deps, agent, req.Provider, req.Model, req.Thinking)
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
 		}
 		writeJSON(w, http.StatusCreated, agentView{Agent: agent, Mode: string(modeStopped)})
 	}
@@ -569,7 +584,7 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		if !agent.IsPi() {
-			agent, err = attachAgentTerminal(deps, wk, agent)
+			agent, err = attachAgentTerminal(deps, wk.ID, wk.Path, agent)
 			if err != nil {
 				_ = deps.Store.DeleteAgent(agent.ID)
 				writeErr(w, storeStatus(err), err.Error())
@@ -587,9 +602,10 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 }
 
 // attachAgentTerminal gives a non-Pi agent its interactive process (ADR-0160):
-// a workspace terminal with launch set, not Runtime.Start.
-func attachAgentTerminal(deps Deps, wk store.Workspace, agent store.Agent) (store.Agent, error) {
-	tm, err := deps.Store.CreateTerminalIn(wk.ID, agent.Name, wk.Path)
+// a terminal in its workspace (or the free list, ADR-0179) with launch set,
+// not Runtime.Start. cwd is the folder the CLI starts in.
+func attachAgentTerminal(deps Deps, workspaceID, cwd string, agent store.Agent) (store.Agent, error) {
+	tm, err := deps.Store.CreateTerminalIn(workspaceID, agent.Name, cwd)
 	if err != nil {
 		return agent, err
 	}
