@@ -410,6 +410,10 @@ func TestPackageOpenCodeRemoveIsPiCodeOwnWrite(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", "") // resolve OpenCode's user file from HOME
+	// The report reads the CLI's own files, but it only answers for a CLI the
+	// driver can locate (ADR-0167) — a stub keeps this hermetic on a machine
+	// where opencode is not installed (CI).
+	stubVendor(t, "opencode", "")
 	cfg := filepath.Join(home, ".config", "opencode")
 	if err := os.MkdirAll(cfg, 0o755); err != nil {
 		t.Fatal(err)
