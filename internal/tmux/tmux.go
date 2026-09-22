@@ -391,11 +391,16 @@ func (m *Manager) hasSession(ctx context.Context, name string) (bool, error) {
 		return true, nil
 	}
 	// tmux exits 1 for both "no such session" and real failures; the
-	// message distinguishes them. A stopped server also means "no".
+	// message distinguishes them. A stopped server also means "no", and so
+	// does a live server holding no sessions at all — "no current target" is
+	// what it prints there, in the window between the last session's death
+	// and the server's own exit (a CI runner lost a NewSession pre-check to
+	// exactly that, 2026-09-22).
 	notThere := []string{
 		"can't find session", "no such session",
 		"can't find window", "can't find pane", // dotted-name lookups miss here
 		"no server running", "error connecting to",
+		"no current target",
 	}
 	for _, msg := range notThere {
 		if strings.Contains(out, msg) {
