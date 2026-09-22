@@ -111,7 +111,11 @@ agent in Settings ▸ Computer / Browser match without per-terminal
 configuration — the same spelling Pi agents get from `Agent.SpawnEnv`.
 
 A workspace **New → Agent** picker POSTs `/api/workspaces/{id}/agents`
-`{cli}` (Fatia B). Pi is always listed; other CLIs must be installed.
-`#/clis` remains the runtime hub. `#/clis/new` remains a free CLI terminal.
+`{cli}` (Fatia B); the sidebar's free **New agent** opens the same picker
+and POSTs `/api/agents` `{cli, name, path}` (ADR-0179) — a guest gets a free
+launch terminal on its work folder, Pi keeps provider/model/thinking. The
+picker lists Pi first when it is installed and only installed CLIs after it;
+an absent Pi is absent. `#/clis` remains the runtime hub. `#/clis/new`
+remains a free CLI terminal.
 
 Decision table: [ADR-0160](../decisions/0160-cli-runtimes-are-agents.md).

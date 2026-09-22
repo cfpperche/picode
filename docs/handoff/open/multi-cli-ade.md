@@ -5,7 +5,6 @@ One branch per session, in this order; each carries its decision table and tests
 
 ## Next
 
-- `feat/free-agent-cli`: `POST /api/agents` takes `cli`; the sidebar **New agent** opens the CLI picker (`NewCliPrincipal` in free mode); `catalogForAgent` stops forcing Pi as installed. Plan: docs/plans/multi-cli-ade.md §4.
 - `feat/ade-copy-tail`: the configure-cluster docs, the "pi correlation" writing rule generalized to every vendor, UI labels and jargon, dead `errAgentCmdMissing`. Plan: docs/plans/multi-cli-ade.md §5.
 
 ## Debts
