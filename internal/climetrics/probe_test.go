@@ -3,6 +3,7 @@ package climetrics
 import (
 	"encoding/json"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -22,8 +23,12 @@ func TestProbeRealTree(t *testing.T) {
 	now := time.Now()
 	loc := time.Local
 	to := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, 1)
-	from := to.AddDate(0, 0, -7)
-	req := Request{From: from, To: to, PriorFrom: from.AddDate(0, 0, -7), Loc: loc}
+	days := 7 // CLIMETRICS_PROBE_DAYS widens it, to match a dashboard range
+	if n, err := strconv.Atoi(os.Getenv("CLIMETRICS_PROBE_DAYS")); err == nil && n > 0 {
+		days = n
+	}
+	from := to.AddDate(0, 0, -days)
+	req := Request{From: from, To: to, PriorFrom: from.AddDate(0, 0, -days), Loc: loc}
 	out := Aggregate(req, Meters())
 	b, _ := json.MarshalIndent(struct {
 		Current  any `json:"current"`

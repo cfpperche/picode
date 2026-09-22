@@ -56,3 +56,31 @@ func TestContainerUnitStepWantsTheExactUnit(t *testing.T) {
 	}
 	_ = os.MkdirAll(filepath.Join(t.TempDir(), "x"), 0o755)
 }
+
+// A member root built before ADR-0179's Node fix has tmux but no member
+// npmrc: the step asks to converge it (NodeSource Node, per-member prefix),
+// and a converged root is ok.
+func TestRootfsStepWantsTheMemberNpmPrefix(t *testing.T) {
+	old := MachinesDir
+	MachinesDir = t.TempDir()
+	t.Cleanup(func() { MachinesDir = old })
+	root := RootfsFor("alice")
+	if err := os.MkdirAll(filepath.Join(root, "usr", "bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "usr", "bin", "tmux"), nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := rootfsStep().Check(Env{User: "alice"}); got.Status != StatusFix || !strings.Contains(got.Detail, "npm prefix") {
+		t.Fatalf("old root = %+v", got)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "usr", "etc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, memberNpmrc), []byte("prefix=${HOME}/.local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := rootfsStep().Check(Env{User: "alice"}); got.Status != StatusOK {
+		t.Fatalf("converged root = %+v", got)
+	}
+}
