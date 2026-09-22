@@ -228,10 +228,28 @@ func (g guestDriver) Marketplace(ctx context.Context, q Query, r MarketRequest) 
 // a write of its own file (OpenCode has no disable command) has none to hand a
 // person, and the write happens all the same, with the same empty line its
 // route has always answered.
+//
+// Omp's own `extensions` are the same kind of fact as its removal: the CLI's
+// plugin verbs do not know a configured extension, so an extension row is asked
+// of the engine first, by the identity the pane sent. The engine performs that
+// write here — the workspace layer is a file PiCode splices, and the user layer
+// the CLI's own `config set` — because a toggle is synchronous: there is no
+// argv for a lane, and the answer is the fresh list either way.
 func (g guestDriver) Toggle(ctx context.Context, q Query, t Target) (Command, error) {
 	verb := clipkgs.VerbEnable
 	if !t.On {
 		verb = clipkgs.VerbDisable
+	}
+	if g.cli == "omp" {
+		tog, ok, err := clipkgs.OmpExtensionToggle(ctx, g.paths(q), g.target(q, t))
+		if ok || err != nil {
+			if tog.InProcess {
+				// The workspace settings file is PiCode's own write: there is no
+				// vendor command to hand a person, and nothing left to run.
+				return Command{}, err
+			}
+			return Command{Exe: clipkgs.Bin(g.cli), Args: tog.Args, Dir: tog.Dir, Line: tog.Line}, err
+		}
 	}
 	cmd, _ := g.command(q, verb, t)
 	if _, err := clipkgs.Run(ctx, g.cli, verb, g.paths(q), g.target(q, t)); err != nil {

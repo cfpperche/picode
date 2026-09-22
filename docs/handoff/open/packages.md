@@ -105,15 +105,27 @@
   answers the CLI's fresh list instead of reserving a job, because a command
   with no argv is the engine's own write.
 
-- [ ] **An extension row draws Enable/Disable, and Omp's disable verb does not
-  know extensions.** `Caps.Toggle` is the CLI's, and the pane offers the control
-  on every row of that CLI, so turning an extension off runs `omp plugin disable
-  <entry>` — measured 2026-09-21: *"Plugin packages/pi-browser/extensions/
-  browser.ts not found in runtime config"*. The CLI's own way is the
-  `disabledExtensions` array the read already parses: a splice of the workspace
-  file, and `omp config set disabledExtensions '<json array>'` for the user
-  layer. Closes when the toggle asks the engine for an extension first, the way
-  the removal now does (slice 5, `feat/packages-omp`).
+- [x] **An extension row draws Enable/Disable, and Omp's disable verb does not
+  know extensions.** Paid 2026-09-22 (`feat/packages-toggle`, the debt ADR-0176
+  slice 5 recorded for `feat/packages-omp`). `clipkgs.OmpExtensionToggle` asks
+  the same two layers the removal asks, by the identity the pane sent: the
+  workspace's `<ws>/.omp/settings.json` gets the CLI's own id
+  (`extension-module:<name>`) spliced into `disabledExtensions` — out of it when
+  the row is being enabled, and the key itself created when the file has none —
+  every other byte preserved and the result re-parsed and compared; the user
+  layer runs the CLI's own `omp config set disabledExtensions '<json array>'` in
+  the user's directory, which is where that command writes (measured 2026-09-21:
+  it writes the user file wherever it runs and refuses `--scope`). The driver's
+  `Toggle` asks the engine for an extension before it asks for the vendor's verb,
+  exactly as `Remove` does, and answers the CLI's fresh list — the line it ran
+  rides a refusal, and the workspace write has none, the same empty line
+  OpenCode's in-process toggle answers. A plugin row keeps today's behaviour, and
+  the pane is unchanged (the control already rendered). Tests:
+  `TestOmpExtensionToggleWritesTheWorkspaceFile`,
+  `TestOmpExtensionToggleCreatesTheDisabledList`,
+  `TestOmpExtensionToggleRunsTheVendorCommandForTheUserLayer`,
+  `TestGuestToggleOmpExtensionWritesTheCLIsOwnList` and
+  `TestCLIPackagesOmpExtensionToggle`.
 
 - [ ] **OpenCode's removal is unreachable from the pane.** Its declaration says
   `Remove: true`, because OpenCode's plugin list is its own config array and
