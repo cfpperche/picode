@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -505,5 +506,48 @@ func TestCredentialImportKeepKeepsBothLogins(t *testing.T) {
 	}
 	if kept["created"] != true {
 		t.Fatalf("keep = %v, want the new login filed as its own row", kept)
+	}
+}
+
+// A vendor renewal flows into the saved row on a plain roster read: same
+// refresh token, newer access pair, the row's masked hint moves to the new
+// access — and the row stays matched as the live one.
+func TestCredentialRosterHarvestsRenewal(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	writeClaudeLogin(t, home, "access-a1", "refresh-stable")
+	cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code"}, 201)
+
+	savedAccess := func() string {
+		provider := rosterFor(t, ts, "claude-code", "anthropic")
+		row := provider["accounts"].([]any)[0].(map[string]any)
+		active, _ := row["active"].(bool)
+		id, _ := row["id"].(string)
+		r, ok, err := credentials.Default().Row("anthropic", id)
+		if err != nil || !ok {
+			t.Fatalf("row %v missing: %v", id, err)
+		}
+		var cred struct {
+			Access string `json:"access"`
+		}
+		if err := json.Unmarshal(r.Cred, &cred); err != nil {
+			t.Fatal(err)
+		}
+		return fmt.Sprint(active, " ", cred.Access)
+	}
+	before := savedAccess()
+	if !strings.Contains(before, "access-a1") {
+		t.Fatalf("saved = %q, want the first login", before)
+	}
+
+	// The vendor renewed: same refresh token, newer access pair.
+	writeClaudeLogin(t, home, "access-a2", "refresh-stable")
+	cliRequest(t, ts, "GET", "/api/credentials?cli=claude-code", nil, 200)
+	after := savedAccess()
+
+	if !strings.Contains(after, "access-a2") {
+		t.Fatalf("after a roster read the saved row = %q, want the renewal harvested", after)
+	}
+	if active := strings.Contains(after, "true"); !active {
+		t.Fatal("after a renewal the row must still match the live file")
 	}
 }

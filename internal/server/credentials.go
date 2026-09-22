@@ -245,12 +245,19 @@ func providerViews(spec clicreds.Spec, sources []rosterSource) []providerView {
 		if path := clicreds.CredentialPath(spec.CLI, s.ID); path != "" {
 			existing, _ = os.ReadFile(path)
 		}
-		rows := accountsFor(s.ID)
 		// The CLI's own store, read once: what it holds decides which row is
 		// in use and whether Use could write each row. "Detected" is the
 		// store having a login at all; "live" is that login already being one
 		// of the rows below.
 		login, detected := clicreds.DetectProvider(spec.CLI, s.ID)
+		if detected && login.Kind == "oauth" {
+			// The vendor may have renewed this login since the vault saw it:
+			// pull the renewal in before the rows are read, so the row and
+			// the file agree again (no write to the CLI's own file happens
+			// here — that is Use, ADR-0166).
+			credentials.Default().Harvest(s.ID, login.Cred)
+		}
+		rows := accountsFor(s.ID)
 		liveID := ""
 		if detected {
 			liveID = liveRowID(s.ID, rows, login)
