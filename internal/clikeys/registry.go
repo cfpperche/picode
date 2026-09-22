@@ -130,10 +130,20 @@ var Registry = []CLI{
 	},
 	{
 		ID: "opencode", Label: "OpenCode",
-		Keymap: Flat, Pickup: PickupUnknown, State: Planned, Vocab: "opencode",
-		Source: "opencode.ai/docs/keybinds (2026-09-21): keybinds map in tui.json " +
-			"(~/.config/opencode/tui.json or a project one), <leader> sequences, " +
-			"\"none\"/false disables; pickup unconfirmed",
+		Keymap: Flat, Pickup: PickupRestart, State: Shipped, Vocab: "pi",
+		Source: "opencode 1.18.32 (installed as opencode-ai + opencode-linux-x64 " +
+			"1.18.32), read 2026-09-21 out of its own source at that tag: " +
+			"packages/tui/src/config/keybind.ts Definitions (162 actions with " +
+			"descriptions and defaults; the vendor's object form for input_paste " +
+			"carries a behaviour flag PiCode's row model does not, so it is omitted), " +
+			"packages/opencode/src/config/tui.ts for the loader. ~/.config/opencode/tui.json " +
+			"(a .jsonc sibling wins), flat `keybinds: {action -> chord}`, `<leader>` " +
+			"two-stroke sequences verbatim, `none`/false disables, null is invalid " +
+			"and drops the file's whole contribution. User scope only: a project " +
+			"tui.json deep-merges over the user's rows and wins. Pickup: the loader " +
+			"snapshots the config once when the TUI starts (the SIGUSR2 reload RPC " +
+			"only refreshes the server's opencode.json cache), so a change needs a " +
+			"restart. ",
 	},
 	{
 		ID: "muse", Label: "Muse Code",
@@ -143,10 +153,17 @@ var Registry = []CLI{
 	},
 	{
 		ID: "agy", Label: "Antigravity",
-		Keymap: Flat, Pickup: PickupUnknown, State: Planned, Vocab: "agy",
-		Source: "~/.gemini/antigravity-cli/keybindings.json on this machine (read 2026-09-21): " +
-			"action -> array of chords, own namespaces (cli./edit./navigation./vim./view./subagent.), " +
-			"pgdown-style key names; pickup unmeasured",
+		Keymap: Flat, Pickup: PickupRestart, State: Shipped, Vocab: "pi",
+		Source: "the file on this machine (~/.gemini/antigravity-cli/keybindings.json, " +
+			"36 ids in 10 namespaces) plus the vendor's two doc pages that match the " +
+			"installed build (antigravity.google/docs/cli/using and /docs/cli/vim-editor-mode), " +
+			"read 2026-09-21: one override file, `id -> [chord]`, `[]` disables a default, " +
+			"an id the file omits falls back to the built-in binding, chords hyphen-less " +
+			"(`ctrl+l`, `pgdown`, `esc`, `ctrl+_`). The /docs/cli/reference table has " +
+			"drifted to renamed ids and is not a source. Pickup: measured in a live " +
+			"session — with the file remapped under it, the running TUI kept the " +
+			"startup map (the old key still cycled the mode, the new one did " +
+			"nothing), so a change needs a restart. ",
 	},
 	{
 		ID: "omp", Label: "Omp",

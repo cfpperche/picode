@@ -73,7 +73,7 @@ var claude = &spec{
 	name: "Claude Code",
 	bin:  binClaude,
 	scopes: []Scope{
-		{ID: "user", Label: "This machine"},
+		{ID: "user", Label: "Global"},
 		{ID: "project", Label: "This workspace", Note: "Declared in the repository's .claude/settings.json, so it travels with the checkout."},
 		{ID: "local", Label: "This workspace (local)", Note: "Kept in .claude/settings.local.json, which is not committed."},
 	},
@@ -129,7 +129,7 @@ var codex = &spec{
 	name: "Codex",
 	bin:  binCodex,
 	scopes: []Scope{
-		{ID: "user", Label: "This machine"},
+		{ID: "user", Label: "Global"},
 	},
 	roster:         codexRoster,
 	available:      true,
@@ -177,7 +177,7 @@ var grok = &spec{
 	name: "Grok",
 	bin:  binGrok,
 	scopes: []Scope{
-		{ID: "user", Label: "This machine"},
+		{ID: "user", Label: "Global"},
 	},
 	roster:         grokRoster,
 	available:      true,
@@ -228,7 +228,7 @@ var hermes = &spec{
 	name: "Hermes Agent",
 	bin:  binHermes,
 	scopes: []Scope{
-		{ID: "user", Label: "This machine"},
+		{ID: "user", Label: "Global"},
 	},
 	roster:         hermesRoster,
 	available:      true,
@@ -268,7 +268,7 @@ var opencode = &spec{
 	name: "OpenCode",
 	bin:  binOpencode,
 	scopes: []Scope{
-		{ID: "user", Label: "This machine", Note: "Global config: ~/.config/opencode/opencode.json and its plugins/ directory."},
+		{ID: "user", Label: "Global", Note: "Global config: ~/.config/opencode/opencode.json and its plugins/ directory."},
 		{ID: "project", Label: "This workspace", Note: "Project config: opencode.json and .opencode/plugins/."},
 	},
 	roster: opencodeRoster,
@@ -306,7 +306,7 @@ var muse = &spec{
 	name: "Muse Code",
 	bin:  binMuse,
 	scopes: []Scope{
-		{ID: "user", Label: "This machine"},
+		{ID: "user", Label: "Global"},
 		{ID: "project", Label: "This workspace"},
 	},
 	roster:         museRoster,
@@ -378,7 +378,7 @@ var agy = &spec{
 	name: "Antigravity",
 	bin:  binAgy,
 	scopes: []Scope{
-		{ID: "user", Label: "This machine"},
+		{ID: "user", Label: "Global"},
 	},
 	roster: agyRoster,
 	argv: map[Verb]func(Paths, Target) (string, []string, error){
@@ -408,7 +408,7 @@ var omp = &spec{
 	name: "Omp",
 	bin:  binOmp,
 	scopes: []Scope{
-		{ID: "user", Label: "This machine"},
+		{ID: "user", Label: "Global"},
 		{ID: "project", Label: "This workspace", Note: "Omp applies a project scope to marketplace installs; a local path or npm package installs for the machine."},
 	},
 	roster:    ompRoster,

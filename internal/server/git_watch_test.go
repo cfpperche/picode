@@ -223,7 +223,18 @@ func gitUpdatedPaths(t *testing.T, evs []store.Event) map[string]bool {
 func TestGitWatchTickWorktreeAliasUnderSecondSpelling(t *testing.T) {
 	st := testStore(t)
 	repo := gitRepo(t)
-	side := filepath.Join(t.TempDir(), "side")
+	// The real checkout is built under a resolved base. This test is about
+	// one deliberate alias — `link` — and on a host where TMPDIR is itself
+	// a symlink (macOS: /var/folders/… is /private/var/folders/…) there is
+	// a second, accidental one: git records the worktree under the resolved
+	// name while the test holds the spelling it wrote, and the assertion
+	// below fails on two spellings of the same directory. Resolving the
+	// base removes the alias nobody asked for and leaves the one under test.
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	side := filepath.Join(base, "side")
 	gitRun(t, repo, "worktree", "add", "-b", "side", side)
 	link := filepath.Join(t.TempDir(), "link")
 	if err := os.Symlink(side, link); err != nil {

@@ -119,7 +119,7 @@ file, so project scope refuses with a pointer to it instead of inventing a
 per-workspace variant:
 
 - **Muse** — the one JSON settings file at `~/.config/muse/settings.json`.
-  Its `mcp_servers` block holds `{name: {transport: "stdio"|"streamable_http",
+  Its `mcpServers` block holds `{name: {transport: "stdio"|"streamable_http",
   command, args, env | url, headers, enabled?, mode?, …}}`: a URL entry
   rides `transport: "streamable_http"`, `enabled` is the toggle, and
   `mode` and every unknown document/entry key survive
@@ -127,8 +127,12 @@ per-workspace variant:
   a settings file without `schema_version` (measured Muse Code 1.3.0:
   "missing field `schema_version`"), so every write path keeps the key
   present — a file PiCode creates gains `schema_version: 1`, an existing
-  value is never overwritten. Both the block key and the transport names
-  were verified against the vendor's own `mcp login` command. Its sign-in
+  value is never overwritten. The block key is `mcpServers`, re-measured
+  2026-09-21 against the installed CLI: `muse mcp --help` says "a
+  streamable-HTTP entry under mcpServers in settings.json", a file carrying
+  the snake_case key spawns **no** MCP server, and a file carrying both keys
+  makes muse drop the member entirely — the driver wrote `mcp_servers` from
+  2026-09-18 until that measurement. Its sign-in
   hint is the vendor command (`muse mcp login <name>`).
 - **Hermes** (`hermes`) — the one YAML config file at
   `~/.hermes/config.yaml`. Its `mcp_servers` block holds `{name: {command,

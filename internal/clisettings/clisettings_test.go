@@ -155,7 +155,7 @@ func TestWriteTouchesOnlyTheValue(t *testing.T) {
 
 // TestReadReportsOnlyWhatALayerSets keeps the pane honest: a value a file does
 // not carry is not reported as set there, which is what makes "Set here"
-// versus "From This machine" true.
+// versus "From Global" true.
 func TestReadReportsOnlyWhatALayerSets(t *testing.T) {
 	home := t.TempDir()
 	cwd := t.TempDir()

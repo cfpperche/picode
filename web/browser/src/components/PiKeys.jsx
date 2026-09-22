@@ -202,7 +202,7 @@ export default function PiKeys({ disabled = false, cli = "pi" }) {
             period after </code> sits one padding-width from the path and reads
             as a stray mark (visual review, 2026-09-21). A path that is not
             there yet carries its own sentence instead. */}
-        This machine. Writes{" "}
+        Global. Writes{" "}
         {rep.exists
           ? <code>{rep.file}.</code>
           : <><code>{rep.file}</code> (not created yet).</>}{" "}

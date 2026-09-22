@@ -42,6 +42,7 @@ export default defineConfig({
           { text: "What is PiCode", link: "/" },
           { text: "Getting started", link: "/guide/getting-started" },
           { text: "From source", link: "/guide/from-source" },
+          { text: "Development flow", link: "/guide/dev-flow" },
           { text: "Files and changes", link: "/guide/files" },
         ],
       },

@@ -292,6 +292,56 @@ func TestCLIKeysServesAndWritesANestedGuestMap(t *testing.T) {
 	}
 }
 
+// A third shape through the same envelope: OpenCode's keybinds object, whose
+// rows live at keybinds.<action> in the user's tui.json.
+func TestCLIKeysServesAndWritesTheFlatGuestMap(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".config", "opencode"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ts := newTestServer(t, "cat")
+	res, err := ts.Client().Get(ts.URL + "/api/cli-keys?cli=opencode")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var first struct {
+		State    string           `json:"state"`
+		Keymap   string           `json:"keymap"`
+		Writable bool             `json:"writable"`
+		File     string           `json:"file"`
+		Exists   bool             `json:"exists"`
+		Actions  []map[string]any `json:"actions"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&first); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if first.State != "shipped" || !first.Writable || first.Keymap != "flat" || first.File == "" || first.Exists {
+		t.Fatalf("the envelope is not opencode's: %+v", first)
+	}
+	if len(first.Actions) != 162 {
+		t.Fatalf("the catalog did not survive the envelope: %d rows", len(first.Actions))
+	}
+	body, _ := json.Marshal(map[string]any{"cli": "opencode", "action": "command_list", "keys": []string{"ctrl+alt+p"}})
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/cli-keys", bytes.NewReader(body))
+	res, err = ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("PUT %d", res.StatusCode)
+	}
+	raw, err := os.ReadFile(first.File)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(raw, []byte(`"command_list": ["ctrl+alt+p"]`)) {
+		t.Fatalf("the row did not land in the tui config:\n%s", raw)
+	}
+}
+
 // A CLI whose editor has not shipped answers with its state and nothing else,
 // and a write to it is refused by name — never silently ignored.
 func TestCLIKeysRefusesWhatPiCodeCannotWrite(t *testing.T) {

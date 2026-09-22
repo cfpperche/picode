@@ -11,9 +11,9 @@ Connectors. PiCode writes the files the **MCP adapter** package reads.
 
 Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as `npm:pi-mcp-adapter`).
 
-1. Agent CLIs → Pi → **Packages** → This machine → install `npm:pi-mcp-adapter`.
+1. Agent CLIs → Pi → **Packages** → Global → install `npm:pi-mcp-adapter`.
 2. Agent CLIs → Pi → **Connectors** → **Marketplace**. Search the catalog, set
-   **Save to** (machine, workspace or agent), and press **Add**. **Docs** on a
+   **Save to** (global, workspace or agent), and press **Add**. **Docs** on a
    card opens that connector's own page (PiCode's cookbook for the seed;
    the vendor site or repository for the rest). PiCode's own connectors sit
    at the top; the rest is a curated slice of the official MCP Registry.
@@ -30,7 +30,7 @@ Clicking an agent in the sidebar leaves this page and opens that agent.
 
 | Target | File |
 |---|---|
-| This machine | `~/.pi/agent/mcp.json` |
+| Global | `~/.pi/agent/mcp.json` |
 | This workspace | `<folder>/.mcp.json` |
 | This agent | only if the agent has its own work folder (`<work>/.pi/mcp.json`) |
 

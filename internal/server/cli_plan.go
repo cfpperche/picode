@@ -148,7 +148,7 @@ func launchPlan(deps Deps, cli clilaunch.CLI, base clilaunch.Config, overrides c
 			p.Problem = err.Error()
 		}
 	} else {
-		p.ToolInjection = toolLaunchPlan(cli, families, dir)
+		p.ToolInjection = toolLaunchPlan(cli, families, dir, toolIdentityEnvPreview())
 	}
 	if c.Integration {
 		p.Injection = cliIntegrationPlan(cli.ID, dir, hookScriptPath(deps.DataDir))

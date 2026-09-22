@@ -20,7 +20,7 @@ func (piDriver) ID() string { return "pi" }
 // and PiCode's list on the agent row (pi has no native per-agent scope).
 func (piDriver) Scopes() []ScopeRow {
 	return []ScopeRow{
-		{ID: Machine, Vendor: "user", Label: "This machine"},
+		{ID: Machine, Vendor: "user", Label: "Global"},
 		{ID: Workspace, Vendor: "project", Label: "This workspace", Note: "Installs into the workspace's .pi/settings.json."},
 		{ID: Agent, Vendor: "agent", Label: "This agent", Note: "Attached to this agent only, loaded on every start."},
 	}

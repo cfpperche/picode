@@ -36,7 +36,10 @@ test("the pickup line matches what the CLI actually does", () => {
   // when it is created and nothing re-reads them, so the sentence a user can act
   // on is "restart it".
   assert.match(pickupLine("omp"), /restart it/);
-  for (const id of ["hermes", "opencode", "agy"]) {
+  // Antigravity's pickup was measured in a live session: the TUI keeps the map
+  // it loaded at start, so a change needs a restart.
+  assert.match(pickupLine("agy"), /restart it/);
+  for (const id of ["hermes"]) {
     assert.match(pickupLine(id), /is not documented/);
   }
 });

@@ -240,6 +240,8 @@ try {
     for (const guest of [
       { cli: "omp", rows: 70, chord: "Control+Alt+o", spelled: /ctrl[+-]alt[+-]o/i, file: /keybindings\.(yml|yaml|json)/ },
       { cli: "codex", rows: 149, chord: "Control+Alt+m", spelled: /ctrl-alt-m/i, file: /config\.toml/ },
+      { cli: "agy", rows: 36, chord: "Control+Alt+a", spelled: /ctrl[+-]alt[+-]a/i, file: /keybindings\.json/ },
+      { cli: "opencode", rows: 162, chord: "Control+Alt+p", spelled: /ctrl[+-]alt[+-]p/i, file: /tui\.json/ },
     ]) {
       const { cli } = guest;
       navigate("#/clis/" + cli + "/keyboard");

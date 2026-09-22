@@ -12,12 +12,14 @@
 # it a test-cache input — with it set, every PiCode terminal had its own cold
 # cache for the same tree.
 #
-# PICODE_DATA is unset for the same reason it matters more: the agent runtime
-# hands every PiCode terminal `PICODE_DATA=<the live data dir>`
-# (internal/rpc/runtime.go), and the credentials store resolves its vault there
-# before it looks at HOME. A gate run from inside PiCode therefore wrote test
-# fixtures into the owner's real vault — 30 rows across 15 providers on
-# 2026-09-21, found by the owner as "what are all these accounts?". The
+# Since 2026-09-21 the WHOLE ambient PICODE_* family is unset, not just those
+# two: the agent runtime exports several of them into every PiCode terminal,
+# and any production code that reads one process-wide turns a gate run from
+# inside PiCode into a run against the live instance. The credentials vault
+# was exactly that (PICODE_DATA resolved before HOME; 30 test fixtures into
+# the owner's real vault across 15 providers, found by the owner as "what are
+# all these accounts?"). Tests that need a PICODE_* value set it themselves.
+# The
 # harnesses pin it too (internal/server/cleanup_test.go); this is the layer
 # that covers packages nobody has thought about yet.
 #
@@ -52,21 +54,21 @@ trap 'rm -rf "$tmp"' EXIT
 status=0
 
 if [ -n "$rest" ]; then
-  ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath $rest > "$tmp/rest.log" 2>&1; echo $? > "$tmp/rest.rc" ) &
+  ( env $(printenv | sed -n "s/^\(PICODE_[A-Z_0-9]*\)=.*/-u \1/p" | tr "\n" " ") go test $FLAGS -trimpath $rest > "$tmp/rest.log" 2>&1; echo $? > "$tmp/rest.rc" ) &
 fi
 
 h=0
 for pkg in $heavy; do
-  names=$(env -u PICODE_TERM_ID -u PICODE_DATA go test -trimpath -list '.*' "$pkg" 2>/dev/null | grep -vE '^(ok|\?|FAIL)' || true)
+  names=$(env $(printenv | sed -n "s/^\(PICODE_[A-Z_0-9]*\)=.*/-u \1/p" | tr "\n" " ") go test -trimpath -list '.*' "$pkg" 2>/dev/null | grep -vE '^(ok|\?|FAIL)' || true)
   echo "$pkg" > "$tmp/heavy$h.pkg"
   if [ -z "$names" ] || [ "$SHARDS" -le 1 ]; then
     echo 1 > "$tmp/heavy$h.n"
-    ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath "$pkg" > "$tmp/heavy$h.shard0.log" 2>&1; echo $? > "$tmp/heavy$h.shard0.rc" ) &
+    ( env $(printenv | sed -n "s/^\(PICODE_[A-Z_0-9]*\)=.*/-u \1/p" | tr "\n" " ") go test $FLAGS -trimpath "$pkg" > "$tmp/heavy$h.shard0.log" 2>&1; echo $? > "$tmp/heavy$h.shard0.rc" ) &
   else
     echo "$SHARDS" > "$tmp/heavy$h.n"
     for i in $(seq 0 $((SHARDS - 1))); do
       rx="^($(printf '%s\n' $names | awk -v i="$i" -v n="$SHARDS" 'NR % n == i' | paste -sd'|'))$"
-      ( env -u PICODE_TERM_ID -u PICODE_DATA go test $FLAGS -trimpath -run "$rx" "$pkg" > "$tmp/heavy$h.shard$i.log" 2>&1; echo $? > "$tmp/heavy$h.shard$i.rc" ) &
+      ( env $(printenv | sed -n "s/^\(PICODE_[A-Z_0-9]*\)=.*/-u \1/p" | tr "\n" " ") go test $FLAGS -trimpath -run "$rx" "$pkg" > "$tmp/heavy$h.shard$i.log" 2>&1; echo $? > "$tmp/heavy$h.shard$i.rc" ) &
     done
   fi
   h=$((h + 1))

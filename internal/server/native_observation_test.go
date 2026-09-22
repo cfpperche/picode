@@ -16,6 +16,17 @@ import (
 )
 
 func observationFixture(t *testing.T, cli string) (Deps, string, func(string, string, int64)) {
+	// Native observation is Linux-only by construction: recovery compares
+	// the host's boot id from /proc/sys/kernel/random/boot_id and the
+	// process start token beside it, and nativeObservationSupported already
+	// says so. Without the skip these tests ran on macOS, found every
+	// recovery refused with "native process changed", and one of them then
+	// wrote into a map the recovery would have built — a nil-map panic that
+	// reads like a product fault and is a fixture running where the feature
+	// does not exist.
+	if !nativeObservationSupported() {
+		t.Skip("native observation needs Linux (/proc/sys/kernel/random/boot_id)")
+	}
 	t.Helper()
 	if processStartToken(os.Getpid()) == "" || !tmux.New().Available() {
 		t.Skip("requires Linux process metadata and tmux")
@@ -232,6 +243,13 @@ func TestRecoveredPiWaitsForReceiverWithoutRestart(t *testing.T) {
 }
 
 func TestNativeObservationRecorderFailureAndCodexPrecedence(t *testing.T) {
+	// The recorder refuses on any host without /proc/sys/kernel/random/boot_id
+	// — its first two lines say so, because an unsupported host must not write
+	// a fence that poisons its otherwise valid HTTP reports. This test asserts
+	// the writes succeed, so it belongs where they can.
+	if !nativeObservationSupported() {
+		t.Skip("the observation recorder is Linux-only by construction")
+	}
 	if processStartToken(os.Getpid()) == "" {
 		t.Skip("Linux process metadata required")
 	}

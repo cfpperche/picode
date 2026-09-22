@@ -124,22 +124,11 @@
   key inside a live codex TUI — its startup in an isolated HOME exits, so that
   half needs a run against the real HOME, which is the owner's call.
 
-- **Antigravity's key map is researched and not declared** (P3, 2026-09-21).
-  Measured: `~/.gemini/antigravity-cli/keybindings.json`, 36 ids in 10
-  namespaces, `id -> [chord]`, one *override* layer — the vendor documents
-  per-action fallback and "delete the file to restore defaults", so removing a
-  row returns to the built-in default rather than leaving a hole, and `[]`
-  disables a default. No checksum or signature: a byte-preserving splice is safe,
-  and the CLI never rewrites the file itself (mtime old while sessions ran).
-  Two open points, both cheap: (a) **the pickup is unmeasured** — there is no
-  `/reload` and the docs only say settings load at startup, but the binary has a
-  `file_watcher.go`, so the honest sentence ("restart it") needs the experiment:
-  remap `cli.cycle_mode` from `shift+tab` to `ctrl+n` in a live `agy` session
-  (tmux + a trust prompt) and press both keys — the footer's mode chip says which
-  one the session is still honouring. **Restore the file from a backup
-  afterwards** (the first attempt at this left the user's file rewritten and had
-  to be restored byte-for-byte); (b) **the labels**: the vendor publishes two
-  documentation generations — `/docs/cli/using` and `/docs/cli/vim-editor-mode`
-  match the installed build row-for-row, `/docs/cli/reference` has drifted to
-  renamed ids (`prompt.*`) — so the catalog comes from the first two, or the rows
-  are labelled from their ids.
+- **[x] Antigravity's key map is declared** (P3 complete, 2026-09-21,
+  `feat/agy-keymap`): the engine's flat declaration, 36 actions in ten
+  namespaces, labels twenty vendor / sixteen id-derived, and the pickup
+  **measured in a live session** — remapping `cli.cycle_mode` under a running
+  `agy`, the TUI kept the startup map (the old key still cycled the mode, the
+  new one did nothing), so the row says restart. The user's keybindings file was
+  backed up and restored byte-identical (md5 verified). Nothing left open for
+  antigravity: it ships.

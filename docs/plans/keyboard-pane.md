@@ -394,17 +394,29 @@ refusal for `super+m`), and `qa-cli-settings.mjs`, whose guest block now loops
 over Omp and Codex and proves each one's captured chord reaches its own file in
 its own spelling.
 
-**Antigravity is the other half of this row and is not shipped.** Its research is
-done and its shape fits the engine as it stands (36 ids, `id -> [chord]`, one
-override file, `[]` disables a default, removing a row returns to the vendor's
-default — read 2026-09-21); what it still needs is its pickup measured and its
-catalog's labels settled, because the vendor publishes two documentation
-generations and only `/docs/cli/using` + `/docs/cli/vim-editor-mode` match the
-installed build (`/docs/cli/reference` has drifted to renamed ids). That is the
-next slice: `docs/handoff/open/agent-clis-native.md` carries the measurement plan.
-Everything it needs was measured before the first line of the adapter, so the
-next session starts with no unknowns — and the first measurement corrected this
-plan (see below).
+**Antigravity shipped too (2026-09-21, `feat/agy-keymap`)**, and with it P3 is
+complete: 36 actions in ten id namespaces, the vendor's override file written
+through the same engine, labels twenty parts vendor / sixteen parts id-derived
+(the two doc pages that match the installed build name twenty actions; the rest
+they leave unnamed, and the catalog says which is which). Its pickup was
+**measured in a live session**: the TUI keeps the map it loaded at start, so the
+row says restart. **OpenCode shipped (2026-09-21, `feat/keymaps-p4`)**: 162 actions from the
+loader's own Definitions table, written into the user `tui.json`'s `keybinds`
+object (never the legacy `opencode.json` section, which the CLI migrates), the
+vendor's "none" reading as unbound, user scope only — a project `tui.json` wins,
+and the pane says which file it writes. Pickup: restart, from the loader's
+source (the config is snapshotted at TUI start; the reload RPC does not cover
+keybinds).
+
+**Claude Code is the last row, and its gate was settled live before any writing:**
+2.1.278 logs `KeybindingSetup initialized with 229 bindings` and `Watching for
+changes to /home/goat/.claude/keybindings.json` — the feature is not gated off
+on this build, and the pickup is hot-reload, observed. Its shape is inverted
+(`bindings: [{context, bindings: {chord: action|null}}]`), which needs the
+inverted adapter: splice a chord into the context block for the row's action,
+drop entries whose value is that action, `null` as the unbind verb, and a
+first-write that matches the vendor's own `/keybindings` template. 22 contexts,
+~115 actions from the vendor's docs page. That adapter is the final slice.
 
 ## P2's inputs (measured 2026-09-21)
 

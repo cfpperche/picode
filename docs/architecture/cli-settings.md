@@ -50,7 +50,7 @@ switch has no third state, so an unset key is drawn at **the CLI's own
 default**, which every boolean field declares and
 `TestEveryBooleanDeclaresItsDefault` holds against a table of where each value
 was read from. The source line carries the provenance instead — "Set here",
-"From This machine", or "<CLI> default" — and a default that is conditional
+"From Global", or "<CLI> default" — and a default that is conditional
 ("On while memories are on") stays as the row's help line. Declaring a default
 is a claim about someone else's software: Hermes' `display.show_reasoning`
 shipped as "Off" here while its own `config_defaults.py` says `True`, which is
@@ -125,7 +125,7 @@ the pane renders whatever the table says, the way the guest pane already did.
 Three of them are not scalars and are declared as their own kinds rather than
 flattened: `model` is the three coupled selects the catalog feeds, `patterns`
 is the free list of scoped models, `tools` is the grid over pi's fixed tool
-set. A row marked `machine` is offered only on the This machine layer.
+set. A row marked `machine` is offered only on the Global layer.
 
 `web/shared/domain/resolveLayer.js` is **derived** from that table
 (2026-09-20): every field declares its type and its `unset` value — what pi
@@ -176,7 +176,7 @@ The pane edits **one layer at a time**. A labelled switcher (*This machine*,
 the workspace, the agent) writes `layer=global|project|agent` onto the route
 beside `agentId`, the body renders only that layer's rows, and the file it
 writes is named under the switcher. Values a layer does not set come from its
-parent, and the row says so (`From This machine`, `Pi default`); a row this
+parent, and the row says so (`From Global`, `Pi default`); a row this
 layer sets carries the accent bar, `Set here`, and **Use inherited**, which
 sends `patch.reset[]` so `pisettings.Apply` deletes exactly those keys (an
 empty `compaction` object goes with its last key; an unknown name is refused
@@ -309,6 +309,32 @@ own `reload()`, so the pane says "restart it" instead of promising a live
 reload. A row whose value is not a string or a list of strings is reported as
 unreadable and left alone, and `Reset all` removes only the rows the catalog
 knows.
+
+**Antigravity joins it** (2026-09-21): the same flat engine, one declaration —
+`~/.gemini/antigravity-cli/keybindings.json`, 36 actions in ten id namespaces,
+the vendor's *override* file (removing a row hands that action back to the
+binding built into the binary, which is exactly what the engine's reset does).
+Its pickup is **measured, not assumed**: with the file remapped under a running
+session, the TUI kept the map it loaded at start — the old key still cycled the
+mode, the new one did nothing — so the registry row and the pane say "restart".
+Twenty rows carry the vendor's own descriptions from the two doc pages that match
+the installed build; the other sixteen are labelled from their id, which those
+pages leave unnamed.
+
+**OpenCode joins it** (2026-09-21): a flat `keybinds` object one level down in
+the CLI's user `tui.json` — the same engine, `FlatMap` paths again. Three
+vendor-specific facts live in its declaration and tests: the file is
+`tui.json`/`tui.jsonc` (a `.jsonc` sibling wins; the main `opencode.json` is
+never written, because the CLI's own startup migration moves legacy keybinds
+into a `tui.json` behind PiCode's back); an action disabled by the vendor's
+literal `"none"` reads as unbound rather than as a chord named none; and the
+scope is the user file only — a project `tui.json` deep-merges over the user's
+rows and wins, which the pane's file line states. Its pickup is restart, from
+the loader's own code: the config is snapshotted once when the TUI starts (the
+SIGUSR2 reload RPC refreshes only the server's `opencode.json` cache). The
+catalog is 162 actions from the loader's own Definitions table at the installed
+tag; the leader-key configuration and the vendor's object-form paste binding are
+deliberately absent, each noted in the catalog header.
 
 **A nested map, and a vocabulary that is not the pane's** (P3, 2026-09-21):
 Codex's map is the same engine with a different declaration — one table per

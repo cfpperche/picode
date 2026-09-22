@@ -13,6 +13,7 @@ import (
 	"github.com/cfpperche/picode/internal/communication"
 	"github.com/cfpperche/picode/internal/mcp"
 	"github.com/cfpperche/picode/internal/mcptool"
+	"github.com/cfpperche/picode/internal/tmux"
 )
 
 // PiCode tools at launch (ADR-0154). A CLI agent has no per-agent scope of
@@ -94,9 +95,41 @@ func toolBinary() string {
 	return "picode"
 }
 
+// toolIdentityEnv is what a stdio tool server must know to answer "who is
+// asking": the launch identity (ADR-0160 Fatia E) plus where the daemon is
+// and where its token lives, so the server reaches this instance even when
+// the CLI's PATH and HOME are not PiCode's. Only a CLI whose MCP children
+// inherit the launch environment can skip it.
+func toolIdentityEnv(deps Deps, termID string) []string {
+	env := append(launchIdentityEnv(deps, termID), "PICODE_DATA="+deps.DataDir)
+	if url := loopbackURL(deps); url != "" {
+		env = append(env, tmux.MarkerURLEnv+"="+url)
+	}
+	return env
+}
+
+// toolIdentityEnvPreview names the same values for a plan preview, where the
+// terminal is not known yet; a launch's own details read the real ones.
+func toolIdentityEnvPreview() []string {
+	return []string{
+		tmux.MarkerTermEnv + "={terminal}",
+		tmux.MarkerAgentEnv + "={agent}",
+		tmux.MarkerURLEnv + "={url}",
+		"PICODE_DATA={data}",
+	}
+}
+
 // toolLaunchOptions folds the tool servers into the launch options the CLI
-// already receives. dir is this launch's private directory.
-func toolLaunchOptions(cli string, families []string, dir string, in communication.LaunchOptions, existingOpenCode string) (communication.LaunchOptions, error) {
+// already receives. dir is this launch's private directory; env is the
+// identity a server must read for itself when its CLI does not hand over the
+// environment it inherited.
+//
+// The three CLIs differ in what their MCP children inherit: Claude Code and
+// OpenCode pass the launch environment through (measured 2026-09-21 with an
+// env probe), so their servers read PICODE_* themselves; Codex spawns a
+// stdio server with an empty environment — an agent's tool calls answered
+// `no identity` — so its `-c` overrides carry the values.
+func toolLaunchOptions(cli string, families []string, dir string, in communication.LaunchOptions, existingOpenCode string, env []string) (communication.LaunchOptions, error) {
 	if len(families) == 0 {
 		return in, nil
 	}
@@ -131,9 +164,7 @@ func toolLaunchOptions(cli string, families []string, dir string, in communicati
 		}
 		out.Args = append(args, "--mcp-config", path)
 	case "codex":
-		for _, f := range families {
-			out.Args = append(out.Args, "-c", codexToolOverride(f, bin, "command"), "-c", codexToolOverride(f, bin, "args"))
-		}
+		out.Args = append(out.Args, codexToolArgs(families, bin, env)...)
 	case "opencode":
 		servers := map[string]any{}
 		for _, f := range families {
@@ -152,6 +183,30 @@ func toolLaunchOptions(cli string, families []string, dir string, in communicati
 		return in, errors.New("PiCode tools at launch are not available for this CLI")
 	}
 	return out, nil
+}
+
+// codexToolArgs is Codex's whole tool injection: one `-c` per server for the
+// command and its args, plus one per identity value — Codex hands a stdio
+// server no environment, so the values have to be written into the config.
+func codexToolArgs(families []string, bin string, env []string) []string {
+	args := []string{}
+	for _, f := range families {
+		args = append(args, "-c", codexToolOverride(f, bin, "command"), "-c", codexToolOverride(f, bin, "args"))
+		for _, kv := range env {
+			key, value, ok := strings.Cut(kv, "=")
+			if !ok || key == "" {
+				continue
+			}
+			args = append(args, "-c", codexToolEnvOverride(f, key, value))
+		}
+	}
+	return args
+}
+
+// codexToolEnvOverride is one env entry for a server:
+// `mcp_servers.<name>.env.PICODE_TERM_ID="…"`.
+func codexToolEnvOverride(family, key, value string) string {
+	return fmt.Sprintf("mcp_servers.%s.env.%s=%s", toolServerName(family), key, tomlString(value))
 }
 
 // codexToolOverride is one `-c` for Codex: `mcp_servers.<name>.command="…"`
@@ -213,8 +268,9 @@ func mergeOpenCodeServers(existing string, servers map[string]any) (string, erro
 	return string(out), err
 }
 
-// toolLaunchPlan is the preview of what a launch will add for its tools.
-func toolLaunchPlan(cli clilaunch.CLI, families []string, dir string) *clilaunch.IntegrationPlan {
+// toolLaunchPlan is the preview of what a launch will add for its tools; env
+// names the identity values a launch fills in (toolIdentityEnvPreview).
+func toolLaunchPlan(cli clilaunch.CLI, families []string, dir string, env []string) *clilaunch.IntegrationPlan {
 	if len(families) == 0 {
 		return nil
 	}
@@ -232,11 +288,7 @@ func toolLaunchPlan(cli clilaunch.CLI, families []string, dir string) *clilaunch
 		p.Files = append(p.Files, path)
 	case "codex":
 		p.Summary = "PiCode tools via -c overrides: " + strings.Join(families, ", ")
-		args := []string{}
-		for _, f := range families {
-			args = append(args, "-c", codexToolOverride(f, bin, "command"), "-c", codexToolOverride(f, bin, "args"))
-		}
-		p.Branches = append(p.Branches, clilaunch.Injection{When: "Every launch", Args: args})
+		p.Branches = append(p.Branches, clilaunch.Injection{When: "Every launch", Args: codexToolArgs(families, bin, env)})
 	case "opencode":
 		p.Summary = "PiCode tools via inline configuration: " + strings.Join(families, ", ")
 		p.Environment["OPENCODE_CONFIG_CONTENT"] = "mcp: " + strings.Join(names, ", ")

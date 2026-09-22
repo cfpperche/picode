@@ -123,6 +123,7 @@ func ToolPresets() []Preset {
 		{ID: "picode-browser", Name: "PiCode · Browser", Summary: "Read the page open in PiCode's work browser (desktop app); acting needs a grant in Settings ▸ Browser.", Entry: Entry{Command: bin, Args: []string{"mcp", "browser"}}},
 		{ID: "picode-inbox", Name: "PiCode · Inbox", Summary: "Let the agent file notes and questions into your Inbox; a question waits for your answer there.", Entry: Entry{Command: bin, Args: []string{"mcp", "inbox"}}},
 		{ID: "picode-checklist", Name: "PiCode · Checklist", Summary: "The agent's plan for the task, shown as the current step on its card.", Entry: Entry{Command: bin, Args: []string{"mcp", "checklist"}}},
+		{ID: "picode-delivery", Name: "PiCode · Delivery", Summary: "Declare a change and ask for review in the project's Git ▸ Delivery view. Never a merge, a queue or a deploy.", Entry: Entry{Command: bin, Args: []string{"mcp", "delivery"}}},
 	}
 }
 
@@ -206,7 +207,7 @@ func (p Paths) Layers() []Layer {
 		{ID: "shared-global", Label: "Shared (~/.config/mcp)", Path: p.SharedGlobal(), Scope: "import", Writable: false},
 		{ID: "agents-global", Label: "Shared (~/.agents)", Path: p.AgentsGlobal(), Scope: "import", Writable: false},
 		{ID: "agents-nested", Label: "Shared (~/.agents/mcp)", Path: p.AgentsNested(), Scope: "import", Writable: false},
-		{ID: "pi-global", Label: "This machine", Path: p.PiGlobal(), Scope: "user", Writable: true},
+		{ID: "pi-global", Label: "Global", Path: p.PiGlobal(), Scope: "user", Writable: true},
 	}
 	if path := p.SharedProject(); path != "" {
 		out = append(out, Layer{ID: "shared-project", Label: "This folder", Path: path, Scope: "project", Writable: true})

@@ -44,7 +44,7 @@ running daemon.
 |---|---|---|
 | This terminal (and the ones launched with the same settings) | Launch settings → PiCode tools | Nothing in your files: PiCode adds the servers to the launch command (`--mcp-config` for Claude Code, `-c` for Codex, inline configuration for OpenCode). |
 | This workspace | Connectors → Add connector → PiCode · Computer / Browser → save to the workspace | The CLI's project file (`.mcp.json`, `.codex/config.toml`, …). |
-| This machine | Connectors → same cards → save to this machine | The CLI's user config, through the CLI's own command where it has one. |
+| Global | Connectors → same cards → save globally | The CLI's user config, through the CLI's own command where it has one. |
 
 The server has the same name in every place (`picode-computer`,
 `picode-browser`), so a CLI that already has it from a file does not get it

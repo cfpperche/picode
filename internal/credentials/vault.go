@@ -585,6 +585,68 @@ func (s *Store) UpdateTokens(provider, id, access, refresh string, expires int64
 	return active, err
 }
 
+// Harvest pulls a renewed OAuth token from a CLI's own file into the row it
+// belongs to. Vendors refresh their tokens on their own schedule and write
+// the new pair into their file; without this, the vault copy goes stale and
+// Verify and Use would offer dead tokens for a login that works. Matching is
+// by refresh token — the stable half of the pair — and never guesses: a file
+// with no refresh token, or one that matches no row, is left alone. Read-only
+// toward the CLI's file; writing there is Use (ADR-0166). Returns whether a
+// row was renewed.
+func (s *Store) Harvest(provider string, live json.RawMessage) bool {
+	var in struct {
+		Type    string `json:"type"`
+		Access  string `json:"access"`
+		Refresh string `json:"refresh"`
+		Expires int64  `json:"expires"`
+	}
+	if json.Unmarshal(live, &in) != nil {
+		return false
+	}
+	if in.Type != "oauth" || strings.TrimSpace(in.Access) == "" || strings.TrimSpace(in.Refresh) == "" {
+		return false
+	}
+	renewed := false
+	err := s.Update(func(f *File) error {
+		slot, ok := f.Providers[provider]
+		if !ok {
+			return nil
+		}
+		for i, r := range slot.Accounts {
+			var saved struct {
+				Refresh string `json:"refresh"`
+				Access  string `json:"access"`
+				Expires int64  `json:"expires"`
+			}
+			if json.Unmarshal(r.Cred, &saved) != nil {
+				continue
+			}
+			// The refresh token is the identity of the login: same refresh,
+			// newer access pair — a renewal. A different refresh is a
+			// different login (or a vendor that rotates it), and the vault
+			// has no business guessing.
+			if saved.Refresh == "" || saved.Refresh != in.Refresh {
+				continue
+			}
+			if saved.Access == in.Access && saved.Expires == in.Expires {
+				return nil
+			}
+			merged, err := mergeOAuth(r.Cred, in.Access, in.Refresh, in.Expires)
+			if err != nil {
+				continue
+			}
+			slot.Accounts[i].Cred = merged
+			slot.Accounts[i].Type = Type(merged)
+			slot.Accounts[i].Hint = Hint(merged)
+			renewed = true
+			break
+		}
+		f.Providers[provider] = slot
+		return nil
+	})
+	return err == nil && renewed
+}
+
 func mergeOAuth(raw json.RawMessage, access, refresh string, expires int64) (json.RawMessage, error) {
 	obj := map[string]any{}
 	if len(raw) > 0 {

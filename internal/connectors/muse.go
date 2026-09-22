@@ -16,7 +16,7 @@ import (
 // per-workspace variant, so project scope refuses with a pointer to the one
 // file.
 //
-// The document's `mcp_servers` block holds {name: {transport:
+// The document's `mcpServers` block holds {name: {transport:
 // "stdio"|"streamable_http", command, args, env | url, headers, enabled?,
 // mode?, …}}. The entry's `enabled` field is the toggle (driver toggle:
 // "entry"), `schema_version` and every unknown key of the document and of
@@ -86,7 +86,7 @@ func (d Muse) List(p Paths) (mcp.Report, error) {
 		blockLayer(&rep.Layers[0], err)
 		raw = nil
 	}
-	servers, _ := raw["mcp_servers"].(map[string]any)
+	servers, _ := raw["mcpServers"].(map[string]any)
 	for name, e := range servers {
 		entry, ok := e.(map[string]any)
 		if !ok {
@@ -137,13 +137,13 @@ func (d Muse) Add(p Paths, scope, name string, entry mcp.Entry) error {
 		return err
 	}
 	ensureMuseSchema(raw)
-	servers, _ := raw["mcp_servers"].(map[string]any)
+	servers, _ := raw["mcpServers"].(map[string]any)
 	if servers == nil {
 		servers = map[string]any{}
 	}
 	prev, _ := servers[name].(map[string]any)
 	servers[name] = museEntryMap(entry, prev)
-	raw["mcp_servers"] = servers
+	raw["mcpServers"] = servers
 	return writeJSONFile(path, raw)
 }
 
@@ -176,7 +176,7 @@ func (d Muse) Toggle(p Paths, scope, name string, disabled bool) error {
 	if err != nil {
 		return err
 	}
-	servers, _ := raw["mcp_servers"].(map[string]any)
+	servers, _ := raw["mcpServers"].(map[string]any)
 	prev, ok := servers[name].(map[string]any)
 	if !ok {
 		return fmt.Errorf("server %q is not in %s", name, path)
@@ -185,7 +185,7 @@ func (d Muse) Toggle(p Paths, scope, name string, disabled bool) error {
 	merged := museEntryMap(mcp.Entry{}, prev)
 	merged["enabled"] = !disabled
 	servers[name] = merged
-	raw["mcp_servers"] = servers
+	raw["mcpServers"] = servers
 	return writeJSONFile(path, raw)
 }
 
@@ -206,13 +206,13 @@ func (d Muse) Remove(p Paths, scope, name string) error {
 	if err != nil {
 		return err
 	}
-	servers, _ := raw["mcp_servers"].(map[string]any)
+	servers, _ := raw["mcpServers"].(map[string]any)
 	if _, ok := servers[name]; !ok {
 		return fmt.Errorf("server %q is not in %s", name, path)
 	}
 	ensureMuseSchema(raw)
 	delete(servers, name)
-	raw["mcp_servers"] = servers
+	raw["mcpServers"] = servers
 	return writeJSONFile(path, raw)
 }
 

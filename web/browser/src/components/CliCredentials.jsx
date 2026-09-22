@@ -155,6 +155,12 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const bar = providers.length > 0 || addKind === "provider";
   // The legend names columns: with no rows under it there is nothing to name.
   const anyRows = providers.some((p) => (p.accounts || []).length > 0);
+  // The selected provider can also be signed in the CLI's own way: where the
+  // roster carries an oauth kind and the CLI has a sign-in at all, the dialog
+  // offers the guided flow — the vendor's OAuth happens in the CLI (ADR-0168),
+  // never here.
+  const guidedPick = !!addSpec && !!data && data.signin && data.signin.available
+    && (providers.find((p) => p.id === form.provider)?.kinds || []).includes("oauth");
 
   function openPrimary() {
     if (addKind === "provider") setAddProviderOpen(true);
@@ -687,7 +693,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
         <Dialog.Portal>
           <Dialog.Overlay className="dlg-overlay" />
           <Dialog.Content className="dlg">
-            <Dialog.Title className="dlg-title">Add API key</Dialog.Title>
+            <Dialog.Title className="dlg-title">Add provider</Dialog.Title>
             <Dialog.Description className="dlg-body">{"Saved to this machine’s vault."}</Dialog.Description>
             <form className="cred-form" noValidate onSubmit={save}>
               <label className="cred-field">
@@ -713,8 +719,23 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                 />
                 <em className="cred-help">This key stays on this machine. Nothing here uploads it.</em>
               </label>
+              {guidedPick ? (
+                <p className="cred-help">
+                  {providerName(form.provider)} also signs in — the OAuth happens in {cliName}, not here.
+                </p>
+              ) : null}
               <p className="form-error" role="alert" hidden={!formError}>{formError}</p>
               <div className="dlg-actions" data-align-row data-align-wrap>
+                {guidedPick ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={busy === "signin"}
+                    onClick={() => { closeAdd(); startSignin(); }}
+                  >
+                    {busy === "signin" ? "Opening…" : "Guided sign-in"}
+                  </button>
+                ) : null}
                 <button type="button" className="btn btn-ghost btn-sm" onClick={closeAdd}>Cancel</button>
                 <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
               </div>
