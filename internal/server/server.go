@@ -4,7 +4,7 @@
 //
 //	GET  /api/health, /api/version          — liveness/identity
 //	GET  /api/deploy/readiness              — who is working (loopback, no session)
-//	GET  /api/system                        — pi/tmux detection + warnings
+//	GET  /api/system                        — host, network, tmux/mkcert/tailscale
 //	GET/POST /api/workspaces                — registry CRUD
 //	DELETE /api/workspaces/{id}             — remove (+ stop agent)
 //	POST /api/workspaces/{id}/open|close    — start/stop the pi agent (tmux)

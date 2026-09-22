@@ -57,7 +57,8 @@ func containerToolsStep() Step {
 }
 
 // rootfsStep builds the member's root once: a minimal Debian/Ubuntu of
-// the host's release, plus what pi needs. Minutes and network the first
+// the host's release, plus tmux, git, Node.js and npm for the CLIs the
+// member installs from Agent CLIs. Minutes and network the first
 // time; a second run finds it and does nothing.
 func rootfsStep() Step {
 	return Step{

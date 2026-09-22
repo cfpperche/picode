@@ -50,11 +50,11 @@ installation and configuration.
 2. Select **New terminal**, give it a name and choose a workspace or folder.
 3. Select **Open terminal**. Use the CLI's own interface and login flow.
 
-PiCode does not install CLIs for the first time or manage their credentials
-here — with one exception: **Install** appears for pi, Codex and Claude Code
-when the CLI is missing and npm is available, running the same npm command
-the reinstall action uses. Grok and Hermes Agent install through their own
-guides; Omp installs through npm like pi, Codex and Claude Code. A missing
+PiCode installs a missing CLI only through npm: **Install** appears for Pi,
+Claude Code, Codex, OpenCode and Omp when the CLI is missing and npm is
+available, running the same npm command the reinstall action uses. Grok,
+Hermes Agent, Muse Code and Antigravity install through their own guides.
+Credentials are not entered here; they live in the CLI's **Providers** pane. A missing
 executable also offers
 **Customize**; the CLI's documentation link explains its installation.
 Checking setup runs `--version`, without starting a conversation.
@@ -313,8 +313,8 @@ demand and when the saved check is older than six hours.
 that CLI keep the old version until you restart them; PiCode asks before it
 touches a CLI with live terminals.
 
-When a CLI is **not installed**, its detail page offers **Install** for pi,
-Codex, Claude Code and Omp (needs npm on the machine). Grok and Hermes
+When a CLI is **not installed**, its detail page offers **Install** for Pi,
+Claude Code, Codex, OpenCode and Omp (needs npm on the machine). Grok and Hermes
 Agent install through their own guides — the card links to them and PiCode
 never runs their install scripts.
 

@@ -11,7 +11,13 @@ on their own; Pi reads it through the **MCP adapter** package.
 - **Where:** **Agent CLIs → \<cli\> → Connectors**.
 - **Not this:** Pi does not speak MCP itself. On Pi's pane, without the adapter, Connectors is one line and **Open packages** — it does not write files.
 
-The steps below are Pi's; on another CLI skip the adapter and start at step 2.
+On any other CLI there is no adapter, and three things differ from the Pi
+steps below: **Save to** offers this machine or this workspace (per-agent
+scope is Pi's only); a row shows **Live** or **Failed** only where the CLI
+reports it (OpenCode and Hermes Agent today); and **Sign in** is the CLI's own
+login command, which the row names for you to run in its terminal.
+
+The steps below are Pi's.
 
 Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as `npm:pi-mcp-adapter`).
 
@@ -32,7 +38,7 @@ Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as 
 
 Clicking an agent in the sidebar leaves this page and opens that agent.
 
-| Target | File |
+| Target (Pi) | File |
 |---|---|
 | Global | `~/.pi/agent/mcp.json` |
 | This workspace | `<folder>/.mcp.json` |

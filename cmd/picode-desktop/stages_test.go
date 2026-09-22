@@ -318,7 +318,7 @@ func callStrings(calls [][]string) []string {
 
 func TestRunInstallRuntimeUnknownUserStops(t *testing.T) {
 	stub := &diskStub{errs: []error{errors.New("exit status 1")}}
-	st := runtimeState([]string{"pi"}, "22", "ubuntu", true)
+	st := runtimeState([]string{"tmux"}, "22", "ubuntu", true)
 	st.TargetUser = "ghost"
 	err := runInstallRuntime(&app{runner: stub}, st, "", "ghost", false, nil)
 	if err == nil || !strings.Contains(err.Error(), "ghost") {

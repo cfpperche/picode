@@ -2,6 +2,11 @@
 
 > **Status: approved by the owner (2026-09-22).** Decision: [ADR-0179](../decisions/0179-agent-clis-optional.md).
 > Progress and debts: [`docs/handoff/open/multi-cli-ade.md`](../handoff/open/multi-cli-ade.md).
+> **Executed 2026-09-22.** All five branches landed; the pi-update route and
+> `errAgentCmdMissing` named below as current are gone. An adversarial review
+> the same day found and fixed three defects in what landed (guest automations,
+> the installer's npm prefix, CLI panes for guest tabs): see the session notes
+> `2026-09-22-guest-automations`, `-npm-user-prefix` and `-ade-review-tail`.
 
 ## Why
 

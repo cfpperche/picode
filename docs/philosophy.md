@@ -45,7 +45,7 @@ and PiCode never replaces them:
 | Providers | the CLI's own auth; one vault feeds them (ADR-0165) |
 | Sessions | each CLI's own session files; handoff translates between them (ADR-0088) |
 | Tasks & steering (Pi managed mode) | pi's `steer` / `follow_up` semantics |
-| Inter-agent chat | the `picode-communication` MCP server → HTTP API, for every CLI |
+| Inter-agent chat | `picode-communication` over MCP or the `picode messages` command → HTTP API, connected automatically for Pi, Claude Code, Codex, OpenCode, Grok and Hermes Agent |
 
 We extend each CLI's ecosystem; we never fork one. Pi is where PiCode
 started and the one CLI with a managed mode today; it is not a dependency
