@@ -126,7 +126,17 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
 
   // The pane survives a CLI switch without remounting; a sign-in in flight
   // belongs to the CLI it was started for, so it goes with it.
-  useEffect(() => { setSignin(null); }, [cli]);
+  useEffect(() => {
+    setSignin(null);
+    // A sign-in still running for this CLI comes back to its strip: the
+    // card is the only way to it (ADR-0184). The stamp is unknown here, so
+    // Check now files whatever the store holds.
+    let live = true;
+    api("/api/credentials/signin?cli=" + encodeURIComponent(cli)).then((res) => {
+      if (live && res && res.terminalId) setSignin((prev) => prev || { hint: res.hint || "", error: "", terminalId: res.terminalId, stamp: "" });
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [cli]);
   // The server owns the sign-in terminal (ADR-0184): it closes it once the
   // credential lands, when its process ends, or after fifteen minutes. The
   // strip says so instead of pointing at a terminal that is gone.

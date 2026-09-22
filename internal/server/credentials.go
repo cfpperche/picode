@@ -39,6 +39,7 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/credentials", handleCredentialAdd(deps))
 	mux.HandleFunc("POST /api/credentials/import", handleCredentialImport(deps))
 	mux.HandleFunc("POST /api/credentials/signin", handleCredentialSignin(deps))
+	mux.HandleFunc("GET /api/credentials/signin", handleCredentialSigninOpen(deps))
 	mux.HandleFunc("PATCH /api/credentials/{provider}/{id}", handleCredentialRename(deps))
 	mux.HandleFunc("POST /api/credentials/{provider}/{id}/pause", handleCredentialPause(deps))
 	mux.HandleFunc("POST /api/credentials/{provider}/{id}/verify", handleCredentialVerify(deps))
@@ -1105,4 +1106,31 @@ func providerIDs() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// handleCredentialSigninOpen names a CLI's sign-in already in flight, so its
+// card can show it again after the pane was left (ADR-0184: a sign-in
+// terminal is only ever reachable from its card). 204 when there is none.
+func handleCredentialSigninOpen(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		spec, ok := clicreds.For(strings.TrimSpace(r.URL.Query().Get("cli")))
+		if !ok {
+			writeErr(w, http.StatusNotFound, "Unknown CLI.")
+			return
+		}
+		for _, t := range signinTerminals(deps, spec.CLI) {
+			if deps.Tmux == nil || !deps.Tmux.Available() {
+				break
+			}
+			if alive, err := deps.Tmux.HasSession(r.Context(), tmux.ShellSessionName(t.ID)); err == nil && alive {
+				hint := ""
+				if spec.Login != nil {
+					hint = spec.Login.Hint
+				}
+				writeJSON(w, http.StatusOK, map[string]any{"terminalId": t.ID, "hint": hint})
+				return
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

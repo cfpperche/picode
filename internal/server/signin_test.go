@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -87,5 +89,32 @@ func TestSigninTerminalLifecycle(t *testing.T) {
 		if n := reapSigninTerminals(ctx, deps, now, false); n != 1 || !gone(d) {
 			t.Fatalf("ended sign-in kept (%d)", n)
 		}
+	}
+}
+
+// A card that was left finds its sign-in again; none answers 204.
+func TestCredentialSigninOpenNamesTheLiveOne(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, Tmux: tmux.New()}).Handler)
+	t.Cleanup(ts.Close)
+	res, err := http.Get(ts.URL + "/api/credentials/signin?cli=claude-code")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("no sign-in = %d", res.StatusCode)
+	}
+	res, err = http.Get(ts.URL + "/api/credentials/signin?cli=nope")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown cli = %d", res.StatusCode)
 	}
 }
