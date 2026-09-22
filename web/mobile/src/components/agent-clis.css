@@ -35,6 +35,7 @@
 .cli-fields label > span.is-warn { color: var(--warn); }
 .cli-fields input, .cli-fields select, .cli-fields textarea, .cli-list-heading input { width: 100%; min-width: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-base); color: var(--text-primary); padding: 8px 10px; font: 12px var(--mono); }
 .cli-fields input, .cli-fields select { height: var(--ctl-h); }
+.cli-fields select { padding-block: 0; } /* the phone's 16px form font (no iOS zoom) needs the whole 36px line: descenders clipped with 8px padding */
 .cli-fields textarea { resize: vertical; line-height: 1.6; }
 .cli-launch-fields { grid-template-columns: 1fr; gap: 12px; }
 .cli-launch-fields details { border-top: 1px solid var(--border); }
