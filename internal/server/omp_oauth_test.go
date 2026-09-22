@@ -31,6 +31,9 @@ func TestOmpSigninStartsBrowserOauth(t *testing.T) {
 }
 
 func TestOmpSigninUnknownProviderStaysTerminal(t *testing.T) {
+	// The fallthrough ends in omp's own strip, which needs the CLI located
+	// (ADR-0167); the stub keeps this honest on a machine without omp (CI).
+	stubVendor(t, "omp", "")
 	ts, _, _, _ := credentialsServer(t)
 	// google carries no oauth kind for omp: the request falls through to the
 	// terminal strip, which for omp means the TUI hint — and no browser url.
