@@ -99,6 +99,19 @@ the global one rather than adding to it, so the pane always writes the whole
 list for the layer — including what it inherited. The first answer takes a few
 seconds because PiCode asks Omp itself; **Refresh** asks again.
 
+## Checks (Omp)
+
+At the top of Omp's Settings pane, **Checks** lists what is wrong with Omp's
+configuration for the folder you are in, one line each: a config file Omp moved
+aside because it could not read it, a key written twice, a key this version of
+Omp no longer knows, a committed `.env`, no approval mode set (Omp then runs
+every tool without asking), and how many Omp terminals will only see a change
+after they restart. **Open the file** or **Change it** takes you to the fix.
+
+Under it, **All settings Omp resolves here** is Omp's own list of every setting
+in force in this folder, with the file each value comes from. Credentials are
+shown as *hidden*.
+
 ## Related pi documentation
 
 Canonical: [pi Settings](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/settings.md)

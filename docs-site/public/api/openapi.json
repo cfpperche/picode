@@ -3461,6 +3461,23 @@
         ]
       }
     },
+    "/api/cli-doctor": {
+      "get": {
+        "operationId": "getApiCli-doctor",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-doctor"
+        ]
+      }
+    },
     "/api/cli-jobs": {
       "get": {
         "operationId": "getApiCli-jobs",
@@ -11622,6 +11639,9 @@
     },
     {
       "name": "checklists"
+    },
+    {
+      "name": "cli-doctor"
     },
     {
       "name": "cli-jobs"

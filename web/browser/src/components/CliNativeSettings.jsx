@@ -9,6 +9,8 @@ import {
 } from "@picode/shared/domain/cliNative.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import SearchCombo from "./SearchCombo.jsx";
+import CliDoctor from "./CliDoctor.jsx";
+import { supportsCliDoctor } from "@picode/shared/domain/cliDoctor.js";
 
 // The guest CLIs' own settings, edited in their own files (ADR-0163). One
 // layer at a time, the file it writes named under the switcher, provenance on
@@ -136,6 +138,9 @@ export default function CliNativeSettings({ route, workspaceId = "" }) {
     : null;
   return (
     <>
+      {/* The checks read the folder, not a layer, so they sit above the
+          layer switcher (slice 4). */}
+      {supportsCliDoctor(cli) ? <CliDoctor cli={cli} workspaceId={workspaceId} /> : null}
       {layers.length > 1 ? (
         <div className="settings-layer">
           <span className="settings-layer-label">Edit</span>
@@ -286,7 +291,7 @@ export function Row({ field, state, cliLabel, busy, disabled, unreadable, filePa
   const warn = dangerNote(field, value);
   const spot = isRoleField(field) ? cyclePosition(cycle, field.key.split(".").pop()) : 0;
   return (
-    <div className={"set-row" + (setHere ? " is-set" : "") + (isListField(field) ? " set-row-stack" : "") + (isRoleField(field) ? " set-row-role" : "")}>
+    <div data-key={field.key} className={"set-row" + (setHere ? " is-set" : "") + (isListField(field) ? " set-row-stack" : "") + (isRoleField(field) ? " set-row-role" : "")}>
       <span className="set-label">
         <span className="set-name">
           {field.tag ? <span className="role-tag">{field.tag}</span> : null}

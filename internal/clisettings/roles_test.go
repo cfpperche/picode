@@ -398,7 +398,7 @@ func TestOmpModelRowsLiveInTheModelsPane(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stays := map[string]bool{"defaultThinkingLevel": true, "memory.backend": true, "symbolPreset": true, "theme.dark": true}
+	stays := map[string]bool{"tools.approvalMode": true, "defaultThinkingLevel": true, "memory.backend": true, "symbolPreset": true, "theme.dark": true}
 	for _, f := range rep.Fields {
 		want := "models"
 		if stays[f.Key] {

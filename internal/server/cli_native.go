@@ -3,10 +3,12 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/clidoctor"
 	"github.com/cfpperche/picode/internal/climemory"
 	"github.com/cfpperche/picode/internal/climodels"
 	"github.com/cfpperche/picode/internal/clisettings"
@@ -22,6 +24,7 @@ func registerCLINativeRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/cli-settings", handleCLISettingsGet(deps))
 	mux.HandleFunc("PATCH /api/cli-settings", handleCLISettingsPatch(deps))
 	mux.HandleFunc("GET /api/cli-models", handleCLIModelsGet(deps))
+	mux.HandleFunc("GET /api/cli-doctor", handleCLIDoctorGet(deps))
 	mux.HandleFunc("GET /api/cli-memory", handleCLIMemoryGet(deps))
 	mux.HandleFunc("GET /api/cli-memory/item", handleCLIMemoryRead(deps))
 	mux.HandleFunc("PUT /api/cli-memory/item", handleCLIMemoryWrite(deps))
@@ -92,6 +95,40 @@ func handleCLIModelsGet(deps Deps) http.HandlerFunc {
 			// installed, not signed in, or slow says so differently each time.
 			writeErr(w, http.StatusBadGateway, err.Error())
 			return
+		}
+		writeJSON(w, http.StatusOK, rep)
+	}
+}
+
+// handleCLIDoctorGet answers what a CLI resolves in one folder and what is
+// wrong with it, read-only (slice 4). The listing is the CLI's own; PiCode adds
+// the source of each value and measured findings, plus one only the daemon can
+// see: how many terminals of this CLI are running and will read a change only
+// when they restart (measured 2026-09-22: omp reads its config at start).
+func handleCLIDoctorGet(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cli := r.URL.Query().Get("cli")
+		if !clidoctor.Supports(cli) {
+			writeErr(w, http.StatusBadRequest, "PiCode has no checks for "+cliLabel(cli))
+			return
+		}
+		cwd, err := nativePaths(deps, r.URL.Query().Get("workspace"))
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return
+		}
+		rep, err := clidoctor.Read(r.Context(), cli, clidoctor.Paths{Dir: cwd})
+		if err != nil {
+			writeErr(w, http.StatusBadGateway, err.Error())
+			return
+		}
+		if running := runningTerminalsFor(deps, cli); len(running) > 0 {
+			noun := "terminal is"
+			if len(running) > 1 {
+				noun = "terminals are"
+			}
+			rep.Findings = append(rep.Findings, clidoctor.Finding{ID: "running", Severity: "info",
+				Text: fmt.Sprintf("%d %s %s running; each reads a change here when it restarts.", len(running), cliLabel(cli), noun)})
 		}
 		writeJSON(w, http.StatusOK, rep)
 	}

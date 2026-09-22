@@ -224,6 +224,14 @@ var catalog = []spec{
 				[2]string{"global", "Global"},
 				[2]string{"project", "This workspace"},
 			), Help: "Where a role you pick inside Omp is saved. This pane always writes the layer you are editing."},
+			// Read from omp's schema 2026-09-22: `tools.approvalMode`,
+			// values always-ask | write | yolo, default yolo. The doctor's
+			// "no approval mode is set" finding points here.
+			{Key: "tools.approvalMode", Label: "Tool approval", Kind: KindSelect, Group: groupApproval, Fallback: "Approve all (default)", Options: opts(
+				[2]string{"always-ask", "Ask before writes and commands"},
+				[2]string{"write", "Ask before commands"},
+				[2]string{"yolo", "Approve everything"},
+			), Danger: "yolo", DangerNote: "Tools run without asking, commands included."},
 			{Key: "defaultThinkingLevel", Label: "Thinking level", Kind: KindSelect, Group: groupModel, Fallback: "High", Options: opts(
 				[2]string{"off", "Off"},
 				[2]string{"minimal", "Minimal"},
