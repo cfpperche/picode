@@ -146,3 +146,20 @@ writes X" ages the day the vendor ships X, and the surface that reads the
 files has to say so when it does. Older sessions are not retroactively
 rewritten — Grok began writing `usage.json` in 1.0.x, and the coverage row
 says `partial` with the count instead of pretending otherwise.
+
+## Addendum — re-measured 2026-09-22, against t3code
+
+t3code (`pingdotgg/t3code` at `d7819c18`) ships a usage page over the same
+three stores — Claude Code, Codex, Grok. Reading its reader beside ours
+showed PiCode's totals were roughly double on two of them: Claude Code
+repeats a response's usage on every content-block record, Codex forks copy
+their parent's history in, and both Codex and Grok count cached tokens
+inside input. It also read Grok's `updates.jsonl`, the fuller usage source,
+and Claude Code's `subagents/` transcripts, which PiCode never listed. The
+rules PiCode adopted are in `docs/architecture/climetrics.md` ("Counting
+each billed token once").
+
+Not adopted here: t3code prices every unpriced token from LiteLLM's model
+table and fetches plan windows for five vendors. Both touch refusals in this
+study (the price table) and in the dashboard's Limits card, and are tracked
+in `docs/handoff/open/dashboard.md`.
