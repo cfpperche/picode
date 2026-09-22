@@ -2,7 +2,6 @@ package pkgs
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -369,10 +368,12 @@ func TestGuestMutationRefusalsKeepTheEnginesWords(t *testing.T) {
 	sameRefusal(t, err, engineRun(t, "codex", clipkgs.VerbDisable, clipkgs.Paths{}, clipkgs.Target{Name: "pl", Scope: "user", On: false}))
 }
 
-// The two answers a mutation adds are derived, not re-invented: the removal's
-// remaining sources marshal to the bytes the one-key map answered, and the
-// vendor's inspection text rides the two keys the pane parses.
-func TestGuestMutationAnswersMatchTheEngineByteForByte(t *testing.T) {
+// The two answers a mutation adds are the driver's, so they carry the engine's
+// own facts: the removal's remaining sources are the vendor's rows, and the
+// inspection is the vendor's own text. The envelopes they travel in are the
+// server's (`packageSources`, `inspectAnswer`), pinned over the real routes in
+// internal/server.
+func TestGuestMutationAnswersCarryTheEnginesFacts(t *testing.T) {
 	stubGuest(t, "grok", grokScript)
 	ws := t.TempDir()
 	ctx := context.Background()
@@ -385,12 +386,10 @@ func TestGuestMutationAnswersMatchTheEngineByteForByte(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sameBytes(t, GuestMarketplaceSources(rows), map[string]any{"marketplaces": engine})
+	sameGuestRows(t, rows, engine)
 
-	// The toggle's answer is the CLI's list after the mutation, mapped the way
-	// slice 2 maps every roster: the driver's report and the engine's report are
-	// the same bytes (the read stamps are microseconds apart and are held
-	// equal, as the read's own test holds them).
+	// The toggle's answer is the CLI's list after the mutation, read the way
+	// every roster is: the driver's rows are the engine's own.
 	stubGuest(t, "grok", grokScript)
 	engineRep, err := clipkgs.List(ctx, "grok", clipkgs.Paths{Cwd: ws}, "user", true)
 	if err != nil {
@@ -400,45 +399,21 @@ func TestGuestMutationAnswersMatchTheEngineByteForByte(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	engineRep.ReadAt = rep.ReadAt
-	sameBytes(t, Guest("grok", rep), GuestViewOf("grok", engineRep))
+	sameGuestRows(t, rep.Rows, engineRep.Rows)
 
-	// Inspect is the vendor's own text under the pane's two keys.
+	// Inspect is the vendor's own text, character for character.
 	out, err := clipkgs.Inspect(ctx, "grok", clipkgs.Paths{Cwd: ws}, clipkgs.Target{Name: "probe", Scope: "user"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	sameBytes(t, GuestInspect("grok", out), map[string]any{"cli": "grok", "output": out})
-}
-
-// The pane parses these two payloads, so they are pinned as bytes.
-func TestGuestMutationViewsAreThePanesPayload(t *testing.T) {
-	b, err := json.Marshal(GuestMarketplaceSources([]Row{
-		{CLI: "grok", ID: "team", Name: "team", Source: "https://example.test/mp", Kind: "marketplace", Scope: Machine, Vendor: "user", Enabled: true, Installed: true, Status: "1.2.3"},
-	}))
+	cmd, got, err := DriverFor("grok").Inspect(ctx, Query{Vendor: "user", WorkspacePath: ws}, Target{Name: "probe"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"marketplaces":[{"id":"team","name":"team","scope":"user","enabled":true,"installed":true,` +
-		`"source":"https://example.test/mp","sourceKind":"marketplace","status":"1.2.3"}]}`
-	if string(b) != want {
-		t.Fatalf("payload = %s\n      want %s", b, want)
+	if got != out {
+		t.Fatalf("inspect = %q, want the engine's %q", got, out)
 	}
-
-	// No sources left is an empty list, never null: the pane's empty state.
-	b, err = json.Marshal(GuestMarketplaceSources(nil))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(b) != `{"marketplaces":[]}` {
-		t.Fatalf("empty payload = %s", b)
-	}
-
-	b, err = json.Marshal(GuestInspect("muse", `{"capabilities":["read"]}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(b) != `{"cli":"muse","output":"{\"capabilities\":[\"read\"]}"}` {
-		t.Fatalf("inspect payload = %s", b)
+	if cmd.Line == "" {
+		t.Fatalf("an inspection carries the line that produced it: %+v", cmd)
 	}
 }

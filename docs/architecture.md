@@ -73,11 +73,14 @@ registers the logon task. `install` walks a state machine
 (`internal/desktop.NextStage`, derived from observation so any interruption
 resumes): WSL, distro, account, then — since ADR-0098's stages landed — the
 picode binary (the tool's own release, verified) and the runtime (tmux, git,
-curl, Node.js 22 from NodeSource when node or npm is missing — a node already
-present is left alone; Ubuntu only), asking first on a distro PiCode did not
-register, and ends with the shell running. No agent CLI is installed by the
-tool (ADR-0179): the user adds the ones they use from Agent CLIs after the
-first login. `--user <name>` aims the binary at one account (its
+curl, Node.js 22 from NodeSource when node or npm is missing or older than
+22; Ubuntu only), asking first on a distro PiCode did not register, and ends
+with the shell running. No agent CLI is installed by the tool (ADR-0179): the
+user adds the ones they use from Agent CLIs after the first login, and that
+Install runs `npm install -g` as the account — so when the global npm prefix
+is root-owned (under `/usr`, NodeSource's or the distro's) the stage sets the
+account's prefix to `~/.local` (`npm config set prefix`, as that account),
+whose `bin` the login shell already carries. An nvm prefix is left alone. `--user <name>` aims the binary at one account (its
 `~/.local/bin`); the observation probe runs as the target account so a binary
 only it can see still converges. The
 launcher waits for the elevated child and reports a failing exit code instead

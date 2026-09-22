@@ -217,6 +217,7 @@ func TestNoDollarCrossesTheWSLBoundary(t *testing.T) {
 		"nodesrc": script,
 		"place":   PlacePicodeScript("/mnt/c/x"),
 		"marker":  strings.Join(SetRegisteredCommand(), " "),
+		"prefix":  NpmUserPrefixScript(),
 	}
 	for name, script := range scripts {
 		if strings.Contains(script, "$") {
@@ -261,5 +262,19 @@ func TestPlacePicodeScript(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("script lacks %q:\n%s", want, got)
 		}
+	}
+}
+
+func TestParseProbeNamesOldNodeAndSystemPrefix(t *testing.T) {
+	r := ParseProbe([]byte("@@tools@@\nmissing:npm-user-prefix\nv18.19.1\n"))
+	got := strings.Join(r.Missing, ",")
+	if got != "npm-user-prefix,"+NodeUpgrade {
+		t.Fatalf("Missing = %q", got)
+	}
+	if r := ParseProbe([]byte("@@tools@@\nv22.14.0\n")); len(r.Missing) != 0 {
+		t.Fatalf("a current node and a user prefix report %q", r.Missing)
+	}
+	if !strings.Contains(probeScript, "npm config get prefix") || strings.Contains(probeScript, "$") {
+		t.Fatal("the probe must check the npm prefix without a `$`")
 	}
 }
