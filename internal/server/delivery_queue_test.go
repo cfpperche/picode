@@ -8,6 +8,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/cfpperche/picode/internal/gitgraph"
+	"github.com/cfpperche/picode/internal/store"
 )
 
 // queueRequest performs one request against the test server and returns the
@@ -87,23 +91,20 @@ func TestDeliveryQueueOwnerDoors(t *testing.T) {
 		t.Fatalf("unknown entry = %d", res)
 	}
 
-	// Order, authorize, run, finish — the whole life of an entry.
-	for _, step := range []struct {
-		payload string
-		want    string
-	}{
-		{fmt.Sprintf(`{"action":"order","requestId":"o1","id":%q,"expectedVersion":1,"orderKey":0}`, id), "waiting"},
-		{fmt.Sprintf(`{"action":"authorize","requestId":"a1","id":%q,"expectedVersion":2}`, id), "authorized"},
-		{fmt.Sprintf(`{"action":"start","requestId":"s1","id":%q,"expectedVersion":3}`, id), "running"},
-		{fmt.Sprintf(`{"action":"finish","requestId":"f1","id":%q,"expectedVersion":4,"note":"integrated"}`, id), "done"},
-	} {
-		res, out = post(step.payload)
-		if res != 200 {
-			t.Fatalf("%s = %d %v", step.payload, res, out)
-		}
-		if got := out["entry"].(map[string]any)["state"]; got != step.want {
-			t.Fatalf("state = %v, want %s", got, step.want)
-		}
+	// The owner orders and authorizes; authorizing is execution authority, so
+	// the entry runs. This repository declares no rules, which is a named
+	// blocker rather than a guess: the run fails it and says why.
+	if res, out = post(fmt.Sprintf(`{"action":"order","requestId":"o1","id":%q,"expectedVersion":1,"orderKey":0}`, id)); res != 200 ||
+		out["entry"].(map[string]any)["state"] != "waiting" {
+		t.Fatalf("order = %d %v", res, out)
+	}
+	if res, out = post(fmt.Sprintf(`{"action":"authorize","requestId":"a1","id":%q,"expectedVersion":2}`, id)); res != 200 ||
+		out["entry"].(map[string]any)["state"] != "authorized" {
+		t.Fatalf("authorize = %d %v", res, out)
+	}
+	settled := waitForQueueState(t, ts, ws.ID, id)
+	if settled["state"] != "failed" || !strings.HasPrefix(settled["note"].(string), "not run: the project declares no integration rules") {
+		t.Fatalf("settled = %v", settled)
 	}
 
 	// The Delivery read carries the queue and the effective declaration.
@@ -174,4 +175,187 @@ func TestDeliveryIntegrationDeclaration(t *testing.T) {
 	if code, _ := put("?workspace=nope", `{"ffOnly":true}`); code != 404 {
 		t.Fatalf("unknown workspace = %d", code)
 	}
+}
+
+// Authorizing is execution authority (ADR-0182): the declared operation runs
+// against the repository, and the answer never waits for it.
+func TestDeliveryQueueAuthorizeRunsTheDeclaration(t *testing.T) {
+	ts, st := newInboxServer(t)
+	repo := gitRepo(t)
+	gitRun(t, repo, "checkout", "-q", "-b", "feature")
+	gitRun(t, repo, "commit", "--allow-empty", "-m", "feature work")
+	head := strings.TrimSpace(gitOut(t, repo, "rev-parse", "HEAD"))
+	gitRun(t, repo, "checkout", "-q", "main")
+	ws, agent, err := storeWorkspaceWithAgent(st, "queue", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, out := queueRequest(t, ts, "PUT", "/api/delivery/integration?workspace="+ws.ID,
+		`{"ffOnly":true,"checks":["true"]}`); code != 200 {
+		t.Fatalf("declare = %d %v", code, out)
+	}
+	code, out := queueRequest(t, ts, "POST", "/api/delivery/tool", fmt.Sprintf(
+		`{"agent":%q,"action":"register","requestId":"create","title":"Fix","branch":"feature","revision":%q,"target":"main"}`, agent.ID, head))
+	if code != 200 {
+		t.Fatalf("register = %d %v", code, out)
+	}
+	delivery := out["delivery"].(map[string]any)["id"].(string)
+	code, out = queueRequest(t, ts, "POST", "/api/delivery/tool", fmt.Sprintf(
+		`{"agent":%q,"action":"request-integration","requestId":"q1","id":%q,"revision":%q,"target":"main"}`, agent.ID, delivery, head))
+	if code != 200 {
+		t.Fatalf("request = %d %v", code, out)
+	}
+	queueID := out["queue"].(map[string]any)["id"].(string)
+	if code, out = queueRequest(t, ts, "POST", "/api/workspaces/"+ws.ID+"/delivery/queue", fmt.Sprintf(
+		`{"action":"authorize","requestId":"a1","id":%q,"expectedVersion":1}`, queueID)); code != 200 {
+		t.Fatalf("authorize = %d %v", code, out)
+	}
+	entry := waitForQueueState(t, ts, ws.ID, queueID)
+	if entry["state"] != "done" || !strings.Contains(entry["note"].(string), "integrated") {
+		t.Fatalf("entry = %v", entry)
+	}
+	if got := strings.TrimSpace(gitOut(t, repo, "rev-parse", "main")); got != head {
+		t.Fatalf("main = %s, want %s", got, head)
+	}
+}
+
+// A declared command that fails stops the operation, names itself, and leaves
+// the target where it was.
+func TestDeliveryQueueFailedCheckLeavesTheTarget(t *testing.T) {
+	ts, st := newInboxServer(t)
+	repo := gitRepo(t)
+	gitRun(t, repo, "checkout", "-q", "-b", "feature")
+	gitRun(t, repo, "commit", "--allow-empty", "-m", "feature work")
+	head := strings.TrimSpace(gitOut(t, repo, "rev-parse", "HEAD"))
+	gitRun(t, repo, "checkout", "-q", "main")
+	before := strings.TrimSpace(gitOut(t, repo, "rev-parse", "main"))
+	ws, agent, err := storeWorkspaceWithAgent(st, "queue", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, out := queueRequest(t, ts, "PUT", "/api/delivery/integration?workspace="+ws.ID,
+		`{"ffOnly":true,"checks":["echo nope >&2; false"]}`); code != 200 {
+		t.Fatalf("declare = %d %v", code, out)
+	}
+	code, out := queueRequest(t, ts, "POST", "/api/delivery/tool", fmt.Sprintf(
+		`{"agent":%q,"action":"register","requestId":"create","title":"Fix","branch":"feature","revision":%q,"target":"main"}`, agent.ID, head))
+	if code != 200 {
+		t.Fatalf("register = %d %v", code, out)
+	}
+	delivery := out["delivery"].(map[string]any)["id"].(string)
+	code, out = queueRequest(t, ts, "POST", "/api/delivery/tool", fmt.Sprintf(
+		`{"agent":%q,"action":"request-integration","requestId":"q1","id":%q,"revision":%q,"target":"main"}`, agent.ID, delivery, head))
+	if code != 200 {
+		t.Fatalf("request = %d %v", code, out)
+	}
+	queueID := out["queue"].(map[string]any)["id"].(string)
+	if code, out = queueRequest(t, ts, "POST", "/api/workspaces/"+ws.ID+"/delivery/queue", fmt.Sprintf(
+		`{"action":"authorize","requestId":"a1","id":%q,"expectedVersion":1}`, queueID)); code != 200 {
+		t.Fatalf("authorize = %d %v", code, out)
+	}
+	entry := waitForQueueState(t, ts, ws.ID, queueID)
+	if entry["state"] != "failed" || !strings.Contains(entry["note"].(string), "check 1 of 1 failed") {
+		t.Fatalf("entry = %v", entry)
+	}
+	if got := strings.TrimSpace(gitOut(t, repo, "rev-parse", "main")); got != before {
+		t.Fatalf("main moved to %s although the declared check failed", got)
+	}
+}
+
+// waitForQueueState polls the Delivery read until the entry reaches a terminal
+// state: the run is asynchronous by design, so the test waits for the queue,
+// not for an arbitrary sleep.
+func waitForQueueState(t *testing.T, ts *httptest.Server, workspaceID, entryID string) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		_, read := queueRequest(t, ts, "GET", "/api/workspaces/"+workspaceID+"/delivery", "")
+		if entries, ok := read["queue"].([]any); ok {
+			for _, raw := range entries {
+				entry := raw.(map[string]any)
+				if entry["id"] != entryID {
+					continue
+				}
+				switch entry["state"] {
+				case "done", "failed", "withdrawn":
+					return entry
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("entry %s never finished: %v", entryID, read)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// The daemon's own start path (ResumeDeliveryQueue): an entry left running by a
+// previous process is marked unknown — never failed, never retried — and every
+// authorized entry runs. This is what a restart owes the repository.
+func TestDeliveryQueueResumeMarksUnknownAndDrains(t *testing.T) {
+	ts, st := newInboxServer(t)
+	repo := gitRepo(t)
+	gitRun(t, repo, "checkout", "-q", "-b", "feature")
+	gitRun(t, repo, "commit", "--allow-empty", "-m", "feature work")
+	head := strings.TrimSpace(gitOut(t, repo, "rev-parse", "HEAD"))
+	gitRun(t, repo, "checkout", "-q", "main")
+	ws, agent, err := storeWorkspaceWithAgent(st, "queue", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Two deliveries: one whose run died with the previous daemon, one the owner
+	// had authorized and never got to see.
+	interrupted := queueEntryIn(t, st, ws.ID, agent.ID, repo, head, "one")
+	running, err := st.ApplyQueueMutation(repoKeyOf(t, repo), store.OwnerActor, store.QueueMutation{Action: "start",
+		RequestID: "start-interrupted", ID: interrupted.ID, ExpectedVersion: interrupted.Version})
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorized := queueEntryIn(t, st, ws.ID, agent.ID, repo, head, "two")
+
+	newQueueRuns(Deps{Store: st}).resume()
+
+	marked, err := st.GetQueueEntry(repoKeyOf(t, repo), running.ID)
+	if err != nil || marked.State != store.QueueRunning || !strings.Contains(marked.Note, "outcome is unknown") {
+		t.Fatalf("the interrupted entry = %+v (%v)", marked, err)
+	}
+	settled := waitForQueueState(t, ts, ws.ID, authorized.ID)
+	if settled["state"] != "failed" || !strings.HasPrefix(settled["note"].(string), "not run: the project declares no integration rules") {
+		t.Fatalf("the authorized entry = %v", settled)
+	}
+	if marked2, err := st.GetQueueEntry(repoKeyOf(t, repo), running.ID); err != nil || marked2.Note != marked.Note {
+		t.Fatalf("the interrupted entry was touched again: %+v (%v)", marked2, err)
+	}
+}
+
+// queueEntryIn registers a delivery and leaves an entry waiting, through the
+// store: the door's authorize would run it, and these tests stage states.
+func queueEntryIn(t *testing.T, st *store.Store, workspaceID, agentID, repo, revision, tag string) store.QueueEntry {
+	t.Helper()
+	key := repoKeyOf(t, repo)
+	d, err := st.ApplyDelivery(key, agentID, store.DeliveryMutation{Action: "register", RequestID: "create-" + tag,
+		Title: "Fix " + tag, Branch: "feature", Revision: revision, Target: "main"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, err := st.ApplyQueueMutation(key, agentID, store.QueueMutation{Action: "enqueue", RequestID: "enqueue-" + tag,
+		DeliveryID: d.ID, Revision: revision, Target: "main"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorized, err := st.ApplyQueueMutation(key, store.OwnerActor, store.QueueMutation{Action: "authorize",
+		RequestID: "authorize-" + tag, ID: e.ID, ExpectedVersion: e.Version})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return authorized
+}
+
+func repoKeyOf(t *testing.T, repo string) string {
+	t.Helper()
+	key := gitgraph.Key(repo)
+	if key == "" {
+		t.Fatalf("no repository key for %s", repo)
+	}
+	return key
 }

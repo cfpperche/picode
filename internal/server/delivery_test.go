@@ -294,10 +294,6 @@ func TestDeliveryIntegrationQueueAgentDoor(t *testing.T) {
 		raw, _ := json.Marshal(payload)
 		return queueRequest(t, ts, "POST", "/api/delivery/tool", string(raw))
 	}
-	owner := func(payload map[string]any) (int, map[string]any) {
-		raw, _ := json.Marshal(payload)
-		return queueRequest(t, ts, "POST", "/api/workspaces/"+ws.ID+"/delivery/queue", string(raw))
-	}
 	if code, out := call(agent.ID, map[string]any{"action": "capabilities"}); code != 200 || out["integrationQueue"] != true {
 		t.Fatalf("capabilities = %d %v", code, out)
 	} else {
@@ -353,18 +349,18 @@ func TestDeliveryIntegrationQueueAgentDoor(t *testing.T) {
 	if code, out = call(other.ID, map[string]any{"action": "withdraw-integration", "requestId": "x2", "id": queueID, "expectedVersion": 1}); code != 403 {
 		t.Fatalf("foreign withdraw = %d %v", code, out)
 	}
-	// A stale version is a conflict; the owner then authorizes, and the agent —
-	// which may not order or authorize — steps out of the queue itself.
+	// A stale version is a conflict, whatever the actor.
 	if code, out = call(agent.ID, map[string]any{"action": "withdraw-integration", "requestId": "w0", "id": queueID, "expectedVersion": 9}); code != 409 {
 		t.Fatalf("stale withdraw = %d %v", code, out)
 	}
-	if code, out = owner(map[string]any{"action": "authorize", "requestId": "a1", "id": queueID, "expectedVersion": 9}); code != 409 {
-		t.Fatalf("stale authorize = %d %v", code, out)
+	// The agent's door has no authority: authorizing is the owner's alone, and
+	// this face does not offer it at all.
+	if code, out = call(agent.ID, map[string]any{"action": "authorize", "requestId": "a1", "id": queueID, "expectedVersion": 1}); code != 400 {
+		t.Fatalf("the agent tried to authorize = %d %v", code, out)
 	}
-	if code, out = owner(map[string]any{"action": "authorize", "requestId": "a1", "id": queueID, "expectedVersion": 1}); code != 200 {
-		t.Fatalf("authorize = %d %v", code, out)
-	}
-	if code, out = call(agent.ID, map[string]any{"action": "withdraw-integration", "requestId": "w1", "id": queueID, "expectedVersion": 2}); code != 200 || out["queue"].(map[string]any)["state"] != "withdrawn" {
+	// Withdrawing while it waits is the agent's own move, and it frees the
+	// delivery for a fresh request.
+	if code, out = call(agent.ID, map[string]any{"action": "withdraw-integration", "requestId": "w1", "id": queueID, "expectedVersion": 1}); code != 200 || out["queue"].(map[string]any)["state"] != "withdrawn" {
 		t.Fatalf("withdraw = %d %v", code, out)
 	}
 	// Withdrawn frees the delivery: a fresh request takes its own place.

@@ -102,6 +102,38 @@ and a test compares the enum of one with the action list of the other. The
 serialized executor and the Delivery-view lane are the slice's remaining steps
 (`docs/plans/delivery-flow.md`, D3).
 
+### The runner (ADR-0182)
+
+Authorization is execution authority: when the owner authorizes an entry, that
+repository drains — the entry just authorized, then whatever else is authorized
+behind it, in the order the owner set. One repository runs **one operation at a
+time**: the store refuses `start` while another entry of the same repository is
+running, and the daemon holds a live lock per repository as well, so the promise
+does not depend on a single layer.
+
+`internal/delivery.RunEntry` re-reads what the entry was authorized against
+before claiming it, and every way an authorization can go stale is a **named
+blocker** recorded on the entry: the project declares no integration rules, the
+declaration does not ask for fast-forward-only integration, the branch no longer
+points at the reviewed revision, the target is gone or has moved past a
+fast-forward, or the recorded evidence says the checks failed. A blocker is
+recorded as `failed` with `not run: <reason>` — it never moves a branch.
+
+The checks are the **declared** commands, run through `/bin/sh` in the entry's
+repository with a 30-minute bound each; a project's declaration is the owner's
+own text, so an agent cannot put a command there. Then the target moves to the
+reviewed revision fast-forward only: a branch a worktree holds is fast-forwarded
+in that worktree (the merge refuses a dirty tree and refuses anything that is
+not a fast-forward by itself), and a branch no worktree holds moves by
+compare-and-swap, so a target that changed under the run is a refusal instead of
+a lost commit. The outcome lands on the entry as `done` with what it did, or
+`failed` with the command that failed and its last line.
+
+A daemon that stops while an entry runs leaves it `running` with a note saying
+the outcome is unknown; nothing is retried and no success is inferred. The
+owner's withdraw is the way out of that state (and of any running entry), which
+is what clears a repository whose operation died with the process.
+
 ## Integration observation (ADR-0170, D1b)
 
 `internal/delivery` reads local refs, explicit target ancestry, checkout state and

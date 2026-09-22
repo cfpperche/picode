@@ -29,6 +29,7 @@ type QueueEntry struct {
 	CreatedAt    string `json:"createdAt"`
 	UpdatedAt    string `json:"updatedAt"`
 	AuthorizedAt string `json:"authorizedAt,omitempty"`
+	StartedAt    string `json:"startedAt,omitempty"`
 }
 
 // Queue states. waiting and authorized are the owner's to move; running and the
@@ -226,7 +227,7 @@ func (s *Store) ApplyQueueMutation(repo, actor string, m QueueMutation) (QueueEn
 		if e.Version != m.ExpectedVersion {
 			return e, ErrQueueConflict
 		}
-		if err := s.transitionQueueEntry(&e, actor, m); err != nil {
+		if err := s.transitionQueueEntry(tx, repo, &e, actor, m); err != nil {
 			return e, err
 		}
 		e.Version++
@@ -263,11 +264,11 @@ func (s *Store) ApplyQueueMutation(repo, actor string, m QueueMutation) (QueueEn
 // transitionQueueEntry is the decision table: from the entry's current state,
 // for this actor, this action either moves the entry or is refused with the
 // reason. Nothing here reads Git — state is the queue's own memory.
-func (s *Store) transitionQueueEntry(e *QueueEntry, actor string, m QueueMutation) error {
+func (s *Store) transitionQueueEntry(tx *sql.Tx, repo string, e *QueueEntry, actor string, m QueueMutation) error {
 	owner := actor == OwnerActor
 	switch m.Action {
 	case "withdraw":
-		if e.State != QueueWaiting && e.State != QueueAuthorized {
+		if e.State != QueueWaiting && e.State != QueueAuthorized && !(owner && e.State == QueueRunning) {
 			return fmt.Errorf("a %s entry cannot be withdrawn", e.State)
 		}
 		if !owner && actor != e.Principal {
@@ -299,7 +300,19 @@ func (s *Store) transitionQueueEntry(e *QueueEntry, actor string, m QueueMutatio
 		if e.State != QueueAuthorized {
 			return fmt.Errorf("a %s entry cannot start; it must be authorized first", e.State)
 		}
+		// One operation per repository: a run owns the branch it integrates
+		// into, so a second entry waits for the first to finish.
+		var running int
+		// Inside the transaction: a query over s.db here would wait for the
+		// write lock this transaction is holding.
+		if err := tx.QueryRow(`SELECT count(*) FROM delivery_queue WHERE repo=? AND state=?`, repo, QueueRunning).Scan(&running); err != nil {
+			return err
+		}
+		if running > 0 {
+			return fmt.Errorf("%w: another entry is running in this repository", ErrQueueConflict)
+		}
 		e.State = QueueRunning
+		e.StartedAt = nowUTC()
 	case "finish":
 		if !owner {
 			return errors.New("only the owner's operation may finish an entry")
@@ -313,13 +326,75 @@ func (s *Store) transitionQueueEntry(e *QueueEntry, actor string, m QueueMutatio
 		if !owner {
 			return errors.New("only the owner's operation may fail an entry")
 		}
-		if e.State != QueueRunning {
+		// An authorized entry may fail as well as a running one: the runner
+		// records a blocker — an authorization that no longer holds — without
+		// ever having started the entry.
+		if e.State != QueueRunning && e.State != QueueAuthorized {
 			return fmt.Errorf("a %s entry cannot fail", e.State)
 		}
 		e.State = QueueFailed
 		e.Note = m.Note
 	}
 	return nil
+}
+
+// MarkRunningUnknown records that entries were still running when the daemon
+// stopped. The outcome is unknown and stays unknown: nothing infers a result
+// from a process that is gone, and the queue stays as it is until someone
+// inspects the repository and the owner finishes, fails or withdraws the entry.
+// An entry that already carries a note is left alone, so a second start is a
+// no-op rather than a second marker.
+func (s *Store) MarkRunningUnknown(repo, note string) (int, error) {
+	s.deliveryMu.Lock()
+	defer s.deliveryMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer s.rollback(tx)
+	rows, err := tx.Query(`SELECT id, body FROM delivery_queue WHERE repo=? AND state=?`, repo, QueueRunning)
+	if err != nil {
+		return 0, err
+	}
+	ids := []string{}
+	for rows.Next() {
+		var id, raw string
+		if err = rows.Scan(&id, &raw); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		var e QueueEntry
+		if err = json.Unmarshal([]byte(raw), &e); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if e.Note != "" {
+			continue
+		}
+		e.Note = note
+		e.Version++
+		e.UpdatedAt = nowUTC()
+		body, err := json.Marshal(e)
+		if err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if _, err = tx.Exec(`UPDATE delivery_queue SET body=? WHERE id=?`, string(body), e.ID); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if err = s.AppendEventTx(tx, "delivery.changed", nil, nil, map[string]any{
+			"id": e.DeliveryID, "queueId": e.ID, "state": e.State, "version": e.Version}); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		ids = append(ids, e.ID)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return 0, err
+	}
+	return len(ids), s.commit(tx)
 }
 
 // GetQueueEntry reads one entry of this repository.
