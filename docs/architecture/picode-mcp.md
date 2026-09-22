@@ -14,11 +14,27 @@ into the pi package's words. Plan: `docs/plans/picode-mcp.md`.
 | Question | Decided by | Where |
 |---|---|---|
 | Which tools exist | the server's catalog | `internal/mcptool.Families()`: `computer`, `browser`, `inbox` (`notify_human`, `ask_human`), `checklist`, `delivery` (ADR-0171) |
-| Who is calling | the environment the CLI inherited | `PICODE_AGENT_ID`, else `PICODE_TERM_ID` → `term:<id>`; neither → the tool answers `NoIdentity` and never dials |
+| Who is calling | the environment the launch carries | `PICODE_AGENT_ID`, else `PICODE_TERM_ID` → `term:<id>`; neither → the tool answers `NoIdentity` and never dials |
 | Where the daemon is | `PICODE_URL`, `PICODE_TERM_URL`, else `server.json` | `mcptool.ResolveURL`; unreachable at start is not fatal — the tool answers with the reason |
 | The credential | the install token, read per call | `mcptool.ReadToken`: `PICODE_TOKEN` or `<data>/token`; a rotation needs no restart |
 | May they act | the daemon | computer/browser use ADR-0143/0148/0134 grants and tiers; delivery uses ADR-0171 launch/repository ownership |
 | What the model reads | `internal/mcptool/{computer,browser}.go` | ported from `packages/pi-*/src/logic.ts`; the package tests are the goldens |
+
+## What each CLI hands its servers
+
+The server is the CLI's child, so the identity arrives only if that CLI passes
+its environment on. Measured 2026-09-21 with an env probe in a real session of
+each:
+
+| CLI | Identity reaches `picode mcp` because |
+|---|---|
+| Claude Code | the launch environment is inherited |
+| OpenCode | the launch environment is inherited |
+| Codex | it is written into the launch: `-c mcp_servers.<name>.env.PICODE_TERM_ID=…` and `PICODE_AGENT_ID` when the terminal is bound to an agent, plus `PICODE_TERM_URL` and `PICODE_DATA` — Codex hands a stdio server **no** environment, so an agent's tool calls answered `no identity` until the values were written (`internal/server/cli_tools.go`, `toolIdentityEnv`) |
+
+A connector card (`ToolPresets`, the Connectors pane) writes command and args
+only, so the CLIs that receive their tools that way are covered as long as
+they inherit — that path has no per-launch value to write.
 
 ## The wire
 
