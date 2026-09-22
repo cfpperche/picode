@@ -5,7 +5,6 @@ One branch per session, in this order; each carries its decision table and tests
 
 ## Next
 
-- `feat/system-clis`: `/api/system` drops the fixed `pi` block and the npm warning; the System page lists tmux as the only requirement plus one row per agent CLI from `/api/clis`; automations gate on the target agent's CLI (`fireInput.TargetIsPi`, two new decision rows; fixture `scripts/qa-mobile-workflows-v2.mjs:84,284`). Plan: docs/plans/multi-cli-ade.md §2.
 - `feat/runtime-without-pi`: `piStep` becomes the informational `clisStep`; the Windows installer's runtime drops `pi` and pins Node 22 by constant; `internal/provision/container.go` stops npm-installing pi into member containers. Plan: docs/plans/multi-cli-ade.md §3.
 - `feat/free-agent-cli`: `POST /api/agents` takes `cli`; the sidebar **New agent** opens the CLI picker (`NewCliPrincipal` in free mode); `catalogForAgent` stops forcing Pi as installed. Plan: docs/plans/multi-cli-ade.md §4.
 - `feat/ade-copy-tail`: the configure-cluster docs, the "pi correlation" writing rule generalized to every vendor, UI labels and jargon, dead `errAgentCmdMissing`. Plan: docs/plans/multi-cli-ade.md §5.
