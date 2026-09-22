@@ -141,3 +141,72 @@ export function cliMemoryLocation(hash = "") {
   const scope = params.get("scope") === "workspace" || params.get("scope") === "global" ? params.get("scope") : "";
   return { view: "clis", pane: "memory", id: cli, workspaceId: params.get("workspaceId") || "", scope };
 }
+
+// ── Model roles (ADR-0181) ───────────────────────────────────────────────────
+// A CLI that keeps a role → model-selector map reports its rows with the rest
+// of its settings, so provenance, "Set here" and "Use inherited" are the same
+// code as every other row. What is new is the shape of two values: a selector,
+// which carries an optional thinking suffix, and a list.
+
+export const isRoleField = (field) => field?.kind === "role";
+export const isListField = (field) => field?.kind === "list";
+
+// A selector is `provider/model-id` with an optional `:level` suffix, and the
+// model id may itself carry slashes, dots and an `@upstream` routing suffix
+// (omp's `parseModelString`). The split here is **for display only**: the pane
+// shows the base in the picker and the level in its own control, and writing
+// them back joins the exact two pieces it split, so a value PiCode did not
+// understand survives a round trip unchanged.
+export function splitSelector(value, levels = []) {
+  const text = value === undefined || value === null ? "" : String(value);
+  const colon = text.lastIndexOf(":");
+  if (colon <= 0) return { base: text, level: "" };
+  const suffix = text.slice(colon + 1);
+  if (!levels.includes(suffix)) return { base: text, level: "" };
+  return { base: text.slice(0, colon), level: suffix };
+}
+
+export function joinSelector(base, level) {
+  const trimmed = (base || "").trim();
+  if (!trimmed) return "";
+  return level ? trimmed + ":" + level : trimmed;
+}
+
+// A list value arrives from a config file, so it can be a single string (which
+// every CLI in this family accepts where a list belongs) or absent.
+export function listValue(value) {
+  if (Array.isArray(value)) return value.map((v) => String(v));
+  if (typeof value === "string" && value !== "") return [value];
+  return [];
+}
+
+// The role's place in the quick-switch cycle, 1-based, or 0 when it is not in
+// it. omp's own hub draws this as `⟳ N` (`model-hub.ts`, "second stop of the
+// ctrl+p cycle"), and the pane says the same thing in the same words.
+export function cyclePosition(cycle, roleId) {
+  return listValue(cycle).indexOf(roleId) + 1;
+}
+
+// Every selector any layer already uses, so the picker can offer what this
+// machine is actually configured with before the CLI has been asked anything.
+export function selectorsInUse(fields = [], layers = []) {
+  const seen = new Set();
+  for (const field of fields) {
+    if (!isRoleField(field)) continue;
+    for (const layer of layers) {
+      const value = layer?.values?.[field.key];
+      if (typeof value === "string" && value && !value.startsWith("@")) seen.add(value);
+    }
+  }
+  return [...seen].sort();
+}
+
+// The aliases a role row accepts beside a model: every role is addressable as
+// `@name`, and `*` is the CLI's own shorthand for the default role.
+export function roleAliases(fields = []) {
+  const out = ["*"];
+  for (const field of fields) {
+    if (isRoleField(field)) out.push("@" + field.key.split(".").pop());
+  }
+  return out;
+}

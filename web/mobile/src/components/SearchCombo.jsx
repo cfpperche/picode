@@ -16,12 +16,16 @@ export default function SearchCombo({
   side = "top",
   align = "start",
   ariaLabel,
+  onOpen,
 }) {
   const [open, setOpen] = useState(false);
+  // onOpen lets an owner fetch its options the first time the list is asked
+  // for, so a picker backed by a subprocess costs nothing until it is used.
+  const openChanged = (next) => { if (next && onOpen) onOpen(); setOpen(next); };
   const searchable = searchPlaceholder !== false;
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root open={open} onOpenChange={openChanged}>
       <Popover.Trigger asChild>
         <button
           type="button"

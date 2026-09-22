@@ -103,7 +103,6 @@ standup
 unclosed
 stdout
 stderr
-
 antigravity
 muse
 agy
@@ -114,8 +113,9 @@ excalidraw
 figma
 whatsapp
 paseo
-
 # generic technical English the base dictionary lacks
 dev
 decrypted
 WebSockets
+fallback
+Fallbacks

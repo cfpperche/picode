@@ -409,20 +409,37 @@ func yamlInsert(text []byte, path []string, lit string) ([]byte, error) {
 	}
 	parent := path[:len(path)-1]
 	key := path[len(path)-1]
-	end, indent, found := yamlBlockEnd(text, parent)
-	if !found {
-		body := string(text)
-		if body != "" && !strings.HasSuffix(body, "\n") {
-			body += "\n"
+	// The deepest prefix of the parent that the document already has is where
+	// the missing tail is created. Creating the whole chain from the root when
+	// only the *middle* was missing appended a second `modelTags:` block beside
+	// the one the file had — a duplicate key the parser refuses, so the save
+	// was refused with the file untouched (found writing a three-level key,
+	// 2026-09-22). A two-level key never hit it: its parent either exists or
+	// does not.
+	for depth := len(parent); depth >= 1; depth-- {
+		end, indent, found := yamlBlockEnd(text, parent[:depth])
+		if !found {
+			continue
 		}
 		block := ""
-		for i, part := range parent {
-			block += strings.Repeat("  ", i) + part + ":\n"
+		ind := indent
+		for _, part := range parent[depth:] {
+			block += ind + part + ":\n"
+			ind += "  "
 		}
-		block += strings.Repeat("  ", len(parent)) + key + ": " + lit + "\n"
-		return []byte(body + block), nil
+		block += ind + key + ": " + lit + "\n"
+		return spliceNewline(text, end, block), nil
 	}
-	return spliceNewline(text, end, indent+key+": "+lit+"\n"), nil
+	body := string(text)
+	if body != "" && !strings.HasSuffix(body, "\n") {
+		body += "\n"
+	}
+	block := ""
+	for i, part := range parent {
+		block += strings.Repeat("  ", i) + part + ":\n"
+	}
+	block += strings.Repeat("  ", len(parent)) + key + ": " + lit + "\n"
+	return []byte(body + block), nil
 }
 
 // yamlBlockEnd reports the offset after the last line of the block the path

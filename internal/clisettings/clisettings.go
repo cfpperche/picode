@@ -34,8 +34,17 @@ func (p Paths) home() string {
 	return h
 }
 
-// Kind is the control a field renders as. Only scalars exist: a write is
-// always one token, which is what makes the surgical splice safe.
+// Kind is the control a field renders as. Four kinds are scalars, where a write
+// is one token and the surgical splice is trivially safe. Two are not, and they
+// are the exception ADR-0181 makes to ADR-0163's "fields are scalars only":
+//
+//   - KindRole is still a scalar — a model selector — but at a path the
+//     vendor's catalog and the file decide, not a fixed declaration.
+//   - KindList is an ordered list of strings, written through the same
+//     `listLiteral` splice ADR-0174's key-map engine has used since 2026-09-21.
+//
+// Nothing else is writable: a value that is a map, a block or anything the
+// format cannot render on one line is reported and left alone.
 type Kind string
 
 const (
@@ -43,6 +52,8 @@ const (
 	KindSelect Kind = "select"
 	KindText   Kind = "text"
 	KindNumber Kind = "number"
+	KindRole   Kind = "role"
+	KindList   Kind = "list"
 )
 
 // Option is one choice of a select field.
@@ -63,6 +74,14 @@ type Field struct {
 	Group    string   `json:"group,omitempty"`
 	Fallback string   `json:"fallback,omitempty"`
 	Scopes   []string `json:"scopes,omitempty"`
+	// Tag is the short name the vendor's own UI prints for this row (omp's
+	// DEFAULT, SMOL, SLOW). Empty for every field whose label is the name.
+	Tag string `json:"tag,omitempty"`
+	// Path addresses the value when the key cannot be split on dots — a
+	// fallback chain is keyed by `openai/gpt-4.1-mini`, whose own name carries
+	// one. It never leaves the server: the pane echoes Key, and the writer
+	// rebuilds Path from the declaration that owns the key.
+	Path []string `json:"-"`
 	// Danger names the one value of this field that loosens a safety
 	// boundary, so the row can carry a one-line warning beside it instead of
 	// hiding the choice (benchmarks.md: danger named, not hidden).
@@ -82,7 +101,12 @@ type Field struct {
 	DefaultOn bool `json:"defaultOn,omitempty"`
 }
 
-func (f Field) path() []string { return strings.Split(f.Key, ".") }
+func (f Field) path() []string {
+	if len(f.Path) > 0 {
+		return f.Path
+	}
+	return strings.Split(f.Key, ".")
+}
 
 func (f Field) allows(scope string) bool {
 	if len(f.Scopes) == 0 {
@@ -109,6 +133,10 @@ type Layer struct {
 	Error    string         `json:"error,omitempty"`
 	Values   map[string]any `json:"values"`
 	Revision string         `json:"revision,omitempty"`
+	// Unreadable names the rows this layer holds in a shape PiCode will not
+	// rewrite — a chain written as a map, say. The row is dropped from Values
+	// rather than drawn with a control that cannot save.
+	Unreadable []string `json:"unreadable,omitempty"`
 	// Note explains a layer that exists in the CLI but not in this request —
 	// a workspace file with no workspace selected. Hiding it made a link to
 	// that layer silently edit the machine file instead (found in live QA,
@@ -122,6 +150,25 @@ type Report struct {
 	CLI    string  `json:"cli"`
 	Fields []Field `json:"fields"`
 	Layers []Layer `json:"layers"`
+	// Roles is present only for a CLI that keeps a model-role matrix. It is
+	// what the pane needs to offer a row that does not exist yet: the key
+	// prefixes to build, and the vocabulary the CLI accepts.
+	Roles *RolesReport `json:"roles,omitempty"`
+}
+
+// RolesReport carries the parts of a role matrix that are not rows.
+type RolesReport struct {
+	Group       string    `json:"group"`
+	ChainGroup  string    `json:"chainGroup"`
+	ChainHelp   string    `json:"chainHelp,omitempty"`
+	ChainHint   string    `json:"chainHint,omitempty"`
+	RolePrefix  string    `json:"rolePrefix"`
+	TagPrefix   string    `json:"tagPrefix,omitempty"`
+	ChainPrefix string    `json:"chainPrefix,omitempty"`
+	CyclePrefix string    `json:"cycleKey,omitempty"`
+	Catalog     []RoleDef `json:"catalog"`
+	// Levels are the thinking suffixes the CLI accepts after a selector.
+	Levels []string `json:"levels,omitempty"`
 }
 
 // Patch is one save: values to set and keys to hand back to the parent layer.
@@ -151,6 +198,26 @@ type spec struct {
 	id     string
 	layers []layerSpec
 	fields []Field
+	// roles is the model-role matrix this CLI keeps, when it keeps one
+	// (ADR-0181). Its rows are computed per request from the vendor's catalog
+	// and the files, because a user's own role is a row too.
+	roles *rolesSpec
+}
+
+// fieldFor resolves one key to the field that owns it: a declared row, or a row
+// the roles declaration can create. A key nobody declares is refused by name.
+func (s *spec) fieldFor(key string) (Field, error) {
+	for _, f := range s.fields {
+		if f.Key == key {
+			return f, nil
+		}
+	}
+	if s.roles != nil {
+		if f, owned, err := s.roles.synth(key); owned {
+			return f, err
+		}
+	}
+	return Field{}, fmt.Errorf("%s is not a setting PiCode manages for %s", key, s.id)
 }
 
 // For returns the declaration for cli, or nil when PiCode has none. Pi is not
@@ -180,7 +247,12 @@ func Read(cli string, p Paths) (Report, error) {
 	if s == nil {
 		return Report{}, fmt.Errorf("PiCode has no settings schema for %q", cli)
 	}
-	rep := Report{CLI: cli, Fields: s.fields}
+	rep := Report{CLI: cli}
+	// Every layer is decoded first, because the rows a role matrix has are
+	// decided by the files as much as by the vendor's catalog: a role only the
+	// workspace assigns is still a row on the machine layer, showing what that
+	// layer would inherit.
+	docs := make([]map[string]any, 0, len(s.layers))
 	for _, ls := range s.layers {
 		path := ls.file(p)
 		if path == "" {
@@ -189,6 +261,7 @@ func Read(cli string, p Paths) (Report, error) {
 				Values: map[string]any{}, Writable: false,
 				Note: "Open this CLI from a workspace to edit its workspace settings.",
 			})
+			docs = append(docs, nil)
 			continue
 		}
 		layer := Layer{Scope: ls.scope, Label: ls.label, Path: path, Format: ls.format, Values: map[string]any{}, Writable: true}
@@ -196,11 +269,13 @@ func Read(cli string, p Paths) (Report, error) {
 		switch {
 		case os.IsNotExist(err):
 			rep.Layers = append(rep.Layers, layer)
+			docs = append(docs, nil)
 			continue
 		case err != nil:
 			layer.Error = err.Error()
 			layer.Writable = false
 			rep.Layers = append(rep.Layers, layer)
+			docs = append(docs, nil)
 			continue
 		}
 		layer.Exists = true
@@ -212,17 +287,44 @@ func Read(cli string, p Paths) (Report, error) {
 			layer.Error = err.Error()
 			layer.Writable = false
 			rep.Layers = append(rep.Layers, layer)
+			docs = append(docs, nil)
 			continue
 		}
-		for _, f := range s.fields {
-			if !f.allows(ls.scope) {
+		rep.Layers = append(rep.Layers, layer)
+		docs = append(docs, doc)
+	}
+
+	rep.Fields = s.fields
+	if s.roles != nil {
+		rep.Fields = append(append([]Field{}, s.fields...), s.roles.roleFields(docs)...)
+		rep.Roles = s.roles.report()
+	}
+	for i := range rep.Layers {
+		doc := docs[i]
+		if doc == nil {
+			continue
+		}
+		for _, f := range rep.Fields {
+			if !f.allows(rep.Layers[i].Scope) {
 				continue
 			}
-			if v, ok := lookup(doc, f.path()); ok {
-				layer.Values[f.Key] = redact(f, v)
+			v, ok := lookup(doc, f.path())
+			if !ok {
+				continue
 			}
+			// A value the writer would not rewrite is reported as unreadable
+			// and left out of the layer, so the pane never offers a control
+			// over a shape PiCode refuses to touch (ADR-0174's rule, applied
+			// here for the first time to a settings row).
+			if f.Kind == KindList {
+				if _, err := asStrings(v); err != nil {
+					rep.Layers[i].Unreadable = append(rep.Layers[i].Unreadable, f.Key)
+					continue
+				}
+			}
+			rep.Layers[i].Values[f.Key] = redact(f, v)
 		}
-		rep.Layers = append(rep.Layers, layer)
+		sort.Strings(rep.Layers[i].Unreadable)
 	}
 	return rep, nil
 }
@@ -250,22 +352,15 @@ func Apply(cli string, p Paths, patch Patch) error {
 		return fmt.Errorf("%s has no %q settings file here", cli, patch.Scope)
 	}
 	byKey := map[string]Field{}
-	for _, f := range s.fields {
-		byKey[f.Key] = f
-	}
-	for key := range patch.Set {
-		f, ok := byKey[key]
-		if !ok {
-			return fmt.Errorf("%s is not a setting PiCode manages for %s", key, cli)
+	for _, key := range append(keysOf(patch.Set), patch.Reset...) {
+		f, err := s.fieldFor(key)
+		if err != nil {
+			return err
 		}
 		if !f.allows(ls.scope) {
 			return fmt.Errorf("%s cannot be set in the %s layer", key, ls.scope)
 		}
-	}
-	for _, key := range patch.Reset {
-		if f, ok := byKey[key]; !ok || !f.allows(ls.scope) {
-			return fmt.Errorf("%s is not a setting PiCode manages for %s", key, cli)
-		}
+		byKey[key] = f
 	}
 
 	raw, err := os.ReadFile(path)
@@ -305,6 +400,28 @@ func Apply(cli string, p Paths, patch Patch) error {
 	sort.Strings(keys)
 	for _, key := range keys {
 		f := byKey[key]
+		if f.Kind == KindList {
+			// A list is the one value whose existing span can be a block, and a
+			// block is not something one splice can address. The key-map engine
+			// solved this in 2026-09-21; this is the same code path, so both
+			// writers keep the same guarantees about a file with no final
+			// newline and a value the user broke across lines.
+			values, err := asStrings(patch.Set[key])
+			if err != nil {
+				return fmt.Errorf("%s: %w", key, err)
+			}
+			if text, err = spliceList(text, ls.format, f.path(), values, path); err != nil {
+				return fmt.Errorf("%s: %w", key, err)
+			}
+			continue
+		}
+		// A scalar this writer splices is one line by construction. A string
+		// carrying a newline is not: YAML would render it as a block scalar,
+		// which `valueSpan` then reports as absent, and the next save would
+		// insert a second copy of the key beside it. Refused by name instead.
+		if s, ok := patch.Set[key].(string); ok && strings.ContainsAny(s, "\r\n") {
+			return fmt.Errorf("%s: a value PiCode writes here is one line; this one has a line break", key)
+		}
 		lit, err := literal(ls.format, patch.Set[key])
 		if err != nil {
 			return fmt.Errorf("%s: %w", key, err)

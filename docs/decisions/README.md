@@ -184,3 +184,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0177](0177-delivery-lens-removed.md) | Delivery's publication lens is removed from the product | accepted |
 | [0178](0178-guest-oauth-from-picode.md) | Guided vendor OAuth from the Providers pane — the engine behind pi’s Add provider serves guests (omp first), tokens land in the vault and travel by env | accepted, supersedes 0168’s client-id clause |
 | [0179](0179-agent-clis-optional.md) | Agent CLIs are optional; tmux is the only runtime dependency — install, provision, System and the desktop installer report which CLIs are present and require none; free agents may name any launchable CLI | proposed (direction approved by the owner, 2026-09-22); supersedes 0003's requirement, amends 0045/0050/0098/0160 |
+| [0181](0181-structured-cli-settings.md) | structured-cli-settings | proposed |

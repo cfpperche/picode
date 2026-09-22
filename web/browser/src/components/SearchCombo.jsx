@@ -5,13 +5,16 @@ import { IconCheck } from "./Icons.jsx";
 
 export default function SearchCombo({
   id, value, onChange, options, label, searchPlaceholder, disabled, footer, icon,
-  triggerClassName, popoverClassName, markCurrent = false, side = "top", align = "start", ariaLabel,
+  triggerClassName, popoverClassName, markCurrent = false, side = "top", align = "start", ariaLabel, onOpen,
 }) {
   const [open, setOpen] = useState(false);
+  // onOpen lets an owner fetch its options the first time the list is asked
+  // for, so a picker backed by a subprocess costs nothing until it is used.
+  const openChanged = (next) => { if (next && onOpen) onOpen(); setOpen(next); };
   const searchable = searchPlaceholder !== false;
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root open={open} onOpenChange={openChanged}>
       <Popover.Trigger asChild>
         <button type="button" id={id} className={triggerClassName || "cockpit-chip"} disabled={disabled} aria-expanded={open} aria-haspopup="listbox" aria-label={ariaLabel}>
           {icon ? <span className="cockpit-chip-icon">{icon}</span> : null}

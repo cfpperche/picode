@@ -3566,6 +3566,23 @@
         ]
       }
     },
+    "/api/cli-models": {
+      "get": {
+        "operationId": "getApiCli-models",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-models"
+        ]
+      }
+    },
     "/api/cli-packages": {
       "get": {
         "operationId": "getApiCli-packages",
@@ -11514,6 +11531,9 @@
     },
     {
       "name": "cli-memory"
+    },
+    {
+      "name": "cli-models"
     },
     {
       "name": "cli-packages"
