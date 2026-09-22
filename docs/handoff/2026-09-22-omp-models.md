@@ -14,4 +14,4 @@ Merge: fast-forward ready once main is merged in and `make close` reruns.
 
 ## Debts
 
-- `qa-scratch.sh start` must check that the pid it launched is the one listening before it reports success. A port held by another scratch passed the check, and `seed` wrote into the wrong instance.
+- [x] `qa-scratch.sh start` must check that the pid it launched is the one listening before it reports success. A port held by another scratch passed the check, and `seed` wrote into the wrong instance. Paid by feat/qa-scratch-owner (2026-09-22).
