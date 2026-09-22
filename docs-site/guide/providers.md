@@ -60,7 +60,7 @@ it — plus the five actions that belong to a CLI whose login is its own file:
 |---|---|
 | **Sign in** | opens a terminal running that CLI's own login (its binary, its browser or device-code flow). **Open terminal** takes you straight to it; finish the login there, press **Check now**, and the account appears above |
 | **Import** | reads the login that CLI already has on this machine and stores a copy in the vault. The CLI's own file is never changed, and nothing is activated by importing |
-| **Add API key** | stores a key for a provider this CLI can use |
+| **Add provider** | stores a key for a provider this CLI can use — or starts the CLI's own guided sign-in when the provider supports one |
 | **Verify** | spends exactly one listing call to the provider with the stored key — the button says so — and remembers the answer with its age |
 | **Use** | writes that account into the CLI's own login file, so the CLI runs on it — the same thing **Use** does for Pi |
 | **Sign out** | removes that account from the vault |

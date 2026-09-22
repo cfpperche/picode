@@ -326,8 +326,8 @@ func TestGuestRosterCarriesThePaneFieldsOnly(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			roster := cliRequest(t, ts, "GET", "/api/credentials?cli="+tc.cli, nil, 200)
 			add, _ := roster["add"].(map[string]any)
-			if add["kind"] != "key" || add["label"] != "Add API key" {
-				t.Fatalf("%s add = %v, want the API-key door", tc.cli, roster["add"])
+			if add["kind"] != "key" || add["label"] != "Add provider" {
+				t.Fatalf("%s add = %v, want the provider door", tc.cli, roster["add"])
 			}
 			if _, isPi := roster["custom"]; isPi {
 				t.Fatalf("%s carries pi's custom door: %v", tc.cli, roster["custom"])

@@ -146,7 +146,7 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			out["custom"] = map[string]any{"available": true, "href": "#/clis/pi/providers/custom"}
 		} else {
 			sources = declarationSources(spec)
-			out["add"] = map[string]any{"kind": "key", "label": "Add API key"}
+			out["add"] = map[string]any{"kind": "key", "label": "Add provider"}
 			// omp keeps provider definitions of its own in models.yml (the
 			// owner's amendment to ADR-0169): the same custom door pi has,
 			// with the definitions riding this roster as rows below.

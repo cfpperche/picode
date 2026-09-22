@@ -49,12 +49,16 @@ A login the CLI already holds is not a vault row and is not counted as one:
 it renders as the provider's own highlighted line ("me@example.com is signed
 in here") with the single action **Import into the vault**, and the row
 disappears as the account appears above it. The bar's primary action is
-per CLI (`add` in the roster): **Add provider** for pi — the dialog that runs
-pi's own OAuth or stores a key, and the door to the custom-endpoint page —
-**Add API key** for a guest (a provider `<select>` limited to that CLI's providers, the
-key field with the line that says the key stays on this machine, Save); a
-provider with no accounts shows `Name · No accounts yet.` plus its own Add,
-never an empty well, and a provider whose declaration carries a `note` shows
+per CLI (`add` in the roster) and is called **Add provider** for all of
+them: pi's dialog runs pi's own OAuth or stores a key and carries the door
+to the custom-endpoint page; a guest's dialog holds a provider `<select>`
+limited to that CLI's providers, the key field with the line that says the
+key stays on this machine, Save — and, for a provider the CLI signs into
+(an `oauth` kind plus a declared sign-in), **Guided sign-in**, which closes
+the dialog and starts the ADR-0168 strip, because the vendor's OAuth
+happens in the CLI, never here. A provider with no accounts shows
+`Name · No accounts yet.`, never an empty well, and a provider whose
+declaration carries a `note` shows
 that one line instead of a Verify control that could not answer.
 `#/clis/<cli>/providers/new` opens the dialog, and closing it rewrites the
 hash back to the pane. Every server error lands in the form that caused it —
