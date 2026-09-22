@@ -1038,6 +1038,26 @@ func ompAgentSessionDir(dataDir, agentID string) string {
 	return filepath.Join(dataDir, "omp-sessions", agentID)
 }
 
+// agentOmpScopeFlags is the agent's own scope as Omp's launch takes it: every
+// entry of the agent's list as `-e`, and — when "only this agent's packages" is
+// on — the two flags this CLI has for skipping what it would auto-load. Omp has
+// no --no-prompt-templates/--no-themes (measured 2026-09-21), so its isolation
+// is those two alone, never a flag the CLI would refuse. Pi's list rides the
+// same store field with pi's own flags (`store.Agent.CLIFlags`); this is what
+// makes the packages pane's agent scope real for Omp (ADR-0176 slice 4).
+func agentOmpScopeFlags(a store.Agent) []string {
+	var args []string
+	if a.PackagesIsolated {
+		args = append(args, "--no-extensions", "--no-skills")
+	}
+	for _, src := range a.Packages {
+		if src = strings.TrimSpace(src); src != "" {
+			args = append(args, "-e", src)
+		}
+	}
+	return args
+}
+
 type preparedCLILaunch struct {
 	dir, script, id string
 	environment     []string
@@ -1088,6 +1108,17 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 				return nil, err
 			}
 			c.Args = append(c.Args, "--session-dir", ompAgentSessionDir(deps.DataDir, a.ID))
+			// The integration guard (cli_plan.go) refuses the same conflict for
+			// the activity extension; the agent's own entries are injected
+			// after that guard runs, so they are checked here — omp refuses a
+			// run outright when --trusted-extension meets any -e, and a launch
+			// that cannot run is not worth starting.
+			if flags := agentOmpScopeFlags(a); len(flags) > 0 {
+				if ompTrustedExtensionConflict(c) {
+					return nil, errors.New("Your --trusted-extension argument conflicts with this agent's own extensions. Drop the flag, or remove the entries in the agent's package scope.")
+				}
+				c.Args = append(c.Args, flags...)
+			}
 		}
 		// Vault credentials travel by env (ADR-0176): the env names are the
 		// ones omp's own declaration declares, and env is the lowest channel
