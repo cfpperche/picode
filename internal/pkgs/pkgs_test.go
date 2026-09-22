@@ -85,6 +85,28 @@ func TestGuestAgentScopeAnswersPiCodeList(t *testing.T) {
 	if rep.AgentName != "Atlas" {
 		t.Fatalf("agent name = %q, want Atlas", rep.AgentName)
 	}
+	// The pane also names the layer by the word its own row carries
+	// (`vendor=agent`), which is what the unified reads send: one answer.
+	byWord, err := DriverFor("omp").List(context.Background(), Query{
+		Vendor:       "agent",
+		AgentName:    "Atlas",
+		AgentSources: []string{"npm:pi-browser"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byWord.Rows) != 1 || byWord.Rows[0].Source != "npm:pi-browser" {
+		t.Fatalf("the vendor-word spelling answered %+v", byWord.Rows)
+	}
+	// And the badge read answers empty for that layer rather than asking the
+	// vendor for a catalog the layer does not have.
+	updates, err := DriverFor("omp").CheckUpdates(context.Background(), Query{Vendor: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updates.Rows) != 0 {
+		t.Fatalf("updates at the agent layer = %+v", updates.Rows)
+	}
 	// The same read with no agent named offers no agent radio: the layer is
 	// one agent's list, so a read that named none cannot answer it.
 	bare, err := DriverFor("omp").List(context.Background(), Query{Scope: Agent})

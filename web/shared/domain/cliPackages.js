@@ -155,6 +155,16 @@ export function directMutation(caps, { scope = "user", row = null } = {}) {
   return (row ? row.scope : scope) === "agent";
 }
 
+// paneTabs says whether the Installed/Marketplace pair is offered. A report with
+// no catalog holds one list and has nothing to switch to; and a vendor's catalog
+// does not exist for the agent layer — that list is PiCode's own on the agent
+// row, so the Marketplace tab there would be a control that cannot work
+// (ADR-0176 slice 4). Pi's gallery, which is PiCode's own, stays offered.
+export function paneTabs(report, scope = "user") {
+  if (!report || report.catalog === "") return false;
+  return !(scope === "agent" && report.catalog !== "gallery");
+}
+
 // behindFor finds the catalog's answer for one installed row. The CLI's own
 // update check names the source, the layer it lives in and the version pair; a
 // row the check did not name is not behind, and nothing else may invent one — a

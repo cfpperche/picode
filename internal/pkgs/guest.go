@@ -100,7 +100,7 @@ func (g guestDriver) List(ctx context.Context, q Query) (Report, error) {
 	// layer: there is no vendor call to make, and the rows are the entries as
 	// stored — the launch is what passes them on (ADR-0176 slice 4). This is
 	// the same answer Pi's driver gives for the same scope.
-	if q.Scope == Agent {
+	if asksAgentScope(q) {
 		return g.report(q, agentSourceRows(g.cli, q.AgentSources), "", "", ""), nil
 	}
 	legacy, err := clipkgs.List(ctx, g.cli, g.paths(q), g.scopeWord(q), q.Fresh)
@@ -108,6 +108,15 @@ func (g guestDriver) List(ctx context.Context, q Query) (Report, error) {
 		return Report{}, err
 	}
 	return g.report(q, g.rows(legacy.Rows), legacy.Note, legacy.ReadAt, ""), nil
+}
+
+// asksAgentScope says the read asked for PiCode's own list on one agent. The
+// pane names that layer two ways — by its class (`scope=agent`) and by the word
+// the layer's own row carries (`vendor=agent`, which the unified reads send) —
+// and both must answer the same, because the layer is PiCode's rather than the
+// vendor's either way (ADR-0176 slice 4).
+func asksAgentScope(q Query) bool {
+	return q.Scope == Agent || strings.EqualFold(strings.TrimSpace(q.Vendor), "agent")
 }
 
 // Available reads the CLI's own catalog — the add surface, with the plugins it
@@ -137,6 +146,12 @@ func (g guestDriver) Marketplaces(ctx context.Context, q Query) ([]Row, error) {
 // catalog PiCode cannot read is reported with no badges and the reason in the
 // note, never as "up to date", and the stamps say when each half was read.
 func (g guestDriver) CheckUpdates(ctx context.Context, q Query) (Report, error) {
+	// The agent layer has no vendor catalog: the entries are PiCode's own, and
+	// nothing about them is "behind" — the badge read answers empty rather than
+	// asking the vendor for a layer it does not have (ADR-0176 slice 4).
+	if asksAgentScope(q) {
+		return Report{CLI: g.cli, Rows: []Row{}, Scopes: scopesForAgentContext(g.Scopes(), q.AgentName), AgentName: q.AgentName}, nil
+	}
 	legacy, err := clipkgs.CheckUpdates(ctx, g.cli, g.paths(q), g.scopeWord(q), q.Fresh)
 	if err != nil {
 		return Report{}, err

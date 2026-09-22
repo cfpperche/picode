@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey, directMutation } from "./cliPackages.js";
+import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey, directMutation, paneTabs } from "./cliPackages.js";
 import { cliLocation } from "./cliLaunch.js";
 
 // The transport rule: which mutation is one of PiCode's own calls and which is a
@@ -23,6 +23,18 @@ test("the agent scope is PiCode's own write for every CLI", () => {
   // Before a report arrives nothing may be sent to a lane on a guess.
   assert.equal(directMutation(null, { scope: "user" }), true);
   assert.equal(directMutation(undefined, { scope: "project" }), true);
+});
+
+// The pair of tabs is offered where there is something to switch to: a report
+// with no catalog holds one list, and the agent layer has no vendor catalog —
+// it is PiCode's own — while Pi's gallery stays PiCode's own at every layer.
+test("the marketplace tab is offered only where a catalog exists for that layer", () => {
+  assert.equal(paneTabs(null, "user"), false);
+  assert.equal(paneTabs({ catalog: "" }, "user"), false);
+  assert.equal(paneTabs({ catalog: "vendor" }, "user"), true);
+  assert.equal(paneTabs({ catalog: "vendor" }, "project"), true);
+  assert.equal(paneTabs({ catalog: "vendor" }, "agent"), false);
+  assert.equal(paneTabs({ catalog: "gallery" }, "agent"), true);
 });
 
 test("canonical links round-trip CLI, package, scope and explicit context", () => {

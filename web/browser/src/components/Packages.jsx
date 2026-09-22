@@ -4,7 +4,7 @@ import { api, humanizeError } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import {
   packagesApi, packagesNotes, packagesSurface, paneWords, behindFor,
-  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation,
+  catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation, paneTabs,
   loadPiPackagesContext, packageContextKey, cliPackagesHash,
 } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
@@ -504,7 +504,7 @@ export default function Packages({ hidden, route, catalog, describe = false, onP
     : [...new Set(marketRows.map(row => row.marketplace).filter(Boolean))];
   const verbFor = row => (busy && busy.id && busy.id === keyOf(row) ? busy.verb : "");
   const marketplace = surface !== "gallery" && tab === "marketplace";
-  const tabs = report && report.catalog !== "";
+  const tabs = paneTabs(report, scope);
   // The empty state points at the CLI's own catalog instead of asking the user
   // to guess a name: real entries, and only where the CLI can install.
   const emptyPicks = rows.length === 0
