@@ -89,6 +89,26 @@ const surfaces = [
 const ab = (args) =>
   execFileSync("agent-browser", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
+// One browser per surface, closed before the next. A browser that has
+// photographed several surfaces accumulates state that stops a later page's
+// requests from being sent at all: every fetch the mobile-inbox page issued
+// stayed pending (21 of them by the last round) while the fixture answered
+// curl in ≤66 ms, and that surface failed all six rounds — in a browser of its
+// own the same page showed its marker in ~350–585 ms (measured 2026-09-21).
+// Only this run's own session is ever closed: `close --all` would take another
+// worktree's capture session down with it.
+let openSession = null;
+function newSession() {
+  openSession = ["--session", `shot-${Date.now().toString(36)}`];
+  return openSession;
+}
+function closeSession() {
+  const sess = openSession;
+  openSession = null;
+  if (!sess) return;
+  try { ab([...sess, "close"]); } catch { /* already gone */ }
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Number of pixels that differ by more than a few levels in any channel, or
@@ -136,22 +156,20 @@ function gitSha() {
   }
 }
 
-async function run({ base, sess }) {
+async function run({ base }) {
   mkdirSync(outDir, { recursive: true });
   const manifestPath = join(outDir, "manifest.json");
   const prev = (() => {
     try { return JSON.parse(readFileSync(manifestPath, "utf8")); } catch { return null; }
   })();
 
-  // ONE session for preflight + every surface: a second tab (e.g. a
-  // default-session preflight) holds the window focus, and a background tab
-  // throttles fetch/render — the shutter then fires on a hollow app. main()
-  // owns this session's lifetime; see the finally there.
-
-  // Preflight in the run session: the fixture must be serving the SEEDED
+  // Preflight in a browser of its own: the fixture must be serving the SEEDED
   // world. A stale fixture whose data dir was recreated underneath it
-  // answers with an empty store, and every capture would photograph
-  // nothing.
+  // answers with an empty store, and every capture would photograph nothing.
+  // A browser per stage also means nothing else holds the window focus while
+  // a surface loads — a background tab throttles fetch/render, and the
+  // shutter then fires on a hollow app.
+  let sess = newSession();
   ab([...sess, "set", "viewport", "1440", "900"]);
   ab([...sess, "open", `${base}/?desktop=1`]);
   await sleep(1200);
@@ -159,9 +177,11 @@ async function run({ base, sess }) {
   if (!probe.includes('seeded')) {
     throw new Error(`fixture on ${base} is not serving the seeded world (${probe.trim().slice(0, 160)}) — (re)start it: make fixture`);
   }
+  closeSession();
 
   const captured = {};
   for (const s of surfaces) {
+    sess = newSession();
     const file = `${s.name}.png`;
     const out = join(outDir, file);
     // The nonce goes in the SEARCH part; a fragment nonce would land inside
@@ -251,6 +271,7 @@ async function run({ base, sess }) {
       sha256: createHash("sha256").update(readFileSync(out)).digest("hex"),
     };
     console.log(`  ${s.name} -> ${file}`);
+    closeSession();
   }
 
   // When every surface kept its image and its inputs, the manifest keeps its
@@ -284,26 +305,24 @@ async function run({ base, sess }) {
 async function main() {
   let release = null;
   let base = externalBase;
-  // The run owns one named browser session, and main() owns its lifetime: a
-  // failure anywhere — a surface whose marker never appears, an outDir that
-  // cannot be made — used to exit inside the catch, and process.exit skips the
-  // finally. What it skipped was a leaked fixture daemon per failed run and a
-  // whole browser per failed run (thirteen chrome processes, measured
-  // 2026-09-21).
-  const sess = ["--session", `shot-${Date.now().toString(36)}`];
   if (!externalBase) {
     const owned = await ownedFixture();
     release = () => owned.child.kill();
     base = owned.base;
   }
   try {
-    await run({ base, sess });
+    await run({ base });
   } catch (e) {
     console.error("docs-shots failed:", e.message);
     process.exitCode = 1; // not process.exit(): it would skip the releases below
   } finally {
+    // A failure anywhere — a surface whose marker never appears, an outDir
+    // that cannot be made — used to exit inside the catch, and process.exit
+    // skipped the finally: what it skipped was a leaked fixture daemon and a
+    // whole browser per failed run (thirteen chrome processes, measured
+    // 2026-09-21). openSession is whatever surface was loading at the time.
     release?.();
-    try { ab([...sess, "close"]); } catch { /* already gone */ }
+    closeSession();
   }
 }
 

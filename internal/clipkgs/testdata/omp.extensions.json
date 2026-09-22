@@ -1,0 +1,9 @@
+{
+  "key": "extensions",
+  "value": [
+    "packages/pi-browser/extensions/browser.ts",
+    "pkgs/other-ext/tool.ts"
+  ],
+  "type": "array",
+  "description": ""
+}
