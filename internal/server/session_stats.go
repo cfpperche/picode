@@ -133,11 +133,16 @@ func statsForRange(rng string) climetrics.FleetStats {
 	from, to, priorFrom := statsWindow(rng, time.Now(), time.Local)
 	meters := climetrics.Meters()
 
-	fp := climetrics.Fingerprint(meters)
 	// The price table is an input like the stores: a new one must recompute
-	// the window, not serve estimates from the table it replaced.
+	// the window, not serve estimates from the table it replaced. It joins
+	// the fingerprint, not the key, so the entry is replaced rather than a
+	// new one left behind for every daily table.
 	prices := pricing.Current()
-	key := session.Root() + "|" + rng + "|" + prices.Version()
+	fp := climetrics.Fingerprint(meters)
+	if fp != "" {
+		fp += "|prices=" + prices.Version()
+	}
+	key := session.Root() + "|" + rng
 	if st, hit := sessionStats.get(key, fp, from, to); hit {
 		return st
 	}

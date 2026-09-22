@@ -152,7 +152,7 @@ at list rate only when the meter marks its parse as unpriced
 | CLI | Estimated turns |
 |---|---|
 | Codex | every turn — it never prices one |
-| Claude Code | turns of a session with no cost snapshot in any of its files, subagents included; a session with one keeps Claude Code's own figure, subagents too, so nothing is charged twice |
+| Claude Code | turns of a session with no cost snapshot in any of its files, subagents included; a session with one keeps Claude Code's own figure, subagents too, so nothing is charged twice — including turns written after its last snapshot (a resumed session), a known under-count |
 | everyone else | none yet: each prices its own turns, or records no tokens to price |
 
 The estimate never blends in silently: `estimated` travels beside `cost` on
@@ -163,9 +163,17 @@ family name like `opus`) stays unpriced and is counted in the same note. The
 table's content hash joins the server's stats cache key, so a new table
 recomputes every window. `PICODE_PRICE_TABLE_URL=off` disables the fetch.
 
+Two pricing details that moved real numbers: Claude Code writes 72% of its
+cache tokens for an hour (`cache_creation.ephemeral_1h_input_tokens`), which
+list price charges at its own rate (`cache_creation_input_token_cost_above_1hr`,
+1.6x); and a bare model name takes the rate its providers agree on while
+nested rows (`azure/eu/…` regional surcharges, `openrouter/openai/…`) do not
+vote — letting them vote left 9,005 older Codex turns unpriced. A CLI whose
+estimate misses any turn reports cost `partial`, never `estimated`.
+
 Measured over 30 days on this machine (2026-09-22): Codex $1,542 estimated
-over 10,984 turns; Claude Code $91 over the 21 sessions without a snapshot;
-Spend $6.9k → $8.5k, $1.6k of it estimated.
+over 10,984 turns (one turn unpriced); Claude Code $115 over the 21 sessions
+without a snapshot; Spend $6.9k → $8.6k, $1.66k of it estimated.
 
 ## Limits: two sources, one card
 

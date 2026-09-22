@@ -14,7 +14,10 @@ import (
 const doc = `{
  "sample_spec": {"max_tokens": "set to max"},
  "claude-opus-5": {"input_cost_per_token": 5e-06, "output_cost_per_token": 2.5e-05,
-   "cache_read_input_token_cost": 5e-07, "cache_creation_input_token_cost": 6.25e-06},
+   "cache_read_input_token_cost": 5e-07, "cache_creation_input_token_cost": 6.25e-06,
+   "cache_creation_input_token_cost_above_1hr": 1e-05},
+ "azure/gpt-5.2-codex": {"input_cost_per_token": 1.75e-06, "output_cost_per_token": 1.4e-05},
+ "azure/eu/gpt-5.2-codex": {"input_cost_per_token": 1.925e-06, "output_cost_per_token": 1.54e-05},
  "gpt-5.6-sol": {"input_cost_per_token": 4e-06, "output_cost_per_token": 3.2e-05,
    "cache_read_input_token_cost": 4e-07},
  "azure_ai/grok-4.6": {"input_cost_per_token": 2e-06, "output_cost_per_token": 1e-05},
@@ -42,6 +45,7 @@ func TestLookup(t *testing.T) {
 		{"Claude-Opus-5[1m]", true, 5e-06, 6.25e-06}, // variant and case
 		{"gpt-5.6-sol", true, 4e-06, 4e-06},          // no cache-write rate: priced as input
 		{"grok-4.6", true, 2e-06, 2e-06},             // bare alias: every provider agrees
+		{"gpt-5.2-codex", true, 1.75e-06, 1.75e-06},  // a regional surcharge row does not vote
 		{"split-model", false, 0, 0},                 // two providers, two prices: no alias
 		{"gpt-5.3-codex-spark", false, 0, 0},         // listed without rates
 		{"opus", false, 0, 0},                        // a family name is never guessed
@@ -64,13 +68,18 @@ func TestLookup(t *testing.T) {
 func TestCostChargesEachKindAtItsRate(t *testing.T) {
 	tab, _ := Parse([]byte(doc))
 	// 1000 uncached in, 100 out, 10000 cache read, 200 cache write.
-	got, ok := tab.Cost("claude-opus-5", 1000, 100, 10000, 200)
+	got, ok := tab.Cost("claude-opus-5", 1000, 100, 10000, 200, 0)
 	want := 1000*5e-06 + 100*2.5e-05 + 10000*5e-07 + 200*6.25e-06
 	if !ok || !approx(got, want) {
 		t.Fatalf("cost = %v, %v; want %v", got, ok, want)
 	}
+	// Half the cache write for an hour, at the 1h rate.
+	got, _ = tab.Cost("claude-opus-5", 0, 0, 0, 200, 100)
+	if want := 100*6.25e-06 + 100*1e-05; !approx(got, want) {
+		t.Fatalf("1h cache write cost = %v, want %v", got, want)
+	}
 	var none *Table
-	if _, ok := none.Cost("claude-opus-5", 1, 1, 1, 1); ok {
+	if _, ok := none.Cost("claude-opus-5", 1, 1, 1, 1, 0); ok {
 		t.Fatal("a nil table priced a turn")
 	}
 }

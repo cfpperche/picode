@@ -177,6 +177,12 @@ func ccCoverage(m ClaudeCodeMeter, b Billing, priced, unpriced, under int, acc *
 		sig[SigCost] = StatePartial
 		note = itoa(under) + " of " + itoa(priced) + " sessions carry a model Claude Code could not price, so the total is a floor."
 	}
+	if under > 0 && sig[SigCost] == StateReported {
+		// A snapshot Claude Code itself flagged as carrying a model it could
+		// not price keeps the total a floor, estimates or not.
+		sig[SigCost] = StatePartial
+		note += " " + itoa(under) + " of " + itoa(priced) + " snapshots carry a model Claude Code could not price, so the total is a floor."
+	}
 	return CoverageRow{CLI: m.CLI(), Label: m.Label(), Billing: b, Signals: sig, Note: note}
 }
 
@@ -245,6 +251,7 @@ type ccMsg struct {
 	model   string
 	units   int64
 	tokens  session.TokenTotals
+	cw1h    int64 // cache write for an hour, part of tokens.CacheWrite
 	stop    string
 	results int // tool_result blocks inspected — they arrive on the user turn
 	errs    int
@@ -358,7 +365,7 @@ func ccPrice(key, cwd, name string, msgs []ccMsg, st ccState) *parsed {
 		out.ents = append(out.ents, cliEntry{
 			at: m.at, key: key, cwd: cwd, name: name,
 			role: m.role, model: m.model, prov: ccProvider(m.model),
-			cost: cost, toks: m.tokens, tools: m.tools,
+			cost: cost, toks: m.tokens, cw1h: m.cw1h, tools: m.tools,
 			results: m.results, errs: m.errs,
 			// Claude Code writes no "aborted" stop; an interrupt is not a
 			// stop_reason at all. Counting stop_sequence here reported 45
@@ -480,6 +487,9 @@ func ccMessage(raw map[string]any) (ccMsg, bool) {
 			CacheRead:  int64(num(u["cache_read_input_tokens"])),
 			CacheWrite: int64(num(u["cache_creation_input_tokens"])),
 		}
+		if cc, _ := u["cache_creation"].(map[string]any); cc != nil {
+			out.cw1h = int64(num(cc["ephemeral_1h_input_tokens"]))
+		}
 		if d, _ := u["output_tokens_details"].(map[string]any); d != nil {
 			out.tokens.Reasoning = int64(num(d["thinking_tokens"]))
 		}
@@ -531,7 +541,7 @@ func ccDedupeKey(raw map[string]any) string {
 // usage, so the record carrying it wins.
 func (m *ccMsg) absorb(o ccMsg) {
 	if o.tokens.Output > m.tokens.Output {
-		m.tokens, m.units = o.tokens, o.units
+		m.tokens, m.units, m.cw1h = o.tokens, o.units, o.cw1h
 	}
 	m.tools = append(m.tools, o.tools...)
 	m.results += o.results

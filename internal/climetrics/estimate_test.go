@@ -48,8 +48,10 @@ func TestCodexIsEstimatedAtListPrice(t *testing.T) {
 	if !near(w.Stats.Current.Cost, want) || !near(w.Stats.Current.Estimated, want) {
 		t.Fatalf("cost = %v estimated = %v, want both %v", w.Stats.Current.Cost, w.Stats.Current.Estimated, want)
 	}
-	if w.Coverage.Signals[SigCost] != StateEstimated {
-		t.Fatalf("cost state = %v, want estimated", w.Coverage.Signals[SigCost])
+	// The gpt-unlisted turn is missing from the estimate, so the total is a
+	// floor: partial, not "estimated" as if it were whole.
+	if w.Coverage.Signals[SigCost] != StatePartial {
+		t.Fatalf("cost state = %v, want partial", w.Coverage.Signals[SigCost])
 	}
 	for _, m := range w.Stats.ByModel {
 		if m.Model == "gpt-5.6" && !near(m.Estimated, want) {
@@ -106,5 +108,41 @@ func TestAFamilyNameIsNeverEstimated(t *testing.T) {
 	w, _ := ClaudeCodeMeter{}.Meter(r)
 	if w.Stats.Current.Cost != 0 || w.Coverage.Signals[SigCost] != StateNotReported {
 		t.Fatalf("cost = %v state = %v, want unpriced", w.Stats.Current.Cost, w.Coverage.Signals[SigCost])
+	}
+}
+
+func TestCodexAllPricedIsEstimated(t *testing.T) {
+	root := withCodexRoot(t)
+	writeRollout(t, root, "2026-09-06", []map[string]any{
+		{"timestamp": day(1), "type": "session_meta", "payload": map[string]any{"id": "s1", "cwd": "/repo"}},
+		{"timestamp": day(1), "type": "turn_context", "payload": map[string]any{"model": "gpt-5.6"}},
+		codexTurn(day(1), 1000, 100),
+	})
+	r := req(7)
+	r.Prices = testPrices(t)
+	w, _ := CodexMeter{}.Meter(r)
+	if w.Coverage.Signals[SigCost] != StateEstimated || !near(w.Stats.Current.Estimated, 1.1) {
+		t.Fatalf("state = %v estimated = %v", w.Coverage.Signals[SigCost], w.Stats.Current.Estimated)
+	}
+}
+
+func TestClaudeCodeEstimatesHourLongCacheWritesAtTheirRate(t *testing.T) {
+	root := withClaudeRoot(t)
+	a := assistant(day(1), "claude-opus-5", 0, 0, 0, nil)
+	u := a["message"].(map[string]any)["usage"].(map[string]any)
+	u["cache_creation_input_tokens"] = 1000
+	u["cache_creation"] = map[string]any{"ephemeral_5m_input_tokens": 400, "ephemeral_1h_input_tokens": 600}
+	writeTranscript(t, root, "-repo", "s.jsonl", []map[string]any{a})
+	tab, err := pricing.Parse([]byte(`{"claude-opus-5": {"input_cost_per_token": 0.001, "output_cost_per_token": 0.001,
+	  "cache_creation_input_token_cost": 0.001, "cache_creation_input_token_cost_above_1hr": 0.002}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := req(7)
+	r.Prices = tab
+	w, _ := ClaudeCodeMeter{}.Meter(r)
+	// 400 at $0.001 + 600 at $0.002.
+	if !near(w.Stats.Current.Estimated, 1.6) {
+		t.Fatalf("estimated = %v, want 1.60", w.Stats.Current.Estimated)
 	}
 }

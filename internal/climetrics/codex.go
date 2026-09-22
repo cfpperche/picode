@@ -103,6 +103,10 @@ func codexCoverage(m CodexMeter, b Billing, acc *cliAcc, sawLimits bool) Coverag
 	if acc.estimated > 0 {
 		// The spend is PiCode's estimate, and the state says so.
 		sig[SigCost] = StateEstimated
+		if acc.unpriced > 0 {
+			// Some turns are missing from the estimate: a floor, and says so.
+			sig[SigCost] = StatePartial
+		}
 		note = "Never prices a token; its spend is PiCode's list-price estimate. " + acc.estimateNote() + " It records no per-turn error state or edit counts."
 	}
 	return CoverageRow{CLI: m.CLI(), Label: m.Label(), Billing: b, Signals: sig, Note: note}

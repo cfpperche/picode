@@ -27,6 +27,9 @@ type cliEntry struct {
 	cost  float64
 	split session.CostSplit
 	toks  session.TokenTotals
+	// cw1h is the part of toks.CacheWrite written for an hour, which list
+	// price charges at its own rate (Claude Code records it; 0 elsewhere).
+	cw1h  int64
 	tools []string
 	// results is how many tool results this entry carried and the parser
 	// inspected, errs how many of those were failures. Both are kept for
@@ -105,8 +108,13 @@ func (a *cliAcc) add(e cliEntry) {
 	var est float64
 	wantsPrice := a.estimate && e.cost == 0 && e.role == "assistant" && e.toks != (session.TokenTotals{})
 	if wantsPrice {
-		if c, ok := a.req.Prices.Cost(e.model, e.toks.Input, e.toks.Output, e.toks.CacheRead, e.toks.CacheWrite); ok && c > 0 {
+		c, ok := a.req.Prices.Cost(e.model, e.toks.Input, e.toks.Output, e.toks.CacheRead, e.toks.CacheWrite, e.cw1h)
+		switch {
+		case ok && c > 0:
 			e.cost, est = c, c
+		case ok:
+			// Listed at no charge: priced, at zero — not a gap to report.
+			wantsPrice = false
 		}
 	}
 	switch {
@@ -274,7 +282,7 @@ func (a *cliAcc) estimateNote() string {
 		if note != "" {
 			note += " "
 		}
-		note += turnsText(a.unpriced) + " used a model the table does not list and stayed unpriced."
+		note += turnsText(a.unpriced) + " used a model the table does not price (or only a family name) and stayed unpriced."
 	}
 	return note
 }

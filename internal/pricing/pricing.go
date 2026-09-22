@@ -22,6 +22,10 @@ type Rate struct {
 	Output     float64
 	CacheRead  float64
 	CacheWrite float64
+	// CacheWrite1h is the rate for a cache entry written to live an hour,
+	// which Anthropic bills at 1.6x the 5-minute one. Claude Code wrote 72%
+	// of its cache tokens that way over 30 days here (2026-09-22).
+	CacheWrite1h float64
 }
 
 // Table is a parsed price table. The zero value and nil both price nothing.
@@ -36,6 +40,7 @@ type entry struct {
 	Output     *float64 `json:"output_cost_per_token"`
 	CacheRead  *float64 `json:"cache_read_input_token_cost"`
 	CacheWrite *float64 `json:"cache_creation_input_token_cost"`
+	Write1h    *float64 `json:"cache_creation_input_token_cost_above_1hr"`
 }
 
 // Parse reads LiteLLM's document. A row without both an input and an
@@ -46,7 +51,10 @@ type entry struct {
 // Keys are kept whole ("azure_ai/grok-4.6"); a bare name ("grok-4.6") is
 // added as an alias only when no row claims it directly and every row that
 // ends in it agrees on the rate — two providers selling the same model at
-// two prices leave the bare name unpriced rather than picking one.
+// two prices leave the bare name unpriced rather than picking one. Rows
+// nested one level deeper ("azure/eu/gpt-5.2-codex", a +10% regional
+// surcharge; "openrouter/openai/…", a reseller) do not vote: counting them
+// left every Codex model without a bare row unpriced, 9,005 turns here.
 func Parse(raw []byte) (*Table, error) {
 	var doc map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &doc); err != nil {
@@ -69,13 +77,17 @@ func Parse(raw []byte) (*Table, error) {
 		if e.CacheWrite != nil {
 			r.CacheWrite = *e.CacheWrite
 		}
+		r.CacheWrite1h = r.CacheWrite
+		if e.Write1h != nil {
+			r.CacheWrite1h = *e.Write1h
+		}
 		t.rates[key] = r
 	}
 	alias := map[string]*Rate{} // nil marks a bare name claimed at two rates
 	conflict := map[string]bool{}
 	for key, r := range t.rates {
 		bare := bareName(key)
-		if bare == key {
+		if bare == key || strings.Count(key, "/") > 1 {
 			continue
 		}
 		if _, direct := t.rates[bare]; direct || conflict[bare] {
@@ -145,14 +157,17 @@ func (t *Table) Lookup(model string) (Rate, bool) {
 
 // Cost prices one turn's tokens. input is the uncached input only; cached
 // tokens are priced at their own rates, and reasoning is already inside
-// output, so it is never charged twice.
-func (t *Table) Cost(model string, input, output, cacheRead, cacheWrite int64) (float64, bool) {
+// output, so it is never charged twice. cacheWrite1h is the part of
+// cacheWrite written for an hour, priced at its own rate.
+func (t *Table) Cost(model string, input, output, cacheRead, cacheWrite, cacheWrite1h int64) (float64, bool) {
 	r, ok := t.Lookup(model)
 	if !ok {
 		return 0, false
 	}
+	cacheWrite1h = min(cacheWrite1h, cacheWrite)
 	return float64(input)*r.Input + float64(output)*r.Output +
-		float64(cacheRead)*r.CacheRead + float64(cacheWrite)*r.CacheWrite, true
+		float64(cacheRead)*r.CacheRead +
+		float64(cacheWrite-cacheWrite1h)*r.CacheWrite + float64(cacheWrite1h)*r.CacheWrite1h, true
 }
 
 func normalize(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
