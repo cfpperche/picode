@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
-	"strconv"
 	"time"
 )
 
@@ -188,30 +186,6 @@ func devServerProcessGone(pid int, startKey string) bool {
 		return true
 	}
 	return processZombie(pid)
-}
-
-// processZombie reads the state field of /proc/<pid>/stat — field 3, which
-// sits right after the comm field's final ')'.
-func processZombie(pid int) bool {
-	if pid <= 0 {
-		return true
-	}
-	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
-	if err != nil {
-		return true
-	}
-	raw := string(data)
-	end := -1
-	for i := len(raw) - 1; i >= 0; i-- {
-		if raw[i] == ')' {
-			end = i
-			break
-		}
-	}
-	if end < 0 || end+2 >= len(raw) {
-		return false
-	}
-	return raw[end+2] == 'Z'
 }
 
 // pruneDevServerHides forgets the hides whose process is gone. The identity of

@@ -105,3 +105,27 @@ func stopInteractivePane(ctx context.Context, deps Deps, name, id string) error 
 		}
 	}
 }
+
+// processZombie answers the same question where there is no /proc to read.
+//
+// The Linux version treats an unreadable /proc/<pid>/stat as "gone", which
+// is right there and wrong everywhere else: on macOS the file never exists,
+// so every live process looked dead. That is not cosmetic — devServerProcessGone
+// feeds Stop and the hide sweep, so a macOS user got `stopped: true` for a
+// process still running and lost every hide on the next read
+// (TestDevServerStopStillRunning, TestDevServerHideRoundTrip,
+// TestPruneDevServerHides).
+//
+// Signal 0 is the portable liveness test: ESRCH means the pid is gone, and
+// anything else — including EPERM for a process this user does not own —
+// means it is there. A zombie cannot be told apart this way, so a process
+// that exists is reported as not-a-zombie: the caller has already matched
+// the start token, so "the same process is still here" is the honest
+// answer available.
+func processZombie(pid int) bool {
+	if pid <= 0 {
+		return true
+	}
+	err := syscall.Kill(pid, 0)
+	return errors.Is(err, syscall.ESRCH)
+}
