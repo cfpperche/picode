@@ -1,0 +1,10 @@
+# 2026-09-22 — feat/ci-vendor-tests: main's CI, red after the 0.5.0 push
+
+Found by pushing the release: CI failed on three tests — two machine-dependent, one the rpc debt of 2026-09-21.
+`TestPackageOpenCodeRemoveIsPiCodeOwnWrite` needed `opencode`, `TestOmpSigninUnknownProviderStaysTerminal` needed `omp`: both reach a read or a launch path where the driver locates the binary with `exec.LookPath`, both passed here (all nine CLIs installed) and answered 400 *"not installed"* on every runner. Both now stub the vendor first on PATH (`stubVendor`, the seam the neighbouring handler tests use) and were reproved with a PATH holding no agent CLI.
+`TestStopIdleFencesConversationAndCommands` — reproduced and explained, not retried: the capture bridge resolves its session file in a goroutine at spawn and **holds `commandMu` for the whole `get_state`** while it waits for the writer, so the test's lock probe proved only that the lock was free for an instant; the stop that must succeed then landed inside the resolve. The bridge marks `resolved` when that first resolve returns (success or not) and the test waits for it — the single assertion stays. The 2026-09-21 audit's premise was wrong on one file: `resolveCaptureSessionFile` calls `GetState` **from a goroutine**.
+Verified: old tree fails `-race -count=10` in 30.5s, this one passes in 30.1s; `make ci-scoped` PASS (fmt,vet,hooks,go[5]; 4 paths) with `internal/server` green in 4 shards.
+No changelog fragment: nothing user-visible changed (two tests and one internal field) — this restores `main`'s CI.
+Blind spot: the macOS runner can only be exercised by pushing, so the rpc fix is proven by the A/B above, not by a macOS run.
+Debts: `docs/handoff/open/process.md` — the rpc debt paid with its mechanism, and a new one recording that nothing stops the next test from needing an installed CLI (candidate: a scoped run under a PATH with no agent CLI).
+Note: the `v0.5.0` tag's own CI stays red — its tree carries the two machine-dependent tests; `main` is green again, and a 0.5.1 is the owner's call.

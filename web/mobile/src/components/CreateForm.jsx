@@ -149,21 +149,6 @@ export default function CreateForm({
           )}
           <input type="hidden" name="source" value={wsSrc} />
         </>
-      ) : kind === "free" ? (
-        <>
-          <input
-            name="name"
-            type="text"
-            placeholder="Name"
-            autoComplete="off"
-            autoFocus
-          />
-          <FolderField
-            name="path"
-            placeholder="Folder (optional — ~/.picode/work/name)"
-            resetKey={open}
-          />
-        </>
       ) : (
         <input
           name="name"

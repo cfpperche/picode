@@ -7,7 +7,8 @@ D0 surface contract: docs/plans/delivery-flow-design.md
 
 ## Next
 
-- ADR-0182: the store layer, the owner's doors and the agent's door all landed (migration 066, `internal/store/delivery_queue.go`, `internal/store/delivery_integration.go`, `internal/server/delivery_queue.go`, the tool path in `internal/server/delivery.go`, and the three faces of the `delivery` tool). Next, in order: the serialized executor, then the lane in the Delivery view.
+- ADR-0182: the store, the owner's doors, the agent's door and the runner landed. Next: the lane in the Delivery view (a named blocker per waiting entry), then the runner's own receipts (it records the operation on the entry today, not yet in the product's receipt format).
+- Debts for the runner: declared commands run through `/bin/sh`, so Windows is untested; a run has no per-run budget beyond 30 minutes per command.
 
 ## Debts
 

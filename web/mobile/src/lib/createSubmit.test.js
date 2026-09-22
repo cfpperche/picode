@@ -15,10 +15,7 @@ describe("createRequest", () => {
     assert.equal(r.path, "/api/workspaces/clone");
     assert.equal(r.clone, true);
   });
-  it("builds a free agent and a workspace agent", () => {
-    const f = createRequest("free", { name: "solo", path: "" }, cfg, "");
-    assert.equal(f.path, "/api/agents");
-    assert.equal(f.body.model, "grok-4.6");
+  it("builds a workspace agent", () => {
     const a = createRequest("agent", { name: "helper" }, cfg, "ws 1");
     assert.equal(a.path, "/api/workspaces/ws%201/agents");
     assert.deepEqual(Object.keys(a.body).sort(), ["model", "name", "provider", "thinking"]);

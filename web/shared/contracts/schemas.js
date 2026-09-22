@@ -123,11 +123,6 @@ export const createWorkspaceCloneSchema = z.object({
   path: required("Destination"),
 });
 
-export const createFreeAgentSchema = modelPick.extend({
-  name: required("Name"),
-  path: z.string().trim(),
-});
-
 export const createWsAgentSchema = modelPick.extend({
   name: required("Name"),
 });

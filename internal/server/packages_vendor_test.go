@@ -85,12 +85,51 @@ func TestPackageReportReadsTheVendor(t *testing.T) {
 		t.Fatalf("cli = %v", v["cli"])
 	}
 	scopes, _ := v["scopes"].([]any)
-	if len(scopes) != 2 {
-		t.Fatalf("scopes = %v (the declaration says machine + workspace)", scopes)
+	// No workspace bound: the workspace layer is not offered at all — a
+	// project mutation without a folder refuses, and the radio must not
+	// promise an error.
+	if len(scopes) != 1 {
+		t.Fatalf("scopes = %v (an unbound read offers the machine scope alone)", scopes)
 	}
 	first, _ := scopes[0].(map[string]any)
 	if first["id"] != "machine" || first["vendor"] != "user" || first["label"] != "Global" {
 		t.Fatalf("scope = %v, want the class PiCode draws and the CLI's own word", first)
+	}
+
+	// Bound to a workspace and an agent, the radio names them — the same
+	// honour pi's pane pays.
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "PiCode", "path": t.TempDir()})
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("workspace = %d", res.StatusCode)
+	}
+	var wsv workspaceView
+	if err := json.NewDecoder(res.Body).Decode(&wsv); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	ares := postJSON(t, ts, "/api/workspaces/"+wsv.ID+"/agents", map[string]string{"name": "browser", "cli": "omp"})
+	if ares.StatusCode != http.StatusCreated {
+		t.Fatalf("agent = %d", ares.StatusCode)
+	}
+	var agv struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(ares.Body).Decode(&agv); err != nil {
+		t.Fatal(err)
+	}
+	ares.Body.Close()
+	v = cliRequest(t, ts, "GET", "/api/packages/report?cli=omp&vendor=user&refresh=1&workspace="+wsv.ID+"&agent="+agv.ID, nil, 200)
+	scopes, _ = v["scopes"].([]any)
+	if len(scopes) != 3 {
+		t.Fatalf("scopes = %v (a bound read names the workspace and the agent)", scopes)
+	}
+	wsScope, _ := scopes[1].(map[string]any)
+	if wsScope["id"] != "workspace" || wsScope["label"] != "PiCode" {
+		t.Fatalf("workspace scope = %v, want the workspace's own name", wsScope)
+	}
+	agScope, _ := scopes[2].(map[string]any)
+	if agScope["id"] != "agent" || agScope["label"] != "This agent" || agScope["note"] != "Only browser, every session" {
+		t.Fatalf("agent scope = %v, want the agent named in the note", agScope)
 	}
 	caps, _ := v["caps"].(map[string]any)
 	// Omp has a catalog (`omp plugin discover`) and no per-row Install: the
@@ -410,6 +449,10 @@ func TestPackageOpenCodeRemoveIsPiCodeOwnWrite(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", "") // resolve OpenCode's user file from HOME
+	// The report reads the CLI's own files, but it only answers for a CLI the
+	// driver can locate (ADR-0167) — a stub keeps this hermetic on a machine
+	// where opencode is not installed (CI).
+	stubVendor(t, "opencode", "")
 	cfg := filepath.Join(home, ".config", "opencode")
 	if err := os.MkdirAll(cfg, 0o755); err != nil {
 		t.Fatal(err)

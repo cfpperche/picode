@@ -93,6 +93,10 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 
 var git = runGit
 
+// observe is Observe, injectable so a caller's test can stage the evidence a
+// snapshot would report without writing receipt files by hand.
+var observe = Observe
+
 func runGit(ctx context.Context, cwd string, args ...string) (string, error) {
 	c := exec.CommandContext(ctx, "git", append([]string{"--no-optional-locks", "-c", "core.fsmonitor=false"}, args...)...)
 	c.Dir = cwd
@@ -260,6 +264,10 @@ func unique(in []string) []string {
 
 // Observe retries one changing Git snapshot and makes every uncertainty explicit.
 func Observe(parent context.Context, cwd, repo, target string, decl []Declaration) Snapshot {
+	return observeImpl(parent, cwd, repo, target, decl)
+}
+
+func observeImpl(parent context.Context, cwd, repo, target string, decl []Declaration) Snapshot {
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 	var s Snapshot
