@@ -60,8 +60,14 @@ case "$cmd" in
     make --no-print-directory web >/dev/null
     go build -tags embedui -o "$dir/picode" ./cmd/picode
     echo "$port" > "$portfile"
-    HOME="$PWD/$dir/home" PICODE_DATA="$PWD/$dir/data" PICODE_PORT="$port" PICODE_INSECURE=1 \
-      setsid nohup "$PWD/$dir/picode" > "$dir/server.log" 2>&1 < /dev/null &
+    # The daemon must not inherit the identity of whatever started it: run from
+    # inside a PiCode terminal — which is how an agent runs QA — PICODE_AGENT_ID
+    # came through to every scratch terminal, so a terminal here resolved a
+    # principal that belongs to another instance's data dir (measured
+    # 2026-09-21), and an inherited TMUX put its sessions in that server.
+    setsid nohup env -u PICODE_AGENT_ID -u PICODE_TERM_ID -u PICODE_TERM_URL -u PICODE_INSTANCE -u TMUX -u TMUX_PANE \
+      HOME="$PWD/$dir/home" PICODE_DATA="$PWD/$dir/data" PICODE_PORT="$port" PICODE_INSECURE=1 \
+      "$PWD/$dir/picode" > "$dir/server.log" 2>&1 < /dev/null &
     for _ in $(seq 40); do
       curl -sf "http://localhost:$port/api/health" >/dev/null 2>&1 && break
       sleep 0.5

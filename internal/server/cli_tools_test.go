@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -41,6 +42,15 @@ func TestToolLaunchOptionsDecisionTable(t *testing.T) {
 			doc := readMCPFile(t, out.Args[1])
 			srv := doc["picode-computer"].(map[string]any)
 			if srv["command"] != toolBinary() || strings.Join(anyStrings(srv["args"]), " ") != "mcp computer" {
+				t.Fatalf("server = %v", srv)
+			}
+		}},
+		{name: "delivery is injected like any other family", cli: "claude-code", families: []string{"delivery"}, check: func(t *testing.T, out communication.LaunchOptions) {
+			if len(out.Args) != 2 || out.Args[0] != "--mcp-config" {
+				t.Fatalf("args = %v", out.Args)
+			}
+			srv, _ := readMCPFile(t, out.Args[1])["picode-delivery"].(map[string]any)
+			if srv == nil || srv["command"] != toolBinary() || strings.Join(anyStrings(srv["args"]), " ") != "mcp delivery" {
 				t.Fatalf("server = %v", srv)
 			}
 		}},
@@ -154,6 +164,10 @@ func TestToolFamiliesAndRefusals(t *testing.T) {
 	if _, err := toolFamilies(clilaunch.Config{Tools: []string{"flying"}}); err == nil || !strings.Contains(err.Error(), "no tool family") {
 		t.Fatalf("unknown family = %v", err)
 	}
+	// delivery joined the catalog with ADR-0171; the form learned it later.
+	if f, err := toolFamilies(clilaunch.Config{Tools: []string{"delivery", "checklist", "delivery"}}); err != nil || strings.Join(f, ",") != "checklist,delivery" {
+		t.Fatalf("families = %v %v", f, err)
+	}
 	claude, _ := clilaunch.Find("claude-code")
 	grok, _ := clilaunch.Find("grok")
 	if err := toolLaunchRefusal(claude, clilaunch.Config{Tools: []string{"computer"}}); err != nil {
@@ -207,5 +221,28 @@ func TestToolLaunchRoutes(t *testing.T) {
 		if r["toolsCapable"] != want {
 			t.Fatalf("%s toolsCapable = %v", r["id"], r["toolsCapable"])
 		}
+	}
+}
+
+// TestToolFamiliesMatchTheForm is the seam between the daemon's catalog and
+// the switches the launch form offers (PICODE_TOOL_FAMILIES). ADR-0171 put
+// delivery in the catalog while the form kept offering four, so the family
+// was reachable only by writing the config by hand. Two files, one truth
+// (the shape clipkgs.TestCLIListMatchesJS established).
+func TestToolFamiliesMatchTheForm(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "web", "shared", "domain", "cliLaunch.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := regexp.MustCompile(`(?s)PICODE_TOOL_FAMILIES = \[(.*?)\n\]`).FindSubmatch(body)
+	if block == nil {
+		t.Fatal("PICODE_TOOL_FAMILIES not found in web/shared/domain/cliLaunch.js")
+	}
+	var js []string
+	for _, m := range regexp.MustCompile(`id: "([a-z-]+)"`).FindAllStringSubmatch(string(block[1]), -1) {
+		js = append(js, m[1])
+	}
+	if got := mcptool.FamilyNames(); strings.Join(got, ",") != strings.Join(js, ",") {
+		t.Fatalf("the form and the catalog disagree:\n  daemon: %v\n  form:   %v", got, js)
 	}
 }

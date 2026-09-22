@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -60,5 +64,53 @@ func TestDeliveryMCPContract(t *testing.T) {
 		if _, e := CallDelivery(context.Background(), &Caller{Daemon: d, Identity: Identity{Term: "t"}}, json.RawMessage(body)); e == nil || d.calls != 0 {
 			t.Fatal(body)
 		}
+	}
+}
+
+// TestDeliveryPiPackageMatchesFamily is the seam between the two faces of one
+// contract (ADR-0171): the pi package a Pi agent loads and the MCP family a
+// guest CLI is launched with must offer the same actions and parameters.
+// computer_test.go holds the same seam for its package.
+func TestDeliveryPiPackageMatchesFamily(t *testing.T) {
+	schema := deliveryFamily.Tools(&Caller{})[0].InputSchema
+	props, _ := schema["properties"].(map[string]any)
+	if len(props) == 0 {
+		t.Fatal("the family declares no properties")
+	}
+	required := map[string]bool{}
+	want, _ := schema["required"].([]string)
+	for _, name := range want {
+		required[name] = true
+	}
+	src, err := os.ReadFile(filepath.Join("..", "..", "packages", "pi-delivery", "extensions", "delivery.ts"))
+	if err != nil {
+		t.Skip("pi-delivery source not beside this package")
+	}
+	for name := range props {
+		needle := name + ": Type.Optional("
+		if required[name] {
+			needle = name + ": Type."
+		}
+		if !strings.Contains(string(src), needle) {
+			t.Errorf("pi-delivery no longer declares %s — the MCP schema must follow", name)
+		}
+	}
+	// The actions are one list in two files: the enum here, ACTIONS in the
+	// package's logic. A drift means one face offers what the other refuses.
+	enum, _ := props["action"].(map[string]any)["enum"].([]string)
+	logic, err := os.ReadFile(filepath.Join("..", "..", "packages", "pi-delivery", "src", "logic.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := regexp.MustCompile(`(?s)ACTIONS = \[(.*?)\]`).FindSubmatch(logic)
+	if block == nil {
+		t.Fatal("ACTIONS not found in packages/pi-delivery/src/logic.ts")
+	}
+	var js []string
+	for _, part := range regexp.MustCompile(`"([a-z-]+)"`).FindAllStringSubmatch(string(block[1]), -1) {
+		js = append(js, part[1])
+	}
+	if strings.Join(enum, ",") != strings.Join(js, ",") {
+		t.Fatalf("the two faces disagree:\n  mcp: %v\n  pi:  %v", enum, js)
 	}
 }
