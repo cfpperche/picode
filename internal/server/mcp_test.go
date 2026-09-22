@@ -843,7 +843,7 @@ func TestMCPCliAgentDriversPhase3(t *testing.T) {
 }
 
 // ADR-0150 phase 4: ?cli=muse|hermes answer through their CLI agent drivers —
-// Muse's settings.json mcp_servers block (transport stdio|streamable_http,
+// Muse's settings.json mcpServers block (transport stdio|streamable_http,
 // per-entry enabled flag, schema_version and mode preserved) and Hermes's
 // config.yaml mcp_servers block (yaml.Node edits: comments and key order
 // survive). Both CLIs keep one config file, so project scope refuses.
@@ -894,7 +894,7 @@ func TestMCPCliAgentDriversPhase4(t *testing.T) {
 	if err := json.Unmarshal(museRaw, &museDoc); err != nil {
 		t.Fatalf("muse settings: %s", museRaw)
 	}
-	docs, _ := museDoc["mcp_servers"].(map[string]any)["docs"].(map[string]any)
+	docs, _ := museDoc["mcpServers"].(map[string]any)["docs"].(map[string]any)
 	if docs == nil || docs["transport"] != "streamable_http" {
 		t.Fatalf("muse entry = %v", docs)
 	}
@@ -907,7 +907,7 @@ func TestMCPCliAgentDriversPhase4(t *testing.T) {
 	if err := json.Unmarshal(museRaw, &museDoc); err != nil {
 		t.Fatal(err)
 	}
-	docs, _ = museDoc["mcp_servers"].(map[string]any)["docs"].(map[string]any)
+	docs, _ = museDoc["mcpServers"].(map[string]any)["docs"].(map[string]any)
 	if docs["enabled"] != false {
 		t.Fatalf("muse toggle: %v", docs)
 	}
