@@ -169,7 +169,41 @@ func TestFireMessageToGuestAgent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if open.Reason == reasonInTerminal || open.Reason == reasonTermClosed || open.Reason == reasonPiMissing {
-		t.Fatalf("open terminal never reached the door: run = %+v", open)
+	// The pane runs a plain shell under a claude-code launch: the reader
+	// cannot recognize a composer, and an unattended door refuses instead of
+	// pasting blind (the login-screen case seen live on 2026-09-22).
+	if open.Status != store.RunSkipped || open.Reason != "unrecognized" {
+		t.Fatalf("open terminal: run = %+v, want skipped · unrecognized from the door", open)
+	}
+}
+
+// The same pane through each door: a person at the terminal still gets the
+// blind paste and an "unverified" receipt; an unattended sender is refused
+// and nothing reaches the pane.
+func TestDoorUnattendedRefusesAnUnrecognizedComposer(t *testing.T) {
+	deps, aut, _ := doorTestSetup(t)
+	if !deps.Tmux.Available() {
+		t.Skip("tmux not available")
+	}
+	tm, err := deps.Store.CreateTerminalIn(aut.WorkspaceID, "Claude", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := deps.Store.SetTerminalLaunch(tm.ID, "claude-code", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	sess := tmux.ShellSessionName(tm.ID)
+	if err := deps.Tmux.NewSession(context.Background(), sess, t.TempDir(), "sh"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = deps.Tmux.KillSession(context.Background(), sess) })
+
+	status, res := doorDeliverUnattended(deps, context.Background(), tm, "hello")
+	if status != http.StatusConflict || res["reason"] != "unrecognized" {
+		t.Fatalf("unattended = %d %v", status, res)
+	}
+	status, res = doorDeliver(deps, context.Background(), tm, "hello")
+	if status != http.StatusOK || res["delivery"] != "unverified" {
+		t.Fatalf("attended = %d %v", status, res)
 	}
 }

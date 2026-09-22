@@ -286,7 +286,7 @@ func (r automationRunner) doorRun(ctx context.Context, a store.Automation, f aut
 	if err != nil {
 		return store.Run{}, err
 	}
-	status, res := doorDeliver(deps, ctx, t, body)
+	status, res := doorDeliverUnattended(deps, ctx, t, body)
 	runStatus, reason := mapDoorOutcome(status, res)
 	w := &runWatch{runner: r, a: a, run: run, agentID: agent.ID, started: time.Now()}
 	w.finish(runStatus, reason, runStatus == store.RunFailed)
@@ -335,6 +335,10 @@ func skipBody(reason string) string {
 		return "Pi is not installed or not on PATH, so this Pi agent could not start."
 	case reasonTargetGone:
 		return "The agent this automation messages no longer exists. Pick another agent in the automation's settings."
+	case "unrecognized":
+		return "The agent's CLI was not at a prompt PiCode recognizes (a login or a menu?), so nothing was pasted. Open the agent, finish that screen, and the next run will go through."
+	case "unobservable":
+		return "PiCode could not read the agent's terminal, so nothing was pasted."
 	case reasonTermClosed:
 		return "This agent's terminal is closed, so nobody could read the prompt. Open the agent and the next run will go through."
 	case reasonInTerminal:
