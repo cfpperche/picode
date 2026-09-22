@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -214,35 +213,6 @@ func TestScopeRules(t *testing.T) {
 	// in the daemon's own directory.
 	if _, _, err := Argv("omp", VerbInstall, Paths{}, Target{Source: "x", Scope: "project"}); !errors.Is(err, ErrNoWorkspace) {
 		t.Fatalf("project scope without a workspace: %v", err)
-	}
-}
-
-// TestCLIListMatchesJS is the seam between the Go catalog and the list the
-// pane uses to decide whether to ask for a guest view. Two files, one truth
-// (the shape internal/clisettings already established).
-func TestCLIListMatchesJS(t *testing.T) {
-	body, err := os.ReadFile(filepath.Join("..", "..", "web", "shared", "domain", "cliPackages.js"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	match := regexp.MustCompile(`GUEST_PACKAGES = \[([^\]]*)\]`).FindSubmatch(body)
-	if match == nil {
-		t.Fatal("GUEST_PACKAGES not found in web/shared/domain/cliPackages.js")
-	}
-	var js []string
-	for _, part := range strings.Split(string(match[1]), ",") {
-		if id := strings.Trim(strings.TrimSpace(part), `"`); id != "" {
-			js = append(js, id)
-		}
-	}
-	got := CLIs()
-	if strings.Join(got, ",") != strings.Join(js, ",") {
-		t.Fatalf("the UI list and the Go catalog disagree:\n  go: %v\n  js: %v", got, js)
-	}
-	for _, id := range got {
-		if id == "pi" {
-			t.Fatal("Pi keeps its own pane (ADR-0102) and must not be in this catalog")
-		}
 	}
 }
 

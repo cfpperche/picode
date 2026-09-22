@@ -55,9 +55,16 @@ func handlePackageUpdates(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForStore(err), err.Error())
 			return
 		}
+		// The vendor word the pane is looking at, so a project-scope roster is
+		// the one compared with the catalog. Pi's own check ignores it: its
+		// rows' scopes come from the settings files either way.
+		word := strings.TrimSpace(r.URL.Query().Get("vendor"))
+		if word == "" {
+			word = strings.TrimSpace(r.URL.Query().Get("scope"))
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 		defer cancel()
-		rep, err := driver.CheckUpdates(ctx, pkgs.Query{WorkspacePath: dir})
+		rep, err := driver.CheckUpdates(ctx, pkgs.Query{WorkspacePath: dir, Vendor: word})
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return

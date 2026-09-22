@@ -26,8 +26,14 @@ func (piDriver) Scopes() []ScopeRow {
 	}
 }
 
+// Caps is Pi's own surface: it lists, installs, removes and updates through
+// pipkg, carries the config descriptors (ADR-0119), keeps PiCode's npm gallery
+// as its catalog — whose rows do name the spec an install takes — and has the
+// agent row's "only this agent's packages" switch. Its mutations are direct
+// calls that answer the new list, so Async is false and a pane shows the
+// transcript PiCode ran instead of the lane's job.
 func (piDriver) Caps() Caps {
-	return Caps{List: true, Available: true, Install: true, Remove: true, Update: true, Config: true}
+	return Caps{List: true, Available: true, Install: true, Remove: true, Update: true, Config: true, CatalogInstall: true, IsolatedSwitch: true}
 }
 
 // List reads Pi's settings for the machine (and the workspace, when one is
@@ -42,12 +48,15 @@ func (p piDriver) List(_ context.Context, q Query) (Report, error) {
 		legacy = pipkg.WithAgent(legacy, q.AgentSources)
 	}
 	rep := Report{
-		CLI:          p.ID(),
-		Scopes:       p.Scopes(),
-		Caps:         p.Caps(),
-		Catalog:      CatalogGallery,
-		Gallery:      legacy.Gallery,
-		Capabilities: map[string]bool{"webSearch": legacy.Capabilities.WebSearch},
+		CLI:           p.ID(),
+		Scopes:        scopesForContext(p.Scopes(), q.WorkspaceName, q.AgentName),
+		WorkspaceName: q.WorkspaceName,
+		AgentName:     q.AgentName,
+		Caps:          p.Caps(),
+		Catalog:       CatalogGallery,
+		Gallery:       legacy.Gallery,
+		WorkspacePath: q.WorkspacePath,
+		Capabilities:  map[string]bool{"webSearch": legacy.Capabilities.WebSearch},
 		// The switch lives on PiCode's agent row, not in a settings file, so
 		// it arrives with the agent's list (Query.AgentIsolated).
 		Isolated: q.AgentIsolated,
@@ -131,6 +140,32 @@ func (piDriver) Inspect(context.Context, Query, Target) (Command, string, error)
 }
 func (piDriver) Marketplace(context.Context, Query, MarketRequest) (Command, error) {
 	return Command{}, ErrNoMutation
+}
+
+// scopesForContext is the declaration as this read can honour it: Pi's workspace
+// layer is the folder's settings file and its agent layer is that one agent's
+// list, so a read that named neither declares neither — a radio that cannot
+// work is not offered (the plan's decision table), and a radio that can is
+// named the way the caller names the layer: the folder for the workspace, the
+// agent in the line under it.
+func scopesForContext(scopes []ScopeRow, workspace, agent string) []ScopeRow {
+	out := make([]ScopeRow, 0, len(scopes))
+	for _, s := range scopes {
+		switch s.ID {
+		case Workspace:
+			if strings.TrimSpace(workspace) == "" {
+				continue
+			}
+			s.Label = workspace
+		case Agent:
+			if strings.TrimSpace(agent) == "" {
+				continue
+			}
+			s.Note = "Only " + agent + ", every session"
+		}
+		out = append(out, s)
+	}
+	return out
 }
 
 // SourceName is what a pane prints for a package source: the npm name without

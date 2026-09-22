@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cliPackagesHash, cliPackagesLocation, supportsCliPackages, loadPiPackagesContext, packageContextKey, GUEST_PACKAGES, usesGuestPackages, guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand, rowUpdateState, matchParts, groupInstalledRows, sourceGroupKey } from "./cliPackages.js";
+import { cliPackagesHash, cliPackagesLocation, loadPiPackagesContext, packageContextKey, packagesApi, packagesNotes, packagesSurface, paneWords, PANE_WORDS, behindFor, catalogRowAction, refusalCommand, matchParts, groupInstalledRows, sourceGroupKey } from "./cliPackages.js";
 import { cliLocation } from "./cliLaunch.js";
 
 test("canonical links round-trip CLI, package, scope and explicit context", () => {
@@ -31,10 +31,11 @@ test("canonical machine links never inherit the current pane", () => {
   assert.equal(cliPackagesLocation("#/providers"), null);
 });
 
-test("unsupported CLIs and malformed links never become Pi package targets", () => {
-  assert.equal(supportsCliPackages("pi"), true);
-  assert.equal(supportsCliPackages("codex"), false);
+test("a package link carries any CLI, and a malformed one never becomes a target", () => {
+  // Which CLIs exist is the engine's answer now (the report route refuses an
+  // unknown id by naming the drivers); the route only carries the id.
   assert.equal(cliPackagesLocation("#/clis/codex/packages").id, "codex");
+  assert.equal(cliPackagesLocation("#/clis/pi/packages").id, "pi");
   for (const hash of ["#/packages/nope", "#/clis/pi/packages?scope=everyone"]) {
     assert.equal(cliPackagesLocation(hash).invalid, true, hash);
   }
@@ -81,41 +82,78 @@ test("draft targets ignore display changes but include workspace and agent file 
   assert.notEqual(packageContextKey(value), packageContextKey({ ...value, agent: { ...value.agent, workPath: "/other" } }));
 });
 
-// --- guest CLI plugins (ADR-0167) --------------------------------------------
+// --- one pane, every CLI (ADR-0176) ------------------------------------------
 //
-// The guest pane's own contract, tested where a browser is not: the eight ids
-// that route to it, the request each control sends, and the copy shown where a
-// verb is absent. No snapshots — shapes and sentences are asserted directly.
+// The pane's own contract, tested where a browser is not: the request each
+// control sends, the surface a report declares, and the words each surface
+// speaks. No snapshots — shapes and sentences are asserted directly.
 
-test("the guest list is the eight declared CLIs and never pi", () => {
-  assert.deepEqual(GUEST_PACKAGES, ["claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy", "omp"]);
-  for (const id of GUEST_PACKAGES) {
-    assert.equal(usesGuestPackages(id), true, id);
-    assert.equal(supportsCliPackages(id), false, id);
-  }
-  assert.equal(usesGuestPackages("pi"), false);
-  assert.equal(usesGuestPackages(""), false);
-  assert.equal(usesGuestPackages(undefined), false);
+test("the surface follows the catalog the report declares, never the CLI", () => {
+  assert.equal(packagesSurface({ catalog: "gallery" }), "gallery");
+  assert.equal(packagesSurface({ catalog: "vendor" }), "vendor");
+  // A CLI with no installable list still holds its own plugins.
+  assert.equal(packagesSurface({ catalog: "" }), "vendor");
+  assert.equal(packagesSurface({}), "vendor");
+  assert.equal(packagesSurface(null), "vendor");
 });
 
-test("a guest read carries the CLI, the workspace and the scope as a query", () => {
-  const api = guestPackagesApi("claude-code", { workspaceId: "w /&", scope: "project" });
-  assert.deepEqual(api.roster(), { method: "GET", path: "/api/cli-packages?cli=claude-code&workspace=w+%2F%26&scope=project", body: null });
-  assert.equal(api.roster({ refresh: true }).path, "/api/cli-packages?cli=claude-code&workspace=w+%2F%26&scope=project&refresh=1");
+test("each surface keeps the words its own pane always used", () => {
+  // Pi's gallery pane (ADR-0102): the words the merged pane may not lose.
+  const gallery = paneWords("gallery");
+  assert.equal(gallery.scopeLabel, "Install to");
+  assert.equal(gallery.sourcePlaceholder, "npm:pkg  ·  git:github.com/user/repo  ·  ./path");
+  assert.equal(gallery.access, "Packages run with full access. Only install what you review.");
+  assert.equal(gallery.emptyTitle, "Nothing installed yet");
+  assert.equal(gallery.fallback, "Machine packages");
+  assert.equal(gallery.noMatch("x"), "No installed package matches \u201cx\u201d.");
+  assert.equal(PANE_WORDS.gallery.isolation, "Only this agent's packages (skip machine and folder). Restart to apply.");
+  // The vendors' pane (ADR-0167): "Plugins go to", its own empty state, its own
+  // way back to the machine scope.
+  const vendor = paneWords("vendor");
+  assert.equal(vendor.scopeLabel, "Plugins go to");
+  assert.equal(vendor.access, "Plugins run with full access. Only install what you review.");
+  assert.equal(vendor.emptyTitle, "Nothing installed.");
+  assert.equal(vendor.fallback, "Use this machine");
+  // An unknown surface is the vendor's, never null: a pane renders before its
+  // first report.
+  assert.deepEqual(paneWords("nope"), PANE_WORDS.vendor);
+  assert.deepEqual(paneWords(undefined), PANE_WORDS.vendor);
+});
+
+test("a read carries the CLI, the workspace, the agent and the scope as a query", () => {
+  const api = packagesApi("claude-code", { workspaceId: "w /&", scope: "project" });
+  // The unified report is the read every pane load starts with; its badge read
+  // takes the same target, and both name the vendor word the CLI's own
+  // commands take (a read of the class alone cannot say `local`).
+  assert.deepEqual(api.report(), { method: "GET", path: "/api/packages/report?cli=claude-code&workspace=w+%2F%26&vendor=project", body: null });
+  assert.equal(api.report({ refresh: true }).path, "/api/packages/report?cli=claude-code&workspace=w+%2F%26&vendor=project&refresh=1");
+  assert.deepEqual(api.updates(), { method: "GET", path: "/api/packages/updates?cli=claude-code&workspace=w+%2F%26&vendor=project", body: null });
   assert.equal(api.available().path, "/api/cli-packages/available?cli=claude-code&workspace=w+%2F%26&scope=project");
   assert.equal(api.marketplaces().path, "/api/cli-packages/marketplaces?cli=claude-code&workspace=w+%2F%26&scope=project");
   assert.equal(api.marketplaces().method, "GET");
   assert.equal(api.marketplaces().body, null);
   // The machine scope is the contract default: it stays out of the query and
   // the body, and a bare CLI still reads the machine roster.
-  const machine = guestPackagesApi("grok");
-  assert.equal(machine.roster().path, "/api/cli-packages?cli=grok");
+  const machine = packagesApi("grok");
+  assert.equal(machine.report().path, "/api/packages/report?cli=grok");
+  assert.equal(machine.updates().path, "/api/packages/updates?cli=grok");
   assert.equal(machine.marketplaces().path, "/api/cli-packages/marketplaces?cli=grok");
   assert.deepEqual(machine.install({ source: "owner/repo" }).body, { cli: "grok", scope: "user", source: "owner/repo" });
 });
 
+test("the agent's own target rides the read, and the gallery is PiCode's own route", () => {
+  const api = packagesApi("pi", { workspaceId: "w", agentId: "a", scope: "agent" });
+  assert.equal(api.report().path, "/api/packages/report?cli=pi&workspace=w&agent=a&vendor=agent");
+  assert.equal(api.gallery("pi (web)").path, "/api/packages/gallery?q=pi%20(web)");
+  // A direct mutation is the CLI's own package API: the answer is its fresh
+  // list, and the target it describes travels with the request.
+  assert.deepEqual(api.direct.install({ source: "npm:x", scope: "user" }), { method: "POST", path: "/api/packages", body: { source: "npm:x", scope: "user", workspaceId: "w", agentId: "a" } });
+  assert.deepEqual(api.direct.update({ source: "npm:x", scope: "project" }), { method: "POST", path: "/api/packages/update", body: { source: "npm:x", scope: "project", workspaceId: "w", agentId: "a" } });
+  assert.deepEqual(api.direct.remove({ source: "npm:x", scope: "project" }), { method: "DELETE", path: "/api/packages?source=npm%3Ax&scope=project&workspace=w&agent=a", body: null });
+});
+
 test("a guest mutation names its target and keeps one request key across a retry", () => {
-  const api = guestPackagesApi("muse", { workspaceId: "w", scope: "project" });
+  const api = packagesApi("muse", { workspaceId: "w", scope: "project" });
   assert.deepEqual(api.install({ source: "plugins/demo", requestKey: "k1" }), {
     method: "POST",
     path: "/api/cli-packages/install",
@@ -131,12 +169,12 @@ test("a guest mutation names its target and keeps one request key across a retry
 });
 
 test("a marketplace action passes the scope as its ref, and never for the machine scope", () => {
-  assert.deepEqual(guestPackagesApi("claude-code", { workspaceId: "w", scope: "project" })
+  assert.deepEqual(packagesApi("claude-code", { workspaceId: "w", scope: "project" })
     .marketplace("add", { source: "owner/repo", name: "team" }).body,
     { cli: "claude-code", scope: "project", workspace: "w", source: "owner/repo", name: "team", action: "add", ref: "project" });
-  assert.deepEqual(guestPackagesApi("codex").marketplace("remove", { name: "openai-curated" }).body,
+  assert.deepEqual(packagesApi("codex").marketplace("remove", { name: "openai-curated" }).body,
     { cli: "codex", scope: "user", action: "remove", name: "openai-curated" });
-  assert.equal(guestPackagesApi("omp", { scope: "project", workspaceId: "w" })
+  assert.equal(packagesApi("omp", { scope: "project", workspaceId: "w" })
     .marketplace("update", { name: "core", ref: "main" }).body.ref, "main");
 });
 
@@ -144,17 +182,17 @@ test("absence notes speak once per missing verb, then for the concepts left over
   // Codex: install and remove exist, enable/disable and update do not. The two
   // vendor words for the toggle are one sentence, not two.
   assert.deepEqual(
-    guestPackagesNotes({ install: true, remove: true }, { enable: "No toggle.", disable: "No toggle.", update: "No update." }),
+    packagesNotes({ install: true, remove: true }, { enable: "No toggle.", disable: "No toggle.", update: "No update." }),
     ["No toggle.", "No update."],
   );
   // A pane renders before its first report: `report && report.notes` hands
   // over null, and a default parameter does not cover null. Regression for the
   // boot crash this shipped with (guest packages route, 2026-09-20).
-  assert.deepEqual(guestPackagesNotes(null, null), []);
-  assert.deepEqual(guestPackagesNotes(undefined, undefined), []);
+  assert.deepEqual(packagesNotes(null, null), []);
+  assert.deepEqual(packagesNotes(undefined, undefined), []);
   // Hermes: a catalog without marketplace sources, plus a concept note.
   assert.deepEqual(
-    guestPackagesNotes({ install: true, remove: true, toggle: true, update: true, available: true }, {
+    packagesNotes({ install: true, remove: true, toggle: true, update: true, available: true }, {
       "marketplace-add": "No sources.",
       capabilities: "Capabilities are granted per plugin.",
     }),
@@ -162,15 +200,15 @@ test("absence notes speak once per missing verb, then for the concepts left over
   );
   // A verb that exists keeps its note out of the pane; a note with no missing
   // verb behind it is still one sentence of chrome.
-  assert.deepEqual(guestPackagesNotes({ update: true }, { update: "Never shown." }), []);
-  assert.deepEqual(guestPackagesNotes({ install: true }, { app: "Marketplaces can run a command." }), ["Marketplaces can run a command."]);
+  assert.deepEqual(packagesNotes({ update: true }, { update: "Never shown." }), []);
+  assert.deepEqual(packagesNotes({ install: true }, { app: "Marketplaces can run a command." }), ["Marketplaces can run a command."]);
   // A CLI with every verb and no notes says nothing.
-  assert.deepEqual(guestPackagesNotes({ install: true, remove: true, toggle: true, update: true, inspect: true, marketplace: true }, {}), []);
+  assert.deepEqual(packagesNotes({ install: true, remove: true, toggle: true, update: true, inspect: true, marketplace: true }, {}), []);
 });
 
 test("a note missing for an absent verb invents nothing", () => {
-  assert.deepEqual(guestPackagesNotes({ install: true, remove: true }, {}), []);
-  assert.deepEqual(guestPackagesNotes({}, { install: "" }), []);
+  assert.deepEqual(packagesNotes({ install: true, remove: true }, {}), []);
+  assert.deepEqual(packagesNotes({}, { install: "" }), []);
 });
 
 test("a catalog row offers Install only when its CLI names the spec", () => {
@@ -198,20 +236,23 @@ test("a refusal carries the command a person has to run", () => {
 });
 
 test("the availability check is one read, and refresh forces it", () => {
-  const api = guestPackagesApi("grok", { workspaceId: "w1", scope: "project" });
-  assert.equal(api.updates().path, "/api/cli-packages/updates?cli=grok&workspace=w1&scope=project");
-  assert.equal(api.updates({ refresh: true }).path, "/api/cli-packages/updates?cli=grok&workspace=w1&scope=project&refresh=1");
+  const api = packagesApi("grok", { workspaceId: "w1", scope: "project" });
+  assert.equal(api.updates().path, "/api/packages/updates?cli=grok&workspace=w1&vendor=project");
+  assert.equal(api.updates({ refresh: true }).path, "/api/packages/updates?cli=grok&workspace=w1&vendor=project&refresh=1");
 });
 
 test("an Update control exists only for a row the CLI's catalog says is behind", () => {
-  const caps = { update: true };
-  assert.equal(rowUpdateState(caps, { updateAvailable: true, latest: "0.4.0" }, true), "update");
-  assert.equal(rowUpdateState(caps, { updateAvailable: false }, true), "current");
-  // Before the check nothing is claimed: the pane offers the check itself.
-  assert.equal(rowUpdateState(caps, {}, false), "unknown");
-  // A CLI with no update verb never offers one.
-  assert.equal(rowUpdateState({ update: false }, { updateAvailable: true }, true), "none");
-  assert.equal(rowUpdateState(undefined, undefined, false), "none");
+  const updates = [{ source: "plugins/demo", scope: "user", current: "0.2.0", latest: "0.4.0" }];
+  assert.deepEqual(behindFor(updates, { source: "plugins/demo", vendor: "user" }), updates[0]);
+  // A row the check did not name is not behind — and a check that never ran
+  // (an empty list) claims nothing at all.
+  assert.equal(behindFor(updates, { source: "plugins/other", vendor: "user" }), null);
+  assert.equal(behindFor([], { source: "plugins/demo" }), null);
+  assert.equal(behindFor(undefined, { source: "plugins/demo" }), null);
+  assert.equal(behindFor(null, null), null);
+  // Two layers can hold the same source: the row's own layer decides.
+  const both = [{ source: "x", scope: "user" }, { source: "x", scope: "project" }];
+  assert.equal(behindFor(both, { source: "x", vendor: "project" }).scope, "project");
 });
 
 test("the filter's highlights are literal, case-insensitive and keep the text whole", () => {

@@ -30,13 +30,17 @@ func (g guestDriver) Scopes() []ScopeRow {
 func (g guestDriver) Caps() Caps {
 	c := clipkgs.Capabilities(g.cli)
 	return Caps{
-		List:           true, // a CLI without a roster is read from its own files
-		Available:      c.Available,
-		Install:        c.Install,
-		Remove:         c.Remove,
-		Toggle:         c.Toggle,
-		Update:         c.Update,
-		Inspect:        c.Inspect,
+		List:      true, // a CLI without a roster is read from its own files
+		Available: c.Available,
+		Install:   c.Install,
+		Remove:    c.Remove,
+		Toggle:    c.Toggle,
+		Update:    c.Update,
+		Inspect:   c.Inspect,
+		// A guest's mutations run the vendor's own command in the durable job
+		// lane (ADR-0087), so the request answers the job and the pane follows
+		// the lane's events.
+		Async:          true,
 		Marketplace:    c.Marketplace,
 		CatalogInstall: c.CatalogInstall,
 	}
