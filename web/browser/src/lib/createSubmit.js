@@ -1,10 +1,10 @@
 import { api, humanizeError } from "@picode/shared/client/api.js";
-import { createWorkspaceSchema, createWorkspaceCloneSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
+import { createWorkspaceSchema, createWorkspaceCloneSchema, createWsAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 
 // The create flow's request builder, lifted out of desktop/App.jsx's
 // submitNew so the phone's sheet (ADR-0044) posts exactly what the desktop
 // dialog does. Pure: form values in, { path, body } or { error } out.
-//   kind: "workspace" | "free" | "agent"
+//   kind: "workspace" | "agent" (free agents use NewCliPrincipal, ADR-0179)
 //   values: { name, path, source, url }   (FormData of CreateForm)
 //   cfg: { provider, model, thinking }    (ConfigFields)
 export function createRequest(kind, values, cfg, workspaceId) {
@@ -16,12 +16,11 @@ export function createRequest(kind, values, cfg, workspaceId) {
     if (!parsed.ok) return { error: parsed.error };
     return { path: "/api/workspaces/clone", body: parsed.value, clone: true };
   }
-  const schema = kind === "workspace" ? createWorkspaceSchema : kind === "free" ? createFreeAgentSchema : createWsAgentSchema;
+  const schema = kind === "workspace" ? createWorkspaceSchema : createWsAgentSchema;
   const parsed = parseForm(schema, kind === "workspace" ? { name, path } : { name, path, ...(cfg || {}) });
   if (!parsed.ok) return { error: parsed.error };
   const body = parsed.value;
   if (kind === "workspace") return { path: "/api/workspaces", body };
-  if (kind === "free") return { path: "/api/agents", body };
   if (!workspaceId) return { error: "Pick a workspace first." };
   return {
     path: "/api/workspaces/" + encodeURIComponent(workspaceId) + "/agents",
