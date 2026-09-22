@@ -86,6 +86,27 @@ Three consequences worth knowing before reading a number:
   lines beside it. The capability stays visible in the coverage matrix and
   the field returns when a second CLI reports it.
 
+## Counting each billed token once
+
+Three CLIs write the same usage more than once, and every adapter has to
+undo it before a total means anything. All three were measured on this
+machine's stores on 2026-09-22 and checked against t3code's usage reader
+(`apps/server/src/usage/usageTranscripts.ts`) and ccusage, which apply the
+same rules:
+
+| CLI | What repeats | The rule |
+|---|---|---|
+| Claude Code | one record per content block of a response, each carrying the response's whole `usage` (12.64B tokens summed vs 6.53B billed over 30 days) | the first record per `message.id:requestId` carries the usage; later ones add only their tools and results |
+| Claude Code | subagents write `<session>/subagents/agent-*.jsonl`, one level below where the meter used to look (1.48B tokens across 34 sessions unread) | read them; they name the parent's `sessionId` and fold into it |
+| Codex | a fork or subagent rollout opens with its parent's history copied in, re-stamped in one burst (49 of 98 rollouts were forks); an unchanged `token_count` is re-emitted on stream boundaries; `input_tokens` includes the cached portion | lines less than 1s apart after a forked `session_meta` are the parent's; only the first `session_meta` names the session; a repeated `last_token_usage` is dropped; uncached input is `input − cached − cache write` |
+| Grok | `inputTokens` includes the cached portion | same subtraction; usage comes from `updates.jsonl` `turn_completed` (one per `prompt_id`), which 53 sessions had and `usage.json` did not |
+
+Together they took Claude Code from 12.6B to 8.0B tokens and Codex from
+2.8B to 1.4B in a 30-day window, and Grok's priced spend from $273 to $328.
+Claude Code's *cost* did not move: it is the session snapshot spread by
+token share, so duplicated tokens inflated the denominator and the
+numerator alike.
+
 ## Why the cuts happen once
 
 Meters return **uncapped** windows and `merge` does the ranking and the

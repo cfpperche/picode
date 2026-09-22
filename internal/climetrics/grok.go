@@ -2,6 +2,7 @@ package climetrics
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -22,10 +23,15 @@ import (
 //     loop_started (one per model call), first_token, tool_started /
 //     tool_completed(duration_ms), turn_ended(outcome). 188 of 231 are
 //     non-empty and 176 hold completed turns.
-//   - usage.json, one per session: per-turn input/output/cache/reasoning
-//     tokens, costUsdTicks (10^10 ticks per USD, per Grok's own user guide)
-//     and the model behind the turn. Grok only began writing it in 1.0.x —
-//     3 of 231 sessions here — which is why tokens and cost report as
+//   - updates.jsonl, one per session: the session-update stream, whose
+//     turn_completed lines carry each turn's usage — tokens, costUsdTicks
+//     (10^10 ticks per USD, per Grok's own user guide) and a per-model
+//     split. It is the fuller of the two usage sources: of 108 sessions with
+//     any usage in a 30-day window, 53 had it only here and 5 had more
+//     turns here than in usage.json (2026-09-22).
+//   - usage.json, one per session: the same per-turn numbers, written at
+//     the end of a turn and only since 1.0.x. Read when a session has no
+//     updates.jsonl. Sessions with neither report tokens and cost as
 //     *partial*, with both counts, never as a floor dressed up as a total.
 //
 // An earlier version of this meter read prompt_history.jsonl alone and told
@@ -47,6 +53,7 @@ var grokCounted = map[string]bool{
 	"summary.json":         true,
 	"events.jsonl":         true,
 	"usage.json":           true,
+	"updates.jsonl":        true,
 }
 
 func (GrokMeter) Fingerprint() string {
@@ -108,6 +115,7 @@ func (m GrokMeter) Meter(req Request) (Window, error) {
 			filepath.Join(dir, "summary.json"),
 			filepath.Join(dir, "events.jsonl"),
 			filepath.Join(dir, "usage.json"),
+			filepath.Join(dir, "updates.jsonl"),
 		)
 		replay(cachedParseKeyed(key, func() *parsed { return grokSessionParse(dir) }), acc, req)
 		return nil
@@ -127,7 +135,7 @@ func (m GrokMeter) Meter(req Request) (Window, error) {
 // grokSessionFiles are the files that describe a session directory. Any of
 // them triggers the directory's single parse, so a session that has events
 // but no summary (a live one) is still read once.
-var grokSessionFiles = map[string]bool{"summary.json": true, "events.jsonl": true, "usage.json": true}
+var grokSessionFiles = map[string]bool{"summary.json": true, "events.jsonl": true, "usage.json": true, "updates.jsonl": true}
 
 // grokCan is what the Grok CLI is capable of recording. It counts no lines
 // changed, so impact stays out; whether it *did* record the rest in a window
@@ -139,7 +147,7 @@ var grokCan = map[Signal]bool{
 
 func grokCoverage(m GrokMeter, b Billing, acc *cliAcc) CoverageRow {
 	sig := acc.evidence(grokCan, map[Signal]bool{SigTiming: acc.timing != (Timing{})})
-	note := "Turns, tool calls and durations come from each session's events.jsonl; the model comes from summary.json; tokens and cost live only in usage.json, which Grok began writing in 1.0.x."
+	note := "Turns, tool calls and durations come from each session's events.jsonl; the model comes from summary.json; tokens and cost come from updates.jsonl, or usage.json on sessions without it."
 	turns, tok, cost := acc.seen[SigTurns], acc.seen[SigTokens], acc.seen[SigCost]
 	switch {
 	case turns == 0:
@@ -212,7 +220,11 @@ func grokSessionParse(dir string) *parsed {
 		title, model = sum.Title, sum.Model
 	}
 
-	for _, t := range grokMergeTurns(grokEventTurns(dir), grokUsageTurns(dir), model) {
+	usage := grokUpdateTurns(dir)
+	if len(usage) == 0 {
+		usage = grokUsageTurns(dir)
+	}
+	for _, t := range grokMergeTurns(grokEventTurns(dir), usage, model) {
 		out.timing.APIMs += t.apiMs
 		out.timing.ToolMs += t.toolMs
 		out.timing.SessionMs += t.sessionMs
@@ -429,13 +441,108 @@ func grokUsageTurns(dir string) []grokTurn {
 		out = append(out, grokTurn{
 			at: end, end: end, model: model, hasTokens: true,
 			cost: float64(t.CostUsdTicks) / grokCostTicksPerUSD,
-			toks: session.TokenTotals{
-				Input:      t.InputTokens,
-				Output:     t.OutputTokens,
-				CacheRead:  t.CachedReadTokens,
-				CacheWrite: t.CacheCreationTokens,
-				Reasoning:  t.ReasoningTokens,
-			},
+			toks: grokTokens(t.InputTokens, t.OutputTokens, t.CachedReadTokens, t.CacheCreationTokens, t.ReasoningTokens),
+		})
+	}
+	return out
+}
+
+// grokTokens maps Grok's counts onto PiCode's. Grok's inputTokens includes
+// the cached portion, which CacheRead already carries, so the uncached
+// input is what is left.
+func grokTokens(in, out, cacheRead, cacheWrite, reasoning int64) session.TokenTotals {
+	return session.TokenTotals{
+		Input:      max(0, in-cacheRead-cacheWrite),
+		Output:     out,
+		CacheRead:  cacheRead,
+		CacheWrite: cacheWrite,
+		Reasoning:  reasoning,
+	}
+}
+
+// grokUpdateUsage is the usage object on a turn_completed update, overall and
+// per model.
+type grokUpdateUsage struct {
+	InputTokens         int64 `json:"inputTokens"`
+	OutputTokens        int64 `json:"outputTokens"`
+	CachedReadTokens    int64 `json:"cachedReadTokens"`
+	CacheCreationTokens int64 `json:"cacheCreationTokens"`
+	ReasoningTokens     int64 `json:"reasoningTokens"`
+	CostUsdTicks        int64 `json:"costUsdTicks"`
+}
+
+// grokUpdateTurns reads the turn_completed lines of updates.jsonl, one turn
+// per prompt id. A turn that ran several models is filed under the one
+// that used the most tokens; its tokens and cost stay whole.
+func grokUpdateTurns(dir string) []grokTurn {
+	f, err := os.Open(filepath.Join(dir, "updates.jsonl"))
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	var out []grokTurn
+	seen := map[string]bool{}
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	for sc.Scan() {
+		line := sc.Bytes()
+		// Most of the stream is message chunks; only turn_completed
+		// carries usage, and parsing every chunk would dominate the cost.
+		if !bytes.Contains(line, []byte(`"turn_completed"`)) {
+			continue
+		}
+		var l struct {
+			Timestamp float64 `json:"timestamp"`
+			Params    struct {
+				Update struct {
+					Kind   string `json:"sessionUpdate"`
+					Prompt string `json:"prompt_id"`
+					Usage  *struct {
+						grokUpdateUsage
+						ModelUsage map[string]grokUpdateUsage `json:"modelUsage"`
+					} `json:"usage"`
+				} `json:"update"`
+				Meta struct {
+					At float64 `json:"agentTimestampMs"`
+				} `json:"_meta"`
+			} `json:"params"`
+		}
+		if json.Unmarshal(line, &l) != nil {
+			continue
+		}
+		u := l.Params.Update
+		if u.Kind != "turn_completed" || u.Usage == nil {
+			continue
+		}
+		if u.Usage.InputTokens == 0 && u.Usage.OutputTokens == 0 {
+			continue
+		}
+		if u.Prompt != "" {
+			if seen[u.Prompt] {
+				continue
+			}
+			seen[u.Prompt] = true
+		}
+		var end time.Time
+		switch {
+		case l.Params.Meta.At > 0:
+			end = time.UnixMilli(int64(l.Params.Meta.At))
+		case l.Timestamp > 0:
+			end = time.Unix(int64(l.Timestamp), 0)
+		default:
+			continue
+		}
+		model, most := "", int64(-1)
+		for name, mu := range u.Usage.ModelUsage {
+			if n := mu.InputTokens + mu.OutputTokens; n > most || (n == most && name < model) {
+				model, most = name, n
+			}
+		}
+		g := u.Usage.grokUpdateUsage
+		out = append(out, grokTurn{
+			at: end, end: end, model: model, hasTokens: true,
+			cost: float64(g.CostUsdTicks) / grokCostTicksPerUSD,
+			toks: grokTokens(g.InputTokens, g.OutputTokens, g.CachedReadTokens, g.CacheCreationTokens, g.ReasoningTokens),
 		})
 	}
 	return out
