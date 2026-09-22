@@ -47,6 +47,7 @@ import (
 	"github.com/cfpperche/picode/internal/llamaservice"
 	"github.com/cfpperche/picode/internal/mcptool"
 	"github.com/cfpperche/picode/internal/presence"
+	"github.com/cfpperche/picode/internal/pricing"
 	"github.com/cfpperche/picode/internal/proclock"
 	"github.com/cfpperche/picode/internal/push"
 	"github.com/cfpperche/picode/internal/remind"
@@ -652,6 +653,15 @@ func serve() {
 	// meterable provider warm so #/providers can show a true number
 	// without eight vendor calls on every page load.
 	go server.StartUsageRefresh(backupCtx, deps, providerusage.DefaultRefresh)
+
+	// List-price estimates for the turns a CLI leaves unpriced (ADR-0185):
+	// the last good LiteLLM table from the data dir, then a fetch now and
+	// daily — never on a dashboard request. PICODE_PRICE_TABLE_URL=off
+	// keeps it offline.
+	go pricing.Loader{
+		Path: filepath.Join(dataDir, "var", "litellm-prices.json"),
+		URL:  pricing.URLFromEnv(),
+	}.Run(backupCtx)
 
 	// Dashboard stats (dash-perf Fase 1): warm the parse + range cache in
 	// the background so the first dashboard open is warm (~100-200ms)

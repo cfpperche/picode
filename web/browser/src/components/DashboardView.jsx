@@ -4,7 +4,7 @@ import { formatMoney } from "@picode/shared/domain/providerUsage.js";
 import {
   deltaPercent, fleetStats, compareLabel, formatTokens, percent, folderLabel,
   measured, coverageNote, billingBadge, billingTitle, formatDuration, formatLines,
-  costPerTurn, costPerLine, signalState, spendState, NOT_REPORTED, PARTIAL,
+  costPerTurn, costPerLine, signalState, spendState, NOT_REPORTED, PARTIAL, estimateShare,
   FLEET_ORDER, FLEET_LABELS, FLEET_HINTS, FLEET_NEEDS_YOU, FLEET_WORKING,
 } from "@picode/shared/domain/dashboardStats.js";
 import { readDashboardRange, writeDashboardRange, readDashboardStats, writeDashboardStats } from "../lib/openTabs.js";
@@ -179,8 +179,10 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
     value: m.cost,
     // A model row from a CLI that records no price shows why, not $0.00.
     unmeasured: !measured(signalState(coverage, m.cli, "cost")) && !m.cost,
-    display: measured(signalState(coverage, m.cli, "cost")) || m.cost ? money(m.cost) : "not priced",
-    title: (m.cli ? cliLabelOf(coverage, m.cli) + " · " : "") + m.provider + " · " + m.model + " · " + m.messages.toLocaleString() + " turns",
+    // A tilde marks a figure PiCode estimated at list price (ADR-0185).
+    display: measured(signalState(coverage, m.cli, "cost")) || m.cost ? (estimateShare(m.cost, m.estimated) === "all" ? "~" : "") + money(m.cost) : "not priced",
+    title: (m.cli ? cliLabelOf(coverage, m.cli) + " · " : "") + m.provider + " · " + m.model + " · " + m.messages.toLocaleString() + " turns" +
+      (m.estimated ? " · " + money(m.estimated) + " estimated at list price" : ""),
   }))), [firstLoad, stats, coverage]);
 
   // The pivot this release exists for: which CLI the money and the work went
@@ -192,17 +194,24 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
   // six CLIs were free rather than that none of them ran.
   const cliItems = useMemo(() => (firstLoad ? [] : stats.byCli.filter((c) => c.messages > 0).map((c) => {
     const priced = measured(c.costState);
+    // What PiCode priced at list rate for turns the CLI left unpriced
+    // (ADR-0185) is named on the row: all of it, or how much of it.
+    const share = priced ? estimateShare(c.cost, c.estimated) : "none";
     return {
       key: c.cli,
       label: c.label || c.cli,
+      // Short on purpose: the sub shares half the name column, and
+      // "incl. $91.15 est." was cut to "incl. $91.15 …" there.
+      sub: share === "all" ? "estimated" : share === "some" ? money(c.estimated) + " est." : undefined,
       badge: billingBadge(c.billing),
       badgeTitle: billingTitle(c.billing),
       value: priced ? c.cost : 0,
       unmeasured: !priced,
-      display: priced ? money(c.cost) : "not priced",
+      display: priced ? (share === "all" ? "~" : "") + money(c.cost) : "not priced",
       title: (c.label || c.cli) + " · " + c.messages.toLocaleString() + " messages · " +
         c.sessions.toLocaleString() + (c.sessions === 1 ? " session" : " sessions") +
-        (priced ? "" : " · this CLI records no cost"),
+        (priced ? "" : " · this CLI records no cost") +
+        (share !== "none" ? " · " + money(c.estimated) + " estimated at list price from LiteLLM's table" : ""),
     };
   })), [firstLoad, stats]);
   const workspaceItems = useMemo(() => (firstLoad ? [] : stats.byWorkspace.map((w) => ({
@@ -281,6 +290,11 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
                 <div className="stat-tile-delta stat-tile-delta-muted">not priced by any CLI that ran</div>
               ) : !firstLoad && spend === PARTIAL ? (
                 <div className="stat-tile-delta stat-tile-delta-muted">a floor &mdash; some sessions are unpriced</div>
+              ) : null}
+              {!firstLoad && spend !== NOT_REPORTED && stats.current.estimated > 0 ? (
+                <div className="stat-tile-delta stat-tile-delta-muted" title="Turns no CLI priced, estimated by PiCode at list price from LiteLLM's table">
+                  {money(stats.current.estimated)} estimated at list price
+                </div>
               ) : null}
             </StatTile>
             <StatTile

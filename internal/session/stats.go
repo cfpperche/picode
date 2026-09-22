@@ -37,6 +37,8 @@ type ModelBucket struct {
 	CLI      string  `json:"cli,omitempty"` // which agent CLI spent it; empty when the caller scans one CLI
 	Cost     float64 `json:"cost"`
 	Messages int     `json:"messages"`
+	// Estimated is the list-price part of Cost (ADR-0185).
+	Estimated float64 `json:"estimated,omitempty"`
 }
 
 // WorkspaceBucket is one session folder's totals in the current period.
@@ -117,9 +119,12 @@ type SessionSpend struct {
 
 // PeriodTotals is the aggregate over one window.
 type PeriodTotals struct {
-	Cost     float64 `json:"cost"`
-	Messages int     `json:"messages"`
-	Sessions int     `json:"sessions"` // distinct session files with >=1 in-window message
+	Cost float64 `json:"cost"`
+	// Estimated is the part of Cost PiCode priced at list rate for turns the
+	// CLI left unpriced (ADR-0185) — never a CLI's own figure.
+	Estimated float64 `json:"estimated,omitempty"`
+	Messages  int     `json:"messages"`
+	Sessions  int     `json:"sessions"` // distinct session files with >=1 in-window message
 }
 
 // WindowStats is the response shape for a spend/activity aggregation window.

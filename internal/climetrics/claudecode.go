@@ -74,6 +74,13 @@ func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 	pricedBy := map[string]bool{}
 	underBy := map[string]bool{} // the snapshot itself admits a model it could not price
 
+	// Parse first, replay second: whether a session was priced is known only
+	// once all of its files are read (the snapshot lives in the parent, never
+	// in a subagent's), and only an unpriced session's turns are estimated —
+	// estimating a subagent whose parent's snapshot already covers it would
+	// charge it twice.
+	var parses []*parsed
+	snapshotBy := map[string]bool{}
 	for _, f := range ccTranscripts(root) {
 		// A file untouched since before the widened window cannot hold
 		// an in-window message; the same cheap pre-filter pi's scan uses.
@@ -81,12 +88,18 @@ func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 			continue
 		}
 		p := cachedParse(f.path, ccParse)
+		parses = append(parses, p)
+		snapshotBy[p.key] = snapshotBy[p.key] || p.priced
+	}
+	for _, p := range parses {
+		acc.estimate = !snapshotBy[p.key]
 		if !replay(p, acc, req) {
 			continue
 		}
 		pricedBy[p.key] = pricedBy[p.key] || p.priced
 		underBy[p.key] = underBy[p.key] || p.underpriced
 	}
+	acc.estimate = false
 	priced, unpriced, under := 0, 0, 0
 	for key := range acc.files {
 		switch {
@@ -134,9 +147,25 @@ func ccCoverage(m ClaudeCodeMeter, b Billing, priced, unpriced, under int, acc *
 	switch {
 	case priced == 0 && unpriced == 0:
 		// nothing in window; nothing to qualify
+	case priced == 0 && acc.estimated > 0:
+		// Nothing Claude Code priced itself; everything shown is PiCode's
+		// list-price estimate (ADR-0185), whole or partial.
+		sig[SigCost] = StateEstimated
+		if acc.unpriced > 0 {
+			sig[SigCost] = StatePartial
+		}
+		note = "No session in this window recorded a cost snapshot. " + acc.estimateNote()
 	case priced == 0:
 		sig[SigCost] = StateNotReported
 		note = "No session in this window recorded a cost snapshot; tokens and activity are complete."
+	case unpriced > 0 && acc.estimated > 0:
+		// Snapshot sessions carry Claude Code's own figure; the rest are
+		// estimated, and the note names how much of the total that is.
+		if acc.unpriced > 0 {
+			sig[SigCost] = StatePartial
+		}
+		note = "Priced from " + itoa(priced) + " of " + itoa(priced+unpriced) +
+			" sessions' own snapshots; a live session has none, and the rest are estimated. " + acc.estimateNote()
 	case unpriced > 0:
 		sig[SigCost] = StatePartial
 		note = "Priced from " + itoa(priced) + " of " + itoa(priced+unpriced) +
@@ -147,6 +176,12 @@ func ccCoverage(m ClaudeCodeMeter, b Billing, priced, unpriced, under int, acc *
 		// The total is a floor by the vendor's own admission.
 		sig[SigCost] = StatePartial
 		note = itoa(under) + " of " + itoa(priced) + " sessions carry a model Claude Code could not price, so the total is a floor."
+	}
+	if under > 0 && sig[SigCost] == StateReported {
+		// A snapshot Claude Code itself flagged as carrying a model it could
+		// not price keeps the total a floor, estimates or not.
+		sig[SigCost] = StatePartial
+		note += " " + itoa(under) + " of " + itoa(priced) + " snapshots carry a model Claude Code could not price, so the total is a floor."
 	}
 	return CoverageRow{CLI: m.CLI(), Label: m.Label(), Billing: b, Signals: sig, Note: note}
 }
@@ -216,6 +251,7 @@ type ccMsg struct {
 	model   string
 	units   int64
 	tokens  session.TokenTotals
+	cw1h    int64 // cache write for an hour, part of tokens.CacheWrite
 	stop    string
 	results int // tool_result blocks inspected — they arrive on the user turn
 	errs    int
@@ -329,7 +365,7 @@ func ccPrice(key, cwd, name string, msgs []ccMsg, st ccState) *parsed {
 		out.ents = append(out.ents, cliEntry{
 			at: m.at, key: key, cwd: cwd, name: name,
 			role: m.role, model: m.model, prov: ccProvider(m.model),
-			cost: cost, toks: m.tokens, tools: m.tools,
+			cost: cost, toks: m.tokens, cw1h: m.cw1h, tools: m.tools,
 			results: m.results, errs: m.errs,
 			// Claude Code writes no "aborted" stop; an interrupt is not a
 			// stop_reason at all. Counting stop_sequence here reported 45
@@ -451,6 +487,9 @@ func ccMessage(raw map[string]any) (ccMsg, bool) {
 			CacheRead:  int64(num(u["cache_read_input_tokens"])),
 			CacheWrite: int64(num(u["cache_creation_input_tokens"])),
 		}
+		if cc, _ := u["cache_creation"].(map[string]any); cc != nil {
+			out.cw1h = int64(num(cc["ephemeral_1h_input_tokens"]))
+		}
 		if d, _ := u["output_tokens_details"].(map[string]any); d != nil {
 			out.tokens.Reasoning = int64(num(d["thinking_tokens"]))
 		}
@@ -502,7 +541,7 @@ func ccDedupeKey(raw map[string]any) string {
 // usage, so the record carrying it wins.
 func (m *ccMsg) absorb(o ccMsg) {
 	if o.tokens.Output > m.tokens.Output {
-		m.tokens, m.units = o.tokens, o.units
+		m.tokens, m.units, m.cw1h = o.tokens, o.units, o.cw1h
 	}
 	m.tools = append(m.tools, o.tools...)
 	m.results += o.results

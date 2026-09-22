@@ -88,7 +88,7 @@ the thing against 3.1 GB of real stores:
 | Not copied | Why |
 |---|---|
 | OpenTelemetry export (Claude Code and Codex both emit it; SigNoz/Grafana/CloudWatch guides assume it) | It needs a collector, an endpoint and a retention story — infrastructure a single-operator tool (ADR-0003) should not require to answer "what did this week cost". The files are already on disk and already complete enough |
-| A model price table (ccusage's `calculate` mode) | It ages silently: the day a vendor changes a price, every number stays plausible and wrong. Codex therefore reports tokens and quota, never an invented dollar |
+| A model price table (ccusage's `calculate` mode) | It ages silently: the day a vendor changes a price, every number stays plausible and wrong. Codex therefore reports tokens and quota, never an invented dollar. **Superseded by [ADR-0185](../decisions/0185-litellm-price-table.md) (2026-09-22):** LiteLLM's table, fetched daily rather than shipped, prices only what the CLI left unpriced, and the estimate travels as its own field |
 | Normalising tool names across CLIs (`Bash` / `bash` / `shell`) | Three vendors' words. Folding them together would assert an equivalence PiCode cannot back; the CLI mark disambiguates them instead |
 | Burn rate, projections, budgets, alerts | Unchanged from ADR-0041/0042: no budget concept exists in PiCode |
 | A charting library | Unchanged: hand-rolled SVG, the `lib/barchart.js` + `DailyChart.jsx` split |
@@ -159,7 +159,6 @@ and Claude Code's `subagents/` transcripts, which PiCode never listed. The
 rules PiCode adopted are in `docs/architecture/climetrics.md` ("Counting
 each billed token once").
 
-Not adopted here: t3code prices every unpriced token from LiteLLM's model
-table and fetches plan windows for five vendors. Both touch refusals in this
-study (the price table) and in the dashboard's Limits card, and are tracked
-in `docs/handoff/open/dashboard.md`.
+Adopted afterwards, the same day: the Limits card reads the plan windows
+the Providers roster already fetches (the `plans` field), and unpriced
+tokens are estimated from LiteLLM's table (ADR-0185), the row above.

@@ -1,0 +1,2 @@
+### Added
+- **Dashboard: Codex and live Claude Code sessions count in Spend.** Turns a CLI leaves unpriced are estimated at list price from LiteLLM's public price table, refreshed daily; the estimate is marked on the Spend card, on each CLI row ("estimated" or "$X est.") and on each model row ("~$X"). A CLI's own figure always wins. Set `PICODE_PRICE_TABLE_URL=off` to keep PiCode from fetching the table.

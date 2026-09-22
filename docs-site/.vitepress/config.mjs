@@ -75,6 +75,7 @@ export default defineConfig({
             text: "Chat and work",
             collapsed: false,
             items: [
+              { text: "Dashboard", link: "/guide/dashboard" },
               { text: "Canvas", link: "/guide/canvas" },
               { text: "Session messages", link: "/guide/communication" },
               { text: "Delivery requests", link: "/guide/delivery" },
