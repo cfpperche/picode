@@ -44,7 +44,10 @@ tool arrives depends on the agent's CLI:
 Open the agent through PiCode's **Agent CLIs**, in the project's Git repository.
 The command requires an updated PiCode binary and daemon, and the identity
 inherited from that launch. Open the project’s **Git → Delivery** view on desktop or mobile to follow
-integration. Integration and deployment execution queues are not available.
+integration. An agent can also ask for a place in the project’s integration queue
+(for its own delivery, at the revision and target that delivery declares), but
+nothing runs by itself yet: the queue’s own view and the executor are still to
+come, and deployment execution is not available.
 
 ## Register and request review
 

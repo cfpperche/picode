@@ -107,7 +107,7 @@ import { isSearchTool, hitsFromResult } from "@picode/shared/domain/searchCards.
 import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import PromptDialog from "./components/PromptDialog.jsx";
 import { askPrompt } from "./lib/prompt.js";
-import { locate, firstAgentId, displayAgentName, mentionAgents } from "@picode/shared/domain/tree.js";
+import { locate, ownerOfTerminal, firstAgentId, displayAgentName, mentionAgents } from "@picode/shared/domain/tree.js";
 import { leafUserId } from "./lib/sessionCards.js";
 
 function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
@@ -409,6 +409,9 @@ export default function App({ shellChrome = false } = {}) {
   const located = locate(workspaces, freeAgents, selectedId);
   const selected = located && located.workspace;
   const agent = located && located.agent;
+  // A CLI agent opens as its bound terminal's tab (ADR-0160), so "the selected
+  // agent" for the CLI panes is the agent that owns the selected terminal.
+  const ctxAgent = agent || (isTermTab(selectedId) ? ownerOfTerminal(workspaces, freeAgents, tabTermId(selectedId)) : null);
   // A workspace terminal tab still has that folder as the packages/MCP context
   // (machine list must not disappear — same rule as GET /api/packages).
   const paneWs = selected || (isTermTab(selectedId) ? workspaceForTerminal(terminals, workspaces, tabTermId(selectedId)) : null);
@@ -2916,7 +2919,10 @@ export default function App({ shellChrome = false } = {}) {
         created = await api("/api/agents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: snap.name, path: snap.workPath || "" }),
+          body: JSON.stringify({
+            cli: snap.cli, name: snap.name, path: snap.workPath || "",
+            provider: snap.provider || "", model: snap.model || "", thinking: snap.thinking || "",
+          }),
         });
       }
       const patch = {};
@@ -3746,7 +3752,7 @@ export default function App({ shellChrome = false } = {}) {
           inShell: shellChrome,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id, cli: agent?.cli }),
+          onNavigate: (kind) => go(kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }),
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,
@@ -4339,7 +4345,7 @@ export default function App({ shellChrome = false } = {}) {
             location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : "");
             return;
           }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id, cli: agent?.cli }); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
             const via = loc && loc.agent && loc.agent.mode === "interactive" ? "tui" : undefined;

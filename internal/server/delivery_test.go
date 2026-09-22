@@ -48,7 +48,7 @@ func TestDeliveryToolNativePrincipals(t *testing.T) {
 		t.Fatal(err)
 	}
 	res, out := inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"term":%q,"action":"capabilities"}`, tm.ID))
-	if res.StatusCode != 200 || out["identityScope"] != "launch" || out["integrationQueue"] != false {
+	if res.StatusCode != 200 || out["identityScope"] != "launch" || out["integrationQueue"] != true {
 		t.Fatalf("%d %v", res.StatusCode, out)
 	}
 	res, out = inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"term":%q,"action":"register","requestId":"t","title":"Terminal","branch":"feature","revision":%q,"target":"main"}`, tm.ID, head))
@@ -89,7 +89,12 @@ func TestDeliveryToolRefusalTable(t *testing.T) {
 		{"conflicting identity", func(p map[string]any) { p["term"] = tm.ID }, 403},
 		{"unknown field", func(p map[string]any) { p["approved"] = true }, 400},
 		{"unknown action", func(p map[string]any) { p["action"] = "force" }, 400},
-		{"queue unavailable", func(p map[string]any) { p["action"] = "request-integration" }, 409},
+		{"queue without a delivery", func(p map[string]any) { p["action"] = "request-integration" }, 404},
+		{"withdraw of an unknown entry", func(p map[string]any) {
+			p["action"] = "withdraw-integration"
+			p["id"] = "queue_missing"
+			p["expectedVersion"] = 1
+		}, 404},
 		{"deploy unavailable", func(p map[string]any) { p["action"] = "request-deployment" }, 409},
 		{"missing retry", func(p map[string]any) { delete(p, "requestId") }, 400},
 		{"wrong revision", func(p map[string]any) { p["revision"] = strings.Repeat("a", 40) }, 409},
@@ -264,5 +269,111 @@ func TestDeliveryObservationOwnerAndRoot(t *testing.T) {
 		if res.StatusCode != 409 {
 			t.Fatal(res.StatusCode)
 		}
+	}
+}
+
+// The agent's half of ADR-0182: a launch asks for its own change, sees the
+// entry it got, and can step out of the queue while it waits.
+// The agent's half of ADR-0182: a launch asks for its own change, sees the
+// entry it got, and can step out of the queue while it waits.
+func TestDeliveryIntegrationQueueAgentDoor(t *testing.T) {
+	ts, st := newInboxServer(t)
+	repo := gitRepo(t)
+	gitRun(t, repo, "branch", "feature")
+	head := strings.TrimSpace(gitOut(t, repo, "rev-parse", "HEAD"))
+	ws, agent, err := storeWorkspaceWithAgent(st, "queue", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := st.AddAgentWithCLI(ws.ID, "codex", "Other", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := func(agentID string, payload map[string]any) (int, map[string]any) {
+		payload["agent"] = agentID
+		raw, _ := json.Marshal(payload)
+		return queueRequest(t, ts, "POST", "/api/delivery/tool", string(raw))
+	}
+	owner := func(payload map[string]any) (int, map[string]any) {
+		raw, _ := json.Marshal(payload)
+		return queueRequest(t, ts, "POST", "/api/workspaces/"+ws.ID+"/delivery/queue", string(raw))
+	}
+	if code, out := call(agent.ID, map[string]any{"action": "capabilities"}); code != 200 || out["integrationQueue"] != true {
+		t.Fatalf("capabilities = %d %v", code, out)
+	} else {
+		actions, _ := out["actions"].([]any)
+		found := 0
+		for _, a := range actions {
+			if a == "request-integration" || a == "withdraw-integration" {
+				found++
+			}
+		}
+		if found != 2 {
+			t.Fatalf("the queue actions are not offered: %v", actions)
+		}
+	}
+	code, out := call(agent.ID, map[string]any{"action": "register", "requestId": "create", "title": "Fix", "branch": "feature", "revision": head, "target": "main"})
+	if code != 200 {
+		t.Fatalf("register = %d %v", code, out)
+	}
+	delivery := out["delivery"].(map[string]any)["id"].(string)
+	request := func(key, revision string) map[string]any {
+		return map[string]any{"action": "request-integration", "requestId": key, "id": delivery, "revision": revision, "target": "main"}
+	}
+	// A revision that is not the declared one is refused before anything waits.
+	if code, out := call(agent.ID, request("q0", strings.Repeat("b", 40))); code != 409 {
+		t.Fatalf("drifted revision = %d %v", code, out)
+	}
+	code, out = call(agent.ID, request("q1", head))
+	if code != 200 {
+		t.Fatalf("request = %d %v", code, out)
+	}
+	entry := out["queue"].(map[string]any)
+	if entry["state"] != "waiting" || entry["principal"] != agent.ID || out["replayed"] != false {
+		t.Fatalf("entry = %v", entry)
+	}
+	queueID := entry["id"].(string)
+	// A retry with the same key answers with the same entry, not a second one.
+	if code, out = call(agent.ID, request("q1", head)); code != 200 || out["replayed"] != true || out["queue"].(map[string]any)["id"] != queueID {
+		t.Fatalf("retry = %d %v", code, out)
+	}
+	if code, out = call(agent.ID, request("q2", head)); code != 409 {
+		t.Fatalf("second request = %d %v", code, out)
+	}
+	// show carries the entry and the version a withdraw must name.
+	if code, out = call(agent.ID, map[string]any{"action": "show", "id": delivery}); code != 200 {
+		t.Fatalf("show = %d %v", code, out)
+	} else if entries, ok := out["queue"].([]any); !ok || len(entries) != 1 || entries[0].(map[string]any)["id"] != queueID {
+		t.Fatalf("show queue = %v", out["queue"])
+	}
+	// Another launch in the same repository may not touch it.
+	if code, out = call(other.ID, request("x1", head)); code != 403 {
+		t.Fatalf("foreign request = %d %v", code, out)
+	}
+	if code, out = call(other.ID, map[string]any{"action": "withdraw-integration", "requestId": "x2", "id": queueID, "expectedVersion": 1}); code != 403 {
+		t.Fatalf("foreign withdraw = %d %v", code, out)
+	}
+	// A stale version is a conflict; the owner then authorizes, and the agent —
+	// which may not order or authorize — steps out of the queue itself.
+	if code, out = call(agent.ID, map[string]any{"action": "withdraw-integration", "requestId": "w0", "id": queueID, "expectedVersion": 9}); code != 409 {
+		t.Fatalf("stale withdraw = %d %v", code, out)
+	}
+	if code, out = owner(map[string]any{"action": "authorize", "requestId": "a1", "id": queueID, "expectedVersion": 9}); code != 409 {
+		t.Fatalf("stale authorize = %d %v", code, out)
+	}
+	if code, out = owner(map[string]any{"action": "authorize", "requestId": "a1", "id": queueID, "expectedVersion": 1}); code != 200 {
+		t.Fatalf("authorize = %d %v", code, out)
+	}
+	if code, out = call(agent.ID, map[string]any{"action": "withdraw-integration", "requestId": "w1", "id": queueID, "expectedVersion": 2}); code != 200 || out["queue"].(map[string]any)["state"] != "withdrawn" {
+		t.Fatalf("withdraw = %d %v", code, out)
+	}
+	// Withdrawn frees the delivery: a fresh request takes its own place.
+	if code, out = call(agent.ID, request("q3", head)); code != 200 {
+		t.Fatalf("re-request = %d %v", code, out)
+	} else if out["queue"].(map[string]any)["state"] != "waiting" {
+		t.Fatalf("re-request state = %v", out["queue"])
+	}
+	if code, out = call(agent.ID, map[string]any{"action": "request-deployment", "requestId": "d1"}); code != 409 {
+		t.Fatalf("deployment = %d %v", code, out)
 	}
 }
