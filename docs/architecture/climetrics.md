@@ -141,6 +141,32 @@ Above it, `internal/server/session_stats.go` caches the finished
 component forces a miss: a meter that cannot describe its own state must
 not be served from a cache that assumes it can.
 
+## Estimates: list price for what a CLI left unpriced (ADR-0185)
+
+`Request.Prices` is LiteLLM's price table (`internal/pricing`), loaded by
+`cmd/picode` from `var/litellm-prices.json` at boot and refreshed from the
+network daily — never on a request. The accumulator prices an assistant turn
+at list rate only when the meter marks its parse as unpriced
+(`cliAcc.estimate`) and the CLI wrote no cost for it:
+
+| CLI | Estimated turns |
+|---|---|
+| Codex | every turn — it never prices one |
+| Claude Code | turns of a session with no cost snapshot in any of its files, subagents included; a session with one keeps Claude Code's own figure, subagents too, so nothing is charged twice |
+| everyone else | none yet: each prices its own turns, or records no tokens to price |
+
+The estimate never blends in silently: `estimated` travels beside `cost` on
+`current`/`prior`, every `byCli` row and every `byModel` row, a CLI whose
+whole spend is estimated reports cost as `estimated`, and the coverage note
+says how much and over how many turns. A model the table does not list (or a
+family name like `opus`) stays unpriced and is counted in the same note. The
+table's content hash joins the server's stats cache key, so a new table
+recomputes every window. `PICODE_PRICE_TABLE_URL=off` disables the fetch.
+
+Measured over 30 days on this machine (2026-09-22): Codex $1,542 estimated
+over 10,984 turns; Claude Code $91 over the 21 sessions without a snapshot;
+Spend $6.9k → $8.5k, $1.6k of it estimated.
+
 ## Limits: two sources, one card
 
 `Window.Limits` is what a CLI wrote about its own quota — today Codex's

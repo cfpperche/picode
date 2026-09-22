@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfpperche/picode/internal/pricing"
 	"github.com/cfpperche/picode/internal/session"
 )
 
@@ -66,6 +67,10 @@ const (
 	// read (missing root, unreadable database). Distinct from
 	// not-reported so the fix is discoverable.
 	StateUnavailable State = "unavailable"
+	// StateEstimated: the CLI does not price this, and PiCode did — at list
+	// rate from LiteLLM's table (ADR-0185). Cost only. The surface shows
+	// the number and marks it as an estimate.
+	StateEstimated State = "estimated"
 )
 
 // Billing is how a CLI's spend is actually paid for. It changes what the
@@ -154,6 +159,7 @@ type CLIBucket struct {
 	Label     string  `json:"label"`
 	Billing   Billing `json:"billing"`
 	Cost      float64 `json:"cost"`
+	Estimated float64 `json:"estimated,omitempty"` // list-price part of Cost (ADR-0185)
 	CostState State   `json:"costState"`
 	Messages  int     `json:"messages"`
 	Sessions  int     `json:"sessions"`
@@ -186,6 +192,10 @@ type Request struct {
 	// (the owner's 2026-09-13 screenshot). A pure function of the range, so
 	// the server's root|range cache stays correct.
 	Hourly bool
+
+	// Prices estimates turns a CLI left unpriced (ADR-0185). Nil prices
+	// nothing, and every such turn stays unpriced.
+	Prices *pricing.Table
 }
 
 // LocOf is the request's location, defaulting to the process's, which is the
@@ -333,10 +343,12 @@ func merge(req Request, windows []Window) FleetStats {
 	for _, w := range windows {
 		st := w.Stats
 		out.Current.Cost += st.Current.Cost
+		out.Current.Estimated += st.Current.Estimated
 		out.Current.Messages += st.Current.Messages
 		out.Current.Sessions += st.Current.Sessions
 		if st.Prior != nil {
 			prior.Cost += st.Prior.Cost
+			prior.Estimated += st.Prior.Estimated
 			prior.Messages += st.Prior.Messages
 			prior.Sessions += st.Prior.Sessions
 		}
@@ -375,6 +387,7 @@ func merge(req Request, windows []Window) FleetStats {
 				byModel[k] = b
 			}
 			b.Cost += m.Cost
+			b.Estimated += m.Estimated
 			b.Messages += m.Messages
 		}
 		for _, ws := range st.ByWorkspace {
@@ -463,6 +476,7 @@ func cliBucket(w Window) CLIBucket {
 		Label:     w.Coverage.Label,
 		Billing:   w.Coverage.Billing,
 		Cost:      st.Current.Cost,
+		Estimated: st.Current.Estimated,
 		CostState: w.Coverage.Signals[SigCost],
 		Messages:  st.Current.Messages,
 		Sessions:  st.Current.Sessions,
@@ -637,3 +651,6 @@ func windowLabel(minutes int) string {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// moneyText is a dollar amount for a coverage note.
+func moneyText(v float64) string { return "$" + strconv.FormatFloat(v, 'f', 2, 64) }

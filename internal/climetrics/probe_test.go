@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/cfpperche/picode/internal/pricing"
 )
 
 // The two tests here are harnesses, not gates. They read the developer's own
@@ -29,6 +31,17 @@ func TestProbeRealTree(t *testing.T) {
 	}
 	from := to.AddDate(0, 0, -days)
 	req := Request{From: from, To: to, PriorFrom: from.AddDate(0, 0, -days), Loc: loc}
+	// CLIMETRICS_PROBE_PRICES names a LiteLLM table on disk, to see the
+	// list-price estimates (ADR-0185) the server would add.
+	if path := os.Getenv("CLIMETRICS_PROBE_PRICES"); path != "" {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if req.Prices, err = pricing.Parse(raw); err != nil {
+			t.Fatal(err)
+		}
+	}
 	out := Aggregate(req, Meters())
 	b, _ := json.MarshalIndent(struct {
 		Current  any `json:"current"`

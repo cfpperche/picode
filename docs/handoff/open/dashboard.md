@@ -5,7 +5,7 @@
 - Dashboard Fase 2 (2026-09-17, perf Fase 1 landed): per-meter fingerprint cache + stale-while-revalidate, so one dirty CLI stops invalidating all six and polls stay warm.
 - Dashboard throughput (tokens/s): definition (generation vs turn), per-CLI coverage, UI gates. Codex's `duration_ms`/`time_to_first_token_ms` still unread; Grok's timings shipped.
 - **Only Codex reports quota windows.** Claude Code, Grok and the rest have plan limits PiCode never reads, so `Limits` is a one-CLI panel with a coverage footnote. Reading a second CLI's windows is the next real improvement there, not more UI.
-- Price table for unpriced tokens (2026-09-22): t3code prices from LiteLLM with per-model overrides and a costSource per row; would price Codex and live Claude Code sessions. Reopens the ADR-0097 study's refusal — owner's call.
+- Per-model price overrides (2026-09-22, ADR-0185 deferred them): t3code lets the user set a model's rates; PiCode has no surface for it yet, so a model LiteLLM omits (Grok's `-build` ids, Codex's `gpt-5.3-codex-spark`) stays unpriced.
 
 ## Debts
 

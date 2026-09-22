@@ -70,6 +70,9 @@ func (m CodexMeter) Meter(req Request) (Window, error) {
 		return absentWindow(m, req), nil
 	}
 	acc := newCliAcc(req, m.CLI())
+	// Codex prices nothing, so every turn is a candidate for a list-price
+	// estimate (ADR-0185).
+	acc.estimate = true
 	var limits []LimitWindow
 	var newestLimit time.Time
 
@@ -95,11 +98,14 @@ var codexCan = map[Signal]bool{
 }
 
 func codexCoverage(m CodexMeter, b Billing, acc *cliAcc, sawLimits bool) CoverageRow {
-	return CoverageRow{
-		CLI: m.CLI(), Label: m.Label(), Billing: b,
-		Signals: acc.evidence(codexCan, map[Signal]bool{SigLimits: sawLimits}),
-		Note:    "Never prices a token, so it is not counted in spend — its quota windows stand in for cost instead. It records no per-turn error state or edit counts.",
+	sig := acc.evidence(codexCan, map[Signal]bool{SigLimits: sawLimits})
+	note := "Never prices a token, so it is not counted in spend — its quota windows stand in for cost instead. It records no per-turn error state or edit counts."
+	if acc.estimated > 0 {
+		// The spend is PiCode's estimate, and the state says so.
+		sig[SigCost] = StateEstimated
+		note = "Never prices a token; its spend is PiCode's list-price estimate. " + acc.estimateNote() + " It records no per-turn error state or edit counts."
 	}
+	return CoverageRow{CLI: m.CLI(), Label: m.Label(), Billing: b, Signals: sig, Note: note}
 }
 
 // codexFiles lists the rollouts a window could contain, skipping whole day

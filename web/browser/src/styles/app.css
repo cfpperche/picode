@@ -1720,7 +1720,7 @@ img.ws-face.term-cli-face {
 .spend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 /* The bar keeps at least 40px, so a card narrower than the grid expects
    shows a short bar instead of none (it used to reach 0px at ~900px). */
-.spend-row { display: grid; grid-template-columns: minmax(110px, 190px) minmax(40px, 1fr) 68px; align-items: center; gap: 10px; font-size: 12.5px; }
+.spend-row { display: grid; grid-template-columns: minmax(110px, 190px) minmax(40px, 1fr) 76px; align-items: center; gap: 10px; font-size: 12.5px; }
 .spend-name { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-primary); }
 .spend-face { display: inline-flex; flex: none; }
 .spend-face .ws-face { width: 14px; height: 14px; min-width: 14px; flex: none; font-size: 9px; }

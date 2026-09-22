@@ -1,4 +1,4 @@
-import { measured, REPORTED, PARTIAL, NOT_REPORTED } from "@picode/shared/domain/dashboardStats.js";
+import { measured, REPORTED, PARTIAL, NOT_REPORTED, ESTIMATED } from "@picode/shared/domain/dashboardStats.js";
 
 // What each agent CLI can and cannot tell this dashboard (ADR-0097).
 //
@@ -24,6 +24,8 @@ const MARKS = {
   [REPORTED]: { glyph: "●", title: "recorded by this CLI" },
   [PARTIAL]: { glyph: "◑", title: "recorded for some sessions only" },
   [NOT_REPORTED]: { glyph: "—", title: "this CLI does not record it" },
+  // Cost only (ADR-0185): the CLI prices nothing, PiCode priced its turns.
+  [ESTIMATED]: { glyph: "~", title: "not recorded by this CLI — estimated by PiCode at list price" },
 };
 const UNKNOWN = { glyph: "?", title: "could not be read on this machine" };
 

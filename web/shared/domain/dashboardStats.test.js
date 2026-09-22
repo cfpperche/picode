@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { deltaPercent, fleetStats, rangeLabel, compareLabel, formatTokens, percent, tokenSegments, bucketLabel, folderLabel,
   measured, signalState, coversAll, coverageNote, billingBadge, formatDuration, resetsIn, costPerTurn, costPerLine, spendState,
-  limitReading, observedAge, limitRows,
+  limitReading, observedAge, limitRows, estimateShare, ESTIMATED,
   FLEET_WORKING, FLEET_NEEDS_YOU, FLEET_IDLE, FLEET_UNREPORTED, FLEET_ORDER, FLEET_LABELS } from "./dashboardStats.js";
 
 describe("deltaPercent", () => {
@@ -346,5 +346,18 @@ describe("limitRows", () => {
     const { rows, blocked } = limitRows([], [plan("anthropic", "auth_required", []), plan("kimi", "unknown", []), plan("zai", "unsupported", [])]);
     assert.equal(rows.length, 0);
     assert.deepEqual(blocked.map((b) => [b.provider, b.cli]), [["anthropic", "claude-code"]]);
+  });
+});
+
+describe("estimates (ADR-0185)", () => {
+  it("counts an estimated cost as measured", () => {
+    assert.equal(measured(ESTIMATED), true);
+    assert.equal(spendState([{ cli: "codex", messages: 3, costState: ESTIMATED }]), "reported");
+  });
+  it("says how much of a cost is estimated", () => {
+    assert.equal(estimateShare(10, 0), "none");
+    assert.equal(estimateShare(0, 0), "none");
+    assert.equal(estimateShare(10, 2), "some");
+    assert.equal(estimateShare(10, 10), "all");
   });
 });

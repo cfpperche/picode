@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/climetrics"
+	"github.com/cfpperche/picode/internal/pricing"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/usage"
 )
@@ -133,7 +134,10 @@ func statsForRange(rng string) climetrics.FleetStats {
 	meters := climetrics.Meters()
 
 	fp := climetrics.Fingerprint(meters)
-	key := session.Root() + "|" + rng
+	// The price table is an input like the stores: a new one must recompute
+	// the window, not serve estimates from the table it replaced.
+	prices := pricing.Current()
+	key := session.Root() + "|" + rng + "|" + prices.Version()
 	if st, hit := sessionStats.get(key, fp, from, to); hit {
 		return st
 	}
@@ -143,6 +147,7 @@ func statsForRange(rng string) climetrics.FleetStats {
 		// A day window draws one bar if it is bucketed by day, which is
 		// the whole chart (2026-09-13). Hours are what "today" asks.
 		Hourly: rng == "today",
+		Prices: prices,
 	}, meters)
 	sessionStats.put(key, fp, from, to, st)
 	return st

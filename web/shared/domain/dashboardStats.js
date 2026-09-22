@@ -238,11 +238,24 @@ export const REPORTED = "reported";
 export const PARTIAL = "partial";
 export const NOT_REPORTED = "not-reported";
 export const UNAVAILABLE = "unavailable";
+// ESTIMATED is cost only: the CLI prices nothing and PiCode priced its turns
+// at list rate from LiteLLM's table (ADR-0185). A number, marked as a guess.
+export const ESTIMATED = "estimated";
 
 // measured is true when a value means something. Everything else renders as
 // an em dash.
 export function measured(state) {
-  return state === REPORTED || state === PARTIAL;
+  return state === REPORTED || state === PARTIAL || state === ESTIMATED;
+}
+
+// estimateShare says how much of a cost is PiCode's list-price estimate
+// (ADR-0185): "none", "some" (a CLI's own figure plus estimated turns) or
+// "all". The surface marks "all" with a tilde and names "some" in the row.
+export function estimateShare(cost, estimated) {
+  const c = Number(cost) || 0;
+  const e = Number(estimated) || 0;
+  if (e <= 0 || c <= 0) return "none";
+  return e >= c - 1e-9 ? "all" : "some";
 }
 
 // coverageOf indexes the coverage rows by CLI so a panel can ask "did this

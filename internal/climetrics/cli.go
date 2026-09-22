@@ -63,6 +63,14 @@ type cliAcc struct {
 	impact Impact
 	timing Timing
 
+	// estimate says the entries being replayed come from a session the CLI
+	// did not price, so add prices them from req.Prices (ADR-0185). Set by
+	// the meter per parse — never on the cached entries themselves.
+	estimate bool
+	// estimated counts the current-window turns priced that way; unpriced
+	// the ones the table could not (a model it does not list).
+	estimated, unpriced int
+
 	// seen is what the parser actually observed in this window, per signal.
 	// Coverage is derived from it rather than declared: a hand-written
 	// "reported" beside a counter nothing ever incremented is how the
@@ -94,6 +102,13 @@ func (a *cliAcc) add(e cliEntry) {
 	if e.at.IsZero() {
 		return
 	}
+	var est float64
+	wantsPrice := a.estimate && e.cost == 0 && e.role == "assistant" && e.toks != (session.TokenTotals{})
+	if wantsPrice {
+		if c, ok := a.req.Prices.Cost(e.model, e.toks.Input, e.toks.Output, e.toks.CacheRead, e.toks.CacheWrite); ok && c > 0 {
+			e.cost, est = c, c
+		}
+	}
 	switch {
 	case !a.req.PriorFrom.IsZero() && e.at.Before(a.req.PriorFrom):
 		return
@@ -101,13 +116,22 @@ func (a *cliAcc) add(e cliEntry) {
 		return
 	case !a.req.From.IsZero() && e.at.Before(a.req.From):
 		a.prior.Cost += e.cost
+		a.prior.Estimated += est
 		a.prior.Messages++
 		a.priorFiles[e.key] = true
 		return
 	}
 
 	a.current.Cost += e.cost
+	a.current.Estimated += est
 	a.current.Messages++
+	if wantsPrice {
+		if est > 0 {
+			a.estimated++
+		} else {
+			a.unpriced++
+		}
+	}
 	a.split.Add(e.split)
 	a.seen[SigMessages]++
 	if e.cost > 0 {
@@ -188,6 +212,7 @@ func (a *cliAcc) add(e cliEntry) {
 		a.byModel[mk] = mb
 	}
 	mb.Cost += e.cost
+	mb.Estimated += est
 	mb.Messages++
 
 	a.toks.Input += e.toks.Input
@@ -233,6 +258,32 @@ func (a *cliAcc) result() session.WindowStats {
 	// No ByProvider rows: that breakdown answers "what did the credential
 	// PiCode holds cost", and a CLI agent signs in with its own account.
 	return st
+}
+
+// estimateNote describes this window's list-price estimates for a coverage
+// note, or "" when there were none to describe.
+func (a *cliAcc) estimateNote() string {
+	if a.estimated == 0 && a.unpriced == 0 {
+		return ""
+	}
+	note := ""
+	if a.estimated > 0 {
+		note = moneyText(a.current.Estimated) + " of it is estimated at list price from LiteLLM's table, over " + turnsText(a.estimated) + "."
+	}
+	if a.unpriced > 0 {
+		if note != "" {
+			note += " "
+		}
+		note += turnsText(a.unpriced) + " used a model the table does not list and stayed unpriced."
+	}
+	return note
+}
+
+func turnsText(n int) string {
+	if n == 1 {
+		return "1 turn"
+	}
+	return itoa(n) + " turns"
 }
 
 // evidence turns what the accumulator observed into signal states.
