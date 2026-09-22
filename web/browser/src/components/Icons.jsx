@@ -51,6 +51,7 @@ import {
   List,
   ListOrdered,
   MessageSquare,
+  MessagesSquare,
   Mic,
   Monitor,
   Moon,
@@ -162,6 +163,9 @@ export const IconSession = lucide(List, 13);
 export const IconPlus = lucide(Plus, 13);
 export const IconChat = lucide(MessageSquare, 13);
 export const IconKind = lucide(MessageSquare, 13);
+// Agents talking to each other (workspace Communication): two bubbles, not
+// the single one Open chat wears.
+export const IconCommunication = lucide(MessagesSquare, 13);
 export const IconSend = lucide(ArrowUp, 14);
 export const IconBack = lucide(ChevronLeft, 13);
 export const IconX = lucide(X, 16);

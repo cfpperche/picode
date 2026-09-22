@@ -15,7 +15,7 @@ card 5/5). Defect found and fixed in-session: Move up/down had no icon, so the l
 Blind spots: the "Checking pull request…" pending row was only seen through a MutationObserver (gh answered in < 1 s);
 "Open pull request #N" was never shown against a real PR (the scratch HOME has no gh login); Show in Explorer and
 Open on GitHub were not clicked (they open real windows on the owner's desktop); the agent-row arrows were not seen
-(the scratch had no agents). These need a live look on the owner's instance.
+(the scratch had no agents). The owner confirmed all of it working live after the deploy (2026-09-22).
 Merge: fast-forward ready once `make close` passes on the merged tree.
 
 ## Next up

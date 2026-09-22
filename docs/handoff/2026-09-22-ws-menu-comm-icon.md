@@ -1,0 +1,3 @@
+# 2026-09-22 — ws-menu-comm-icon: Communication gets its own icon
+
+Shipped: the workspace menu's Communication row repeated the Sessions list icon (IconSession) and did not say "agents talking"; it now wears IconCommunication (lucide MessagesSquare, two bubbles), distinct from Open chat's single MessageSquare. Files: `web/browser/src/components/Icons.jsx`, `WorkspaceMenu.jsx`, changelog fragment. No ADR (icon swap, UI refinement). Verified: `make ci-scoped` PASS; visual-review PASS on scratch (commicon.png, overlayAudit ok, card 5/5; noted: at 13px the two-bubble icon resembles Copy path's copy icon, told apart by bubble tails, rows three apart in different groups). No blind spots, no next-up, no debts.
