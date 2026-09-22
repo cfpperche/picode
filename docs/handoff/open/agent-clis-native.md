@@ -99,6 +99,19 @@
   reproduced: the run stopped at the same blocked-project-layer `ready()`. Row
   (2) lives in `qa-cli-settings-recovery.mjs`, not re-measured here.
 
+- **No live CLI session has been observed applying a map PiCode wrote** (2026-09-21,
+  the question that made it visible). The shipped rows rest on *the vendor's own
+  code and docs*, read at the installed build's tag and cited per row — omp's
+  bundle (the file it resolves, its parser, and that its manager reads at startup
+  with nothing calling `reload()`), codex's generated schema plus
+  `built_in_defaults()` and `startup.rs` — and on round-trip tests through
+  PiCode's own format layer. What nobody has watched is the other end: start the
+  CLI with a binding PiCode wrote and press the key. That is the experiment, and
+  both are runnable without touching the machine's real config: omp honours
+  `PI_CONFIG_DIR`, and codex takes an isolated `HOME` with a copy of `~/.codex`
+  in it. Either it applies the binding (the claim is observed) or it does not (the
+  row, its pickup and the pane's sentence are wrong and must change).
+
 - **Antigravity's key map is researched and not declared** (P3, 2026-09-21).
   Measured: `~/.gemini/antigravity-cli/keybindings.json`, 36 ids in 10
   namespaces, `id -> [chord]`, one *override* layer — the vendor documents
