@@ -62,11 +62,11 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		p.Files = append(p.Files, agyTitleReporterPath(dir), wrapperPath(dir, "agy"))
 	case "omp":
 		// omp is a Pi fork: the same extension API, measured live (the
-		// session events fire and PICODE_TERM_ID survives). The extension
-		// self-guards on TUI mode, so headless -p runs report nothing.
-		p.Summary = "Activity extension via -e (omp shares pi's extension API)"
-		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not maintenance subcommands, protocol modes, help/version)", Args: []string{"-e", ompTerminalStateExtensionFile(dir)}})
-		p.Files = append(p.Files, wrapperPath(dir, "omp"), ompTerminalStateExtensionFile(dir))
+		// session events fire and PICODE_TERM_ID survives). The extensions
+		// self-guard on TUI mode, so headless -p runs report nothing.
+		p.Summary = "Activity and checklist extensions via -e (omp shares pi's extension API)"
+		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not maintenance subcommands, protocol modes, help/version)", Args: []string{"-e", ompTerminalStateExtensionFile(dir), "-e", ompChecklistExtensionFile(dir)}})
+		p.Files = append(p.Files, wrapperPath(dir, "omp"), ompTerminalStateExtensionFile(dir), ompChecklistExtensionFile(dir))
 	}
 	return p
 }
