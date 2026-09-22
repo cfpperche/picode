@@ -51,6 +51,15 @@ its session is gone, after `signinOpenLimit` (15 min, counted from creation),
 and at boot — `StartSigninReaper` ticks every minute. The card's Cancel
 deletes it; its strip reads `terminal.deleted` to say it closed.
 
+**Make agent (slice 4).** `POST /api/terminals/{id}/adopt` binds a shell to a
+new agent when PiCode has seen a launchable catalog CLI running in it
+(`TermRuntimes`, ADR-0062): same workspace (free → free agent), `work_path` =
+the pane's live folder unless it is the workspace's, launch set to that CLI
+with PiCode's tools filled in (applies from the next start). Refused (409):
+nothing detected, already an agent, a sign-in, a launch of another CLI. The
+app offers it only where `adoptOffer` says so — a shell with `tui.cli`, no
+`launchCli`, no kind and no bound agent.
+
 Each launch writes a private generation under `cli-launch/<terminal>/run-*`.
 Integration uses the existing CLI adapter with the resolved executable pinned
 in that generation. Shared executable reporters are replaced atomically.

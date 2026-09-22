@@ -1,10 +1,8 @@
 # One door for agent CLIs
 
-Decision: ADR-0184. Plan: `docs/plans/one-cli-door.md` (four branches, in order).
+Decision: ADR-0184. Plan: `docs/plans/one-cli-door.md`. All four branches landed on 2026-09-22; what remains is below.
 
 ## Next
-
-- `feat/cli-door-adopt`: Make agent from a PiCode shell running a catalog CLI (the bind endpoint exists: `POST /api/workspaces/{id}/principals` with `terminalId`).
 
 ## Debts
 

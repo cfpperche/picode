@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cliLocation, cliPaneHash, cliPaneSetupContext, cliCapabilities, cliPanes, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged, PICODE_TOOL_FAMILIES } from "./cliLaunch.js";
+import { cliLocation, cliPaneHash, cliPaneSetupContext, cliCapabilities, cliPanes, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged, PICODE_TOOL_FAMILIES, adoptOffer } from "./cliLaunch.js";
 import { cliLaunchSchema, parseForm } from "../contracts/schemas.js";
 
 test("CLI manager parses launch routes", () => {
@@ -213,4 +213,14 @@ test("the Models pane is offered where the CLI answers, and its address round-tr
   assert.equal(loc.layer, "project");
   assert.equal(cliLocation("#/clis/omp/models/extra").invalid, true);
   assert.equal(cliLocation("#/clis/omp/models?layer=elsewhere").layer, "");
+});
+
+test("adoptOffer: only a shell running a detected CLI, not yet an agent (ADR-0184)", () => {
+  const shell = { id: "t", tui: { cli: "claude-code" } };
+  assert.equal(adoptOffer(shell, null), "claude-code");
+  assert.equal(adoptOffer({ id: "t" }, null), "");
+  assert.equal(adoptOffer(shell, { id: "a" }), "");
+  assert.equal(adoptOffer({ ...shell, launchCli: "claude-code" }, null), "");
+  assert.equal(adoptOffer({ ...shell, kind: "signin" }, null), "");
+  assert.equal(adoptOffer(null, null), "");
 });

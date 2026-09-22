@@ -1,3 +1,4 @@
+import { adoptOffer } from "@picode/shared/domain/cliLaunch.js";
 import { useEffect, useRef, useState } from "react";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 import KeyBar from "../components/KeyBar.jsx";
@@ -96,7 +97,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFil
         {error ? (
           <div className="m-tool-state" role="alert"><p>{error}</p><button type="button" className="btn btn-sm" onClick={() => setRetry((n) => n + 1)}>Retry</button></div>
         ) : page ? (
-          <TermSurface term={live} hidden={false} cwdKind={targetOwner.kind} onOpenFile={(path) => onOpenFiles(targetOwner, { path })} />
+          <TermSurface adopt={adoptOffer(live, targetOwner.kind === "agent" ? targetOwner : null)} term={live} hidden={false} cwdKind={targetOwner.kind} onOpenFile={(path) => onOpenFiles(targetOwner, { path })} />
         ) : (
           <div className="m-tool-state m-tool-loading" role="status" aria-label="Attaching terminal" aria-busy="true"><p>Attaching…</p><span className="gg-skel" /><span className="gg-skel" /><span className="gg-skel" /></div>
         )}

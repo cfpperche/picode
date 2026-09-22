@@ -22,6 +22,7 @@ func registerTerminalRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("DELETE /api/terminals/{id}", handleDeleteTerminal(deps))
 	mux.HandleFunc("PATCH /api/terminals/{id}", handleRenameTerminal(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/open", handleOpenTerminal(deps))
+	mux.HandleFunc("POST /api/terminals/{id}/adopt", handleAdoptTerminal(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/state", handleSetTerminalState(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/open-url", handleTerminalOpenURL(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/runtime", handleSetTerminalRuntime(deps))

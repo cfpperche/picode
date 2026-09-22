@@ -6855,3 +6855,8 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   color: var(--danger);
 }
 .term-attach-error::before { content: "⚠ "; }
+
+/* Make agent (ADR-0184): one line over the shell, state + the one action. */
+.term-adopt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px; margin-bottom: 6px; border-radius: var(--radius-ctl); background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); font-size: 12px; }
+.term-adopt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-adopt .btn { flex: none; }

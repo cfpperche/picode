@@ -266,3 +266,11 @@ export function editLaunchOverrides(base, previous, next) {
   const changes = launchOverrides(before, next);
   return { ...previous, ...changes, ...(previous.env || changes.env ? { env: { ...previous.env, ...changes.env } } : {}) };
 }
+
+// Make agent (ADR-0184): a PiCode shell running a catalog CLI — detected, not
+// launched, not a sign-in and not already an agent — offers to become one.
+// Answers the CLI id to name, or "" when there is nothing to offer.
+export function adoptOffer(term, boundAgent) {
+  if (!term || boundAgent || term.kind || term.launchCli) return "";
+  return (term.tui && term.tui.cli) || "";
+}

@@ -2998,3 +2998,8 @@ img.ws-face.term-cli-face {
   display: flex; flex-direction: column;
 }
 .m-insp-sheet .m-screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* Make agent (ADR-0184): one line over the shell, state + the one action. */
+.term-adopt { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; margin-bottom: 6px; border-radius: var(--radius-ctl); background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); font-size: 12px; }
+.term-adopt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-adopt .btn { flex: none; }

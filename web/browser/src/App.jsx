@@ -1,3 +1,4 @@
+import { adoptOffer, terminalLaunchAgent } from "@picode/shared/domain/cliLaunch.js";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
@@ -3818,6 +3819,7 @@ export default function App({ shellChrome = false } = {}) {
             return (
               <TermSurface
                 key={id}
+                adopt={adoptOffer(t, terminalLaunchAgent(t.id, workspaces, freeAgents))}
                 term={t}
                 tabId={id}
                 hidden={selectedId !== id}

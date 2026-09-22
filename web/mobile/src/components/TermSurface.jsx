@@ -5,6 +5,7 @@ import { bumpTermFontSize } from "@picode/shared/domain/termTheme.js";
 import { absTime, relTime } from "@picode/shared/domain/relTime.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { api, humanizeError } from "@picode/shared/client/api.js";
+import { toast } from "../lib/toast.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -50,7 +51,7 @@ function TermWindow({ title, titleFull, children }) {
   );
 }
 
-export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }) {
+export default function TermSurface({ adopt = "", term, error, hidden, onOpenFile, cwdKind }) {
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState("");
   if (!term && !error) return null;
@@ -117,8 +118,33 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }
           </TermMessage>
         </TermWindow>
       ) : (
-        <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
+        <>
+          {adopt ? <AdoptBar term={term} cli={adopt} /> : null}
+          <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
+        </>
       )}
     </section>
+  );
+}
+
+// Make agent (ADR-0184): a catalog CLI typed into this shell can become an
+// agent bound to it — named, granted and in the fleet. Only on a click.
+function AdoptBar({ term, cli }) {
+  const [busy, setBusy] = useState(false);
+  async function adopt() {
+    setBusy(true);
+    try {
+      const a = await api("/api/terminals/" + encodeURIComponent(term.id) + "/adopt", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      toast.ok((a && a.name ? a.name : terminalCliLabel(cli)) + " is an agent now.");
+    } catch (e) {
+      toast.error(humanizeError(e && e.message ? e.message : String(e)));
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="term-adopt" role="status">
+      <span>{terminalCliLabel(cli)} is running in this shell.</span>
+      <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={adopt}>{busy ? "Making agent…" : "Make agent"}</button>
+    </div>
   );
 }
