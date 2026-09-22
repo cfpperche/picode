@@ -213,6 +213,13 @@ func opencodeRemove(_ context.Context, p Paths, t Target) error {
 // array under key. Offsets come from a comment-blanked copy of the same
 // length, so every byte outside the removed element survives verbatim.
 func removeArrayElement(src []byte, key, element string) ([]byte, error) {
+	return spliceArrayElement(src, key, element, "plugin list")
+}
+
+// spliceArrayElement is removeArrayElement for any named array: `list` is what
+// the refusals call it, so OpenCode's `plugin` array and Omp's `extensions`
+// array share one splice and neither prints the other's word.
+func spliceArrayElement(src []byte, key, element, list string) ([]byte, error) {
 	scan := blankComments(src)
 	spans, err := arrayElementSpans(scan, key)
 	if err != nil {
@@ -240,7 +247,7 @@ func removeArrayElement(src []byte, key, element string) ([]byte, error) {
 		start = spans[target-1].end
 	}
 	next := append(append([]byte{}, src[:start]...), src[end:]...)
-	if err := verifySplice(src, next, key, lit); err != nil {
+	if err := verifySplice(src, next, key, lit, list); err != nil {
 		return nil, err
 	}
 	return next, nil
@@ -248,7 +255,7 @@ func removeArrayElement(src []byte, key, element string) ([]byte, error) {
 
 // verifySplice re-parses both documents and refuses when the only difference
 // is not exactly one element leaving the named array.
-func verifySplice(before, after []byte, key, lit string) error {
+func verifySplice(before, after []byte, key, lit, list string) error {
 	was, err := connectors.LenientJSON(before)
 	if err != nil {
 		return fmt.Errorf("the config is not valid JSON: %v", err)
@@ -269,12 +276,12 @@ func verifySplice(before, after []byte, key, lit string) error {
 		kept = append(kept, m)
 	}
 	if !found || !equalStrings(kept, got) {
-		return fmt.Errorf("%w: the plugin list did not change as expected", ErrStale)
+		return fmt.Errorf("%w: the %s did not change as expected", ErrStale, list)
 	}
 	delete(was, key)
 	delete(now, key)
 	if !reflect.DeepEqual(was, now) {
-		return fmt.Errorf("%w: the edit touched more than the plugin list", ErrStale)
+		return fmt.Errorf("%w: the edit touched more than the %s", ErrStale, list)
 	}
 	return nil
 }
@@ -347,7 +354,7 @@ func arrayElementSpans(scan []byte, key string) ([]span, error) {
 		}
 		i++
 	}
-	return nil, fmt.Errorf("the plugin list is not closed")
+	return nil, fmt.Errorf("the array under %q is not closed", key)
 }
 
 // topLevelArray returns the index of the '[' of a top-level key's array, or -1

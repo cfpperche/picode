@@ -568,5 +568,18 @@ func ompRoster(ctx context.Context, p Paths, scope string, available bool) ([]Ro
 	if err != nil {
 		return nil, "", err
 	}
-	return parseVendorRows("omp", out, available)
+	rows, note, err := parseVendorRows("omp", out, available)
+	if err != nil {
+		return nil, "", err
+	}
+	// The plugin store is not where Omp's own extensions live: the CLI loads
+	// them from its settings, so the roster is read beside them.
+	extensions, extNote, err := ompExtensions(ctx, p)
+	if err != nil {
+		return nil, "", err
+	}
+	if extNote != "" {
+		note = extNote
+	}
+	return mergeOmpExtensions(rows, extensions), note, nil
 }

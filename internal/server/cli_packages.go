@@ -303,8 +303,11 @@ func handleCLIPackageMarkets(deps Deps) http.HandlerFunc {
 }
 
 // handleCLIPackageJob starts a durable install, removal, update or
-// marketplace-source action. The answer is the job; the pane follows
-// `cli.job` events for progress.
+// marketplace-source action. The answer is the job — or, for a mutation the
+// driver runs itself (a CLI whose removal is a write of one of its own files),
+// the CLI's fresh list, because there is no argv for the lane to run. The pane
+// follows `cli.job` events for the first, and the `cli.packages` event for the
+// second.
 func handleCLIPackageJob(deps Deps, action string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var v cliPackageRequest
@@ -325,8 +328,28 @@ func handleCLIPackageJob(deps Deps, action string) http.HandlerFunc {
 		}
 		// A request that cannot run reserves no job: the driver builds the
 		// command here, and the lane builds it again from the payload.
-		if _, err := packageCommand(r.Context(), v.CLI, action, payload); err != nil {
+		cmd, err := packageCommand(r.Context(), v.CLI, action, payload)
+		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
+			return
+		}
+		if cmd.Exe == "" {
+			// A command with no argv is a mutation the driver performs itself —
+			// a CLI whose removal is a write of its own file (Omp's workspace
+			// `extensions` entry) has nothing to hand the lane, and the write
+			// has already happened. The answer is the CLI's fresh list, the way
+			// a synchronous mutation always answers (ADR-0048).
+			publishPackageChange(deps, v.CLI, action)
+			read := guestQuery(v.Scope, paths.Cwd)
+			read.Fresh = true
+			ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+			defer cancel()
+			rep, err := pkgs.DriverFor(v.CLI).List(ctx, read)
+			if err != nil {
+				writeErr(w, statusForPackageErr(err), err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, pkgs.Guest(v.CLI, rep))
 			return
 		}
 		raw, err := json.Marshal(payload)

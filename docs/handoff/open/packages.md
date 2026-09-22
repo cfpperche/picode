@@ -68,18 +68,46 @@
   one pane renders the unified shape (slice 3).
   Plan: `docs/plans/packages-unification.md`.
 
-- [ ] **Omp's own `extensions` list is invisible in the guest packages pane.**
-  Measured 2026-09-21 while giving Omp the browser tool: the pane renders the
-  vendor's plugin roster (`omp plugin list --json`), but the extension loads
-  from a project `extensions` entry — `<ws>/.omp/settings.json` (ours) or
-  `.omp/config.yml`; user level is `~/.omp/agent/config.yml`, where
-  `omp config set extensions '<json array>'` writes. `omp config get extensions
-  --json` returns the value, so the pane can show it: read the CLI's own key
-  beside the roster and render one row per entry (LOCAL badge + path), the way
-  the Pi pane shows `.pi/settings.json` path packages. `omp plugin link <path>`
-  is *not* the answer — for a local package its scope is the machine
+- [x] **Omp's own `extensions` list is invisible in the guest packages pane.**
+  Paid 2026-09-21 (`feat/packages-omp`, slice 5 of
+  `docs/plans/packages-unification.md`), which is also where the debt was
+  measured. The omp roster read now merges the two layers the CLI loads from:
+  the workspace's `<ws>/.omp/settings.json`, parsed with the standard library,
+  and the user level through the CLI's own `omp config get <key> --json` (never
+  a YAML parser for `~/.omp/agent/config.yml`). One row per entry —
+  `SourceKind: extension`, the entry as written, the CLI's own name for it
+  (base without the extension, `index.ts` → its directory), the resolved path
+  when something is there, `Scope` machine or workspace, and `Enabled` from
+  `disabledExtensions` (`extension-module:<name>`, the id the vendor's own
+  dashboard writes). A row the plugin roster already carries is not duplicated,
+  and an entry both layers name is one row — the workspace's. Removal writes
+  what the row came from: the workspace entry is spliced out of that file by
+  PiCode (the entry, and its id out of `disabledExtensions`, every other byte
+  preserved), the user layer goes through `omp config set extensions '<json
+  array>'`. Measured 2026-09-21 on 18.2.8: `omp plugin list --json` is the
+  plugin store and never names a configured extension; `omp config get
+  extensions --json` answers `{key,value,type,description}` for the layer the
+  working directory resolves to — a project that declares `extensions` replaces
+  the user's, it does not merge; `omp config set` writes the user file wherever
+  it runs and refuses `--scope`; and `omp install <path>` links a *package* (it
+  fails on a single `.ts` file with ENOTDIR on `<file>/package.json`), so no
+  vendor verb adds or removes a configured extension. `omp plugin link <path>`
+  stays *not* the answer — for a local package its scope is the machine
   (`--scope=project` wrote nothing into the project; the flag is marketplace
-  installs only), which breaks the workspace-scope model.
+  installs only). Live: `GET /api/cli-packages?cli=omp&scope=project&workspace=
+  <picode>` answers the `browser` row with its resolved path, and the removal
+  answers the CLI's fresh list instead of reserving a job, because a command
+  with no argv is the engine's own write.
+
+- [ ] **An extension row draws Enable/Disable, and Omp's disable verb does not
+  know extensions.** `Caps.Toggle` is the CLI's, and the pane offers the control
+  on every row of that CLI, so turning an extension off runs `omp plugin disable
+  <entry>` — measured 2026-09-21: *"Plugin packages/pi-browser/extensions/
+  browser.ts not found in runtime config"*. The CLI's own way is the
+  `disabledExtensions` array the read already parses: a splice of the workspace
+  file, and `omp config set disabledExtensions '<json array>'` for the user
+  layer. Closes when the toggle asks the engine for an extension first, the way
+  the removal now does (slice 5, `feat/packages-omp`).
 
 - [ ] **OpenCode's removal is unreachable from the pane.** Its declaration says
   `Remove: true`, because OpenCode's plugin list is its own config array and
