@@ -617,6 +617,14 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.RecordDockerHealth(m.Endpoint, m.Project, m.Revision, json.RawMessage(`{}`), nil, time.Now())
 		}, []string{"docker.health"}},
+		{"ApplyQueueMutation/enqueue", func(s *Store) {
+			d := deliveryFixture(t, s)
+			s.OnEvent = recorder(s)
+			if _, err := s.ApplyQueueMutation("repo", "agent", QueueMutation{Action: "enqueue", RequestID: "q-enqueue",
+				DeliveryID: d.ID, Revision: d.Revision, Target: d.Target}); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"delivery.changed"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
