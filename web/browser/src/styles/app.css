@@ -1695,7 +1695,10 @@ img.ws-face.term-cli-face {
    its rows and the next panel packs in right under it (CSS multi-column
    with balanced fill), so a 3-row model ranking beside a 7-row folder
    ranking leaves no hole — the owner's ask after v2's first deploy. */
-.dash-grid-2 { columns: 2; column-gap: 12px; margin-top: 12px; }
+/* Two columns only while each keeps ~340px: narrower, a ranked row's label,
+   bar and amount stop fitting (labels were cut to "5 hou…" at 900px), so the
+   browser drops to one column instead. */
+.dash-grid-2 { columns: 340px 2; column-gap: 12px; margin-top: 12px; }
 .dash-grid-2 > .dashboard-section { break-inside: avoid; margin: 0 0 12px; }
 .dash-grid-2 > .dashboard-section:last-child { margin-bottom: 0; }
 .dash-section-label {
@@ -1715,10 +1718,12 @@ img.ws-face.term-cli-face {
 
 /* Ranked bars (model / workspace / tools). */
 .spend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.spend-row { display: grid; grid-template-columns: minmax(110px, 190px) 1fr 68px; align-items: center; gap: 10px; font-size: 12.5px; }
+/* The bar keeps at least 40px, so a card narrower than the grid expects
+   shows a short bar instead of none (it used to reach 0px at ~900px). */
+.spend-row { display: grid; grid-template-columns: minmax(110px, 190px) minmax(40px, 1fr) 68px; align-items: center; gap: 10px; font-size: 12.5px; }
 .spend-name { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-primary); }
 .spend-face { display: inline-flex; flex: none; }
-.spend-face .ws-face { width: 14px; height: 14px; font-size: 9px; }
+.spend-face .ws-face { width: 14px; height: 14px; min-width: 14px; flex: none; font-size: 9px; }
 .spend-label { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .spend-sub { color: var(--text-secondary); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; min-width: 0; max-width: 50%; }
 .spend-row.is-muted .spend-name, .spend-row.is-muted .spend-amount { color: var(--text-secondary); }
@@ -1738,6 +1743,10 @@ img.ws-face.term-cli-face {
 }
 .spend-amount.is-unmeasured { font-size: 11.5px; font-style: italic; }
 .limit-reset { grid-column: 2 / -1; font-size: 11px; color: var(--text-secondary); margin-top: -2px; }
+/* A plan the roster could not read keeps its line on the card: what is wrong
+   and the one pane that fixes it. */
+.limit-blocked { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+.limit-blocked li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 
 /* One line under a panel naming what its number does *not* cover. It
    appears only when something is missing, so seeing one is information. */
@@ -1752,7 +1761,12 @@ img.ws-face.term-cli-face {
 /* Coverage matrix: the panel that lets every other number be read at face
    value. Glyphs, not colour — the row and column labels carry the meaning,
    and the title on each cell spells it out. */
-.dash-coverage-section { break-inside: avoid; }
+/* The coverage matrix is ten columns wide; in half a two-column grid its
+   header clipped between ~1000 and 1100px, so it always takes the full row. */
+.dash-grid-2 > .dash-coverage-section { break-inside: avoid; column-span: all; margin-top: 12px; }
+/* Margins do not collapse across the span, so the card before it gives up its
+   own: 12px in one column and in two. */
+.dash-grid-2 > .dashboard-section:has(+ .dash-coverage-section) { margin-bottom: 0; }
 .dash-coverage { width: 100%; border-collapse: collapse; font-size: 11.5px; }
 .dash-coverage th, .dash-coverage td { padding: 4px 2px; text-align: center; font-weight: 400; }
 .dash-coverage thead th { color: var(--text-secondary); font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }

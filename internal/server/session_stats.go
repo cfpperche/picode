@@ -10,6 +10,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/climetrics"
 	"github.com/cfpperche/picode/internal/session"
+	"github.com/cfpperche/picode/internal/usage"
 )
 
 type sessionStatsView struct {
@@ -19,6 +20,14 @@ type sessionStatsView struct {
 	// the shell ran, time they took, and the calls it refused. Absent when
 	// the store is closed; zero when nothing happened.
 	Desktop *desktopStats `json:"desktop,omitempty"`
+	// Plans are the plan windows the Providers roster already fetched for
+	// each signed-in account (ADR-0031), served from the usage cache only —
+	// a dashboard poll never reaches a vendor. They are what the Limits
+	// card had been missing: the rollout-derived limits above come from
+	// Codex alone, while the cache holds Anthropic, xAI, Z.ai and the rest.
+	// Only rows the cache has seen are listed, errors included, so a plan
+	// that needs a new sign-in says so instead of vanishing.
+	Plans []usage.Entry `json:"plans"`
 }
 
 type desktopStats struct {
@@ -110,7 +119,10 @@ func handleSessionStats(deps Deps) http.HandlerFunc {
 		st := statsForRange(rng)
 		st.WindowStats = labelWorkspaces(deps, st.WindowStats)
 		from, to, _ := statsWindow(rng, time.Now(), time.Local)
-		writeJSON(w, http.StatusOK, sessionStatsView{FleetStats: st, Range: rng, Desktop: desktopStatsFor(deps, from, to)})
+		writeJSON(w, http.StatusOK, sessionStatsView{
+			FleetStats: st, Range: rng, Desktop: desktopStatsFor(deps, from, to),
+			Plans: usage.Cached(time.Now()),
+		})
 	}
 }
 

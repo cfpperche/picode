@@ -159,7 +159,10 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
   // Quota windows are the one panel only some CLIs fill (Codex today), so it
   // owes the same "Covers X only." footnote the others do — the reader must
   // not read "1 window" as "the machine has one limit".
-  const limitsNote = firstLoad ? "" : coverageNote(coverage, byCli, "limits");
+  // The coverage note speaks for the CLIs' own quota records; beside plan
+  // windows the roster fetched it would read as "nothing here" under bars.
+  const plansRead = !firstLoad && (stats.plans || []).some((p) => p && p.status === "ok");
+  const limitsNote = firstLoad || plansRead ? "" : coverageNote(coverage, byCli, "limits");
 
   // A zero-cost "unknown" model row is pi bookkeeping (a turn with no
   // usage block), not a lever anyone can pull — keep the ranking honest
@@ -439,7 +442,7 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
               <div className="dash-section-label">Limits</div>
               {firstLoad ? <Skel /> : (
                 <>
-                  <LimitBars limits={stats.limits} />
+                  <LimitBars limits={stats.limits} plans={stats.plans} />
                   {limitsNote ? <p className="dash-note">{limitsNote}</p> : null}
                 </>
               )}
