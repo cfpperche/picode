@@ -5,6 +5,18 @@ adapter. It replaces argument identities with the inherited launch identity and
 posts to `internal/server/delivery.go`. The existing daemon auth gate applies.
 This is same-user launch attribution, not a sandbox or native-session credential.
 
+Three faces reach that one route, and every one of them offers the same actions
+and parameters: the `picode delivery` command in a PiCode terminal, the MCP
+family `picode mcp delivery` (a switch in a guest CLI's launch settings —
+`internal/server/cli_tools.go` injects `picode-delivery` the way it injects the
+other families, ADR-0154), and `packages/pi-delivery` for a Pi agent, which
+derives a mutation's retry key from the session, the action and the payload so a
+repeated call replays. `internal/mcptool/delivery_test.go` holds the pi package
+against the MCP schema, and `internal/server/cli_tools_test.go` holds the launch
+form's list (`PICODE_TOOL_FAMILIES`) against `mcptool.FamilyNames()` — before
+that, delivery was in the catalog while the form offered only four families, so
+it was reachable by a guest CLI only through hand-written configuration.
+
 The daemon resolves the registered agent's launch folder (or terminal's stored
 folder), then `gitgraph.Key` identifies the shared repository across worktrees.
 The shell's current directory cannot redirect a request. Both supplied identities

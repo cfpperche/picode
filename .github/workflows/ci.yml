@@ -195,14 +195,19 @@ jobs:
       # the native tray/native-host boundary. Running the Linux daemon suite
       # against Windows path and permission semantics tests an unsupported
       # topology rather than the shipped Windows product (ADR-0020).
-      # Sharded, because the race detector puts internal/server past the
-      # 10-minute default timeout in a single process: every run of
-      # `go test -race ./...` died with `panic: test timed out after 10m0s`
-      # and took the whole gate with it, whatever else passed. The script is
-      # the same one `make ci` uses (ADR-0105); -race is what CI adds.
+      # The race detector puts internal/server and internal/store past
+      # `go test`'s 10-minute default in a single process, so the timeout is
+      # raised rather than left to kill the gate.
+      #
+      # Sharding is off here on purpose, after trying it: a hosted runner has
+      # two cores, so four shards of a CPU-bound package buy no wall clock —
+      # and the extra concurrent processes each start their own tmux server,
+      # which is what broke internal/tmux on ubuntu the run after sharding
+      # landed. `make ci` still shards locally, where there are cores to
+      # spend.
       - name: Test daemon
         if: matrix.os != 'windows-latest'
-        run: GO_TEST_FLAGS=-race ./scripts/go-test.sh ./...
+        run: GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 30m" ./scripts/go-test.sh ./...
 
       - name: Compile Windows packages and tests
         if: matrix.os == 'windows-latest'

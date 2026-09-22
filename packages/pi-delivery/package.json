@@ -1,0 +1,28 @@
+{
+  "name": "pi-delivery",
+  "version": "0.1.0",
+  "description": "Delivery declarations for pi: register a change and request review in PiCode's Delivery view (ADR-0171).",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode", "delivery"],
+  "files": [
+    "extensions",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./extensions/delivery.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/pi-delivery"
+  }
+}

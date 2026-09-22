@@ -31,6 +31,15 @@ An agent can register a proposed change and ask for review using
 `picode delivery`. The record names the branch, exact commit and target branch.
 A review request does not mean someone approved the change or that checks passed.
 
+The same contract has three faces, all posting to the daemon with the identity
+of the launch — none of them carries a credential of its own:
+
+| Face | Who uses it |
+|---|---|
+| `picode delivery <action>` | Any agent with a shell in a PiCode terminal |
+| the `delivery` tool | A Pi agent with `packages/pi-delivery` installed (Agent CLIs ▸ Packages) |
+| the `delivery` MCP tool | An agent CLI launched with **Delivery** switched on under its **PiCode tools**, or pointed at `picode mcp delivery` in its own configuration |
+
 Open the agent through PiCode's **Agent CLIs**, in the project's Git repository.
 The command requires an updated PiCode binary and daemon, and the identity
 inherited from that launch. Open the project’s **Git → Delivery** view on desktop or mobile to follow
@@ -63,6 +72,10 @@ command with the same request ID**. PiCode returns its original result. Do not
 reuse that ID for changed content. Use `show` to obtain the current version before
 a later update. Another writer changing the version causes a conflict rather
 than overwriting their work.
+
+The `delivery` tool derives its request ID from the session, the action and the
+payload, so repeating the same call replays the same declaration instead of
+registering a second one; pass `requestId` explicitly to force a different one.
 
 ## Update or withdraw
 
