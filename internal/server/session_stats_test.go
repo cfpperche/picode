@@ -405,7 +405,7 @@ func TestHandleSessionStatsServesCachedPlans(t *testing.T) {
 	pct := 75.0
 	usage.Remember("xai", "acct-ok", usage.Report{
 		Provider: "xai", AccountLabel: "Grok", Status: "ok", Plan: "SuperGrok",
-		Windows: []usage.Window{{ID: "week", Label: "This week", UsedPercent: &pct}},
+		Windows:   []usage.Window{{ID: "week", Label: "This week", UsedPercent: &pct}},
 		FetchedAt: time.Now().UTC().Format(time.RFC3339),
 	}, time.Now())
 	usage.Remember("anthropic", "acct-expired", usage.Report{
