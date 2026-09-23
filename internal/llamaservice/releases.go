@@ -17,6 +17,41 @@ func (s *Service) rememberRelease(r *Release) {
 	s.doc.Releases[filepath.Base(r.Dir)] = *r
 }
 
+// sweepInterrupted removes what an install killed mid-way leaves behind, at
+// start, when no install can be running (2026-09-23 review): `cache/.install-*`
+// are always PiCode's own download temps; a `release-*` folder with no record
+// is removed only when it is also incomplete (no llama-server — an extraction
+// cut short). A complete unrecorded one stays: unknown ownership is preserved
+// (ADR-0090), and the service lists it as "Unknown installation".
+func (s *Service) sweepInterrupted() {
+	if temps, err := filepath.Glob(filepath.Join(s.root, "cache", ".install-*")); err == nil {
+		for _, t := range temps {
+			if info, err := os.Lstat(t); err == nil && info.Mode().IsRegular() {
+				_ = os.Remove(t)
+			}
+		}
+	}
+	records := s.releaseRecords()
+	dirs, err := filepath.Glob(filepath.Join(s.root, "release-*"))
+	if err != nil {
+		return
+	}
+	for _, d := range dirs {
+		name := filepath.Base(d)
+		if _, recorded := records[name]; recorded {
+			continue
+		}
+		info, err := os.Lstat(d)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(d, "llama-server")); err == nil {
+			continue // complete: an unknown installation, kept
+		}
+		_ = os.RemoveAll(d)
+	}
+}
+
 func (s *Service) releaseRecords() map[string]Release {
 	out := map[string]Release{}
 	for name, r := range s.doc.Releases {

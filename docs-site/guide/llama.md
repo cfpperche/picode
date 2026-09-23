@@ -116,6 +116,10 @@ history. An unknown file size shows progress without an invented percentage.
 **Result unknown** means PiCode could not confirm the outcome. Use **Check
 result** to consult the original server; this does not repeat the operation.
 If you changed the connection, restore the original server and key first.
+If the server can no longer answer for it, **Abandon** stops following the
+operation and frees the model; nothing is sent to the server, so work still
+running there keeps going. An operation on PiCode's own local service ends as
+**Interrupted** by itself when that service is not running.
 An unresolved operation blocks another operation on the same model. Choosing
 **Unload other models first** also waits for other PiCode model jobs to finish.
 

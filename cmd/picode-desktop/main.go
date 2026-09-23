@@ -55,7 +55,10 @@ func main() {
 	force := fs.Bool("force", false, "with disk-compact: proceed even when someone is mid-turn")
 	unreachable := fs.Bool("if-unreachable", false, "with wsl-restart / wsl-update: proceed when PiCode does not answer (never when it says someone is working)")
 	method := fs.String("method", "", "with disk-compact: sparse (default) | optimize-vhd")
-	apply := fs.String("apply", "", "with clean: comma-separated cache ids to prune")
+	apply := fs.String("apply", "", "with clean / system-clean: comma-separated cache ids to prune")
+	drive := fs.String("drive", "", "with move / backup: the drive letter to copy the disk file to")
+	folder := fs.String("folder", "", `with move / backup: folder on that drive (default WSL\<distro>)`)
+	edits := fs.String("edits", "", `with wslconf-write: JSON list of {"section","key","value"}; an empty value removes the key`)
 	listOnly := fs.Bool("list", false, "with clean: measure and print the prunable caches")
 	retargetShell := fs.Bool("retarget-shell", false, "with startup-repair: move the task to the shell resident")
 	fs.Usage = usage
@@ -77,6 +80,18 @@ func main() {
 		exit(runWSLRestart(*distro, *user, false, *yes, *force, *unreachable, *asJSON))
 	case cmd == "wsl-update":
 		exit(runWSLRestart(*distro, *user, true, *yes, *force, *unreachable, *asJSON))
+	case cmd == "wslconf":
+		exit(runWSLConf(*distro, *user))
+	case cmd == "wslconf-write":
+		exit(runWSLConfWrite(*distro, *user, *edits, *yes))
+	case cmd == "system-clean":
+		exit(runSystemClean(*distro, *user, *apply, *yes))
+	case cmd == "places":
+		exit(runPlaces(*distro, *user))
+	case cmd == "move":
+		exit(runRelocate(*distro, *user, *drive, *folder, false, *yes, *unreachable, *asJSON))
+	case cmd == "backup":
+		exit(runRelocate(*distro, *user, *drive, *folder, true, *yes, *unreachable, *asJSON))
 	case cmd == "clean":
 		exit(runClean(*distro, *user, *apply, *listOnly, *yes))
 	case cmd == "startup-check":
@@ -160,6 +175,12 @@ Usage:
   picode-desktop host            memory (Windows and the WSL VM) and WSL versions, as JSON
   picode-desktop wsl-restart     stop all of WSL and start the distro again (applies .wslconfig); --yes
   picode-desktop wsl-update      wsl --update, then restart as above; --yes
+  picode-desktop places          where the disk file lives and which drives could take it, as JSON
+  picode-desktop move            --drive E [--folder WSL\Ubuntu] --yes: stop the distro, move its disk file, start it
+  picode-desktop backup          --drive E [--folder ...] --yes: stop the distro, copy its disk to one .vhdx, start it
+  picode-desktop wslconf         the distro's /etc/wsl.conf (read as root), as JSON
+  picode-desktop wslconf-write   --edits '[{"section":"boot","key":"systemd","value":"true"}]' (writes as root, keeps .bak)
+  picode-desktop system-clean    --apply system:apt,system:journal --yes (root-owned caches)
   picode-desktop startup-check   inspect Windows startup without starting WSL
   picode-desktop startup-repair  repair the existing task, without restarting anything
     --retarget-shell  move the task to the shell resident (ADR-0142) as well

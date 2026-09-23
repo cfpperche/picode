@@ -56,6 +56,7 @@ export function parseRoute(hash) {
   if (h.startsWith("/file/")) return "workspace";
   if (h.startsWith("/git/")) return "workspace";
   if (h.startsWith("/tree/")) return "workspace";
+  if (h.startsWith("/instructions/")) return "workspace";
   if (h.startsWith("/app/")) return "workspace";
   return "workspace";
 }
@@ -336,6 +337,36 @@ export function treeTabRoot(id) {
   return isTreeTab(id) ? String(id).slice(2) : "";
 }
 
+// Instructions (docs/architecture/cli-instructions.md): one tab per
+// workspace, which instruction files each agent CLI reads there. The id is
+// the workspace's own, so there is no provisional id to rename.
+export function instructionsHash(wsId) {
+  return "#/instructions/" + encodeURIComponent(wsId || "");
+}
+
+export function instructionsRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/instructions\/([^/?]+)$/.exec(h);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function instructionsTabId(wsId) {
+  return wsId ? "i:" + wsId : "";
+}
+
+export function isInstructionsTab(id) {
+  return String(id || "").startsWith("i:");
+}
+
+export function instructionsTabWorkspace(id) {
+  return isInstructionsTab(id) ? String(id).slice(2) : "";
+}
+
 // Work browser tabs (Phase 3, docs/plans/desktop-v2.md). Session-scoped:
 // they do not survive an app restart (the pages live in native webviews).
 export function webTabId(seq) {
@@ -373,7 +404,7 @@ export function tabAppId(id) {
 // its role).
 export function isAgentTab(id) {
   const s = String(id || "");
-  return !!s && !isTermTab(s) && !isFileTab(s) && !isGitTab(s) && !isTreeTab(s) && !isAppTab(s) && !isWebTab(s);
+  return !!s && !isTermTab(s) && !isFileTab(s) && !isGitTab(s) && !isTreeTab(s) && !isAppTab(s) && !isWebTab(s) && !isInstructionsTab(s);
 }
 
 export function appHash(id, path = "") {

@@ -8,6 +8,8 @@ import {
   defaultLayer,
   groupFields,
   rowState,
+  namedScope,
+  namedLayers,
   dangerNote,
   coerce,
   splitSelector,
@@ -182,4 +184,28 @@ test("the picker offers what the files already use, and the CLI's own aliases", 
   assert.equal(isRoleField(fields[0]), true);
   assert.equal(isRoleField(fields[2]), false);
   assert.equal(isListField({ kind: "list" }), true);
+});
+
+test("a bound pane names the workspace layer; an unbound one keeps the generic word", () => {
+  const layers = [
+    { scope: "user", label: "Global", values: {} },
+    { scope: "project", label: "This workspace", values: {} },
+  ];
+  assert.deepEqual(namedLayers(layers, "delivery").map((l) => l.label), ["Global", "delivery"]);
+  // The layer itself survives the rename: scope, values and revision ride along.
+  assert.equal(namedLayers(layers, "delivery")[1].scope, "project");
+  assert.deepEqual(namedLayers(layers, "").map((l) => l.label), ["Global", "This workspace"]);
+  // A driver's suffix survives: Claude Code's uncommitted checkout layer.
+  assert.equal(namedScope("This workspace (local)", "Atlas"), "Atlas (local)");
+  assert.equal(namedScope("Global", "Atlas"), "Global");
+  // A workspace name is free text (trimmed, length-capped, no charset rule):
+  // `$` sequences must land literally, never as replace patterns.
+  assert.equal(namedScope("This workspace", "$&"), "$&");
+  assert.equal(namedScope("This workspace (local)", "A$'B"), "A$'B (local)");
+  // Provenance reads the name, because the row reads the renamed layer.
+  const named = namedLayers([
+    { scope: "project", label: "This workspace", values: { key: "set" } },
+    { scope: "user", label: "Global", values: {} },
+  ], "delivery");
+  assert.equal(rowState({ key: "key" }, named, "user").from, "delivery");
 });

@@ -44,6 +44,7 @@ export default defineConfig({
           { text: "From source", link: "/guide/from-source" },
           { text: "Development flow", link: "/guide/dev-flow" },
           { text: "Files and changes", link: "/guide/files" },
+          { text: "Agent instructions", link: "/guide/instructions" },
         ],
       },
       {

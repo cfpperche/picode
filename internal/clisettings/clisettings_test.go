@@ -438,6 +438,9 @@ func TestEveryDeclaredFieldRoundTrips(t *testing.T) {
 					t.Fatal(err)
 				}
 				for _, layer := range rep.Layers {
+					if !f.allows(layer.Scope) {
+						continue // a field kept to one layer is written and read there only
+					}
 					got, ok := layer.Values[f.Key]
 					if !ok {
 						t.Fatalf("%s layer lost %s", layer.Scope, f.Key)

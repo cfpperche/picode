@@ -330,3 +330,107 @@ func TestReplaceCompletesInOrder(t *testing.T) {
 	f.mu.Unlock()
 	await(t, st, j.ID, func(j store.LlamaJob) bool { return j.State == "succeeded" })
 }
+
+// ADR-0083 amendment (2026-09-23): the owner can abandon an unknown job; it
+// releases the model, touches nothing on the server, and only an unknown job
+// can be abandoned.
+func TestAbandonReleasesAnUnknownJob(t *testing.T) {
+	f, s, st, url := fixture(t, false)
+	j, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "k1", Endpoint: url, ConnectionID: identity(url, "key"), Model: "a", Operation: "load"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.State = "unknown"
+	if j, err = st.UpdateLlamaJob(j); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "k0", Endpoint: url, ConnectionID: identity(url, "key"), Model: "a", Operation: "load"}); err == nil {
+		t.Fatal("an unknown job must keep its model reserved")
+	}
+	done, err := s.Abandon(j.ID)
+	if err != nil || done.State != "abandoned" || done.Active() {
+		t.Fatalf("abandon = %+v, %v", done, err)
+	}
+	f.mu.Lock()
+	if len(f.posts) != 0 {
+		t.Fatalf("abandoning sent something to the server: %v", f.posts)
+	}
+	f.mu.Unlock()
+	// The model is free again.
+	if _, e := s.Start("a", "load", "k2", false); e != nil {
+		t.Fatalf("the model stayed reserved: %v", e)
+	}
+	if _, err := s.Abandon(done.ID); err != store.ErrLlamaConflict {
+		t.Fatalf("abandoning a finished job = %v", err)
+	}
+}
+
+// ADR-0083/0090 amendments: a job on PiCode's own service while it is not
+// running is not in flight — Check result, the worker and InterruptStopped
+// all end it as interrupted instead of leaving it unknown forever.
+func TestJobsOnAStoppedOwnedServiceAreInterrupted(t *testing.T) {
+	f, s, st, url := fixture(t, false)
+	stopped := false
+	var mu sync.Mutex
+	s.SetStopped(func(endpoint string) bool { mu.Lock(); defer mu.Unlock(); return stopped && endpoint == url })
+	j, e := s.Start("fresh-model", "download", "d1", false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	await(t, st, j.ID, func(j store.LlamaJob) bool { return j.Observed == "downloading" })
+	// The owned service stops: the router goes away with it.
+	f.mu.Lock()
+	f.offline = true
+	f.mu.Unlock()
+	mu.Lock()
+	stopped = true
+	mu.Unlock()
+	got := await(t, st, j.ID, func(j store.LlamaJob) bool { return !j.Active() })
+	if got.State != "interrupted" {
+		t.Fatalf("state = %s (%s)", got.State, got.Message)
+	}
+	// And a leftover unknown job is settled by InterruptStopped.
+	left, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "x", Endpoint: url, ConnectionID: "c", Model: "b", Operation: "unload"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	left.State = "unknown"
+	if left, err = st.UpdateLlamaJob(left); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.InterruptStopped(); err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := st.LlamaJob(left.ID); after.State != "interrupted" {
+		t.Fatalf("leftover = %s", after.State)
+	}
+}
+
+// ADR-0083 amendment: after a restart, an unload whose model is still loaded
+// did not happen — interrupted, mirroring the load rule.
+func TestRestartedUnloadStillLoadedIsInterrupted(t *testing.T) {
+	f, s, st, url := fixture(t, false)
+	f.mu.Lock()
+	f.models["a"] = "loaded"
+	f.mu.Unlock()
+	j, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "u", Endpoint: url, ConnectionID: identity(url, "key"), Model: "a", Operation: "unload"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.State = "unknown"
+	if _, err = st.UpdateLlamaJob(j); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Reconcile(j.ID); err != nil {
+		t.Fatal(err)
+	}
+	got := await(t, st, j.ID, func(j store.LlamaJob) bool { return !j.Active() })
+	if got.State != "interrupted" {
+		t.Fatalf("state = %s (%s)", got.State, got.Message)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.posts["/models/unload"] != 0 {
+		t.Fatal("checking the result must not replay the unload")
+	}
+}

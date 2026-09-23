@@ -166,6 +166,28 @@ session: both ask the same readiness interlock as the compact
 --update` first) and start the distro again whatever failed before; the shell
 re-arms its keepalive on its next health tick.
 
+Root inside the distro (ADR-0198) goes through `wsl.exe -u root --exec`
+and only through the closed list in `internal/desktop/root.go`: read and
+write `/etc/wsl.conf` (the write decodes one base64 argument into a temp
+file and renames it over the old one, keeping `.bak`), `du` over the system
+cache table, and each cache's own prune. `--exec` matters: the `--` form
+runs through a shell that eats `$`. The scan's third stage measures the
+system caches; the Clean tab routes `system:` ids to `system-clean` and the
+rest to `picode clean`, never one call for both.
+
+`picode-desktop places / move / backup` relocate the disk file. `places`
+answers per drive (fixed, NTFS, room for the file's full length plus 5 GB; a
+same-drive move is a rename and needs none); `move` and `backup` recheck the
+drive, the folder (a move needs it absent or empty) and the WSL build (`--help`
+must list `--move` / `--format`) before the interlock, then disable the
+`PiCodeDistro` task (it restarts on failure and would boot the distro within a
+minute), stop the distro, copy with no deadline (killing `wsl.exe` would not
+stop the copy in the WSL service), start the distro and re-enable the task.
+While a flow needs the distro down it keeps `%LOCALAPPDATA%\PiCode\distro-hold.json`
+fresh (a 30 s heartbeat, stale after 2 min); the shell's keepalive and its
+server discovery — which runs `wsl.exe -d` — skip while it is fresh, whether
+the flow came from the window or a terminal. `wsl-update` holds the same way.
+
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an
@@ -283,6 +305,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [File preview: HTML (ADR-0136)](architecture/file-preview.md) | `docs/architecture/file-preview.md` |
 | [Native CLI settings (ADR-0101, ADR-0163)](architecture/cli-settings.md) | `docs/architecture/cli-settings.md` |
 | [Agent CLI memory (ADR-0163)](architecture/cli-memory.md) | `docs/architecture/cli-memory.md` |
+| [Agent instructions (AGENTS.md)](architecture/cli-instructions.md) | `docs/architecture/cli-instructions.md` |
 | [Packages (ADR-0102, ADR-0167, ADR-0176)](architecture/packages.md) | `docs/architecture/packages.md` |
 | [Native CLI providers (ADR-0103)](architecture/cli-providers.md) | `docs/architecture/cli-providers.md` |
 | [Credentials (ADR-0165)](architecture/credentials.md) | `docs/architecture/credentials.md` |

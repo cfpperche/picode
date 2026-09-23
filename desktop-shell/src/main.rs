@@ -19,6 +19,7 @@ mod overlayqa;
 mod external;
 mod annotate;
 mod board;
+mod hold;
 mod daemon_acl;
 mod browserlab;
 mod capture;
@@ -152,6 +153,12 @@ fn main() {
             disk::host_report,
             disk::wsl_restart,
             disk::wsl_update,
+            disk::distro_conf_read,
+            disk::distro_conf_write,
+            disk::system_clean_apply,
+            disk::places_report,
+            disk::distro_move,
+            disk::distro_backup,
             clean::clean_list,
             clean::clean_apply,
             wslconfig::wslconfig_read,
@@ -283,6 +290,13 @@ fn poll_loop() {
     let mut boot_id = String::new();
     loop {
         if url.is_none() {
+            // Discovery runs `wsl.exe -d <distro>`, which starts a stopped
+            // distro — never while a flow holds it down.
+            if hold::distro_held() {
+                board.set_health(false, "paused while WSL work runs");
+                std::thread::sleep(std::time::Duration::from_secs(POLL_EVERY_SECS));
+                continue;
+            }
             match discover_server() {
                 Some((distro, found)) => {
                     // Before any window loads from it: a daemon off the

@@ -90,3 +90,5 @@
 .prov-row.llama-quant .prov-auth { min-width: 0; overflow-wrap: anywhere; }
 .prov-row.llama-quant .btn { justify-self: end; }
 .prov-row.llama-quant .llama-guidance { grid-column: 1 / -1; }
+/* An unknown job's two ways out, side by side. */
+.llama-job-actions { display: flex; gap: 8px; flex-wrap: wrap; }

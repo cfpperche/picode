@@ -68,9 +68,18 @@ func (s *Service) ObserveDownload(j store.LlamaJob) {
 	if err != nil {
 		return
 	}
+	// Pick the new files under the lock, hash them without it (a GGUF is
+	// gigabytes: hashing under s.mu held every model operation, even for a
+	// remote server, for as long as it took — 2026-09-23 review), then record
+	// them under the lock again, only if nothing moved meanwhile.
+	type found struct {
+		rel, path, model, snapshot string
+		size                       int64
+	}
+	var picked []found
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.closed || s.process == nil || !s.isAppliedEndpoint(j.Endpoint) {
+		s.mu.Unlock()
 		return
 	}
 	for _, m := range models {
@@ -92,25 +101,53 @@ func (s *Service) ObserveDownload(j store.LlamaJob) {
 					existing = true
 				}
 			}
-			if existing {
-				continue
+			if !existing {
+				picked = append(picked, found{rel: rel, path: candidate.path, model: m.ID, snapshot: candidate.snapshot, size: candidate.size})
 			}
-			h, size, err := hashRegular(candidate.path)
-			if err != nil {
-				continue
-			}
-			if candidate.snapshot != "" && (h != filepath.Base(candidate.path) || size != candidate.size) {
-				continue
-			}
-			if s.doc.Models == nil {
-				s.doc.Models = map[string]OwnedModel{}
-			}
-			info, err := os.Stat(candidate.path)
-			if err != nil {
-				continue
-			}
-			s.doc.Models[rel] = OwnedModel{Model: m.ID, SHA256: h, Job: j.ID, Size: size, Modified: info.ModTime().UnixNano(), Snapshot: candidate.snapshot}
 		}
+	}
+	s.mu.Unlock()
+
+	type hashed struct {
+		found
+		sha      string
+		size     int64
+		modified int64
+	}
+	var owned []hashed
+	for _, f := range picked {
+		h, size, err := hashRegular(f.path)
+		if err != nil {
+			continue
+		}
+		if f.snapshot != "" && (h != filepath.Base(f.path) || size != f.size) {
+			continue
+		}
+		info, err := os.Stat(f.path)
+		if err != nil {
+			continue
+		}
+		owned = append(owned, hashed{found: f, sha: h, size: size, modified: info.ModTime().UnixNano()})
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.process == nil || !s.isAppliedEndpoint(j.Endpoint) {
+		return
+	}
+	if _, still := s.doc.Downloads[j.ID]; !still {
+		return
+	}
+	for _, o := range owned {
+		// The file must be the one hashed: same size and time as then.
+		info, err := os.Stat(o.path)
+		if err != nil || info.Size() != o.size || info.ModTime().UnixNano() != o.modified {
+			continue
+		}
+		if s.doc.Models == nil {
+			s.doc.Models = map[string]OwnedModel{}
+		}
+		s.doc.Models[o.rel] = OwnedModel{Model: o.model, SHA256: o.sha, Job: j.ID, Size: o.size, Modified: o.modified, Snapshot: o.snapshot}
 	}
 	delete(s.doc.Downloads, j.ID)
 	_ = s.save()

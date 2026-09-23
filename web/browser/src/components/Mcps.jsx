@@ -430,7 +430,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
             <>
               {!!data?.connectorPackages?.length && <section className="pkg-installed">
                 <h3>Connector packages</h3>
-                <ul className="mcp-list">{data.connectorPackages.map(p => <li key={p.scope + p.source} className="mcp-row integration-package"><div className="mcp-row-main"><strong>{p.name}</strong><span className="pkg-fine">Installed · {p.scope === "user" ? "Global" : "This workspace"}</span></div><a className="btn btn-ghost" href={cliPackagesHash("pi", { workspaceId, agentId })}>Manage package</a></li>)}</ul>
+                <ul className="mcp-list">{data.connectorPackages.map(p => <li key={p.scope + p.source} className="mcp-row integration-package"><div className="mcp-row-main"><strong>{p.name}</strong><span className="pkg-fine">Installed · {p.scope === "user" ? "Global" : workspaceName || "This workspace"}</span></div><a className="btn btn-ghost" href={cliPackagesHash("pi", { workspaceId, agentId })}>Manage package</a></li>)}</ul>
                 <p className="pkg-fine">Package tools load through the MCP adapter when an agent starts.</p>
               </section>}
               <section className="pkg-installed">

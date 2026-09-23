@@ -129,5 +129,15 @@ The dialog's task field is the terminal's attach composer
 default in a repository: the dialog composes `create-worktree-branch`
 (`git worktree add -b <slug> <root>/.worktrees/<slug> HEAD`), hands it to
 the git door (ADR-0096, typed into a visible shell, run only when the
-ADR-0078 interlock allows), waits for the folder in the graph, then forks
-into it. **Same folder** shares the source's files.
+ADR-0078 interlock allows — and ADR-0202 lets this exact command past
+the busy-repository check, since it touches no file another agent is
+working on), waits for the folder in the graph, then forks into it. When
+the command is only typed and waits for the person's Enter (a door refused
+it for another reason), the dialog closes — a modal
+over that terminal would hide the key it asks for — a toast says what to
+press, and the fork starts in the background as soon as the worktree
+appears (ten minutes at most; a failure after that is a toast). The git
+shell is never an agent's terminal: agent-owned and `launchCli` terminals
+are skipped, and an "Agent CLI" refusal falls back to a fresh shell.
+**Same folder** shares the source's files. The task composer takes pasted
+screenshots and files like the terminal's attach bar.

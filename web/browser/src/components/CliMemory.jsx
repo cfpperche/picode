@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
-import { cliMemoryHash, memoryEmptyLine, memoryKindLabel } from "@picode/shared/domain/cliNative.js";
+import { cliMemoryHash, memoryEmptyLine, memoryKindLabel, namedLayers } from "@picode/shared/domain/cliNative.js";
 import { agoLabel, blastRadius, bytesLabel, columnsFor, facets, filterItems, health, historyLine, indexBudget, sortItems } from "@picode/shared/domain/memoryTable.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 
@@ -15,7 +15,7 @@ import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 // points at any more. The columns are the server's survey; the header sorts
 // them; nothing here computes a score of its own.
 
-export default function CliMemory({ route, workspaceId = "" }) {
+export default function CliMemory({ route, workspaceId = "", workspaceName = "" }) {
   const cli = route.id;
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -78,7 +78,8 @@ export default function CliMemory({ route, workspaceId = "" }) {
   }
 
   const report = data?.report || {};
-  const stores = report.stores || [];
+  // The store switcher names the workspace it is bound to (the Pi pane's rule).
+  const stores = namedLayers(report.stores || [], workspaceName);
   const active = stores.find((s) => s.scope === (data?.scope || scope)) || stores[0];
   const editable = report.tier === "editable";
   const all = data?.items || [];

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-distro-conf-write"
+description = "Enables the distro_conf_write command without any pre-configured scope."
+commands.allow = ["distro_conf_write"]
+
+[[permission]]
+identifier = "deny-distro-conf-write"
+description = "Denies the distro_conf_write command without any pre-configured scope."
+commands.deny = ["distro_conf_write"]

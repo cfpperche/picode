@@ -6651,6 +6651,41 @@
         ]
       }
     },
+    "/api/llama/jobs/{id}/abandon": {
+      "post": {
+        "operationId": "postApiLlamaJobsAbandon",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
     "/api/llama/jobs/{id}/cancel": {
       "post": {
         "operationId": "postApiLlamaJobsCancel",
@@ -7404,6 +7439,114 @@
         },
         "tags": [
           "oauth"
+        ]
+      }
+    },
+    "/api/opencode/catalog": {
+      "get": {
+        "operationId": "getApiOpencodeCatalog",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
+        ]
+      }
+    },
+    "/api/opencode/credential": {
+      "delete": {
+        "operationId": "deleteApiOpencodeCredential",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
+        ]
+      },
+      "get": {
+        "operationId": "getApiOpencodeCredential",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
+        ]
+      },
+      "post": {
+        "operationId": "postApiOpencodeCredential",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
+        ]
+      }
+    },
+    "/api/opencode/credential/code": {
+      "post": {
+        "operationId": "postApiOpencodeCredentialCode",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
         ]
       }
     },
@@ -11965,6 +12108,32 @@
         ]
       }
     },
+    "/api/workspaces/{id}/instructions": {
+      "get": {
+        "operationId": "getApiWorkspacesInstructions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}/open": {
       "post": {
         "operationId": "postApiWorkspacesOpen",
@@ -12585,6 +12754,9 @@
     },
     {
       "name": "oauth"
+    },
+    {
+      "name": "opencode"
     },
     {
       "name": "packages"

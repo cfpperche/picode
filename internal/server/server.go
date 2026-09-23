@@ -205,6 +205,15 @@ func New(addr string, deps Deps) *http.Server {
 			observer = deps.LlamaService.ObserveDownload
 		}
 		deps.LlamaJobs, _ = llamajob.New(deps.Store, func() (string, string) { return llamaURL(), catalog.LlamaKey() }, observer)
+		// A job on PiCode's own service while it is not running is not in
+		// flight (ADR-0083/0090 amendments): the service tells the jobs, and
+		// its lifecycle preview settles them before its guard reads them.
+		if deps.LlamaJobs != nil && deps.LlamaService != nil {
+			deps.LlamaJobs.SetStopped(deps.LlamaService.Stopped)
+			jobs := deps.LlamaJobs
+			deps.LlamaService.SetJobResolver(func() { _ = jobs.InterruptStopped() })
+			_ = jobs.InterruptStopped()
+		}
 	}
 	if deps.Store != nil && deps.CLIJobs == nil {
 		deps.CLIJobs, _ = clijob.New(clijob.Deps{
@@ -245,8 +254,17 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.LlamaService != nil {
 		srv.RegisterOnShutdown(deps.LlamaService.Close)
 	}
+	// OpenCode's server runs only for its sign-in dialog (ADR-0201): it goes
+	// down with PiCode instead of outliving it.
+	srv.RegisterOnShutdown(StopSidecars)
 	return srv
 }
+
+// StopSidecars stops the helper processes PiCode starts for a dialog —
+// OpenCode's `opencode serve` (ADR-0201). The binary serves New's handler
+// from an http.Server of its own, so main registers this on that server:
+// hooks registered on New's server never run there.
+func StopSidecars() { ocServe.stop() }
 
 // registerAll wires every route the server serves onto any route
 // registrar. New passes a real *http.ServeMux; the OpenAPI generator
@@ -295,6 +313,7 @@ func registerAll(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/tui-working", handleTuiWorking(deps))
 	registerGitGraphRoutes(mux, deps)
 	registerGitStatusRoutes(mux, deps)
+	registerInstructionsRoutes(mux, deps)
 	registerWorkDiffRoutes(mux, deps)
 	registerPRRoutes(mux, deps)
 	registerGitRunRoutes(mux, deps)

@@ -183,7 +183,9 @@ step streams into the window. Stopping the distro ends everything inside it
 readiness interlock refuses the run while someone is mid-turn, unless you
 force it.
 
-**Clean** — the caches the scan measured, with sizes: build caches,
+**Clean** — the caches the scan measured, with sizes — yours, and below them
+the system's (the apt package cache and the system logs), which are cleaned
+as the distro's administrator: build caches,
 package caches, downloaded engines and models. Select and prune; nothing
 stops. Caches marked `redownload` come back from the network the next time
 something needs them. Agent CLI sessions and the PiCode database never appear
@@ -197,6 +199,16 @@ swap, and the sparse-disk flag. Saving backs the file up to
 apply at the next full WSL restart; after a save the tab offers **Restart
 WSL to apply**, which asks first and states the cost.
 
+**Distro** — the distro's own settings file, `/etc/wsl.conf`: systemd, the
+account a terminal logs in as, whether the Windows PATH is added to Linux's,
+Windows drive mounting, the host name and whether WSL writes DNS and hosts
+files. The window reads and writes it as the distro's administrator (root)
+without asking for a password — WSL already lets your Windows account do
+that. Saving keeps the previous file as `/etc/wsl.conf.bak`; unknown settings
+stay untouched; changes apply when WSL restarts, and the tab offers **Restart
+WSL to apply**. The boot command setting is shown and never written from
+here, because it would run a command as root at every start.
+
 **System** — memory and the WSL version. Memory shows the limit the WSL
 virtual machine runs with, how much of it Linux is using (and how much of
 that is cache it can drop), what Windows holds for it right now, swap, and
@@ -206,3 +218,13 @@ Microsoft's release page for a newer one; when there is one it offers
 **Update WSL**. **Restart WSL** and **Update WSL** stop all of WSL: every
 distro and every session inside it ends. Both first ask PiCode whether
 anyone is working and refuse while someone is mid-turn, then ask you once.
+
+**Where the distro lives** (System tab) shows the distro's disk file and
+every drive on the PC with its free space. A drive that cannot take the file
+— too little room, not a fixed local NTFS drive — stays listed with the
+reason. **Move here** moves the disk file to that drive (a way to free C: for
+good); **Back up here** writes a copy of the whole disk as one `.vhdx` file
+(into `WSL\Backups` unless you type another folder). Both stop the distro for
+the copy, which can take an hour, and every session inside it ends; both
+check the drive first, so a copy that cannot fit never stops anything. While
+the copy runs, PiCode Desktop does not start the distro again.
