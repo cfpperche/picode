@@ -14,4 +14,4 @@ Merge: merged on `main` as a876efd9, `make ci` green.
 
 ## Next up
 
-- Live check: `make desktop-restart` with the daemon on a non-8445 port; the main and Management windows must answer IPC.
+- Shell restarted with this code 2026-09-23 13:28 (default port: no change). The off-8445 live check is deferred by the owner; tracked in `docs/handoff/open/windows-wsl.md` § Next.

@@ -2,6 +2,7 @@
 
 ## Next
 
+- Desktop shell, daemon off port 8445 (2026-09-23, owner deferred): the runtime IPC grant (`desktop-shell/src/daemon_acl.rs`) is deployed (`make desktop-restart` 13:28) but untested live. Set the port to e.g. 8446 in Settings, open Management and check the scan runs and the main window's buttons answer, then set 8445 back. The port change restarts the daemon and ends turns in progress.
 - Windows clean-machine install (ADR-0098): phase 1 stages in `picode-desktop.exe`, phase 2 `install.ps1` + winget, no paid signing (`docs/plans/windows-clean-install.md`).
 - WSL control (P0/P1 shipped): P2 is the Storage app plus the Windows-facts route (own ADR); P3 — compact, `--set-sparse`, `--move` — costs the distro's sessions.
 
