@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
 import { workspaceRowMenu, wantsPullRequest } from "@picode/shared/domain/workspaceRowMenu.js";
 import { IconChevronRight, IconCommunication, IconCopy, IconExternal, IconFolder, IconFolderOpen, IconGit, IconMoveDown, IconMoveUp, IconPullRequest, IconSession, IconSettings, IconX } from "./Icons.jsx";
 import { RowMenu, RowMenuItem, RowMenuSep } from "./WorkspaceRows.jsx";
 import WorkspaceSettings from "./WorkspaceSettings.jsx";
+import { OPEN_WORKSPACE_SETTINGS } from "./LandingWork.jsx";
 import { toast, toastError } from "../lib/toast.js";
 
 const ICONS = {
@@ -56,6 +57,18 @@ export default function WorkspaceMenu({ ws, hasAgents, onMoveUp, onMoveDown, onF
   // stays behind the sheet and Escape closes the drawer under it too.
   const toSettings = useRef(false);
   const triggerRef = useRef(null);
+  const returnTo = useRef(null);
+
+  // Preferences → Landing work's Edit opens this card's dialog.
+  useEffect(() => {
+    const onOpen = (e) => {
+      if (e.detail !== ws.id) return;
+      returnTo.current = document.activeElement; // the Edit button: focus goes back there
+      setSettingsOpen(true);
+    };
+    window.addEventListener(OPEN_WORKSPACE_SETTINGS, onOpen);
+    return () => window.removeEventListener(OPEN_WORKSPACE_SETTINGS, onOpen);
+  }, [ws.id]);
 
   function onOpenChange(open) {
     if (!open || !wantsPullRequest(ws)) return;
@@ -136,7 +149,7 @@ export default function WorkspaceMenu({ ws, hasAgents, onMoveUp, onMoveDown, onF
         );
       })}
     </RowMenu>
-    <WorkspaceSettings ws={ws} open={settingsOpen} onClose={() => setSettingsOpen(false)} returnFocus={() => triggerRef.current?.focus()} />
+    <WorkspaceSettings ws={ws} open={settingsOpen} onClose={() => setSettingsOpen(false)} returnFocus={() => { const to = returnTo.current; returnTo.current = null; (to && to.isConnected ? to : triggerRef.current)?.focus(); }} />
     </>
   );
 }

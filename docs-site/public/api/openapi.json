@@ -4952,6 +4952,23 @@
         ]
       }
     },
+    "/api/delivery/integrations": {
+      "get": {
+        "operationId": "getApiDeliveryIntegrations",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "delivery"
+        ]
+      }
+    },
     "/api/delivery/tool": {
       "post": {
         "operationId": "postApiDeliveryTool",

@@ -17,6 +17,7 @@ import AccessSection from "./AccessSection.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { prefSection } from "../lib/routes.js";
+import LandingWork from "./LandingWork.jsx";
 import { z } from "zod";
 
 const publicUrlSchema = z.string().trim().regex(/^https?:\/\/[^\s/]+\/?$/, "An origin like https://box.tailxxxx.ts.net:8445").or(z.literal(""));
@@ -36,7 +37,7 @@ function previewNotice() {
   }));
 }
 
-export default function Settings({ hidden, themeMode, onTheme }) {
+export default function Settings({ hidden, themeMode, onTheme, workspaces, workspacesLoaded }) {
   const [port, setPort] = useState("");
   const [note, setNote] = useState("");
   const [moving, setMoving] = useState(false);
@@ -145,7 +146,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
       <nav className="pref-tabs" role="tablist" aria-label="Preferences">
-        {[["appearance", "Appearance"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
+        {[["appearance", "Appearance"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["landing", "Landing work"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
           <a
             key={id}
             href={"#/preferences" + (id === "appearance" ? "" : "/" + id)}
@@ -244,6 +245,8 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         </div>
         <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={previewNotice}>Preview</button>
       </section>
+
+      <LandingWork hidden={hidden || sec !== "landing"} workspaces={workspaces || []} workspacesLoaded={workspacesLoaded} />
 
       <section className="settings-section" hidden={sec !== "server"}>
         <h3 className="sr-only">Server</h3>

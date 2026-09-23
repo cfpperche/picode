@@ -61,6 +61,7 @@ func registerDeliveryQueueRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/delivery/integration", handleGetIntegrationSettings(deps))
 	mux.HandleFunc("PUT /api/delivery/integration", handlePutIntegrationSettings(deps))
 	mux.HandleFunc("DELETE /api/delivery/integration", handleDeleteIntegrationSettings(deps))
+	mux.HandleFunc("GET /api/delivery/integrations", handleListIntegrationSettings(deps))
 }
 
 // deliveryQueueRead is the Delivery read with the queue layered on (ADR-0182):
@@ -211,5 +212,30 @@ func handleDeleteIntegrationSettings(deps Deps) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// handleListIntegrationSettings answers every declared layer: `machine` (null
+// when the machine declares nothing) and `workspaces`, keyed by workspace id,
+// for the workspaces that declare their own. A workspace absent from the map
+// follows the machine. Read-only; the writes stay on /integration.
+func handleListIntegrationSettings(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		all, err := deps.Store.ListIntegrationSettings()
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		var machine *store.IntegrationSettings
+		if m, ok := all[store.MachineIntegrationScope]; ok {
+			machine = &m
+		}
+		ws := map[string]store.IntegrationSettings{}
+		for scope, v := range all {
+			if scope != store.MachineIntegrationScope {
+				ws[scope] = v
+			}
+		}
+		writeJSON(w, 200, map[string]any{"schemaVersion": 1, "machine": machine, "workspaces": ws})
 	}
 }

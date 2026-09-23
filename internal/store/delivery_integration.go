@@ -74,6 +74,31 @@ func (s *Store) IntegrationSettingsFor(scope string) (IntegrationSettings, bool,
 	return v, true, nil
 }
 
+// ListIntegrationSettings reads every declared layer at once, keyed by scope
+// ("" for the machine) — the Preferences page's "who follows these rules"
+// list, which would otherwise cost one read per workspace.
+func (s *Store) ListIntegrationSettings() (map[string]IntegrationSettings, error) {
+	rows, err := s.db.Query(`SELECT scope, body FROM delivery_integration`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]IntegrationSettings{}
+	for rows.Next() {
+		var scope, raw string
+		if err := rows.Scan(&scope, &raw); err != nil {
+			return nil, err
+		}
+		var v IntegrationSettings
+		if err := json.Unmarshal([]byte(raw), &v); err != nil {
+			return nil, err
+		}
+		v.FromScope = scope
+		out[scope] = v
+	}
+	return out, rows.Err()
+}
+
 // EffectiveIntegrationSettings is the workspace-first fallback: the workspace's
 // declaration when it has one, the machine's otherwise, and a default that
 // requires nothing beyond a fast-forward when neither exists.

@@ -4296,6 +4296,8 @@ export default function App({ shellChrome = false } = {}) {
           hidden={route !== "preferences"}
           themeMode={themeMode}
           onTheme={setTheme}
+          workspaces={workspaces}
+          workspacesLoaded={fleetLoaded}
         />
         <System hidden={route !== "system"} version={version} system={system} clis={clis} clisState={clisState} />
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}

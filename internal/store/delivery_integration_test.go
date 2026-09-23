@@ -98,3 +98,20 @@ func TestIntegrationSettingsVersionAndInherit(t *testing.T) {
 		t.Fatalf("deleting an absent layer = %v, want nil", err)
 	}
 }
+
+func TestListIntegrationSettings(t *testing.T) {
+	s := openTest(t)
+	if all, err := s.ListIntegrationSettings(); err != nil || len(all) != 0 {
+		t.Fatalf("empty = %v (%v)", all, err)
+	}
+	if _, err := s.PutIntegrationSettings(MachineIntegrationScope, IntegrationSettingsMutation{FFOnly: true, Checks: []string{"git diff --check"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{FFOnly: false}); err != nil {
+		t.Fatal(err)
+	}
+	all, err := s.ListIntegrationSettings()
+	if err != nil || len(all) != 2 || len(all[""].Checks) != 1 || all["ws1"].FFOnly || all["ws1"].FromScope != "ws1" {
+		t.Fatalf("layers = %+v (%v)", all, err)
+	}
+}

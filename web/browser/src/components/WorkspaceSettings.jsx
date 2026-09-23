@@ -4,10 +4,8 @@ import { api } from "@picode/shared/client/api.js";
 import { workspaceSettingsSchema } from "@picode/shared/contracts/schemas.js";
 import { blocksLanding, cleanChecks, draftFrom, inheritedLine, integrationSave, integrationSource } from "@picode/shared/domain/workspaceSettings.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
-import { IconPlus, IconX } from "./Icons.jsx";
+import LandingRulesFields from "./LandingRulesFields.jsx";
 import { toast } from "../lib/toast.js";
-
-const MAX_CHECKS = 8;
 
 // The workspace's own settings, opened from the card menu. Three parts: the
 // name on the card, how a delivered branch lands in this project (the
@@ -23,8 +21,6 @@ export default function WorkspaceSettings({ ws, open, onClose, returnFocus }) {
   const [draft, setDraft] = useState({ ffOnly: true, checks: [] });
   // { at: "name" | "landing", text } — the line sits under the part it is about.
   const [error, setError] = useState(null);
-  const focusLast = useRef(false);
-  const listRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const nameRef = useRef(null);
   const ownRef = useRef(null);
@@ -49,18 +45,6 @@ export default function WorkspaceSettings({ ws, open, onClose, returnFocus }) {
     // Reopening always reads again: an agent may have changed the rules.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, ws.id]);
-
-  // A new check row takes the cursor, so Add check → type is one motion.
-  useEffect(() => {
-    if (!focusLast.current || !listRef.current) return;
-    focusLast.current = false;
-    const inputs = listRef.current.querySelectorAll("input");
-    inputs[inputs.length - 1]?.focus();
-  }, [draft.checks.length]);
-
-  function setCheck(i, v) {
-    setDraft((d) => ({ ...d, checks: d.checks.map((c, j) => (j === i ? v : c)) }));
-  }
 
   async function save() {
     const parsed = workspaceSettingsSchema.safeParse({ name, ffOnly: draft.ffOnly, checks: cleanChecks(draft.checks) });
@@ -105,7 +89,6 @@ export default function WorkspaceSettings({ ws, open, onClose, returnFocus }) {
   }
 
   const own = mode === "own";
-  const checks = draft.checks;
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
       <Dialog.Portal>
@@ -154,43 +137,7 @@ export default function WorkspaceSettings({ ws, open, onClose, returnFocus }) {
                         ) : null}
                       </p>
                     ) : (
-                      <div className="wsset-own">
-                        <label className="dlg-choice wsset-choice">
-                          <input type="checkbox" checked={draft.ffOnly} aria-describedby={!draft.ffOnly ? "wsset-ff-warn-" + ws.id : undefined} onChange={(e) => setDraft((d) => ({ ...d, ffOnly: e.target.checked }))} />
-                          <span>Only land a branch that is up to date with the target <span className="wsset-muted">(fast-forward)</span></span>
-                        </label>
-                        {!draft.ffOnly ? <p id={"wsset-ff-warn-" + ws.id} className="wsset-effect is-blocked">PiCode lands fast-forward only: with this off, authorized branches stay blocked.</p> : null}
-                        <div className="wsset-checks">
-                          <span className="wsset-sublabel">Checks that must pass first</span>
-                          {checks.length === 0 ? (
-                            <p className="wsset-empty">No checks: an authorized branch lands right away.</p>
-                          ) : (
-                            <ol className="wsset-check-list" ref={listRef}>
-                              {checks.map((c, i) => (
-                                <li key={i} className="wsset-check">
-                                  <input
-                                    className="dlg-input wsset-check-input"
-                                    value={c}
-                                    autoComplete="off"
-                                    spellCheck={false}
-                                    placeholder={i === 0 ? "e.g. make ci" : "Another command"}
-                                    aria-label={"Check " + (i + 1)}
-                                    onChange={(e) => setCheck(i, e.target.value)}
-                                  />
-                                  <button type="button" className="ws-icon-btn wsset-check-remove" aria-label={"Remove check " + (i + 1)} title="Remove" onClick={() => setDraft((d) => ({ ...d, checks: d.checks.filter((_, j) => j !== i) }))}>
-                                    <IconX size={13} />
-                                  </button>
-                                </li>
-                              ))}
-                            </ol>
-                          )}
-                          {checks.length < MAX_CHECKS ? (
-                            <button type="button" className="btn btn-ghost btn-sm wsset-add" onClick={() => { focusLast.current = true; setDraft((d) => ({ ...d, checks: [...d.checks, ""] })); }}>
-                              <IconPlus size={13} /> Add check
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
+                      <LandingRulesFields draft={draft} setDraft={setDraft} idPrefix={"wsset-" + ws.id} />
                     )}
                   </>
                 )}

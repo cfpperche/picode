@@ -73,3 +73,33 @@ export function draftFrom(page) {
   const eff = (page && (page.declared ? page.settings : page.effective)) || {};
   return { ffOnly: eff.ffOnly !== false, checks: [...(eff.checks || [])] };
 }
+
+// followsRows: the Preferences list of who follows the machine's rules. One
+// row per workspace, in sidebar order, from GET /api/delivery/integrations
+// (`machine`, and `workspaces` keyed by id for the ones with their own).
+//
+// | workspace layer | machine layer | row                                        |
+// | --------------- | ------------- | ------------------------------------------ |
+// | own, ff on      | —             | own · "Own rules · fast-forward only, …"    |
+// | own, ff off     | —             | blocked · "Own rules · fast-forward off, …" |
+// | none            | ff on         | machine · "These rules"                    |
+// | none            | ff off        | blocked · "These rules — blocked"          |
+// | none            | none          | blocked · "Blocked — no rules"             |
+export function followsRows(workspaces, layers) {
+  const machine = (layers && layers.machine) || null;
+  const own = (layers && layers.workspaces) || {};
+  return (workspaces || []).map((w) => {
+    const mine = own[w.id];
+    if (mine) return { id: w.id, name: w.name, state: blocksLanding(mine) ? "blocked" : "own", text: "Own rules · " + rulesSummary(mine) };
+    if (!machine) return { id: w.id, name: w.name, state: "blocked", text: "Blocked — no rules" };
+    if (blocksLanding(machine)) return { id: w.id, name: w.name, state: "blocked", text: "These rules — blocked" };
+    return { id: w.id, name: w.name, state: "machine", text: "These rules" };
+  });
+}
+
+// machinePage shapes the machine layer like a workspace's GET page, so Save
+// reuses integrationSave: the machine has no "inherit", only its own rules.
+export function machinePage(layers) {
+  const m = (layers && layers.machine) || null;
+  return m ? { declared: true, settings: m, effective: m } : { declared: false, effective: { fromScope: "default", ffOnly: true, checks: [] } };
+}

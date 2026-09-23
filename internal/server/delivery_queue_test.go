@@ -396,3 +396,27 @@ func repoKeyOf(t *testing.T, repo string) string {
 	}
 	return key
 }
+
+// Preferences → Landing work reads every layer in one request.
+func TestIntegrationLayersList(t *testing.T) {
+	ts, st := newInboxServer(t)
+	ws, err := st.AddWorkspace("w", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, out := queueRequest(t, ts, "GET", "/api/delivery/integrations", ""); code != 200 || out["machine"] != nil || len(out["workspaces"].(map[string]any)) != 0 {
+		t.Fatalf("empty = %d %v", code, out)
+	}
+	if code, _ := queueRequest(t, ts, "PUT", "/api/delivery/integration", `{"ffOnly":true,"checks":["git diff --check"]}`); code != 200 {
+		t.Fatal("machine put")
+	}
+	if code, _ := queueRequest(t, ts, "PUT", "/api/delivery/integration?workspace="+ws.ID, `{"ffOnly":false}`); code != 200 {
+		t.Fatal("workspace put")
+	}
+	_, out := queueRequest(t, ts, "GET", "/api/delivery/integrations", "")
+	machine, _ := out["machine"].(map[string]any)
+	layers, _ := out["workspaces"].(map[string]any)
+	if machine == nil || machine["ffOnly"] != true || len(layers) != 1 || layers[ws.ID] == nil {
+		t.Fatalf("layers = %v", out)
+	}
+}

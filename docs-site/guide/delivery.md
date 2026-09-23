@@ -57,6 +57,12 @@ and lands the branch as a fast-forward. With no rules declared anywhere, or with
 fast-forward turned off, an authorized branch stays blocked and the entry says
 why.
 
+**Preferences → Landing work** holds this machine's rules — the ones every
+workspace without its own follows — and lists each workspace with the rules it
+uses; **Edit** opens the Settings of that workspace. Checks declared there run for
+every project that follows them, so keep them to commands every project has,
+such as `git diff --check`.
+
 ## Register and request review
 
 Run these commands in the agent's PiCode terminal. Replace the branch and title

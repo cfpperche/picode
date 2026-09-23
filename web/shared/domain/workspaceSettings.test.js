@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { blocksLanding, cleanChecks, draftFrom, inheritedLine, integrationSave, integrationSource, rulesSummary } from "./workspaceSettings.js";
+import { blocksLanding, cleanChecks, draftFrom, followsRows, inheritedLine, integrationSave, integrationSource, machinePage, rulesSummary } from "./workspaceSettings.js";
 import { workspaceSettingsSchema } from "../contracts/schemas.js";
 
 const DEFAULT = { declared: false, effective: { fromScope: "default", ffOnly: true } };
@@ -45,4 +45,27 @@ test("the form schema mirrors the store's limits", () => {
   assert.equal(ok({ name: "App", ffOnly: true, checks: ["a\nb"] }), false);
   assert.equal(ok({ name: "App", ffOnly: true, checks: Array(9).fill("x") }), false);
   assert.equal(ok({ name: "App", ffOnly: true, checks: ["é".repeat(151)] }), false);
+});
+
+test("the follows list reads each workspace's layer, then the machine's", () => {
+  const ws = [{ id: "a", name: "A" }, { id: "b", name: "B" }, { id: "c", name: "C" }];
+  const own = { a: { ffOnly: true, checks: ["make ci"] }, c: { ffOnly: false } };
+  const pick = (rows) => rows.map((r) => [r.id, r.state, r.text]);
+  assert.deepEqual(pick(followsRows(ws, { machine: { ffOnly: true }, workspaces: own })), [
+    ["a", "own", "Own rules · fast-forward only, after make ci"],
+    ["b", "machine", "These rules"],
+    ["c", "blocked", "Own rules · fast-forward off, so authorized branches stay blocked"],
+  ]);
+  assert.deepEqual(followsRows(ws, { machine: { ffOnly: false }, workspaces: {} })[1].text, "These rules — blocked");
+  assert.deepEqual(followsRows(ws, { machine: null, workspaces: {} })[0], { id: "a", name: "A", state: "blocked", text: "Blocked — no rules" });
+  assert.deepEqual(followsRows([], null), []);
+});
+
+test("the machine page feeds the same save table", () => {
+  const none = machinePage({ machine: null });
+  assert.equal(none.declared, false);
+  assert.deepEqual(integrationSave(none, "own", { ffOnly: true, checks: ["git diff --check"] }), { action: "put", body: { ffOnly: true, checks: ["git diff --check"] } });
+  const m = machinePage({ machine: { ffOnly: true, checks: [], version: 2 } });
+  assert.deepEqual(integrationSave(m, "own", { ffOnly: true, checks: [] }), { action: "none" });
+  assert.deepEqual(integrationSave(m, "own", { ffOnly: true, checks: ["x"] }).body.expectedVersion, 2);
 });

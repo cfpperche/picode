@@ -93,7 +93,10 @@ workspace with the machine as the fallback layer and a built-in default
 (`ffOnly`, no checks) when neither declares. A PUT with `expectedVersion`
 answers 409 when the layer moved since it was read; DELETE drops a
 *workspace's* layer (it must name one) so it inherits again; removing the
-workspace drops it too. The owner edits it in the workspace card's Settings…. The Delivery read carries both: its
+workspace drops it too. The owner edits it in the workspace card's Settings…,
+and the machine layer in Preferences → Landing work, which reads every layer
+at once through `GET /api/delivery/integrations` (`machine`, null when
+undeclared, and `workspaces` keyed by id) to list who follows what. The Delivery read carries both: its
 payload gains `queue` and the already-resolved `integration`, so a surface never
 has to repeat the fallback. The agent's half rides the delivery tool contract: `request-integration` asks for
 a place for the launch's **own** delivery, naming the revision and target the
