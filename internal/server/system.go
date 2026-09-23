@@ -142,7 +142,7 @@ func loadCatalogFresh(deps Deps, fresh bool) (catalog.Report, error) {
 	if err != nil {
 		return rep, err
 	}
-	attachLlamaModels(&rep)
+	attachLlamaModels(&rep, fresh)
 	attachProviderRefs(deps, &rep)
 	return rep, nil
 }
