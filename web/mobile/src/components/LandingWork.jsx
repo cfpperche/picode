@@ -4,15 +4,14 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { workspaceSettingsSchema } from "@picode/shared/contracts/schemas.js";
 import { cleanChecks, draftFrom, followsRows, integrationSave, machinePage } from "@picode/shared/domain/workspaceSettings.js";
 import LandingRulesFields from "./LandingRulesFields.jsx";
+import WorkspaceSettingsSheet from "./WorkspaceSettingsSheet.jsx";
 import { toast } from "../lib/toast.js";
 
-// Asks a workspace card to open its Settings dialog (WorkspaceMenu listens).
-export const OPEN_WORKSPACE_SETTINGS = "picode:workspace-settings";
-
-// Preferences → Landing work: the machine's integration rules (ADR-0182) —
-// the fallback every workspace without rules of its own follows — and the
-// list of who follows what. The machine layer has no "inherit": it declares
-// or it does not, and with none an authorized branch stays blocked.
+// Preferences → Landing work on the phone — the mobile copy of web/browser's
+// page (the apps share only web/shared): the machine's integration rules
+// (ADR-0182), the fallback every workspace without rules of its own follows,
+// and who follows what. The phone has no workspace menu, so Edit opens that
+// workspace's Settings as a sheet right here.
 export default function LandingWork({ hidden, workspaces, workspacesLoaded = true }) {
   const [layers, setLayers] = useState(null);
   // The machine layer the draft was built from. Save compares against it and
@@ -27,6 +26,8 @@ export default function LandingWork({ hidden, workspaces, workspacesLoaded = tru
   const [draft, setDraft] = useState({ ffOnly: true, checks: [] });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editWs, setEditWs] = useState(null);
+  const editFrom = useRef(null);
 
   const load = useCallback((keepDraft) => {
     setLoadError("");
@@ -106,7 +107,7 @@ export default function LandingWork({ hidden, workspaces, workspacesLoaded = tru
       <h3>Landing work</h3>
       <p className="settings-desc">Rules for every workspace that has none of its own. When you authorize a branch an agent delivered, PiCode runs these checks and then merges it.</p>
       {loadError ? (
-        <p className="wsset-state" role="alert">{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={() => load(false)}>Retry</button></p>
+        <p className="wsset-state" role="alert">{loadError} <button type="button" className="btn btn-sm" onClick={() => load(false)}>Retry</button></p>
       ) : !layers || !base ? (
         <div className="wsset-skel" aria-label="Loading rules"><div className="skel-line w-70" /><div className="skel-line w-50" /></div>
       ) : (
@@ -147,13 +148,24 @@ export default function LandingWork({ hidden, workspaces, workspacesLoaded = tru
                 <li key={r.id} className={"landing-follow is-" + r.state}>
                   <span className="landing-follow-name" title={r.name}>{r.name}</span>
                   <span className="landing-follow-state">{r.text}</span>
-                  <button type="button" className="btn btn-ghost btn-sm" aria-label={"Edit " + r.name} onClick={() => window.dispatchEvent(new CustomEvent(OPEN_WORKSPACE_SETTINGS, { detail: r.id }))}>Edit</button>
+                  <button type="button" className="btn btn-ghost btn-sm" aria-label={"Edit " + r.name} onClick={(e) => { editFrom.current = e.currentTarget; setEditWs((workspaces || []).find((w) => w.id === r.id) || null); }}>Edit</button>
                 </li>
               ))}
             </ul>
           )}
         </>
       )}
+      <WorkspaceSettingsSheet
+        ws={editWs}
+        open={!!editWs}
+        onClose={() => {
+          setEditWs(null);
+          // Back to the row's Edit, once the sheet has let go of focus.
+          const to = editFrom.current;
+          editFrom.current = null;
+          setTimeout(() => { if (to && to.isConnected) to.focus(); }, 0);
+        }}
+      />
     </section>
   );
 }

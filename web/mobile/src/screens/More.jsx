@@ -82,7 +82,7 @@ export default function More({ fleetReady = true, section, apps, catalog, clis =
       {section === "devices" ? <Devices hidden={false} /> : null}
       {section === "clis" ? <AgentClis catalog={catalog} onCatalogChange={onCatalogChange} legacyContextReady={fleetReady} legacyPackageContext={{ workspaceId: workspace?.id || "", agentId: agent?.id || legacyAgentId || "" }} legacyAgentId={last?.agent?.id || legacyAgentId} onAgentConfig={onAgentConfig} /> : null}
       {section === "automations" ? <Automations hidden={false} catalog={catalog} clis={clis} clisLoaded={clisState === "ok"} system={system} workspaces={workspaces} freeAgents={freeAgents} /> : null}
-      {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
+      {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} workspaces={workspaces} workspacesLoaded={fleetReady} /> : null}
       {section === "system" ? <System hidden={false} version={version} system={system} clis={clis} clisState={clisState} /> : null}
       {section === "llama" ? <LlamaPanel onRefresh={onRefreshCatalog} /> : null}
       {section === "integrations" ? <Integrations hidden={false} /> : null}

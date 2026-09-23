@@ -3,7 +3,8 @@ import { IconPlus, IconX } from "./Icons.jsx";
 
 const MAX_CHECKS = 8;
 
-// The rules editor of the integration declaration (ADR-0182), shared by a
+// The rules editor of the integration declaration (ADR-0182) — the mobile
+// copy of web/browser's (the apps share only web/shared), used by a
 // workspace's Settings dialog and Preferences → Landing work: fast-forward,
 // its blocked warning (the runner lands fast-forward only), and up to eight
 // check commands. `checksHelp` is the one line that differs between the two.

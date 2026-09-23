@@ -151,3 +151,71 @@
   background: var(--bg-base); color: var(--danger); font-size: 13px;
 }
 .pi-settings-notice > span { overflow-wrap: anywhere; }
+
+/* Workspace settings sheet and Preferences → Landing work — the phone's copy
+   of web/browser's .wsset-* / .landing-* (the apps share tokens, not
+   stylesheets). One column throughout: the rule choice splits the width in
+   two, and each "who follows" row stacks its state under the name. */
+.dlg-wsset { max-height: 88dvh; overflow: auto; }
+.wsset-path { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.wsset-fields { border: 0; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
+.wsset-field { display: flex; flex-direction: column; gap: 6px; }
+.wsset-field .dlg-input { margin-top: 0; }
+.wsset-field .form-error { margin: 0; }
+.wsset-field .dlg-input[aria-invalid="true"] { border-color: var(--danger); }
+.wsset-label { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.wsset-sublabel { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.wsset-help { margin: 3px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
+.wsset-effect { margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
+.wsset-effect.is-blocked { color: var(--warn); }
+.wsset-muted { color: var(--text-secondary); }
+.wsset-inline-act {
+  padding: 0; border: 0; background: none; font: inherit; cursor: pointer;
+  color: var(--accent); text-decoration: underline; text-underline-offset: 2px;
+}
+.wsset-state { margin: 10px 0 0; font-size: 13px; color: var(--danger); display: flex; align-items: center; gap: 8px; }
+.wsset-skel { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.wsset-seg { display: flex; width: 100%; margin-top: 10px; border: 1px solid var(--border); border-radius: var(--radius-ctl); overflow: hidden; }
+.wsset-seg-opt { display: flex; position: relative; flex: 1 1 0; min-width: 0; }
+.wsset-seg-opt input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.wsset-seg-face {
+  display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px;
+  padding: 0 8px; box-sizing: border-box; border-right: 1px solid var(--border);
+  background: var(--bg-base); color: var(--text-secondary); font-size: 13px; text-align: center;
+}
+.wsset-seg-opt:last-child .wsset-seg-face { border-right: 0; }
+.wsset-seg-opt input:checked + .wsset-seg-face { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.wsset-seg-opt input:focus-visible + .wsset-seg-face { outline: 2px solid var(--accent); outline-offset: -2px; }
+.wsset-own { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.wsset-choice input { accent-color: var(--accent); }
+.wsset-checks { display: flex; flex-direction: column; gap: 8px; }
+.wsset-checks-help { margin: 0 0 2px; }
+.wsset-empty { margin: 0; font-size: 13px; color: var(--text-secondary); }
+.wsset-check-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.wsset-check { display: flex; align-items: center; gap: 8px; }
+/* Commands read character by character: no ligatures (--check drew as a dash). */
+.wsset-check-input { margin-top: 0; flex: 1; min-width: 0; height: 44px; font-family: var(--mono); font-variant-ligatures: none; }
+.wsset-check-remove { width: 44px; height: 44px; flex: none; }
+.wsset-add { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.wsset-error { margin: 10px 0 0; }
+
+.landing-work .wsset-own { margin-top: 4px; }
+.landing-fields { margin-top: 0; }
+.landing-none { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; }
+.landing-actions { display: flex; gap: 8px; margin-top: 14px; }
+/* Touch targets on this page and in the sheet are 44px tall (HIG), and a
+   footer's two actions split the width evenly. */
+.landing-work .btn, .dlg-wsset .btn { height: 44px; min-height: 44px; }
+.landing-actions .btn, .dlg.dlg-sheet.dlg-wsset .dlg-actions .btn { flex: 1 1 0; min-width: 0; }
+.dlg-wsset .wsset-field .dlg-input { height: 44px; }
+.landing-form { margin-bottom: 8px; }
+.landing-follows-h { margin: 28px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); font-weight: 600; }
+.landing-follows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.landing-follow {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 12px; row-gap: 2px;
+  min-height: 52px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.landing-follow-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.landing-follow-state { grid-column: 1; grid-row: 2; color: var(--text-secondary); font-size: 13px; min-width: 0; overflow-wrap: anywhere; font-variant-ligatures: none; }
+.landing-follow .btn { grid-column: 2; grid-row: 1 / span 2; }
+.landing-follow.is-blocked .landing-follow-state { color: var(--warn); }

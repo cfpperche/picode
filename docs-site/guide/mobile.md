@@ -36,6 +36,11 @@ certificate the desktop uses — see [Getting started](/guide/getting-started).
   Integrations) and **PiCode** (Preferences, Notifications, Devices,
   System). **Desktop layout** opens the desktop shell on this screen.
 
+**Preferences → Landing work** is the same page as on the desktop: this
+machine's rules for landing delivered work and the workspaces that follow
+them. **Edit** on a workspace opens its settings as a sheet — rename it, or
+give it rules of its own.
+
 Work keeps its view selector and **New** action at the top. Tap **Search**
 to filter by name or folder. Failed refreshes keep the last loaded work
 visible and offer a retry.
