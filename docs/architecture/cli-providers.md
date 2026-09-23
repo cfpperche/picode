@@ -95,7 +95,13 @@ shaped like its `/login` and run through Codex's own `codex app-server`
 (`POST`/`GET`/`DELETE /api/codex/login`): ChatGPT in the browser, a device
 code, an API key, Amazon Bedrock. Codex writes its own files; a ChatGPT or
 key login is then imported into the vault; a non-Bedrock login removes the
-`model_provider = "amazon-bedrock"` Codex leaves in `config.toml`. The
+`model_provider = "amazon-bedrock"` Codex leaves in `config.toml`. Grok's
+dialog (`GrokLoginDialog.jsx`, `add.kind: "grok"`, ADR-0192) runs Grok's own
+`grok login --oauth|--device-auth` and shows the page and code it prints
+(`POST`/`GET`/`DELETE /api/grok/login`); an xAI key becomes the login in use
+only when chosen — Grok's session, which outranks the key, is filed in the
+vault and signed out, and `XAI_API_KEY` rides new launches; Use on the
+session writes it back from the copy of `auth.json` kept at the logout. The
 other guests'
 dialog still holds a provider `<select>`
 limited to that CLI's providers, the key field with the line that says the

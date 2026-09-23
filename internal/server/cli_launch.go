@@ -1212,6 +1212,15 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			c.Env[kv[0]] = kv[1]
 		}
 	}
+	// Grok's chosen key travels by env (ADR-0192).
+	if cli.ID == "grok" {
+		if c.Env == nil {
+			c.Env = map[string]string{}
+		}
+		for _, kv := range grokCredentialEnv(deps, c.Env) {
+			c.Env[kv[0]] = kv[1]
+		}
+	}
 	root := filepath.Join(deps.DataDir, "cli-launch", v.TerminalID)
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, err

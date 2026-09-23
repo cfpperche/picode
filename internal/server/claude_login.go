@@ -20,36 +20,38 @@ import (
 // key PiCode injects only when the person chose that key row with Use, and
 // choosing the subscription again clears that choice.
 
-// claudeKeySetting holds the vault row of the Console key in use for Claude
-// Code, as "<provider>/<row id>"; absent or empty means the subscription (the
-// file) is what Claude Code uses.
-const claudeKeySetting = "credentials.claude-code.key"
-
+// claudeKeyEnv is where Claude Code reads a Console key.
 const claudeKeyEnv = "ANTHROPIC_API_KEY"
 
-// claudeKeyInUse returns the key row Claude Code is set to use, when the
-// setting names a row that still exists, is not paused, and is a key.
-func claudeKeyInUse(deps Deps) (credentials.Row, bool) {
+// A key "in use" for a CLI whose key travels by env and would be outranked
+// by, or outrank, its own login (Claude Code: ADR-0187; Grok: ADR-0192): the
+// setting credentials.<cli>.key names the vault row as "<provider>/<row id>";
+// absent or empty means the CLI's own login is what it uses.
+func keySetting(cli string) string { return "credentials." + cli + ".key" }
+
+// keyInUse returns the key row a CLI is set to use, with its provider, when
+// the setting names a row that still exists, is not paused, and is a key.
+func keyInUse(deps Deps, cli string) (credentials.Row, string, bool) {
 	if deps.Store == nil {
-		return credentials.Row{}, false
+		return credentials.Row{}, "", false
 	}
-	v, ok, err := deps.Store.GetSetting(claudeKeySetting)
+	v, ok, err := deps.Store.GetSetting(keySetting(cli))
 	if err != nil || !ok || v == "" {
-		return credentials.Row{}, false
+		return credentials.Row{}, "", false
 	}
 	provider, id, found := strings.Cut(v, "/")
 	if !found || provider == "" || id == "" {
-		return credentials.Row{}, false
+		return credentials.Row{}, "", false
 	}
 	row, found, err := credentials.Default().Row(provider, id)
 	if err != nil || !found || row.Paused || row.Type != catalog.LoginAPIKey {
-		return credentials.Row{}, false
+		return credentials.Row{}, "", false
 	}
-	return row, true
+	return row, provider, true
 }
 
-// setClaudeKeyInUse records (or, with an empty id, clears) the key row.
-func setClaudeKeyInUse(deps Deps, provider, id string) error {
+// setKeyInUse records (or, with an empty id, clears) a CLI's key row.
+func setKeyInUse(deps Deps, cli, provider, id string) error {
 	if deps.Store == nil {
 		return errors.New("no store")
 	}
@@ -57,7 +59,18 @@ func setClaudeKeyInUse(deps Deps, provider, id string) error {
 	if id != "" {
 		v = provider + "/" + id
 	}
-	return deps.Store.SetSetting(claudeKeySetting, v)
+	return deps.Store.SetSetting(keySetting(cli), v)
+}
+
+// claudeKeyInUse is Claude Code's key in use.
+func claudeKeyInUse(deps Deps) (credentials.Row, bool) {
+	row, _, ok := keyInUse(deps, "claude-code")
+	return row, ok
+}
+
+// setClaudeKeyInUse records (or clears) Claude Code's key row.
+func setClaudeKeyInUse(deps Deps, provider, id string) error {
+	return setKeyInUse(deps, "claude-code", provider, id)
 }
 
 // rowKey is the API key a vault key row holds.
@@ -201,11 +214,7 @@ func markClaudeInUse(deps Deps, providers []providerView) {
 
 // claudeKeyProvider is the provider half of the key setting.
 func claudeKeyProvider(deps Deps) string {
-	if deps.Store == nil {
-		return ""
-	}
-	v, _, _ := deps.Store.GetSetting(claudeKeySetting)
-	provider, _, _ := strings.Cut(v, "/")
+	_, provider, _ := keyInUse(deps, "claude-code")
 	return provider
 }
 

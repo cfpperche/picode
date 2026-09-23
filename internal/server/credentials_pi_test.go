@@ -327,8 +327,8 @@ func TestGuestRosterCarriesThePaneFieldsOnly(t *testing.T) {
 			roster := cliRequest(t, ts, "GET", "/api/credentials?cli="+tc.cli, nil, 200)
 			add, _ := roster["add"].(map[string]any)
 			// The kind names the dialog the pane opens: the key form, or a
-			// CLI's own sign-in dialog (ADR-0187, ADR-0191).
-			wantKind := map[string]string{"codex": "codex", "claude-code": "claude-code", "omp": "provider"}[tc.cli]
+			// CLI's own sign-in dialog (ADR-0187, ADR-0191, ADR-0192).
+			wantKind := map[string]string{"codex": "codex", "claude-code": "claude-code", "grok": "grok", "omp": "provider"}[tc.cli]
 			if wantKind == "" {
 				wantKind = "key"
 			}

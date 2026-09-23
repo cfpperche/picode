@@ -46,6 +46,9 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("DELETE /api/credentials/{provider}/{id}", handleCredentialDelete(deps))
 	mux.HandleFunc("PUT /api/claude-code/platform", handleClaudePlatformPut(deps))
 	mux.HandleFunc("POST /api/codex/login", handleCodexLoginStart(deps))
+	mux.HandleFunc("POST /api/grok/login", handleGrokLoginStart(deps))
+	mux.HandleFunc("GET /api/grok/login", handleGrokLoginStatus)
+	mux.HandleFunc("DELETE /api/grok/login", handleGrokLoginCancel)
 	mux.HandleFunc("GET /api/codex/login", handleCodexLoginStatus)
 	mux.HandleFunc("DELETE /api/codex/login", handleCodexLoginCancel)
 	mux.HandleFunc("DELETE /api/codex/platform", handleCodexPlatformDelete(deps))
@@ -177,6 +180,10 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			if spec.CLI == "codex" {
 				out["add"] = map[string]any{"kind": "codex", "label": "Add provider"}
 			}
+			// Grok signs in by running its own login (ADR-0192).
+			if spec.CLI == "grok" {
+				out["add"] = map[string]any{"kind": "grok", "label": "Add provider"}
+			}
 			// omp keeps provider definitions of its own in models.yml (the
 			// owner's amendment to ADR-0169): the same custom door pi has,
 			// with the definitions riding this roster as rows below.
@@ -190,6 +197,9 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 		}
 		if spec.CLI != "pi" {
 			attachSignin(spec, providers)
+		}
+		if spec.CLI == "grok" {
+			markGrokInUse(deps, providers)
 		}
 		if spec.CLI == "claude-code" {
 			markClaudeInUse(deps, providers)
@@ -888,6 +898,20 @@ func handleCredentialActivate(deps Deps) http.HandlerFunc {
 		// file (ADR-0187): Use on a key row records it as the login in use and
 		// approves it in Claude Code's own config; nothing is written under a
 		// running agent, so it applies to the next terminal.
+		// Grok takes a key from XAI_API_KEY, which its own session outranks
+		// (ADR-0192): Use on a key row files that session and signs Grok out.
+		if cli == "grok" && row.Type == catalog.LoginAPIKey {
+			if row.Paused {
+				writeErr(w, http.StatusBadRequest, "Resume this key before using it.")
+				return
+			}
+			if status, err := useGrokKey(deps, provider, id); err != nil {
+				writeErr(w, status, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "env": grokKeyEnv})
+			return
+		}
 		if cli == "claude-code" && row.Type == catalog.LoginAPIKey {
 			if row.Paused {
 				writeErr(w, http.StatusBadRequest, "Resume this key before using it.")
@@ -935,6 +959,12 @@ func writeCLILogin(deps Deps, spec clicreds.Spec, decl *clicreds.Provider, provi
 	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
 		return "", "", http.StatusInternalServerError, readErr
 	}
+	// Grok signed out for a key (ADR-0192): its file is gone, and the file's
+	// session key is not in the vault — the copy kept at the logout is the
+	// document the session is written back into.
+	if spec.CLI == "grok" && len(existing) == 0 {
+		existing, _ = os.ReadFile(grokSessionCopy(deps))
+	}
 	out, ok := clicreds.RenderLogin(decl.Native.Format, provider, row.Cred, existing)
 	if !ok {
 		return "", "", http.StatusBadRequest, errors.New("PiCode will not write this login into " + spec.Name + "'s file — it cannot do that faithfully.")
@@ -954,6 +984,12 @@ func writeCLILogin(deps Deps, spec clicreds.Spec, decl *clicreds.Provider, provi
 		}
 		// …and so would a third-party platform (ADR-0189).
 		if err := clearClaudePlatform(); err != nil {
+			return "", "", http.StatusInternalServerError, err
+		}
+	}
+	// Grok's session written back ends the key's turn (ADR-0192).
+	if spec.CLI == "grok" {
+		if err := setKeyInUse(deps, "grok", "", ""); err != nil {
 			return "", "", http.StatusInternalServerError, err
 		}
 	}

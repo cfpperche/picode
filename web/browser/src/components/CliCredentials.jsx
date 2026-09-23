@@ -5,6 +5,7 @@ import PageFrame from "./PageFrame.jsx";
 import AddProviderDialog from "./AddProviderDialog.jsx";
 import ClaudeCodeLoginDialog from "./ClaudeCodeLoginDialog.jsx";
 import CodexLoginDialog from "./CodexLoginDialog.jsx";
+import GrokLoginDialog from "./GrokLoginDialog.jsx";
 import CustomEndpointPage from "./CustomEndpointPage.jsx";
 import QuotaStrip from "./QuotaStrip.jsx";
 import TermSurface from "./TermSurface.jsx";
@@ -73,6 +74,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const [claudeEdit, setClaudeEdit] = useState(null);
   const [codexOpen, setCodexOpen] = useState(false);
   const [codexEdit, setCodexEdit] = useState(null);
+  const [grokOpen, setGrokOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ provider: "", key: "" });
   const [formError, setFormError] = useState("");
@@ -197,7 +199,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const addSpec = data && data.add ? data.add : null;
   // "provider" is pi's Add flow, "claude-code" Claude Code's own sign-in
   // dialog (ADR-0187), anything else the key form.
-  const addKind = addSpec ? (["provider", "claude-code", "codex"].includes(addSpec.kind) ? addSpec.kind : "key") : "";
+  const addKind = addSpec ? (["provider", "claude-code", "codex", "grok"].includes(addSpec.kind) ? addSpec.kind : "key") : "";
   const addLabel = (addSpec && addSpec.label) || (addKind === "provider" ? "Add provider" : "Add API key");
   // pi's models.json page: the one provider surface a guest CLI has no
   // equivalent for, linked rather than hidden behind a menu item (ADR-0169).
@@ -246,6 +248,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     if (addKind === "provider") setAddProviderOpen(true);
     else if (addKind === "claude-code") setClaudeOpen(true);
     else if (addKind === "codex") setCodexOpen(true);
+    else if (addKind === "grok") setGrokOpen(true);
     else openAdd("");
   }
 
@@ -277,6 +280,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     if (addKind === "provider") { if (cli !== "pi" || catalog) setAddProviderOpen(true); return; }
     if (addKind === "claude-code") { setClaudeOpen(true); return; }
     if (addKind === "codex") { setCodexOpen(true); return; }
+    if (addKind === "grok") { setGrokOpen(true); return; }
     if (addKind === "key") openAdd("");
     // The route asked for the dialog; the roster is what fills its provider list.
   }, [add, !!data, unreadable, addKind, !!catalog]);
@@ -552,7 +556,13 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     const label = account.label || providerName(provider.id, provider.name);
     const ok = await askConfirm({
       title: "Use " + label + " in " + cliName + "?",
-      message: cliName + "’s own login file is replaced. The first time, PiCode keeps a copy of what is in it now.",
+      // A key is not written into a file for these two: it rides new
+      // launches, and each CLI's own login steps aside (ADR-0187, ADR-0192).
+      message: account.type === "api_key" && cli === "grok"
+        ? "New Grok terminals use this key. Grok's own sign-in is kept in the vault and Grok is signed out — Use on it brings it back."
+        : account.type === "api_key" && cli === "claude-code"
+          ? "New Claude Code terminals use this key instead of your subscription."
+          : cliName + "’s own login file is replaced. The first time, PiCode keeps a copy of what is in it now.",
       confirmLabel: "Use",
     });
     if (!ok) return;
@@ -842,6 +852,16 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
 
       {/* pi's Add flow, for pi (its catalog, ADR-0169) and for the guests whose
           roster asks for it (omp): search, method, key or account, custom. */}
+      <GrokLoginDialog
+        open={grokOpen}
+        onClose={() => { setGrokOpen(false); if (add && typeof location !== "undefined") location.hash = cliPaneHash(cli, "providers"); }}
+        onSaved={load}
+        onTerminalSignin={(res) => {
+          const launchError = res && res.terminal && res.terminal.launchError;
+          setSignin({ hint: (res && res.hint) || "", error: launchError ? String(launchError) : "", terminalId: (res && res.terminalId) || "", stamp: (res && res.stamp) || "" });
+        }}
+      />
+
       <CodexLoginDialog
         open={codexOpen}
         editPlatform={codexEdit}

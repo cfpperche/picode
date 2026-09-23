@@ -31,6 +31,9 @@ func TestMain(m *testing.M) {
 		fakeCodexAppServer()
 		os.Exit(0)
 	}
+	if os.Getenv("PICODE_FAKE_GROK") == "1" {
+		os.Exit(fakeGrok(os.Args[1:]))
+	}
 	home, err := os.MkdirTemp("", "picode-test-home")
 	if err != nil {
 		panic(err)
