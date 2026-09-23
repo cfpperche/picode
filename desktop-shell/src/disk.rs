@@ -267,22 +267,14 @@ pub fn wsl_restart(
     stream_cli(&app, "restart", &run.unwrap_or_default(), &args)
 }
 
-/// `wsl --update`, then the same restart (op "update"). The keepalive is
-/// paused for the run so it does not relaunch wsl.exe under the installer.
+/// `wsl --update`, then the same restart (op "update"). The tool holds the
+/// distro down for the install (crate::hold).
 #[tauri::command(async)]
 pub fn wsl_update(
     app: tauri::AppHandle,
     run: Option<String>,
     if_unreachable: Option<bool>,
 ) -> Result<serde_json::Value, String> {
-    struct Resume;
-    impl Drop for Resume {
-        fn drop(&mut self) {
-            crate::board::KEEPALIVE_PAUSED.store(false, std::sync::atomic::Ordering::SeqCst);
-        }
-    }
-    crate::board::KEEPALIVE_PAUSED.store(true, std::sync::atomic::Ordering::SeqCst);
-    let _resume = Resume;
     let mut args = vec!["wsl-update", "--yes", "--json"];
     if if_unreachable.unwrap_or(false) {
         args.push("--if-unreachable");
@@ -331,6 +323,56 @@ pub fn system_clean_apply(
         return Err(format!("not run — {why}"));
     }
     Ok(v)
+}
+
+/// Where the disk file lives and which drives could take it (read-only).
+#[tauri::command(async)]
+pub fn places_report() -> Result<serde_json::Value, String> {
+    let text = run_cli(&["places"])?;
+    let start = text.find('{').ok_or_else(|| format!("no JSON in the tool output: {text}"))?;
+    serde_json::from_str(text[start..].trim_end()).map_err(|e| format!("places JSON: {e}"))
+}
+
+/// Moves the disk file (op "move") or writes a .vhdx copy (op "backup").
+/// The tool checks the drive before anything stops, then asks the
+/// interlock; both stop the distro and start it again.
+fn relocate(
+    app: &tauri::AppHandle,
+    op: &str,
+    drive: &str,
+    folder: &str,
+    run: Option<String>,
+    if_unreachable: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    // The tool holds the distro down for the copy (crate::hold), so the
+    // keepalive and discovery leave it stopped.
+    let mut args = vec![op, "--drive", drive, "--folder", folder, "--yes", "--json"];
+    if if_unreachable.unwrap_or(false) {
+        args.push("--if-unreachable");
+    }
+    stream_cli(app, op, &run.unwrap_or_default(), &args)
+}
+
+#[tauri::command(async)]
+pub fn distro_move(
+    app: tauri::AppHandle,
+    drive: String,
+    folder: String,
+    run: Option<String>,
+    if_unreachable: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    relocate(&app, "move", &drive, &folder, run, if_unreachable)
+}
+
+#[tauri::command(async)]
+pub fn distro_backup(
+    app: tauri::AppHandle,
+    drive: String,
+    folder: String,
+    run: Option<String>,
+    if_unreachable: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    relocate(&app, "backup", &drive, &folder, run, if_unreachable)
 }
 
 /// The plan without stopping anything — what the window shows before asking.

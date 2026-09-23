@@ -106,6 +106,8 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
                   <span>{f.text}</span>
                   {f.action && f.action.kind === "open" ? (
                     <button className="btn" onClick={() => onOpenFile && onOpenFile(f.action.path)}>{f.action.label}</button>
+                  ) : f.action && f.action.kind === "settings" ? (
+                    <a className="btn" href={f.action.url}>{f.action.label}</a>
                   ) : f.action && f.action.kind === "link" ? (
                     <a className="btn" href={f.action.url} target="_blank" rel="noreferrer">{f.action.label}</a>
                   ) : null}

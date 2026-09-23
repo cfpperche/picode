@@ -402,7 +402,7 @@ export function tabAppId(id) {
 // its role).
 export function isAgentTab(id) {
   const s = String(id || "");
-  return !!s && !isTermTab(s) && !isFileTab(s) && !isGitTab(s) && !isTreeTab(s) && !isAppTab(s) && !isWebTab(s);
+  return !!s && !isTermTab(s) && !isFileTab(s) && !isGitTab(s) && !isTreeTab(s) && !isAppTab(s) && !isWebTab(s) && !isInstructionsTab(s);
 }
 
 export function appHash(id, path = "") {

@@ -175,6 +175,19 @@ runs through a shell that eats `$`. The scan's third stage measures the
 system caches; the Clean tab routes `system:` ids to `system-clean` and the
 rest to `picode clean`, never one call for both.
 
+`picode-desktop places / move / backup` relocate the disk file. `places`
+answers per drive (fixed, NTFS, room for the file's full length plus 5 GB; a
+same-drive move is a rename and needs none); `move` and `backup` recheck the
+drive, the folder (a move needs it absent or empty) and the WSL build (`--help`
+must list `--move` / `--format`) before the interlock, then disable the
+`PiCodeDistro` task (it restarts on failure and would boot the distro within a
+minute), stop the distro, copy with no deadline (killing `wsl.exe` would not
+stop the copy in the WSL service), start the distro and re-enable the task.
+While a flow needs the distro down it keeps `%LOCALAPPDATA%\PiCode\distro-hold.json`
+fresh (a 30 s heartbeat, stale after 2 min); the shell's keepalive and its
+server discovery — which runs `wsl.exe -d` — skip while it is fresh, whether
+the flow came from the window or a terminal. `wsl-update` holds the same way.
+
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an

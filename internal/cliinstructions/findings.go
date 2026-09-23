@@ -41,6 +41,9 @@ func findings(s *scan, rep *Report) []Finding {
 		}
 		return &Action{Kind: "open", Label: "Open " + filepath.Base(f.abs), Path: f.Rel}
 	}
+	settings := func(cli string) *Action {
+		return &Action{Kind: "settings", Label: "Open " + name[cli] + " settings", URL: "#/clis/" + cli + "/settings"}
+	}
 	var out []Finding
 	add := func(id, text string, f *File, clis []string, a *Action) {
 		fn := Finding{ID: id, Text: text, CLIs: clis, Action: a}
@@ -65,7 +68,7 @@ func findings(s *scan, rep *Report) []Finding {
 			before := len(out)
 			switch {
 			case win.name == "CLAUDE.local.md":
-				add("claude-local", "CLAUDE.local.md turns AGENTS.md off for Claude Code. Setting Claude Code's Project instructions to “CLAUDE.md and AGENTS.md” keeps both.", win, []string{"claude-code"}, open(win))
+				add("claude-local", "CLAUDE.local.md turns AGENTS.md off for Claude Code. Setting Claude Code's Project instructions to “CLAUDE.md and AGENTS.md” keeps both.", win, []string{"claude-code"}, settings("claude-code"))
 			case strings.Contains(win.text, "AGENTS.md") && win.Imports == 0:
 				add("claude-pointer", win.Path+" sends Claude Code to AGENTS.md in words, so Claude Code does not load AGENTS.md. A line @AGENTS.md in "+filepath.Base(win.abs)+" makes it load.", win, []string{"claude-code"}, open(win))
 			case win.sum == a.sum:
@@ -152,7 +155,16 @@ func findings(s *scan, rep *Report) []Finding {
 			}
 		}
 		if len(parts) > 0 {
-			add("limit", f.Path+" is "+count(int(f.Bytes))+" bytes: "+strings.Join(parts, "; ")+".", f, clis, open(f))
+			// Hermes and Codex take their limit from a setting; the others only
+			// from a shorter file.
+			action := open(f)
+			for _, id := range clis {
+				if id == "hermes" || id == "codex" {
+					action = settings(id)
+					break
+				}
+			}
+			add("limit", f.Path+" is "+count(int(f.Bytes))+" bytes: "+strings.Join(parts, "; ")+".", f, clis, action)
 		}
 	}
 

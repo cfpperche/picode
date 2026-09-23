@@ -94,6 +94,7 @@ var (
 	RegExe        = "reg"
 	FsutilExe     = "fsutil"
 	PowerShellExe = "powershell"
+	SchtasksExe   = "schtasks"
 )
 
 // ResolveWindowsTools points those three at programs this process can run.
@@ -101,6 +102,7 @@ func ResolveWindowsTools() {
 	RegExe = ResolveWindowsTool("reg", "reg.exe")
 	FsutilExe = ResolveWindowsTool("fsutil", "fsutil.exe")
 	PowerShellExe = ResolveWindowsTool("powershell", "WindowsPowerShell/v1.0/powershell.exe")
+	SchtasksExe = ResolveWindowsTool("schtasks", "schtasks.exe")
 }
 
 // DeployReady asks the running server whether anyone is mid-turn — the same

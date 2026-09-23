@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-distro-backup"
+description = "Enables the distro_backup command without any pre-configured scope."
+commands.allow = ["distro_backup"]
+
+[[permission]]
+identifier = "deny-distro-backup"
+description = "Denies the distro_backup command without any pre-configured scope."
+commands.deny = ["distro_backup"]
