@@ -10,7 +10,7 @@ Verified live, read-only, on the owner's machine: disk file 227 GB on C:; C: (10
 Adversarial review, fixed: shell discovery booted the distro every 5 s mid-copy (now held); pause was shell-only (now a file the tool writes); 4 h kill on a move (no deadline now); WSL capability checked before stopping; backup/move folder collision (backup defaults to WSL\Backups, move refuses a non-empty folder); failure after a finished copy read as "not moved" (outcome.copied); same-drive move needs no space; reserved folder names.
 Debts added to docs/handoff/open/windows-wsl.md: the Rust .wslconfig editor matches keys without their section; disk-compact should hold the distro and disable the task too.
 visual-review: PASS (move/, 11 states) after three FAIL rounds.
-Merge: written before `make close` ran on the branch.
+Merge: on `main` at 0b690c1d, `make ci` green.
 
 ## Next up
 
