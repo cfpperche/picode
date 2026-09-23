@@ -243,7 +243,13 @@ are shared. Pi's reader (`pi.go`, ADR-0009 amendment) runs
 keys on `auth.json`, `models.json`, `models-store.json`, `settings.json`,
 `npm/package-lock.json` and the binary — measured: listing rewrites none of
 them, so unlike omp the credential store is an input. The catalog's own writes
-(`mutateAuth`, `writeModelsJSON`) also call `Forget("pi")`.
+(`mutateAuth`, `writeModelsJSON`) also call `Forget("pi")`. Pi's table states only yes/no
+for thinking, so `/api/cli-models?cli=pi` fills each row's `thinking` levels
+from `models-store.json` (`catalog.FillPiThinking`, the pickers' own rule) on a
+copy of the kept rows — Pi answers in omp's shape. Pi's model pickers still read
+`/api/catalog`: it composes sign-in, custom providers and llama.cpp models on the
+same kept list, and no other CLI has a picker in PiCode yet (measured
+2026-09-23), so moving them would rebuild that composition for no gain.
 
 ## Checks: what a CLI resolves here, and what is wrong with it (slice 4)
 

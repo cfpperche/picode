@@ -8,7 +8,8 @@ When you remove an agent, PiCode keeps a short record of how it went: the
 answer you give, how the agent was set up, and what PiCode saw while it ran.
 **Outcomes** lists those records, and the dashboard counts them.
 
-- **Where:** the user menu ▸ **Outcomes**, or `#/outcomes`. The home
+- **Where:** the user menu ▸ **Outcomes**, or `#/outcomes`; on the phone,
+  **More ▸ Outcomes**. The home
   dashboard has an **Agent outcomes** section for its date range.
 - **Not this:** not telemetry. Records stay in PiCode's data folder on this
   machine and are never sent anywhere.

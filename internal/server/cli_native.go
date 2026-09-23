@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/catalog"
 	"github.com/cfpperche/picode/internal/clidoctor"
 	"github.com/cfpperche/picode/internal/climemory"
 	"github.com/cfpperche/picode/internal/climodels"
@@ -100,6 +101,11 @@ func handleCLIModelsGet(deps Deps) http.HandlerFunc {
 			// installed, not signed in, or slow says so differently each time.
 			writeErr(w, http.StatusBadGateway, err.Error())
 			return
+		}
+		if cli == "pi" {
+			// Pi's table says only yes/no for thinking; the levels live in its
+			// models-store.json, as the catalog's pickers read them.
+			rep.Models = catalog.FillPiThinking(rep.Models)
 		}
 		writeJSON(w, http.StatusOK, rep)
 	}

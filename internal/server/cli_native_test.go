@@ -419,7 +419,8 @@ func TestCLIDoctorAPIRefusesCLIsWithoutChecks(t *testing.T) {
 func TestCLIModelsAPIAsksTheConfiguredPi(t *testing.T) {
 	dir := t.TempDir()
 	script := filepath.Join(dir, "my-pi")
-	table := "provider model context max-out thinking images\nanthropic claude-haiku-4-5 200K 64K yes yes\n"
+	t.Setenv("HOME", t.TempDir()) // no models-store.json: the full scale for a reasoning model
+	table := "provider model context max-out thinking images\nanthropic claude-haiku-4-5 200K 64K yes yes\ngroq llama-3-8b 8K 8K no no\n"
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '"+table+"'\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +431,13 @@ func TestCLIModelsAPIAsksTheConfiguredPi(t *testing.T) {
 		t.Fatalf("status %d: %v", status, body)
 	}
 	models, _ := body["models"].([]any)
-	if len(models) != 1 || models[0].(map[string]any)["selector"] != "anthropic/claude-haiku-4-5" {
+	if len(models) != 2 || models[0].(map[string]any)["selector"] != "anthropic/claude-haiku-4-5" {
 		t.Fatalf("models = %v", body["models"])
+	}
+	// Pi's rows carry thinking levels like omp's: the scale for a reasoning
+	// model, only "off" for one that does not reason.
+	levels := func(i int) []any { l, _ := models[i].(map[string]any)["thinking"].([]any); return l }
+	if len(levels(0)) < 2 || len(levels(1)) != 1 || levels(1)[0] != "off" {
+		t.Fatalf("thinking = %v / %v", levels(0), levels(1))
 	}
 }

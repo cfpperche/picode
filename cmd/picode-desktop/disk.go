@@ -29,7 +29,8 @@ type diskReport struct {
 	At   time.Time `json:"at"`
 }
 
-// runDisk prints the two-sided report. It changes nothing: making the file
+// runDisk prints the two-sided report. It changes nothing on the disk (it
+// records the day's measurement in the history file, ADR-0203): making the file
 // sparse or compacting it stops the distro and costs the sessions in it, so
 // that decision belongs to a reviewed, confirmed action
 // (docs/plans/wsl-control.md), never to a command someone runs to read.
@@ -49,6 +50,7 @@ func runDisk(distroFlag, userFlag string, asJSON, stream bool) error {
 		onStep = func(s scanStep) { _ = enc.Encode(s) }
 	}
 	rep := collectDisk(a, onStep)
+	recordHistory(rep)
 
 	if asJSON && stream {
 		return json.NewEncoder(os.Stdout).Encode(rep)
@@ -99,7 +101,13 @@ func collectDisk(a app, onStep func(scanStep)) diskReport {
 	}
 
 	step(scanStep{Stage: "distro", State: "running", Progress: "Measuring inside " + a.distro})
-	distro, err := distroReport(a.runner, a.distro, a.user)
+	// The two distro halves run wsl.exe, which starts a stopped distro: a
+	// flow that holds it down (move, backup, update, compact) wins, and
+	// the half says why it was skipped.
+	distro, err := hostfs.Report{}, errHeld()
+	if err == nil {
+		distro, err = distroReport(a.runner, a.distro, a.user)
+	}
 	if err != nil {
 		rep.DistroError = err.Error()
 		step(scanStep{Stage: "distro", State: "failed", Progress: a.distro + " could not be measured", Error: rep.DistroError})
@@ -115,7 +123,11 @@ func collectDisk(a app, onStep func(scanStep)) diskReport {
 	if _, real := a.runner.(osRunner); real {
 		sysRunner = timedRunner{d: 60 * time.Second}
 	}
-	if sys, err := desktop.MeasureSystemCaches(sysRunner, a.distro); err != nil {
+	sys, err := []desktop.MeasuredSystemCache(nil), errHeld()
+	if err == nil {
+		sys, err = desktop.MeasureSystemCaches(sysRunner, a.distro)
+	}
+	if err != nil {
 		rep.SystemError = err.Error()
 		step(scanStep{Stage: "system", State: "failed", Progress: "System caches could not be measured", Error: rep.SystemError})
 	} else {
@@ -275,4 +287,55 @@ func diskLine(facts *desktop.DiskFacts, usedBytes int64, err error) (title strin
 		parts[len(parts)-1] += " — low"
 	}
 	return strings.Join(parts, " · "), warn
+}
+
+// recordHistory writes the day's line (ADR-0203) when the scan read both
+// halves; a half-read scan is not a sample. A write failure is not the
+// scan's failure.
+func recordHistory(rep diskReport) {
+	if rep.Windows == nil || rep.Distro == nil {
+		return
+	}
+	s := desktop.Sample{
+		Day:          time.Now().Format("2006-01-02"),
+		At:           rep.At,
+		WinFreeBytes: rep.Windows.FreeBytes,
+		WinSizeBytes: rep.Windows.VolumeBytes,
+		DiskBytes:    rep.Windows.AllocatedBytes,
+		HeldBytes:    rep.Held,
+		UsedBytes:    rep.Distro.FS.UsedBytes,
+		Caches:       map[string]int64{},
+	}
+	for _, c := range rep.Distro.Consumers {
+		s.Caches[c.ID] = c.Bytes
+	}
+	for _, c := range rep.System {
+		s.Caches[c.ID] = c.Bytes
+	}
+	_ = desktop.RecordSample(desktop.HistoryPath(), s)
+}
+
+// runHistory prints the samples and the last week's growth per cache.
+func runHistory() error {
+	samples := desktop.ReadHistory(desktop.HistoryPath())
+	if samples == nil {
+		samples = []desktop.Sample{}
+	}
+	growth := desktop.GrowthSince(samples, 7)
+	if growth == nil {
+		growth = []desktop.Growth{}
+	}
+	return json.NewEncoder(os.Stdout).Encode(struct {
+		Path    string           `json:"path"`
+		Samples []desktop.Sample `json:"samples"`
+		Growth  []desktop.Growth `json:"growth7"`
+	}{desktop.HistoryPath(), samples, growth})
+}
+
+// errHeld is the answer while a flow holds the distro down.
+func errHeld() error {
+	if desktop.HoldActive() {
+		return fmt.Errorf("skipped: a move, backup, update or compact is holding the distro stopped")
+	}
+	return nil
 }

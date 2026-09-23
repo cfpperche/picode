@@ -86,6 +86,8 @@ func main() {
 		exit(runWSLConfWrite(*distro, *user, *edits, *yes))
 	case cmd == "system-clean":
 		exit(runSystemClean(*distro, *user, *apply, *yes))
+	case cmd == "history":
+		exit(runHistory())
 	case cmd == "places":
 		exit(runPlaces(*distro, *user))
 	case cmd == "move":
@@ -175,6 +177,7 @@ Usage:
   picode-desktop host            memory (Windows and the WSL VM) and WSL versions, as JSON
   picode-desktop wsl-restart     stop all of WSL and start the distro again (applies .wslconfig); --yes
   picode-desktop wsl-update      wsl --update, then restart as above; --yes
+  picode-desktop history         one line per day of disk measurements and the week's growth per cache, as JSON
   picode-desktop places          where the disk file lives and which drives could take it, as JSON
   picode-desktop move            --drive E [--folder WSL\Ubuntu] --yes: stop the distro, move its disk file, start it
   picode-desktop backup          --drive E [--folder ...] --yes: stop the distro, copy its disk to one .vhdx, start it

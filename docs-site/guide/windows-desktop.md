@@ -88,7 +88,8 @@ for installation inside Linux or WSL.
 ## See what the disk is doing
 
 The tray menu's **Management** item → **Disk** tab shows the same facts.
-`picode-desktop disk` prints the two sides in full, and changes nothing:
+`picode-desktop disk` prints the two sides in full. It changes nothing on
+the disk; it only records the day in the history file (see **History** below):
 
 ```powershell
 .\picode-desktop.exe disk
@@ -182,6 +183,13 @@ step streams into the window. Stopping the distro ends everything inside it
 — agents, terminals, tmux — and the window says so before it acts. A
 readiness interlock refuses the run while someone is mid-turn, unless you
 force it.
+
+At the bottom of the Disk tab, **History** draws the free space on the
+Windows drive and the space used inside the distro, one point per day, and
+lists what grew most in the last seven days. Every scan records the day, and
+PiCode Desktop runs one scan a day in the background, so the history fills
+without opening the window. It stays on this PC, in
+`%LOCALAPPDATA%\PiCode\disk-history.jsonl`.
 
 **Clean** — the caches the scan measured, with sizes — yours, and below them
 the system's (the apt package cache and the system logs), which are cleaned

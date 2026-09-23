@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/cfpperche/picode/internal/climodels"
 )
 
 // The table parser moved to climodels (ADR-0009 amendment, 2026-09-23). This
@@ -67,6 +69,22 @@ func TestParserParityWithTheCatalogsOwn(t *testing.T) {
 		}
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("rows differ for table %q:\n got %+v\nwant %+v", strings.SplitN(table, "\n", 2)[0], got, want)
+		}
+	}
+}
+
+// Filling Pi's thinking levels copies: the rows handed in may be a cached
+// report other reads share.
+func TestFillPiThinkingLeavesItsInputAlone(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	in := climodels.ParsePiTable(parityTable)
+	out := FillPiThinking(in)
+	if len(out) != len(in) || len(out[0].Thinking) < 2 {
+		t.Fatalf("out = %+v", out[0])
+	}
+	for _, m := range in {
+		if m.Thinking != nil {
+			t.Fatalf("the input was changed: %+v", m)
 		}
 	}
 }
