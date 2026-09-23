@@ -59,7 +59,7 @@ why.
 
 **Preferences → Landing work** holds this machine's rules — the ones every
 workspace without its own follows — and lists each workspace with the rules it
-uses; **Edit** opens the Settings of that workspace. Checks declared there run for
+uses; **Edit** opens the Settings of that workspace (on the phone, as a sheet). Checks declared there run for
 every project that follows them, so keep them to commands every project has,
 such as `git diff --check`.
 
