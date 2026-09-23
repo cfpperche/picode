@@ -125,7 +125,6 @@ import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, pickNextTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits, readWebTabUrls, writeWebTabUrls, readFileWorktrees, writeFileWorktrees } from "./lib/openTabs.js";
 import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs, INSPECTOR_MIN, maxInspectorWidth } from "./lib/inspector.js";
-import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
 import WhatsNew from "./components/WhatsNew.jsx";
@@ -3736,7 +3735,6 @@ export default function App({ shellChrome = false } = {}) {
         onLaunchAction={launchTerminalAction}
         onContinueTerm={openTermHandoff}
         clis={clis}
-        onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
         onReorder={reorderSidebar}
         onGitGraph={openGitTab}

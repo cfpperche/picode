@@ -81,8 +81,8 @@ test("under WSL the file manager is Explorer and the path comes in both forms", 
 });
 
 test("order moves sit above Remove, only the moves that exist", () => {
-  assert.deepEqual(ids(workspaceRowMenu(FOLDER, { hasAgents: true, canMoveUp: true, canMoveDown: true })),
-    ["communication", "files", "sessions", "|", "reveal", "copy-path", "|", "settings", "|", "move-up", "move-down", "|", "remove"]);
+  assert.deepEqual(ids(workspaceRowMenu(FOLDER, { canMoveUp: true, canMoveDown: true })),
+    ["communication", "files", "|", "reveal", "copy-path", "|", "settings", "|", "move-up", "move-down", "|", "remove"]);
   assert.deepEqual(ids(workspaceRowMenu(FOLDER, { canMoveDown: true })).slice(-4), ["|", "move-down", "|", "remove"]);
   assert.equal(workspaceRowMenu(FOLDER).at(-1).danger, true);
 });
