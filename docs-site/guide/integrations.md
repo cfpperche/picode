@@ -14,12 +14,11 @@ PiCode (**Webhooks** in the user menu).
 
 1. Open **Agent CLIs**, pick the CLI, then **Connectors**.
 2. On Pi, if prompted, open **Packages** and install `npm:pi-mcp-adapter`.
-3. Pick a service from the catalog tabs. The fixed **Catalog** tab lists
-   cataloged services plus **Custom**, which opens the server form (URL or
-   local command). The other tabs list MCP servers found in other agent CLIs'
-   configurations (Claude Code, Codex, Cursor and friends); adding one imports
-   that configuration after you confirm the destination. You can also import a
-   JSON definition containing one `mcpServers` entry.
+3. In **Marketplace**, search the catalog and press **Add** on a card.
+   PiCode's own connectors sit at the top; the rest is a curated slice of
+   the official MCP Registry. Set **Save to** (Global, a workspace or an
+   agent) before adding. **Custom server…** opens the server form (URL or
+   local command) for anything the catalog does not list.
 4. Sign in when the service requires it. Existing authentication and server
    support come from the installed adapter, not from a separate PiCode vault.
 
@@ -30,11 +29,12 @@ running agent; other running agents may need a restart to reload configuration.
 
 Shipped connector pages: [Gmail](/guide/mcp-gmail) and [DeepWiki](/guide/mcp-deepwiki). How to add any server: [MCP](/guide/mcp).
 
-Only import trusted definitions. Local commands run with the agent's system
-permissions. Import does not install their dependencies. Remote definitions
-cannot embed executable credential commands; configure those explicitly in
-MCP settings if needed. Removing configuration does not revoke a provider
-credential. Use **Sign out** where available and revoke tokens at the service.
+Only add connectors you trust. A local command runs with the agent's system
+permissions and adding it does not install its dependencies — install those
+separately, following the server's maintainer. Remote servers cannot embed
+executable credential commands; configure those explicitly in MCP settings
+if needed. Removing configuration does not revoke a provider credential. Use
+**Sign out** where available and revoke tokens at the service.
 
 | Capability | Compatibility |
 |---|---|

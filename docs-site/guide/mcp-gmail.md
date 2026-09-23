@@ -8,7 +8,7 @@ Read, draft and send Gmail from a Pi agent. The catalog uses the community
 server `@gongrzhe/server-gmail-autoauth-mcp`. There is no official Gmail MCP
 from Google.
 
-- **Where:** **Agent CLIs → Pi → Connectors**, then the **Gmail** card — or import `connectors/gmail.json`, or install `packages/pi-connector-gmail` through [Packages](/guide/packages).
+- **Where:** **Agent CLIs → Pi → Connectors**, then the **Gmail** card — or install `packages/pi-connector-gmail` through [Packages](/guide/packages).
 - **Not this:** credentials are **not** stored in PiCode. They live in `~/.gmail-mcp/`. Review the community server before you grant a mailbox. How to add any connector: [MCP](/guide/mcp).
 
 ## 1. One-time Google sign-in
@@ -28,9 +28,9 @@ A browser opens for Google consent. Tokens land in `~/.gmail-mcp/`. Skip this an
 
 Pick **one** path:
 
-- the **Gmail** card in the catalog
-- **Import a file…** with `connectors/gmail.json`
+- the **Gmail** card in the Marketplace
 - **Packages** → install the absolute path to `packages/pi-connector-gmail`
+- **Custom server…** with the command `npx -y @gongrzhe/server-gmail-autoauth-mcp`
 
 Do not combine paths unless you want two separately named configurations. Restart the agent so the adapter loads the tools.
 

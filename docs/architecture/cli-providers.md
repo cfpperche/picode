@@ -141,7 +141,7 @@ the vendor documents, PiCode files it.
 `usage` when the cache has a report for that provider+account
 (`internal/usage`, no vendor call on a load — ADR-0031), rendered by the same
 `QuotaStrip` pi's table used, and **Check** spends one listing call through
-`GET /api/providers/{provider}/accounts/{id}/usage`. 7d spend is PiCode's own
+`GET /api/providers/{id}/accounts/{aid}/usage`. 7d spend is PiCode's own
 number: one `/api/sessions/stats?range=7d` per pane load through
 `spendByProvider`. A row with no source says `unknown` and offers Check; a
 provider with no session spend shows a dash, never `$0.00`.

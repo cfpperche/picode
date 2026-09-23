@@ -8,8 +8,8 @@ Requires an installed `pi-mcp-adapter` with package-manifest support (verified
 with 2.32.1). This package is a local example, not published to npm.
 
 In PiCode, open **Packages** and install the absolute path to this directory.
-It then appears under **Integrations → Connectors → Connector packages**.
-Restart the agent to load it. The adapter names the server
+It then appears under **Agent CLIs → Pi → Connectors → Installed → Connector
+packages**. Restart the agent to load it. The adapter names the server
 `pi-connector-deepwiki__docs`. Installation is not a claim of live access;
 the agent's first tool call verifies the remote service.
 
@@ -23,8 +23,9 @@ to read public `golang/go` documentation. It makes no model turn and does not
 use owner credentials; it does not certify OAuth or model-driven behavior.
 
 Remove through **Packages** and restart affected agents to stop loading it.
-There is no token to revoke. Do not also import `connectors/deepwiki.json`
-unless you intentionally want two separately named configurations.
+There is no token to revoke. Do not also add the DeepWiki card or a Custom
+server… entry for the same service unless you intentionally want two
+separately named configurations.
 
 | Concern | Compatibility |
 |---|---|

@@ -24,14 +24,15 @@ sign-in exists.
 ## Install
 
 In PiCode, open **Packages** and install the absolute path to this directory.
-It appears under **Integrations → Connectors → Connector packages** as
-`pi-connector-gmail`. Restart the agent to load its tools (`send_email`,
-`draft_email`, `read_email`, `search_emails` and related names belong to the
-external server; PiCode does not vouch for the exact list).
+It appears under **Agent CLIs → Pi → Connectors → Installed → Connector
+packages** as `pi-connector-gmail`. Restart the agent to load its tools
+(`send_email`, `draft_email`, `read_email`, `search_emails` and related
+names belong to the external server; PiCode does not vouch for the exact
+list).
 
-Alternatively, import `connectors/gmail.json` for a directly managed
-connection, or add the same command through the connector form. Do not combine
-paths unless you intentionally want two separately named configurations.
+Alternatively, add the same command through the **Gmail** card or the
+**Custom server…** form. Do not combine paths unless you intentionally want
+two separately named configurations.
 
 ## Removal and revocation
 
