@@ -48,6 +48,9 @@ type pending struct {
 	ln       net.Listener
 	cancel   context.CancelFunc
 	done     chan result
+	// exchanging is set (under mu) once a callback reached the token
+	// exchange: the timeout then leaves the outcome to it.
+	exchanging bool
 }
 
 // Sink receives the credential a completed login minted. nil means pi's own
@@ -160,7 +163,7 @@ func StartSink(provider, returnTo string, sink Sink) (authorizeURL, userCode str
 	// restarts — the device flows already give up after the same limit.
 	time.AfterFunc(loopbackTimeout, func() {
 		mu.Lock()
-		still := cur == p
+		still := cur == p && !p.exchanging
 		mu.Unlock()
 		if still {
 			p.finish(fmt.Errorf("oauth: sign-in timed out"))
@@ -207,6 +210,9 @@ func serve(p *pending, path, redirect, clientID string) {
 			p.finish(fmt.Errorf("oauth callback invalid"))
 			return
 		}
+		mu.Lock()
+		p.exchanging = true
+		mu.Unlock()
 		if err := exchange(p.provider, code, st, p.verifier, redirect, clientID, p.sink); err != nil {
 			htmlFail(w, "token exchange failed")
 			p.finish(err)

@@ -23,6 +23,13 @@ func TestAddAgentWithLaunchOverrides(t *testing.T) {
 	proj := t.TempDir()
 	wk := cliRequest(t, ts, "POST", "/api/workspaces", map[string]any{"name": "proj", "path": proj}, 201)
 	sub := filepath.Join(proj, "sub")
+	// A launch refuses a folder that is not there (a typo, a deleted worktree).
+	cliRequest(t, ts, "POST", "/api/workspaces/"+wk["id"].(string)+"/agents", map[string]any{
+		"cli": "codex", "workPath": sub, "overrides": map[string]any{},
+	}, 400)
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	// Workspace agent: overrides reach its terminal's launch, tools are
 	// filled in, and the CLI starts in the agent's own folder.

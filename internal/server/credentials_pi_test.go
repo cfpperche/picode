@@ -411,7 +411,11 @@ func TestCredentialSigninReusesItsTerminal(t *testing.T) {
 	}
 
 	// The session died (the person closed it after signing in): the record is
-	// a husk and the next Sign in replaces it.
+	// a husk and the next Sign in replaces it — once past the grace a
+	// just-created sign-in gets (signinGrace; zero here).
+	grace := signinGrace
+	signinGrace = 0
+	t.Cleanup(func() { signinGrace = grace })
 	_ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id1))
 	third := cliRequest(t, ts, "POST", "/api/credentials/signin", map[string]any{"cli": "pi"}, 201)
 	id3, _ := third["terminalId"].(string)

@@ -348,7 +348,9 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
     const term = res && res.terminal;
     const agent = res && res.agent;
     if (term && term.launchError) {
+      // The agent exists (ADR-0184); its stopped terminal says why and offers Start.
       toastError(new Error(term.launchError));
+      if (term.id) location.hash = termHash(term.id);
     } else if (term && term.id) {
       toast.ok(target.name + " is opening with this conversation.");
       location.hash = termHash(term.id);

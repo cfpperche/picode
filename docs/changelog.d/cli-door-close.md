@@ -3,7 +3,8 @@
 - A CLI's sign-in terminal no longer shows up in the sidebar or among the
   CLI's terminals; it lives on the Providers card that opened it. PiCode
   closes it once the account is saved, when the login exits, after 15
-  minutes, or when you press **Cancel** — and the card says when it closed.
+  minutes without activity, or when you press **Cancel** — and the card says
+  when it closed.
 
 ### Removed
 

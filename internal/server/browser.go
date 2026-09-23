@@ -128,12 +128,12 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 		if verb.Raw {
 			devMode := browserDeveloperMode(deps.Store)
 			if !devMode {
-				browserAuditRaw(deps, req.Agent, req.Term, params, "refused", "developer mode is off")
+				browserAuditRaw(deps, callerAgentID(deps, req.Agent, req.Term), req.Term, params, "refused", "developer mode is off")
 				writeErr(w, http.StatusForbidden, "raw CDP is off — turn on Developer mode in Settings ▸ Browser (Elevated risk)")
 				return
 			}
 			if !policy.AllowsRaw(devMode) {
-				browserAuditRaw(deps, req.Agent, req.Term, params, "refused", "tier is "+policy.Tier)
+				browserAuditRaw(deps, callerAgentID(deps, req.Agent, req.Term), req.Term, params, "refused", "tier is "+policy.Tier)
 				writeErr(w, http.StatusForbidden, fmt.Sprintf(
 					"raw CDP needs the full tier; this agent has %s — grant it in Settings ▸ Browser",
 					policy.Tier))
@@ -200,13 +200,13 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 		})
 		if err != nil {
 			if verb.Raw {
-				browserAuditRaw(deps, req.Agent, req.Term, map[string]any{"method": method}, "failed", err.Error())
+				browserAuditRaw(deps, callerAgentID(deps, req.Agent, req.Term), req.Term, map[string]any{"method": method}, "failed", err.Error())
 			}
 			writeErr(w, http.StatusBadGateway, err.Error())
 			return
 		}
 		if verb.Raw {
-			browserAuditRaw(deps, req.Agent, req.Term, map[string]any{"method": method}, "allowed", "")
+			browserAuditRaw(deps, callerAgentID(deps, req.Agent, req.Term), req.Term, map[string]any{"method": method}, "allowed", "")
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"verb": req.Verb, "output": output})
 	}

@@ -46,10 +46,25 @@ still carries a launch without an agent is a credential sign-in:
 `terminals.kind = 'signin'` (migration 068), created only by
 `createSigninTerminal`, kept out of `/api/terminals`, peer owners and the app's
 lists (`kind` travels in the terminal view and the feed reducer drops it),
-and closed by the server (`signin.go`): when the credential is imported, when
-its session is gone, after `signinOpenLimit` (15 min, counted from creation),
-and at boot — `StartSigninReaper` ticks every minute. The card's Cancel
-deletes it; its strip reads `terminal.deleted` to say it closed.
+and closed by the server (`signin.go`): when the credential is imported; when
+its CLI exits (a sign-in's launch script ends with `exit`, not the shell every
+other launch returns to, so the session goes); after `signinOpenLimit` (15 min)
+without tmux activity (`#{session_activity}`); and at boot —
+`StartSigninReaper` ticks every minute and judges each one under its terminal
+lock, with `signinGrace` (30 s) for a row whose session is still being created.
+The stamp of the account the store held when the sign-in started is kept per
+terminal (`signinStamps`) and returned by the reused POST and by
+`GET /api/credentials/signin`, so a card that comes back still tells a new
+login from the old one. The card's dialog keeps Esc and outside clicks for the
+login (phones get the terminal key bar), Cancel deletes the terminal, and the
+strip reads `terminal.deleted` to say it closed.
+
+**The launch editor is an agent's (hardening).** `PUT /api/terminals/{id}/launch`
+answers 409 for a terminal no agent owns ("Make it an agent first") and for a
+sign-in — the one path that could still give a shell a launch after slice 3.
+A launch agent refuses a named folder that is not there instead of creating
+it (`launchFolderExists`); a plain Pi New agent (no launch changes) is the
+same Pi agent the palette makes.
 
 **Make agent (slice 4).** `POST /api/terminals/{id}/adopt` binds a shell to a
 new agent when PiCode has seen a launchable catalog CLI running in it

@@ -9,7 +9,10 @@ package tmux
 // callers are unchanged, and the wrappers disappear when the last legacy
 // session ends.
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // WithLegacy gives this Manager a second server to consult for sessions the
 // primary one does not have. It returns the receiver so wiring reads as one
@@ -121,6 +124,13 @@ func (m *Manager) PaneCommand(ctx context.Context, name string) (string, error) 
 		return m.legacy.paneCommand(ctx, name)
 	}
 	return m.paneCommand(ctx, name)
+}
+
+func (m *Manager) SessionActivity(ctx context.Context, name string) (time.Time, error) {
+	if m.legacyFor(ctx, name) {
+		return m.legacy.sessionActivity(ctx, name)
+	}
+	return m.sessionActivity(ctx, name)
 }
 
 func (m *Manager) PanePID(ctx context.Context, name string) (int, error) {

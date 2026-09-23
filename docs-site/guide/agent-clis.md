@@ -61,7 +61,8 @@ If you type a CLI into a plain PiCode shell instead, the shell shows
 "*Claude Code is running in this shell* · **Make agent**". Nothing changes until
 you press it: the shell then becomes an agent in the same workspace (or a free
 one, working in the shell's folder), and from its next start it launches that
-CLI with its agent settings. A CLI you run outside PiCode is not affected.
+CLI with its agent settings. Removing that agent later closes the shell
+with it. A CLI you run outside PiCode is not affected.
 
 PiCode installs a missing CLI only through npm: **Install** appears for Pi,
 Claude Code, Codex, OpenCode and Omp when the CLI is missing and npm is

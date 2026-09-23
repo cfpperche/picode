@@ -6,4 +6,8 @@ Decision: ADR-0184. Plan: `docs/plans/one-cli-door.md`. All four branches landed
 
 ## Debts
 
-- [ ] Migration 067 turns an unbound Pi terminal into a Pi agent as is: launch args with a flag a Pi agent reserves (`--session`, `--model`, …) make its next start refuse with "Configure … through this Pi agent's settings". None existed on the owner's instance (2026-09-22); fix by editing the agent's launch settings.
+- [ ] Migration 067 moves a Pi terminal's pinned conversation or a lone `--session` onto the agent, but other reserved Pi flags in its args (`--model`, `--provider`, …) still make the agent's start refuse ("Configure … through this Pi agent's settings"). None existed on the owner's instance (2026-09-22).
+- [ ] A migrated Omp agent starts with a private `--session-dir`, so its `/resume` picker no longer lists the conversations it had as a bare terminal (explicit Resume still works). No such row on the owner's instance.
+- [ ] Sign-in terminals' `terminal.updated` / `terminal.launch` events hit an id the app does not hold, so each one makes the fleet refetch (harmless churn).
+- [ ] A CLI that execs into a binary of another name is invisible to the tmux fallback, so Make agent never appears for it (pre-existing; the PiCode PATH wrapper announces real CLIs).
+- [ ] The sign-in "CLI exits" and "idle past 15 min" rows are unit-tested (script ends with `exit`; reaper verdicts), not against a live login; the live-session reap test skips without tmux.

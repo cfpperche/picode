@@ -515,7 +515,9 @@ func seedSignInTerminal(st *store.Store, fx *tmux.Manager) error {
 	if !fx.Available() {
 		return nil // no tmux on this machine: the strip is simply not photographed
 	}
-	t, err := st.CreateTerminalIn(store.FreeWorkspaceID, "Claude Code sign-in", dataDir)
+	// A sign-in terminal is the server's own (ADR-0184): kind signin, off the
+	// sidebar — exactly what the Providers pane reuses.
+	t, err := st.CreateSigninTerminal("Claude Code sign-in", dataDir)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,9 @@ import TermSurface from "./TermSurface.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { closeTerm, terms } from "../lib/terms.js";
+import KeyBar from "./KeyBar.jsx";
+import { useTermAccessory } from "../hooks/useTermAccessory.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
 import { askPrompt } from "../lib/prompt.js";
@@ -58,6 +61,8 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // A sign-in in flight: the CLI's own login runs in a PiCode terminal, and
   // this holds the hint plus whatever the last check answered.
   const [signin, setSignin] = useState(null);
+  // The sign-in terminal shown in the card's dialog (ADR-0184).
+  const [signinView, setSigninTerm] = useState(null);
   // pi's provider + model catalog (ADR-0129): the Add-provider dialog reads it,
   // and so does the app's model picker through onCatalogChange. No other CLI
   // has one to fetch.
@@ -132,12 +137,14 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // belongs to the CLI it was started for, so it goes with it.
   useEffect(() => {
     setSignin(null);
+    setSigninTerm(null);
     // A sign-in still running for this CLI comes back to its strip: the
-    // card is the only way to it (ADR-0184). The stamp is unknown here, so
-    // Check now files whatever the store holds.
+    // card is the only way to it (ADR-0184). The server kept the stamp of
+    // the account the store held when it started, so Check now still tells
+    // a new login from the old one.
     let live = true;
     api("/api/credentials/signin?cli=" + encodeURIComponent(cli)).then((res) => {
-      if (live && res && res.terminalId) setSignin((prev) => prev || { hint: res.hint || "", error: "", terminalId: res.terminalId, stamp: "" });
+      if (live && res && res.terminalId) setSignin((prev) => prev || { hint: res.hint || "", error: "", terminalId: res.terminalId, stamp: res.stamp || "" });
     }).catch(() => {});
     return () => { live = false; };
   }, [cli]);
@@ -151,13 +158,13 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
       if (e.type === "terminal.deleted" && e.data && e.data.id === signinTerm) {
         setSignin((prev) => (prev && prev.terminalId === signinTerm ? { ...prev, terminalId: "", closed: true } : prev));
         setSigninTerm(null);
+        closeTerm("sh:" + signinTerm);
       }
     });
   }, [signinTerm]);
 
   // The sign-in terminal opens here, in a dialog of the card that owns it —
   // it is not in the sidebar or any terminal list (ADR-0184).
-  const [signinView, setSigninTerm] = useState(null);
   async function openSigninTerm() {
     const id = signin && signin.terminalId;
     if (!id) return;
@@ -174,6 +181,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     const id = signin && signin.terminalId;
     setSignin(null);
     setSigninTerm(null);
+    if (id) closeTerm("sh:" + id);
     if (id) await api("/api/terminals/" + encodeURIComponent(id), { method: "DELETE" }).catch(() => {});
   }
 
@@ -854,10 +862,17 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
       <Dialog.Root open={!!signinView} onOpenChange={(open) => { if (!open) setSigninTerm(null); }}>
         <Dialog.Portal>
           <Dialog.Overlay className="dlg-overlay" />
-          <Dialog.Content className="dlg dlg-signin-term">
+          <Dialog.Content
+            className="dlg dlg-signin-term"
+            // A vendor login answers Esc and clicks of its own: they belong
+            // to the terminal, and only Close or Cancel leave the dialog.
+            onEscapeKeyDown={(e) => e.preventDefault()}
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+          >
             <Dialog.Title className="dlg-title">{cliName} sign-in</Dialog.Title>
             <Dialog.Description className="dlg-body">{(signin && signin.hint) || "Finish the sign-in, then check again."} Closing this keeps the sign-in running; Cancel ends it.</Dialog.Description>
-            <div className="cred-signin-term">{signinView ? <TermSurface term={signinView} hidden={false} /> : null}</div>
+            {signinView ? <SigninPane term={signinView} /> : null}
             <div className="dlg-actions">
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSigninTerm(null)}>Close</button>
               <button type="button" className="btn btn-primary btn-sm" disabled={busy === "check"} onClick={() => { setSigninTerm(null); checkSignin(); }}>Check now</button>
@@ -1044,4 +1059,23 @@ function AccountRow({
 // gatewayHost is the part of a gateway URL a person recognises.
 function gatewayHost(u) {
   try { return new URL(u).host; } catch { return u; }
+}
+
+// The sign-in's terminal with the phone's key bar (Esc, arrows, Tab — what a
+// vendor login asks for). Its own component so the pane exists when the key
+// accessory attaches: the sheet's portal mounts after the card renders.
+function SigninPane({ term }) {
+  const host = useRef(null);
+  const keys = useTermAccessory(host, () => terms.get("sh:" + term.id), term.id, () => {
+    toast.warn("Terminal reconnecting — tap the pane, then try again.");
+  });
+  return (
+    <>
+      <div className="cred-signin-term" ref={host}><TermSurface term={term} hidden={false} /></div>
+      {keys.visible ? <KeyBar armed={keys.armed} onArm={keys.armKey} onKey={keys.sendKey} onHide={keys.hide} /> : null}
+      <div className="dlg-actions">
+        <button type="button" className="btn btn-ghost btn-sm" aria-pressed={keys.visible} onPointerDown={(e) => { if (keys.visible) e.preventDefault(); }} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>{keys.visible ? "Hide keys" : "Keys"}</button>
+      </div>
+    </>
+  );
 }

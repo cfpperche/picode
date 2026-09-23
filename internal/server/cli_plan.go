@@ -241,6 +241,9 @@ func handleCLIPreview(deps Deps) http.HandlerFunc {
 			return
 		}
 		for _, t := range terms {
+			if t.Kind != "" {
+				continue // a sign-in is the credential flow's, not a terminal to warn about
+			}
 			v, err := deps.Store.TerminalLaunch(t.ID)
 			if err != nil {
 				writeErr(w, 500, err.Error())

@@ -22,7 +22,6 @@ import (
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/credentials"
 	"github.com/cfpperche/picode/internal/oauth"
-	"github.com/cfpperche/picode/internal/tmux"
 	"github.com/cfpperche/picode/internal/usage"
 )
 
@@ -759,10 +758,9 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 		// sessions piled up in one machine's tmux before this check existed
 		// (2026-09-21). One whose session is gone is closed, not reused.
 		for _, t := range signinTerminals(deps, cli.ID) {
-			alive, e := deps.Tmux.HasSession(r.Context(), tmux.ShellSessionName(t.ID))
-			if e == nil && alive {
+			if !signinEnded(r.Context(), deps, t, time.Now()) {
 				writeJSON(w, http.StatusOK, map[string]any{
-					"terminalId": t.ID, "hint": spec.Login.Hint, "reused": true,
+					"terminalId": t.ID, "hint": spec.Login.Hint, "reused": true, "stamp": signinStamp(t.ID),
 				})
 				return
 			}
@@ -778,6 +776,7 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 		if login, found := clicreds.Detect(spec.CLI); found {
 			prior = tokenStamp(login.Cred)
 		}
+		signinStamps.Store(t.ID, prior)
 		writeJSON(w, status, map[string]any{
 			"terminalId": t.ID, "hint": spec.Login.Hint, "terminal": view, "stamp": prior,
 		})
@@ -1181,15 +1180,12 @@ func handleCredentialSigninOpen(deps Deps) http.HandlerFunc {
 			return
 		}
 		for _, t := range signinTerminals(deps, spec.CLI) {
-			if deps.Tmux == nil || !deps.Tmux.Available() {
-				break
-			}
-			if alive, err := deps.Tmux.HasSession(r.Context(), tmux.ShellSessionName(t.ID)); err == nil && alive {
+			if !signinEnded(r.Context(), deps, t, time.Now()) {
 				hint := ""
 				if spec.Login != nil {
 					hint = spec.Login.Hint
 				}
-				writeJSON(w, http.StatusOK, map[string]any{"terminalId": t.ID, "hint": hint})
+				writeJSON(w, http.StatusOK, map[string]any{"terminalId": t.ID, "hint": hint, "stamp": signinStamp(t.ID)})
 				return
 			}
 		}

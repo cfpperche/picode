@@ -640,6 +640,20 @@ func (m *Manager) pasteText(ctx context.Context, name, text string) error {
 	return err
 }
 
+// sessionActivity is when the session last saw input or output
+// (#{session_activity}): how the sign-in reaper tells idle from in use.
+func (m *Manager) sessionActivity(ctx context.Context, name string) (time.Time, error) {
+	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{session_activity}")
+	if err != nil {
+		return time.Time{}, err
+	}
+	sec, err := strconv.ParseInt(strings.TrimSpace(out), 10, 64)
+	if err != nil || sec <= 0 {
+		return time.Time{}, fmt.Errorf("tmux session activity unreadable: %q", strings.TrimSpace(out))
+	}
+	return time.Unix(sec, 0), nil
+}
+
 // PaneCommand returns tmux's current command name for the active pane.
 func (m *Manager) paneCommand(ctx context.Context, name string) (string, error) {
 	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{pane_current_command}")

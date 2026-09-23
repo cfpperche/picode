@@ -153,14 +153,3 @@ func handleAddWorkspacePrincipal(deps Deps) http.HandlerFunc {
 		writeJSON(w, http.StatusCreated, agentPrincipal(bound))
 	}
 }
-
-func handleDeleteManagedCLI(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		if err := deps.Store.DeleteAgent(id); err != nil {
-			writeErr(w, storeStatus(err), err.Error())
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}
-}
