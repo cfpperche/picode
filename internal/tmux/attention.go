@@ -66,6 +66,18 @@ func (m *Manager) pasteOnly(ctx context.Context, paneID, text string) error {
 	_, err := m.run(ctx, "paste-buffer", "-p", "-b", buffer, "-t", paneID)
 	return err
 }
+
+// sendPaneKey presses one named key (Enter, Tab, M-Enter) on an exact pane:
+// the attach door's mid-turn sequences (ADR-0206) — never a key list, so a
+// caller cannot turn it into a control protocol.
+func (m *Manager) sendPaneKey(ctx context.Context, paneID, key string) error {
+	if !strings.HasPrefix(paneID, "%") {
+		return errors.New("exact pane required")
+	}
+	_, err := m.run(ctx, "send-keys", "-t", paneID, key)
+	return err
+}
+
 func (m *Manager) submitPane(ctx context.Context, paneID string) error {
 	if !strings.HasPrefix(paneID, "%") {
 		return errors.New("exact pane required")

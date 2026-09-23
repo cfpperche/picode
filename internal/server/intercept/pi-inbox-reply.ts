@@ -186,7 +186,7 @@ export default function (pi) {
                 }
 
 				try {
-					await pi.sendUserMessage(doc.payload, { deliverAs: "followUp", triggerTurn: true });
+					await pi.sendUserMessage(doc.payload, { deliverAs: doc.deliverAs === "steer" ? "steer" : "followUp", triggerTurn: true });
 					await ack(true, "");
 				} catch (err) {
 					await ack(false, "the terminal could not submit the reply: " + String(err?.message || err));

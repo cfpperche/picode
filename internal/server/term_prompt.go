@@ -37,6 +37,7 @@ const (
 func registerTermPromptRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/terminals/{id}/drop", handleTerminalDrop(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/prompt", handleTerminalPrompt(deps))
+	mux.HandleFunc("GET /api/terminals/{id}/prompt", handleTerminalPromptModes(deps))
 }
 
 var promptInFlight = struct {
@@ -137,8 +138,9 @@ func handleTerminalDrop(deps Deps) http.HandlerFunc {
 }
 
 type promptBody struct {
-	Message string   `json:"message"`
-	Paths   []string `json:"paths"`
+	Message  string   `json:"message"`
+	Paths    []string `json:"paths"`
+	Delivery string   `json:"delivery"`
 }
 
 func handleTerminalPrompt(deps Deps) http.HandlerFunc {
@@ -160,6 +162,10 @@ func handleTerminalPrompt(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
+		if !validDelivery(req.Delivery) {
+			writeErr(w, http.StatusBadRequest, "delivery must be prompt, steer or follow_up")
+			return
+		}
 		cwd := liveTermCwd(deps, r, t)
 		rels, err := checkPromptPaths(cwd, req.Paths)
 		if err != nil {
@@ -171,7 +177,7 @@ func handleTerminalPrompt(deps Deps) http.HandlerFunc {
 			return
 		}
 		payload := buildPromptPaste(req.Message, rels)
-		status, body := doorDeliver(deps, r.Context(), t, payload)
+		status, body := doorDeliverAs(deps, r.Context(), t, payload, req.Delivery)
 		if status != http.StatusOK {
 			writeJSON(w, status, body)
 			return
@@ -226,12 +232,15 @@ func doorDeliverMode(deps Deps, ctx context.Context, t store.Terminal, payload s
 		return http.StatusConflict, map[string]any{"error": "Already sending to this terminal.", "reason": "busy"}
 	}
 	defer unlockPrompt(t.ID)
-	if st, ok := deps.TermStates.Get(t.ID); ok && (st.State == TermWorking || st.State == TermNeedsYou) {
-		return http.StatusConflict, map[string]any{
-			"error": "The CLI is " + st.State + ". Try again when it is your turn.", "reason": st.State,
-		}
-	}
 	cli := terminalLaunchCLI(deps, t.ID)
+	if st, ok := deps.TermStates.Get(t.ID); ok && (st.State == TermWorking || st.State == TermNeedsYou) {
+		if unattended {
+			return http.StatusConflict, map[string]any{
+				"error": "The CLI is " + st.State + ". Try again when it is your turn.", "reason": st.State,
+			}
+		}
+		return http.StatusConflict, workingRefusal(cli, st.State)
+	}
 	if !doorReaderCLI[cli] {
 		if err := deps.Tmux.PasteText(cctx, session, payload); err != nil {
 			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}

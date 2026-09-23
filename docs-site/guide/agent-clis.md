@@ -78,6 +78,28 @@ it in the terminal's folder and types the path into the TUI. On a phone it is
 the paperclip in the header; on desktop, right-click the pane and choose
 **Attach files…**. The Pi agent composer still opens Photos for managed chat.
 
+### Send while the agent works
+
+While a CLI is working, the message bar shows a **Delivery** choice instead
+of refusing the message:
+
+- **Steer** — the message reaches the agent inside the running turn, after
+  the step it is on.
+- **Follow-up** — the message waits and is sent when the turn ends.
+
+Only the choices that CLI really has are listed:
+
+| CLI | Steer | Follow-up |
+|---|---|---|
+| Pi, Omp, Hermes Agent, Muse Code, Codex | yes | yes |
+| Claude Code, OpenCode | yes | — |
+| Antigravity, Grok | — | yes |
+
+When the CLI is waiting for you (an approval or a question), nothing is
+sent: answer it in the terminal first. A draft already typed in the
+terminal is never overwritten. If PiCode cannot see the CLI take the
+message, it says so — check the terminal.
+
 ## Inside the terminal pane
 
 Right-click anywhere in a terminal for PiCode's own menu: copy, paste and

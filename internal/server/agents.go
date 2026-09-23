@@ -32,6 +32,7 @@ func registerAgentRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/abort", handleAgentAbort(deps))
 	mux.HandleFunc("POST /api/agents/{id}/drop", handleAgentDrop(deps))
 	mux.HandleFunc("POST /api/agents/{id}/prompt", handleAgentPrompt(deps))
+	mux.HandleFunc("GET /api/agents/{id}/prompt", handleAgentPromptModes(deps))
 	mux.HandleFunc("POST /api/agents/{id}/fork-agent", handleForkAgent(deps))
 	mux.HandleFunc("POST /api/agents/{id}/ui", handleAgentUI(deps))
 }

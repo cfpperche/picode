@@ -20,6 +20,14 @@ const (
 // "inspector"), there is no git-root check, HTTP does not wait on JSONL,
 // and the JSON is {ok, typed, text} matching a terminal snip-run.
 func (deps Deps) deliverToInteractiveAgent(ctx context.Context, agent store.Agent, text, source string) (int, map[string]any) {
+	return deps.deliverToInteractiveAgentAs(ctx, agent, text, source, "")
+}
+
+// deliverToInteractiveAgentAs is the same door with an attach mode
+// (ADR-0206): "steer" / "follow_up" reach pi.sendUserMessage as deliverAs.
+// A mode needs the receiver — the paste fallback cannot pick one — so
+// without a fresh receiver it is refused rather than approximated.
+func (deps Deps) deliverToInteractiveAgentAs(ctx context.Context, agent store.Agent, text, source, mode string) (int, map[string]any) {
 	text = strings.TrimRight(text, "\n")
 	if strings.TrimSpace(text) == "" {
 		return http.StatusBadRequest, map[string]any{"error": "message or file is required"}
@@ -78,7 +86,13 @@ func (deps Deps) deliverToInteractiveAgent(ctx context.Context, agent store.Agen
 	}
 	baseline := rpc.CaptureDeliveryBaseline(sessionPath)
 	if sessionPath != "" && deps.Replies.receiverFresh(agent.ID) {
-		err = deps.deliverViaReceiver(agent.ID, sessionPath, task, baseline, settle)
+		err = deps.deliverViaReceiverAs(agent.ID, sessionPath, task, baseline, settle, piDeliverAs(mode))
+	} else if mode == deliverySteer || mode == deliveryFollowUp {
+		settle.failed(task, "no receiver for "+mode)
+		return http.StatusConflict, map[string]any{
+			"error":  deliveryModeLabel(mode) + " needs Pi's PiCode receiver, which has not connected in this terminal yet. Send as Prompt.",
+			"reason": "unsupported-mode",
+		}
 	} else {
 		err = deps.deliverViaPaste(ctx, agent.ID, sessionPath, task, baseline, settle)
 	}
@@ -90,4 +104,15 @@ func (deps Deps) deliverToInteractiveAgent(ctx context.Context, agent store.Agen
 		return http.StatusBadGateway, map[string]any{"error": "the terminal did not take the message: " + err.Error()}
 	}
 	return http.StatusOK, map[string]any{"ok": true, "typed": true, "text": text}
+}
+
+// piDeliverAs maps an attach mode onto pi.sendUserMessage's deliverAs.
+func piDeliverAs(mode string) string {
+	switch mode {
+	case deliverySteer:
+		return "steer"
+	case deliveryFollowUp:
+		return "followUp"
+	}
+	return ""
 }

@@ -407,7 +407,20 @@ composer must read empty before, and reads empty again after Enter — the
 response carries a `delivery` receipt (`verified` / `unconfirmed` /
 `unverified`) and refusals name themselves (`working`, `needs-you`,
 `occupied`, `busy`, `closed`). CLIs without a reader keep the blind paste
-and answer `unverified`. Automations aimed at a CLI agent deliver through
+and answer `unverified`. A working CLI is no longer only refused
+(ADR-0206): the request may carry `delivery: "steer" | "follow_up"`, and
+`term_delivery.go`'s adapter table — the live measurement in
+[the delivery-modes study](../benchmarks/2026-09-23-attach-delivery-modes.md) —
+names the one sequence per CLI and mode (a key after the paste, or a slash
+command for Hermes `/steer` / `/queue` and Omp `/queue`). A mode the CLI
+lacks answers `unsupported-mode`; `needs-you` and a recognized draft are
+refused in every mode; an idle CLI gets the prompt path whatever was asked;
+no second Enter is ever pressed mid-turn (Grok reads it as "cancel and send
+now"). The receipt is `queued` only when the payload's head shows on a new
+row outside the input row, else `unconfirmed`. `GET` on the same route
+returns `{cli, modes, state, termId}`; the composer shows the selector only
+while the state is `working`. Interactive Pi agents pass the mode to the
+receiver as `deliverAs`. Automations and the extension stay prompt-only. Automations aimed at a CLI agent deliver through
 this door on the agent's bound terminal and finish with the receipt as
 their reason. A **Sketch** button
 opens `SketchEditor.jsx` (one copy per shell) — an Excalidraw pad that borrows
