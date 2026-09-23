@@ -1164,6 +1164,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ws-state-dot.is-working { background: var(--accent); }
 .ws-state-dot.is-stopped, .ws-state-dot.is-open { opacity: .7; }
 .ws-state-count { margin-left: auto; font-variant-numeric: tabular-nums; }
+/* While a workspace header is pressed or dragged, sticky stands down for
+   the whole list: a dragged slot is a transformed box, and a sticky header
+   computes against the nearest transformed ancestor, not the scrollport.
+   Headers return to plain flow (the pre-sticky layout) until release; the
+   pressed folder itself renders collapsed for the gesture and re-expands
+   after. */
+#ws-list.is-ws-dragging .ws-group-head { position: relative; }
 .ws-group { margin-bottom: 6px; }
 /* The in-list copy is the slot the row will land in. The lifted card is a
    clone in the overlay, so this well stays dashed and quiet. */
