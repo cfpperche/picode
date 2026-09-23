@@ -106,7 +106,11 @@ session writes it back from the copy of `auth.json` kept at the logout. Hermes
 registry (read through its venv's Python); the key door runs `hermes auth add
 <id> --type api-key` with the key on stdin, the account door its device-code
 sign-in, and what Hermes stored is filed in the vault. A new credential goes
-last in Hermes's pool. The
+last in Hermes's pool. Muse
+(ADR-0195) runs `muse login` through the generic `deviceLogin` runner
+(`device_login.go`, `POST`/`GET`/`DELETE /api/muse/login`) and shows its
+page and code; a Meta key is applied with Use, and Use on Muse files the
+login its one slot holds before replacing it. The
 other guests'
 dialog still holds a provider `<select>`
 limited to that CLI's providers, the key field with the line that says the
