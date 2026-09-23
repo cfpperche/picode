@@ -40,17 +40,23 @@
    a visible thin scrollbar and a fade at the right edge say more columns
    are there (visual review, 2026-09-23). */
 .instr-scroll {
-  overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
-  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  overflow-x: auto; padding-bottom: 6px;
+  scrollbar-width: thin; scrollbar-color: var(--text-secondary) var(--bg-hover);
+  mask-image: linear-gradient(to right, #000 calc(100% - 64px), rgba(0, 0, 0, 0.15));
 }
 .instr-scroll.at-end { mask-image: none; }
+/* The app's overlay scrollbars hide until hover; this one stays drawn, thin. */
+.instr-scroll::-webkit-scrollbar { height: 6px; }
+.instr-scroll::-webkit-scrollbar-track { background: var(--bg-hover); border-radius: 3px; }
+.instr-scroll::-webkit-scrollbar-thumb { background: var(--text-secondary); border-radius: 3px; }
+
 .instr-matrix { width: 100%; border-collapse: collapse; }
 .instr-matrix th, .instr-matrix td { padding: 4px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
 /* A CLI's name may take two lines, so nine columns fit a normal card. */
-.instr-matrix thead th { color: var(--text-secondary); font-weight: 500; font-size: 12px; line-height: 1.25; white-space: normal; vertical-align: bottom; max-width: 76px; }
+.instr-matrix thead th { color: var(--text-secondary); font-weight: 500; font-size: 12px; line-height: 1.25; white-space: normal; vertical-align: bottom; max-width: 64px; }
 .instr-matrix tbody tr:last-child th, .instr-matrix tbody tr:last-child td { border-bottom: 0; }
 .instr-group th { padding-top: 14px; color: var(--text-secondary); font-size: 12px; font-weight: 500; }
-.instr-file-col { width: 1%; }
+.instr-file-col { width: 1%; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 .instr-num { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .instr-file, .instr-file-text { font-family: var(--mono); font-size: 12px; }
 .instr-file { background: none; border: 0; padding: 0; color: var(--text-primary); cursor: pointer; }
@@ -61,7 +67,7 @@
 
 /* A cell is a button: the verdict in one word, its reason on pick. */
 .instr-cell {
-  display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px;
+  display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 5px;
   border: 1px solid transparent; border-radius: var(--radius-ctl); background: none;
   color: var(--text-secondary); font-size: 12px; cursor: pointer;
 }
@@ -78,3 +84,6 @@
 /* The New agent dialog's line: what the picked CLI reads here. The line's
    height is held while the answer loads, so the fields below never jump. */
 .create-instr { margin: 0; min-height: 18px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+/* A group's label stays readable when the columns scroll sideways. */
+.instr-group th span { position: sticky; left: 4px; }
+.instr-more { margin: 0 0 6px; font-size: 12px; }

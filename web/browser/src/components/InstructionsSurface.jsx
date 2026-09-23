@@ -14,6 +14,8 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
   const [start, setStart] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [picked, setPicked] = useState(null);
+  const [overflow, setOverflow] = useState(false);
+  const scroller = useRef(null);
   const [state, setState] = useState({ data: null, busy: true, error: "" });
   const seq = useRef(0);
 
@@ -29,6 +31,22 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
   useEffect(() => {
     if (!hidden) load();
   }, [hidden, workspace.id, start]);
+
+  // Whether the matrix is wider than the card: then one line says so and the
+  // right edge fades until the last column is in view.
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      setOverflow(el.scrollWidth > el.clientWidth + 2);
+      el.classList.toggle("at-end", el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    el.addEventListener("scroll", measure, { passive: true });
+    return () => { ro.disconnect(); el.removeEventListener("scroll", measure); };
+  });
 
   const data = state.data;
   const clis = data ? visibleClis(data.clis, showAll) : [];
@@ -96,13 +114,13 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
             </ul>
           ) : null}
 
+          {groups.length > 0 && overflow ? <p className="instr-more instr-muted">Scroll the table sideways to see all {clis.length} CLIs.</p> : null}
           {groups.length > 0 ? (
-            <div className="instr-scroll" onScroll={(e) => { const el = e.currentTarget; el.classList.toggle("at-end", el.scrollLeft + el.clientWidth >= el.scrollWidth - 2); }} ref={(el) => { if (el) el.classList.toggle("at-end", el.scrollWidth <= el.clientWidth + 2); }}>
+            <div className="instr-scroll" ref={scroller}>
               <table className="instr-matrix">
                 <thead>
                   <tr>
                     <th scope="col" className="instr-file-col">File</th>
-                    <th scope="col" className="instr-num">Size</th>
                     {clis.map((c) => (
                       <th key={c.id} scope="col" title={[c.source, ...(c.notes || [])].join(" · ")}>
                         {c.name}{c.installed ? null : <span className="instr-muted"> · not installed</span>}
@@ -112,16 +130,15 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
                 </thead>
                 {groups.map((g) => (
                   <tbody key={g.id}>
-                    <tr className="instr-group"><th colSpan={clis.length + 2} scope="colgroup">{g.title}</th></tr>
+                    <tr className="instr-group"><th colSpan={clis.length + 1} scope="colgroup"><span>{g.title}</span></th></tr>
                     {g.rows.map((f) => (
                       <tr key={f.path}>
                         <th scope="row" className="instr-file-col">
                           {f.rel ? (
-                            <button className="instr-file" title={"Open " + f.path} onClick={() => onOpenFile && onOpenFile(f.rel)}>{f.path}</button>
-                          ) : <span className="instr-file-text" title={f.path}>{shortPath(f.path)}</span>}
+                            <button className="instr-file" title={"Open " + f.path + " · " + sizeLabel(f.bytes)} onClick={() => onOpenFile && onOpenFile(f.rel)}>{f.path}</button>
+                          ) : <span className="instr-file-text" title={f.path + " · " + sizeLabel(f.bytes)}>{shortPath(f.path)}</span>}
                           {f.ignored ? <span className="instr-tag" title="Excluded by .gitignore">ignored</span> : null}
                         </th>
-                        <td className="instr-num">{sizeLabel(f.bytes)}</td>
                         {clis.map((c) => {
                           const cell = f.cells[c.id] || { status: "unknown" };
                           const on = picked && picked.path === f.path && picked.cli === c.id;
