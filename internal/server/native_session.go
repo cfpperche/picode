@@ -24,6 +24,15 @@ func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string,
 	if deps.TermRuntimes == nil || run == "" || id == "" || len(id) > 256 || len(path) > 4096 || strings.ContainsAny(id, "\r\n\x00") || seq <= 0 || seq > time.Now().Add(5*time.Second).UnixNano() {
 		return errors.New("invalid native identity")
 	}
+	// A report that begins a turn counts it (ADR-0194) once every lock
+	// below is released: this path writes the state itself, bypassing
+	// reportTermStateForRun, and every integrated CLI reports through it.
+	turn := false
+	defer func() {
+		if turn {
+			noteTerminalTurn(deps, term)
+		}
+	}()
 	unlock := boundAgentLock(deps, term)
 	defer unlock()
 	r := deps.TermRuntimes
@@ -105,6 +114,7 @@ func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string,
 				// runtime's newest identity rather than rewinding it.
 				sessionID, sessionSeq = live.SessionID, live.SessionSeq
 			}
+			turn = startsTurn(prev, had, state)
 			deps.TermStates.m[term] = TermState{State: state, CLI: cli, RunID: run, SessionID: sessionID, SessionSeq: sessionSeq, Attention: attentionFor(state, attention), At: time.Now()}
 		}
 		deps.TermStates.mu.Unlock()

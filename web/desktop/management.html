@@ -150,6 +150,28 @@
       .kind-safe { color: var(--ok); }
       .clean-table td:first-child { width: 2rem; }
       .place-card { margin-top: 1rem; }
+      /* History chart: two series in one unit (GB), one axis. Series colours
+         are the validated categorical pair (dataviz skill, validator run on
+         both surfaces); text stays in text tokens. */
+      :root { --series-1: #3987e5; --series-2: #d95926; }
+      :root[data-theme="light"] { --series-1: #2a78d6; --series-2: #eb6834; }
+      .history-card { margin-top: 1rem; }
+      .h-legend { display: flex; gap: 1rem; font-size: 12px; color: var(--text-secondary); margin-bottom: .25rem; }
+      .h-legend i { display: inline-block; width: 10px; height: 2px; margin-right: .35rem; vertical-align: middle; }
+      .h-chart { position: relative; }
+      .h-chart svg { width: 100%; height: 160px; display: block; overflow: visible; }
+      .h-chart .grid { stroke: var(--border); stroke-width: 1; }
+      .h-chart .axis { fill: var(--text-secondary); font-size: 11px; }
+      .h-chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .h-chart .end { fill: var(--text-primary); font-size: 11px; }
+      .h-chart .cross { stroke: var(--border-strong); stroke-width: 1; }
+      .h-chart .dot { stroke: var(--bg-panel); stroke-width: 2; }
+      .h-tip { position: absolute; top: 0; pointer-events: none; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-ctl); padding: .35rem .5rem; font-size: 12px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+      .h-tip b { font-weight: 600; }
+      .h-sub { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin: 1rem 0 .35rem; }
+      .h-growth { list-style: none; margin: 0; padding: 0; }
+      .h-growth li { display: flex; justify-content: space-between; padding: .25rem 0; border-top: 1px solid var(--border); }
+      .h-growth li:first-child { border-top: 0; }
       .place-card .path { font-size: 12px; overflow-wrap: anywhere; text-align: right; }
       .drives { border: 0; padding: 0; margin: .75rem 0 .25rem; }
       .drives legend { padding: 0; margin-bottom: .35rem; }
@@ -240,6 +262,17 @@
 
       <p id="held-note" class="note hint"></p>
       <div id="outcome" class="note" aria-live="polite"></div>
+
+      <div class="card history-card" id="card-history">
+        <h2>History</h2>
+        <p class="empty" id="h-empty" hidden></p>
+        <div id="h-chart-wrap" hidden>
+          <div class="h-legend" id="h-legend"></div>
+          <div class="h-chart"><svg id="h-chart" role="img" aria-label="Free space on the Windows drive and space used inside the distro, per day"></svg><div class="h-tip" id="h-tip" hidden></div></div>
+        </div>
+        <h3 class="h-sub" id="h-sub">Grew most in the last 7 days</h3>
+        <ul class="h-growth" id="h-growth"></ul>
+      </div>
     </section>
 
     <section class="tab" id="tab-clean" role="tabpanel">
@@ -321,6 +354,7 @@
 
     <script type="module">
       import "@picode/shared/tokens/theme.css";
+      import "@picode/shared/styles/scrollbars.css";
       const { invoke } = window.__TAURI__.core;
       const { listen } = window.__TAURI__.event;
       // Tauri 2 hands typed commands back as objects and string commands as
@@ -605,6 +639,7 @@
         document.body.classList.remove('stale');
         setBusy('');
         renderClean();
+        loadHistory(); // the scan recorded today's line
       }
 
       // Streamed steps, one listener for every job. A step that arrives
@@ -913,6 +948,92 @@
       el('p-move').addEventListener('click', () => relocate(false));
       el('p-backup').addEventListener('click', () => relocate(true));
 
+      // ---- disk history (ADR-0203) -------------------------------------------
+      // One line per day, recorded by every scan and a daily background scan.
+      // Chart: the Windows drive's free space and the space used inside the
+      // distro, both in GB on one axis; hover shows the day's numbers.
+      const SERIES = [
+        { key: 'winFree', name: 'Free on the Windows drive', color: 'var(--series-1)' },
+        { key: 'used', name: 'Used inside the distro', color: 'var(--series-2)' },
+      ];
+      const dayLabel = d => String(d).slice(5).replace('-', '/');
+      function titleOfCache(id) {
+        const all = (lastReport?.distro?.consumers || []).concat(lastReport?.system || []);
+        return all.find(c => c.id === id)?.title || id;
+      }
+      function renderHistory(h) {
+        const samples = h.samples || [];
+        const empty = el('h-empty');
+        el('h-chart-wrap').hidden = samples.length < 2;
+        empty.hidden = samples.length >= 2;
+        empty.textContent = samples.length === 0
+          ? 'Nothing recorded yet. Each scan records the day; the trend appears after two days.'
+          : 'Today is recorded. The trend appears once there are two days.';
+        const g = (h.growth7 || []).filter(x => x.bytes > 0).slice(0, 5);
+        // The baseline is the newest day at least a week old — after a gap
+        // it can be older; the heading names it rather than promise "7 days".
+        const from = (h.growth7 || [])[0]?.from;
+        el('h-sub').textContent = from ? `Grew most since ${dayLabel(from)}` : 'Grew most in the last 7 days';
+        el('h-growth').innerHTML = g.length
+          ? g.map(x => `<li><span>${esc(titleOfCache(x.id))}</span><span class="v">+${gb(x.bytes)}</span></li>`).join('')
+          : '<li class="hint">This appears once a day at least a week old is recorded.</li>';
+        if (samples.length >= 2) drawHistory(samples);
+      }
+      function drawHistory(samples) {
+        const svg = el('h-chart');
+        const W = svg.clientWidth || 600, H = 160, L = 44, R = 110, T = 8, B = 20;
+        const n = samples.length;
+        const max = Math.max(1, ...samples.flatMap(sm => SERIES.map(se => sm[se.key] || 0)));
+        const G = 1 << 30;
+        const step = max / G > 100 ? 50 : max / G > 40 ? 20 : 10;
+        const top = Math.ceil(max / G / step) * step;
+        const x = i => L + (n === 1 ? 0 : i * (W - L - R) / (n - 1));
+        const y = v => T + (H - T - B) * (1 - v / G / top);
+        let out = '';
+        for (let t = 0; t <= top; t += step) {
+          out += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(t * G)}" y2="${y(t * G)}"/>` +
+            `<text class="axis" x="${L - 6}" y="${y(t * G) + 4}" text-anchor="end">${t} GB</text>`;
+        }
+        out += `<text class="axis" x="${L}" y="${H - 4}">${esc(dayLabel(samples[0].day))}</text>` +
+          `<text class="axis" x="${W - R}" y="${H - 4}" text-anchor="end">${esc(dayLabel(samples[n - 1].day))}</text>`;
+        for (const se of SERIES) {
+          const d = samples.map((sm, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(sm[se.key] || 0).toFixed(1)}`).join('');
+          const last = samples[n - 1][se.key] || 0;
+          out += `<path class="line" d="${d}" stroke="${se.color}"/>` +
+            `<text class="end" x="${W - R + 8}" y="${y(last) + 4}">${gb(last)}</text>`;
+        }
+        out += '<g id="h-hover" visibility="hidden"><line class="cross" id="h-cross" y1="' + T + '" y2="' + (H - B) + '"/>' +
+          SERIES.map((se, k) => `<circle class="dot" id="h-dot${k}" r="4" fill="${se.color}"/>`).join('') + '</g>' +
+          `<rect x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent" id="h-hit"/>`;
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.innerHTML = out;
+        el('h-legend').innerHTML = SERIES.map(se => `<span><i style="background:${se.color}"></i>${esc(se.name)}</span>`).join('');
+        const tip = el('h-tip'), hover = el('h-hover');
+        el('h-hit').addEventListener('mousemove', ev => {
+          const r = svg.getBoundingClientRect();
+          const px = (ev.clientX - r.left) * (W / r.width);
+          const i = Math.max(0, Math.min(n - 1, Math.round((px - L) / ((W - L - R) / Math.max(1, n - 1)))));
+          const sm = samples[i];
+          hover.setAttribute('visibility', 'visible');
+          el('h-cross').setAttribute('x1', x(i)); el('h-cross').setAttribute('x2', x(i));
+          SERIES.forEach((se, k) => { el('h-dot' + k).setAttribute('cx', x(i)); el('h-dot' + k).setAttribute('cy', y(sm[se.key] || 0)); });
+          tip.hidden = false;
+          tip.innerHTML = `<b>${esc(dayLabel(sm.day))}</b><br>` + SERIES.map(se => `${esc(se.name)}: ${gb(sm[se.key] || 0)}`).join('<br>');
+          // Away from the lines' newest end: right of the crosshair on the
+          // left half, left of it on the right half.
+          const left = x(i) * (r.width / W);
+          const want = i > n / 2 ? left - tip.offsetWidth - 12 : left + 12;
+          tip.style.left = Math.min(Math.max(0, want), r.width - tip.offsetWidth) + 'px';
+        });
+        el('h-hit').addEventListener('mouseleave', () => { hover.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+      }
+      let lastHistory = null;
+      window.addEventListener('resize', () => { if (lastHistory && lastHistory.samples.length >= 2) drawHistory(lastHistory.samples); });
+      async function loadHistory() {
+        try { lastHistory = asData(await invoke('history_report')); renderHistory(lastHistory); }
+        catch { el('h-empty').hidden = false; el('h-empty').textContent = 'The history could not be read.'; }
+      }
+
       el('sys-restart').addEventListener('click', () => restartWSL(false));
       el('sys-update').addEventListener('click', () => restartWSL(true));
       el('config-restart').addEventListener('click', () => restartWSL(false));
@@ -922,6 +1043,8 @@
         b.addEventListener('click', () => {
           for (const x of document.querySelectorAll('nav button')) x.setAttribute('aria-selected', String(x === b));
           for (const sec of document.querySelectorAll('section.tab')) sec.classList.toggle('active', sec.id === 'tab-' + b.dataset.tab);
+          // Drawn while hidden, the chart had no width to measure.
+          if (b.dataset.tab === 'disk' && lastHistory?.samples?.length >= 2) drawHistory(lastHistory.samples);
         });
       }
 

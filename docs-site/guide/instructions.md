@@ -55,13 +55,22 @@ Under the table, **What agents here read** lists what the latest session of
 each agent in this workspace actually loaded, for Claude Code, Codex and Grok,
 which record it. The other CLIs do not record it, so they are not listed.
 
+Two findings offer **Review change**: a `CLAUDE.md` that only points to
+`AGENTS.md` in words (the change adds an `@AGENTS.md` line), and a personal
+file that is not in `.gitignore`. **Add personal file** creates
+`CLAUDE.local.md` or `AGENTS.override.md` and adds it to `.gitignore`. Each
+shows the exact change first and writes only when you choose **Write
+change**. Nothing is committed: the change waits in the Git tab for you to
+review. If a file changed after the change was shown, PiCode shows the new
+change instead of writing.
+
 When you create an agent from the sidebar, the **New agent** dialog shows the
 same answer in one line for the CLI you pick.
 
 ## What it is not
 
-The tab reads files and never writes them: fixing a finding is done in the
-editor. It shows what each CLI's rules say for the version PiCode measured;
+The tab writes only the changes listed above, and only after you confirm
+them; anything else is fixed in the editor. It shows what each CLI's rules say for the version PiCode measured;
 a CLI that changes its rules later can differ until PiCode catches up.
 Hermes also refuses a file its prompt-injection scan flags, which PiCode
 cannot predict.

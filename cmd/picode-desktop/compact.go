@@ -105,6 +105,10 @@ func runDiskCompact(distroFlag, userFlag, method string, yes, dryRun, force, asJ
 	// this line has already ended every session inside it, and the outcome
 	// has to say so rather than read like a harmless refusal.
 	out.Stopped = true
+	// Nothing may start the distro under the conversion: the shell's
+	// keepalive and discovery, and any background scan, read this hold.
+	release := desktop.HoldDistro("compact")
+	defer release()
 	res, err := desktop.Compact(a.runner, a.distro, a.user, chosen, facts.VHDXPath, facts.AllocatedBytes, func(s string) {
 		if asJSON {
 			// One progress object per line, so a subprocess consumer can

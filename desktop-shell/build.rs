@@ -69,6 +69,7 @@ fn main() {
             "places_report",
             "distro_move",
             "distro_backup",
+            "history_report",
             "clean_list",
             "clean_apply",
             "wslconfig_read",

@@ -12,6 +12,7 @@
 @source "../../browser/src";
 @source "../../shared";
 @import "@picode/shared/tokens/theme.css";
+@import "@picode/shared/styles/scrollbars.css";
 @import "@picode/browser/src/styles/app.css";
 @import "@picode/shared/styles/providers.css";
 /* The credential roster's own sheet loads after the roster it shares the page

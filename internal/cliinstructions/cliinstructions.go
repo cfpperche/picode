@@ -93,6 +93,8 @@ type Finding struct {
 	File   string   `json:"file,omitempty"`
 	CLIs   []string `json:"clis,omitempty"`
 	Action *Action  `json:"action,omitempty"`
+	// Fix names a proposed edit (ADR-0204): GET …/instructions/fix?id= shows it.
+	Fix string `json:"fix,omitempty"`
 }
 
 // Report is the whole answer for one start folder.

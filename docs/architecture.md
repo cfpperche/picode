@@ -188,6 +188,13 @@ fresh (a 30 s heartbeat, stale after 2 min); the shell's keepalive and its
 server discovery — which runs `wsl.exe -d` — skip while it is fresh, whether
 the flow came from the window or a terminal. `wsl-update` holds the same way.
 
+Disk history (ADR-0203): every `disk` scan that read both halves writes
+the day's line to `%LOCALAPPDATA%\PiCode\disk-history.jsonl` (one line per
+local day, newest 400 kept); the shell's health loop runs one background
+scan when the newest line is older than 20 hours; `picode-desktop history`
+returns the lines and each cache's growth against the newest day at least
+seven days older.
+
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an
@@ -307,6 +314,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [Agent CLI memory (ADR-0163)](architecture/cli-memory.md) | `docs/architecture/cli-memory.md` |
 | [Agent instructions (AGENTS.md)](architecture/cli-instructions.md) | `docs/architecture/cli-instructions.md` |
 | [Packages (ADR-0102, ADR-0167, ADR-0176)](architecture/packages.md) | `docs/architecture/packages.md` |
+| [Skills (ADR-0196)](architecture/skills.md) | `docs/architecture/skills.md` |
 | [Native CLI providers (ADR-0103)](architecture/cli-providers.md) | `docs/architecture/cli-providers.md` |
 | [Credentials (ADR-0165)](architecture/credentials.md) | `docs/architecture/credentials.md` |
 | [CLI terminal launch settings (ADR-0069)](architecture/cli-terminal-launch.md) | `docs/architecture/cli-terminal-launch.md` |

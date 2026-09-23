@@ -121,3 +121,49 @@ func TestObservedReads(t *testing.T) {
 		t.Fatalf("observedReads = %+v", got)
 	}
 }
+
+// A fix through the API: GET shows it, POST with the hashes writes it, POST
+// with stale hashes is refused with the fresh change, a fix that no longer
+// applies is a 404, and nothing outside the workspace is reachable.
+func TestInstructionsFixRoutes(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	proj := t.TempDir()
+	for rel, body := range map[string]string{"AGENTS.md": "a\n", "CLAUDE.md": "Read AGENTS.md.\n"} {
+		if err := os.WriteFile(filepath.Join(proj, rel), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
+	var wk workspaceView
+	_ = json.NewDecoder(res.Body).Decode(&wk)
+	base := ts.URL + "/api/workspaces/" + wk.ID + "/instructions/fix"
+
+	got := do(t, ts.Client(), mustGet(t, base+"?id=bridge:CLAUDE.md"))
+	var fix struct {
+		Changes []struct{ Path, Hash, After string } `json:"changes"`
+	}
+	_ = json.NewDecoder(got.Body).Decode(&fix)
+	if got.StatusCode != http.StatusOK || len(fix.Changes) != 1 || fix.Changes[0].After != "@AGENTS.md\n" {
+		t.Fatalf("GET fix = %d %+v", got.StatusCode, fix)
+	}
+	stale := postJSON(t, ts, "/api/workspaces/"+wk.ID+"/instructions/fix", map[string]any{"id": "bridge:CLAUDE.md", "hashes": map[string]string{"CLAUDE.md": "nope"}})
+	if stale.StatusCode != http.StatusConflict {
+		t.Fatalf("stale apply = %d", stale.StatusCode)
+	}
+	ok := postJSON(t, ts, "/api/workspaces/"+wk.ID+"/instructions/fix", map[string]any{"id": "bridge:CLAUDE.md", "hashes": map[string]string{"CLAUDE.md": fix.Changes[0].Hash}})
+	if ok.StatusCode != http.StatusOK {
+		t.Fatalf("apply = %d", ok.StatusCode)
+	}
+	if b, _ := os.ReadFile(filepath.Join(proj, "CLAUDE.md")); string(b) != "@AGENTS.md\n" {
+		t.Fatalf("CLAUDE.md = %q", b)
+	}
+	for path, want := range map[string]int{
+		base + "?id=bridge:CLAUDE.md":            http.StatusNotFound,
+		base + "?id=personal:../CLAUDE.local.md": http.StatusBadRequest,
+		base + "?id=rewrite:AGENTS.md":           http.StatusNotFound,
+	} {
+		if got := do(t, ts.Client(), mustGet(t, path)); got.StatusCode != want {
+			t.Errorf("%s = %d, want %d", path, got.StatusCode, want)
+		}
+	}
+}

@@ -3,8 +3,9 @@ import { cliPackagesLocation } from "./cliPackages.js";
 import { cliKeysLocation, cliSettingsLocation } from "./cliSettings.js";
 import { cliConnectorsLocation } from "./integrations.js";
 import { supportsCliModels } from "./cliModels.js";
+import { cliSkillsQuery } from "./cliSkills.js";
 
-const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "models", "settings", "keyboard", "memory", "packages", "connectors"]);
+const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "models", "settings", "keyboard", "memory", "packages", "skills", "connectors"]);
 
 // cliCapabilities reads what the server says one catalog row can do.
 // launch: New terminal exists. integration: activity, launch settings and
@@ -36,7 +37,7 @@ export function cliPanes(cli) {
   // pane that could only say "in development" for eight CLIs would be a
   // placeholder, and the setup group already carries those.
   const models = cli && supportsCliModels(cli.id) ? ["models"] : [];
-  return ["launch", "terminals", ...sessions, "providers", ...models, "settings", "keyboard", "memory", "packages", "connectors"];
+  return ["launch", "terminals", ...sessions, "providers", ...models, "settings", "keyboard", "memory", "packages", "skills", "connectors"];
 }
 
 // Setup panes (Settings / Packages / Connectors) read identity from the
@@ -77,6 +78,7 @@ export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (pane === "keyboard") return "#/clis/" + id + "/keyboard";
   if (pane === "memory") return "#/clis/" + id + "/memory";
   if (pane === "packages") return "#/clis/" + id + "/packages";
+  if (pane === "skills") return "#/clis/" + id + "/skills";
   if (pane === "connectors") return "#/clis/" + id + "/connectors";
   return "#/clis/" + id;
 }
@@ -163,6 +165,13 @@ export function cliLocation(hash = "", legacy = {}) {
     loc.scope = params.get("scope") || "user";
     if ((rest[0] && rest[0] !== "config") || rest[0] === "config" && !rest[1] || rest.length > 2) loc.invalid = true;
     if (!["user", "project", "agent"].includes(loc.scope)) loc.invalid = true;
+  }
+  if (pane === "skills") {
+    // What the CLI loads (ADR-0196): read in a workspace, shown by scope.
+    const q = cliSkillsQuery(params);
+    loc.workspaceId = q.workspaceId;
+    loc.scope = q.scope;
+    if (q.invalid || parts[3]) loc.invalid = true;
   }
   if (pane === "connectors") {
     loc.workspaceId = params.get("workspaceId") || "";

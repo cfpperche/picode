@@ -9260,6 +9260,23 @@
         ]
       }
     },
+    "/api/skills/report": {
+      "get": {
+        "operationId": "getApiSkillsReport",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
     "/api/snips": {
       "get": {
         "operationId": "getApiSnips",
@@ -12134,6 +12151,65 @@
         ]
       }
     },
+    "/api/workspaces/{id}/instructions/fix": {
+      "get": {
+        "operationId": "getApiWorkspacesInstructionsFix",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      },
+      "post": {
+        "operationId": "postApiWorkspacesInstructionsFix",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}/open": {
       "post": {
         "operationId": "postApiWorkspacesOpen",
@@ -12787,6 +12863,9 @@
     },
     {
       "name": "share"
+    },
+    {
+      "name": "skills"
     },
     {
       "name": "snips"

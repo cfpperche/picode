@@ -24,6 +24,7 @@
     "allow-places-report",
     "allow-distro-move",
     "allow-distro-backup",
+    "allow-history-report",
     "allow-clean-list",
     "allow-clean-apply",
     "allow-wslconfig-read",
