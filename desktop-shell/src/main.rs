@@ -159,6 +159,7 @@ fn main() {
             disk::places_report,
             disk::distro_move,
             disk::distro_backup,
+            disk::history_report,
             clean::clean_list,
             clean::clean_apply,
             wslconfig::wslconfig_read,
@@ -328,6 +329,7 @@ fn poll_loop() {
                 }
                 board.set_health(true, &detail);
                 board.note_url(Some(base.clone()));
+                disk::maybe_daily_sample();
             }
             Err(_) => {
                 url = None;

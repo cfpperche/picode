@@ -188,6 +188,13 @@ fresh (a 30 s heartbeat, stale after 2 min); the shell's keepalive and its
 server discovery — which runs `wsl.exe -d` — skip while it is fresh, whether
 the flow came from the window or a terminal. `wsl-update` holds the same way.
 
+Disk history (ADR-0203): every `disk` scan that read both halves writes
+the day's line to `%LOCALAPPDATA%\PiCode\disk-history.jsonl` (one line per
+local day, newest 400 kept); the shell's health loop runs one background
+scan when the newest line is older than 20 hours; `picode-desktop history`
+returns the lines and each cache's growth against the newest day at least
+seven days older.
+
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an

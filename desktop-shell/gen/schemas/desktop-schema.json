@@ -501,6 +501,12 @@
           "markdownDescription": "Enables the distro_move command without any pre-configured scope."
         },
         {
+          "description": "Enables the history_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-history-report",
+          "markdownDescription": "Enables the history_report command without any pre-configured scope."
+        },
+        {
           "description": "Enables the host_report command without any pre-configured scope.",
           "type": "string",
           "const": "allow-host-report",
@@ -901,6 +907,12 @@
           "type": "string",
           "const": "deny-distro-move",
           "markdownDescription": "Denies the distro_move command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the history_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-history-report",
+          "markdownDescription": "Denies the history_report command without any pre-configured scope."
         },
         {
           "description": "Denies the host_report command without any pre-configured scope.",

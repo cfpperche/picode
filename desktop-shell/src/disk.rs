@@ -375,6 +375,72 @@ pub fn distro_backup(
     relocate(&app, "backup", &drive, &folder, run, if_unreachable)
 }
 
+/// One line per day of disk measurements and the week's growth (ADR-0203).
+#[tauri::command(async)]
+pub fn history_report() -> Result<serde_json::Value, String> {
+    let text = run_cli(&["history"])?;
+    let start = text.find('{').ok_or_else(|| format!("no JSON in the tool output: {text}"))?;
+    serde_json::from_str(text[start..].trim_end()).map_err(|e| format!("history JSON: {e}"))
+}
+
+/// The daily sample (ADR-0203): when the history file was last written more
+/// than 20 hours ago, run one scan in the background — it records itself.
+/// Called from the health loop while the daemon answers. It takes the same
+/// one-job lock as every window action, so a compact, move, backup or update
+/// never runs under it (and it never starts while one runs); it is bounded
+/// at ten minutes; and after an attempt it waits six hours, so a scan that
+/// keeps failing does not walk the disk every hour.
+pub(crate) fn maybe_daily_sample() {
+    use std::sync::Mutex;
+    use std::time::{Duration, Instant, SystemTime};
+    static LAST_TRY: Mutex<Option<Instant>> = Mutex::new(None);
+
+    if crate::hold::distro_held() {
+        return;
+    }
+    let Some(local) = std::env::var_os("LOCALAPPDATA") else { return };
+    let path = std::path::Path::new(&local).join("PiCode").join("disk-history.jsonl");
+    let fresh = std::fs::metadata(&path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| SystemTime::now().duration_since(t).ok())
+        .is_some_and(|age| age < Duration::from_secs(20 * 3600));
+    if fresh {
+        return;
+    }
+    {
+        let mut last = LAST_TRY.lock().unwrap_or_else(|p| p.into_inner());
+        if last.is_some_and(|t| t.elapsed() < Duration::from_secs(6 * 3600)) {
+            return;
+        }
+        *last = Some(Instant::now());
+    }
+    std::thread::spawn(|| {
+        // Busy (a window action runs): skip; the next tick six hours on
+        // tries again.
+        let Ok(_job) = JOB.try_lock() else { return };
+        let Some(exe) = tool_exe() else { return };
+        let mut cmd = Command::new(&exe);
+        cmd.args(["disk", "--json"]);
+        hide_console(&mut cmd);
+        cmd.stdout(Stdio::null());
+        cmd.stderr(Stdio::null());
+        let Ok(mut child) = cmd.spawn() else { return };
+        let deadline = Instant::now() + Duration::from_secs(600);
+        loop {
+            match child.try_wait() {
+                Ok(Some(_)) => break,
+                Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(500)),
+                _ => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    break;
+                }
+            }
+        }
+    });
+}
+
 /// The plan without stopping anything — what the window shows before asking.
 #[tauri::command(async)]
 pub fn disk_compact_dry_run() -> Result<CompactOutcome, String> {
