@@ -87,6 +87,22 @@
   (`ipc: http://ipc.localhost https://ipc.localhost`) so WebView2 can fetch
   plugin commands; the browser and mobile shells do not, because they never
   talk to that host. Assets and API answers carry no policy.
+- **Which origin reaches the shell's IPC**: the capability files
+  (`desktop-shell/capabilities/default.json`, `management.json`) list the
+  daemon's default origin, `https://localhost:8445` and `127.0.0.1:8445`,
+  under `remote`. When the shell finds the daemon on another port (its
+  8445–8455 range, or a port set in Settings / `PICODE_PORT`), it adds the
+  same two files again at runtime with exactly that origin
+  (`desktop-shell/src/daemon_acl.rs`): same permissions, same windows, one
+  more origin. The files are not widened to `localhost:*`, which would hand
+  IPC to any loopback server a webview ever showed. Two costs, accepted:
+  Tauri has no revoke, so an origin once granted stays granted until the
+  shell restarts (a daemon that moved back to 8445 leaves its old port
+  trusted, and a page later served there — a dev server in a work tab —
+  would get the main window's commands); and the origin comes from
+  `server.json`, which any process running as the same WSL user can
+  rewrite. That user can already run Windows programs through interop,
+  so it is not an escalation.
 
 ## Handing a target to the operating system (the desktop shell)
 
