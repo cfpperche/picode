@@ -109,6 +109,7 @@ func runDiskCompact(distroFlag, userFlag, method string, yes, dryRun, force, asJ
 	// keepalive and discovery, and any background scan, read this hold.
 	release := desktop.HoldDistro("compact")
 	defer release()
+	defer keepaliveTaskOff(a.runner)()
 	res, err := desktop.Compact(a.runner, a.distro, a.user, chosen, facts.VHDXPath, facts.AllocatedBytes, func(s string) {
 		if asJSON {
 			// One progress object per line, so a subprocess consumer can

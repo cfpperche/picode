@@ -1,6 +1,7 @@
 package hostfs
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -297,6 +298,76 @@ func TestConsumersAreRunnableCommands(t *testing.T) {
 			}
 		default:
 			t.Errorf("consumer %s has kind %q", c.ID, c.Kind)
+		}
+	}
+}
+
+// TestLocateConsumers is the decision table for where a cache is measured:
+//
+//	tool answer             | → path
+//	absolute path           | the tool's answer (pnpm's store under ~/.local/share)
+//	error / empty / relative| the table's default
+//	rm-pruned or data row   | never asked; the default is what the prune removes
+func TestLocateConsumers(t *testing.T) {
+	home := "/home/u"
+	answers := map[string]string{
+		"pnpm store path":      "/home/u/.local/share/pnpm/store/v11\n",
+		"go env GOCACHE":       "",
+		"npm config get cache": "relative/npm",
+		"uv cache dir":         "/home/u/.cache/uv",
+		"go env GOMODCACHE":    "ERR",
+	}
+	asked := map[string]bool{}
+	got := LocateConsumers(Consumers(home), func(argv []string) (string, error) {
+		k := strings.Join(argv, " ")
+		asked[k] = true
+		if answers[k] == "ERR" {
+			return "", errors.New("not installed")
+		}
+		return answers[k], nil
+	}, home)
+	paths := map[string]string{}
+	for _, c := range got {
+		paths[c.ID] = strings.Join(c.Paths, ",")
+	}
+	want := map[string]string{
+		"pnpm":        "/home/u/.local/share/pnpm/store/v11",
+		"go-build":    "/home/u/.cache/go-build",
+		"npm":         "/home/u/.npm",
+		"uv":          "/home/u/.cache/uv",
+		"go-mod":      "/home/u/go/pkg/mod",
+		"playwright":  "/home/u/.cache/ms-playwright",
+		"picode-data": DataDir(home),
+	}
+	for id, w := range want {
+		if paths[id] != w {
+			t.Errorf("%s: %q, want %q", id, paths[id], w)
+		}
+	}
+	if len(asked) != 5 {
+		t.Errorf("asked %v; only the tool-owned caches may be asked", asked)
+	}
+	// The input table is not changed in place.
+	if Consumers(home)[3].Paths[0] != "/home/u/.cache/pnpm" {
+		t.Error("the default table was mutated")
+	}
+}
+
+// TestLocateConsumersRefusesDangerousAnswers: an answer outside home, on the
+// Windows drive, home itself, or nesting with another cache keeps the default.
+func TestLocateConsumersRefusesDangerousAnswers(t *testing.T) {
+	home := "/home/u"
+	for _, bad := range []string{"/", "/mnt/c/Users/u/go/pkg/mod", "/opt/cache", "/home/u", "/home/u/.cache", "/home/u/.npm/sub"} {
+		got := LocateConsumers(Consumers(home), func(argv []string) (string, error) {
+			if argv[0] == "uv" {
+				return bad, nil
+			}
+			return "", errors.New("no")
+		}, home)
+		for _, c := range got {
+			if c.ID == "uv" && c.Paths[0] != "/home/u/.cache/uv" {
+				t.Errorf("answer %q was used: %v", bad, c.Paths)
+			}
 		}
 	}
 }

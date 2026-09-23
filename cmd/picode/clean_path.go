@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/cfpperche/picode/internal/hostfs"
 	"github.com/cfpperche/picode/internal/install"
 )
 
@@ -29,6 +32,24 @@ import (
 //
 // It returns the absolute path, or "" when none of them has it.
 func toolPath(name, home string) string {
+	toolMu.Lock()
+	defer toolMu.Unlock()
+	if p, ok := toolCache[name]; ok {
+		return p
+	}
+	p := findTool(name, home)
+	toolCache[name] = p
+	return p
+}
+
+// toolCache: one lookup per tool per process — a missing tool costs a
+// login-shell probe, and a scan asks for each tool more than once.
+var (
+	toolMu    sync.Mutex
+	toolCache = map[string]string{}
+)
+
+func findTool(name, home string) string {
 	if p, err := exec.LookPath(name); err == nil && !onWindowsDrive(p) {
 		return p
 	}
@@ -136,4 +157,33 @@ func withToolDir(env []string, tool string) []string {
 		out = append(out, "PATH="+dir)
 	}
 	return out
+}
+
+// locatedConsumers is the cache table with each tool-owned cache measured
+// where its tool says it is (hostfs.LocateConsumers): the tool is found the
+// way toolPath finds it, asked with a bound, and only its last output line
+// counts — some tools print a notice first.
+func locatedConsumers(home string) []hostfs.Consumer {
+	return hostfs.LocateConsumers(hostfs.Consumers(home), func(argv []string) (string, error) {
+		tool := toolPath(argv[0], home)
+		if tool == "" {
+			return "", fmt.Errorf("%s is not installed", argv[0])
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, tool, argv[1:]...)
+		// From home, not from whatever project the caller stands in: a
+		// go.mod asking for another toolchain would make `go env` download
+		// one, a project .npmrc or pnpm workspace would answer for that
+		// project. And never a download or a prompt from a shim.
+		cmd.Dir = home
+		cmd.Env = append(withToolDir(os.Environ(), tool), "GOTOOLCHAIN=local", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0", "COREPACK_ENABLE_STRICT=0")
+		cmd.WaitDelay = time.Second
+		out, err := cmd.Output()
+		if err != nil {
+			return "", err
+		}
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		return strings.TrimSpace(lines[len(lines)-1]), nil
+	}, home)
 }

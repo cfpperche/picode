@@ -60,7 +60,7 @@ func runClean(args []string) {
 
 // cleanList prints the prunable half of the consumer table with fresh sizes.
 func cleanList(home string, asJSON bool) error {
-	rep, err := hostfs.Measure(hostfs.Exec{}, home)
+	rep, err := hostfs.MeasureWith(hostfs.Exec{}, home, locatedConsumers(home))
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,10 @@ type runner interface {
 type realRunner struct{}
 
 func (realRunner) apply(home string, chosen []hostfs.Consumer, asJSON bool) []cleanResult {
-	before := measure(home, chosen)
+	// Located once: before and after are measured in the same place, or
+	// "freed" compares two different folders.
+	located := locatedConsumers(home)
+	before := measure(home, located)
 	results := make([]cleanResult, 0, len(chosen))
 	for _, c := range chosen {
 		if asJSON {
@@ -212,7 +215,7 @@ func (realRunner) apply(home string, chosen []hostfs.Consumer, asJSON bool) []cl
 		results = append(results, res)
 	}
 
-	after := measure(home, chosen)
+	after := measure(home, located)
 	for i := range results {
 		results[i].After = after[results[i].ID]
 		results[i].Freed = results[i].Before - results[i].After
@@ -227,14 +230,14 @@ func (realRunner) apply(home string, chosen []hostfs.Consumer, asJSON bool) []cl
 // and keeping what was asked for. Two full sweeps per clean (before, after)
 // is the price of numbers that are comparable — a per-path du would count a
 // shared parent twice.
-func measure(home string, chosen []hostfs.Consumer) map[string]int64 {
-	rep, err := hostfs.Measure(hostfs.Exec{}, home)
+func measure(home string, table []hostfs.Consumer) map[string]int64 {
+	rep, err := hostfs.MeasureWith(hostfs.Exec{}, home, table)
 	if err != nil {
 		// An unmeasurable cache keeps Before 0 and the freed count honest at
 		// 0 — the prune itself still ran.
 		return map[string]int64{}
 	}
-	sizes := make(map[string]int64, len(chosen))
+	sizes := make(map[string]int64, len(table))
 	for _, m := range rep.Consumers {
 		sizes[m.ID] = m.Bytes
 	}

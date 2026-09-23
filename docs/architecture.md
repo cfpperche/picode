@@ -139,7 +139,9 @@ clean speak the same line contract, and the shell reads all three with one
 reader (`stream_cli`): lines with `progress` become `mgmt-progress` events
 tagged with the operation, the first line without it is the outcome. The
 Clean tab lists the scan's own non-`data` consumers, so opening the window
-walks the home directory once, not twice. `picode clean` runs each cache's
+walks the home directory once, not twice. Each tool-owned cache is measured where its own tool says it is (`go env
+GOCACHE`, `pnpm store path`, … — `hostfs.LocateConsumers`), so a prune always
+shrinks the row it was offered from. `picode clean` runs each cache's
 own tool (`go clean -cache`, `uv cache prune`, …); started through wsl.exe it
 has the distro's bare PATH, so it looks a tool up the way the person's
 terminal would — its own PATH, then the service unit's PATH snapshot (and the
