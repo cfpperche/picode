@@ -139,7 +139,16 @@ clean speak the same line contract, and the shell reads all three with one
 reader (`stream_cli`): lines with `progress` become `mgmt-progress` events
 tagged with the operation, the first line without it is the outcome. The
 Clean tab lists the scan's own non-`data` consumers, so opening the window
-walks the home directory once, not twice.
+walks the home directory once, not twice. The tray opens the window at the
+address the health loop last got an answer from (the board keeps it, and
+clears it when the daemon stops answering); only before the first answer is
+the address looked up, off the tray's event thread, so a slow WSL never
+freezes the menu; a rebuilt main window reads the same address, and its
+readiness gate probes the daemon's origin (it was handed the distro name
+before 2026-09-23, so it always waited its full 30 s). A compact outcome
+carries `stopped` once the flow has terminated the distro, so a failure after
+that point is reported as one that ended the sessions. The page leads each known tool error with a plain line and
+the one action to take, and keeps the tool's own text beneath it.
 
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness

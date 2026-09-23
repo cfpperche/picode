@@ -32,3 +32,19 @@ func TestProgressLineIsOneObject(t *testing.T) {
 		t.Errorf("quoted step: %q / %q / %v", weird, w.Progress, err)
 	}
 }
+
+// TestStoppedTravelsOnTheWire pins the field the Management page reads to
+// tell "failed before the stop" from "failed after the sessions ended".
+func TestStoppedTravelsOnTheWire(t *testing.T) {
+	b, err := json.Marshal(compactOutcome{Distro: "Ubuntu", Error: "convert to sparse: x", Stopped: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"stopped":true`) {
+		t.Errorf("outcome JSON lacks stopped: %s", b)
+	}
+	b, _ = json.Marshal(compactOutcome{Distro: "Ubuntu", Refused: "busy"})
+	if strings.Contains(string(b), `"stopped"`) {
+		t.Errorf("a refusal must not claim a stop: %s", b)
+	}
+}
