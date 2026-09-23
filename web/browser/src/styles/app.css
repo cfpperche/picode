@@ -588,6 +588,20 @@ body {
 .fork-field, .fork-task { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
 .fork-field > span, .fork-task-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
 .fork-field .dlg-input { margin-top: 0; }
+.fork-field .dlg-input[aria-invalid="true"] { border-color: var(--danger); }
+.fork-field-error { font-size: 12px; color: var(--danger); }
+.dlg-fork .handoff-choices.is-single { grid-template-columns: 1fr; }
+/* In a dialog the composer's field focuses like every other field there,
+   and a locked form reads locked. */
+.attach-composer .term-attach-input:focus { outline: none; border-color: var(--accent); box-shadow: none; }
+.attach-composer .icon-btn:disabled, .attach-composer .pin-att-x:disabled { opacity: .45; cursor: default; }
+.attach-composer .term-attach-input[readonly] { color: var(--text-secondary); }
+/* A phone-width sheet gives the task the whole row; the attach buttons
+   sit under it instead of squeezing it to a third. */
+@media (max-width: 560px) {
+  .attach-composer .term-attach-row { flex-wrap: wrap; }
+  .attach-composer .term-attach-input { order: -1; flex-basis: 100%; }
+}
 @media (min-width: 720px) {
   .handoff-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
 }

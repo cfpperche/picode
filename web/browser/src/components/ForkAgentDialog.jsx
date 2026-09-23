@@ -35,6 +35,7 @@ export default function ForkAgentDialog({ open, agent, cliName, deliverGit, onCl
   const [graph, setGraph] = useState(null); // null loading, false: not a repository
   const [phase, setPhase] = useState(""); // "" | worktree | waiting | starting
   const [error, setError] = useState("");
+  const [nameError, setNameError] = useState("");
   const cancelled = useRef(false);
   const busy = !!phase;
 
@@ -42,7 +43,7 @@ export default function ForkAgentDialog({ open, agent, cliName, deliverGit, onCl
     if (!open || !agent) return;
     cancelled.current = false;
     setName(agent.name + " fork");
-    setText(""); setItems([]); setError(""); setPhase(""); setGraph(null); setWhere("worktree");
+    setText(""); setItems([]); setError(""); setNameError(""); setPhase(""); setGraph(null); setWhere("worktree");
     let live = true;
     api("/api/agents/" + encodeURIComponent(agent.id) + "/git?limit=1")
       .then((g) => { if (live) setGraph(g && g.root ? g : false); })
@@ -84,8 +85,9 @@ export default function ForkAgentDialog({ open, agent, cliName, deliverGit, onCl
   async function submit() {
     if (busy) return;
     const got = parseForm(forkAgentSchema, { name, where });
-    if (!got.ok) { setError(got.error); return; }
-    setError("");
+    // The only field that can be wrong is the name: its message sits under it.
+    if (!got.ok) { setNameError(got.error); return; }
+    setNameError(""); setError("");
     try {
       let workPath = "";
       if (where === "worktree") {
@@ -124,12 +126,13 @@ export default function ForkAgentDialog({ open, agent, cliName, deliverGit, onCl
           <form className="fork-form" noValidate onSubmit={(e) => { e.preventDefault(); submit(); }}>
             <label className="fork-field">
               <span>Name</span>
-              <input className="dlg-input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} disabled={busy} autoComplete="off" spellCheck={false} />
+              <input className="dlg-input" value={name} onChange={(e) => { setName(e.target.value); if (nameError) setNameError(""); }} maxLength={80} disabled={busy} autoComplete="off" spellCheck={false} aria-invalid={nameError ? "true" : undefined} aria-describedby={nameError ? "fork-name-error" : undefined} />
+              {nameError ? <small id="fork-name-error" className="fork-field-error" role="alert">{nameError}</small> : null}
             </label>
 
             <fieldset className="handoff-options" disabled={busy}>
               <legend>Where</legend>
-              <div className="handoff-choices">
+              <div className={"handoff-choices" + (graph === false ? " is-single" : "")}>
                 {graph !== false ? (
                   <label className="handoff-choice">
                     <input type="radio" name="fork-where" value="worktree" checked={where === "worktree"} disabled={!graph} onChange={() => setWhere("worktree")} />
@@ -138,7 +141,7 @@ export default function ForkAgentDialog({ open, agent, cliName, deliverGit, onCl
                       <small>
                         {graph === null
                           ? "Checking the folder…"
-                          : "A branch of its own from the last commit." + (uncommitted ? " " + uncommitted + (uncommitted === 1 ? " uncommitted change stays" : " uncommitted changes stay") + " with " + agent.name + "." : "")}
+                          : "A branch of its own from the last commit." + (uncommitted ? " " + uncommitted + (uncommitted === 1 ? "\u00a0uncommitted change stays" : "\u00a0uncommitted changes stay") + " with " + agent.name + "." : "")}
                       </small>
                     </span>
                   </label>

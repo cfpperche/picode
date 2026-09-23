@@ -147,7 +147,7 @@ export default function AttachComposer({
                     {it.image && it.url ? <img src={it.url} alt="" /> : <span className="pin-att-ext">{extOf(it.name)}</span>}
                   </span>
                 )}
-                <button type="button" className="pin-att-x" title="Remove" onClick={() => setItems((cur) => cur.filter((x) => x.id !== it.id))}><IconX size={12} /></button>
+                <button type="button" className="pin-att-x" title="Remove" disabled={busy} onClick={() => setItems((cur) => cur.filter((x) => x.id !== it.id))}><IconX size={12} /></button>
               </span>
             ))}
           </div>
