@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/gitcmd"
 	"github.com/cfpperche/picode/internal/gitgraph"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -234,9 +236,14 @@ func handleTerminalRun(deps Deps) http.HandlerFunc {
 			writeJSON(w, http.StatusConflict, map[string]any{"error": "This terminal is running " + cmd + ".", "reason": "foreground"})
 			return
 		}
-		if busy := repoBusy(ctx, deps, r, cwd, t.ID); len(busy) > 0 {
-			writeJSON(w, http.StatusConflict, map[string]any{"error": busyMessage(busy), "reason": "busy", "busy": busy})
-			return
+		// Creating a worktree makes a new folder and a new branch and touches
+		// nothing another agent is working on (ADR-0202): that one command,
+		// aimed at this terminal's own repository, skips the busy check.
+		if !worktreeCreateHere(req.Text, cwd) {
+			if busy := repoBusy(ctx, deps, r, cwd, t.ID); len(busy) > 0 {
+				writeJSON(w, http.StatusConflict, map[string]any{"error": busyMessage(busy), "reason": "busy", "busy": busy})
+				return
+			}
 		}
 		// The pane is at a shell prompt (checked above), but that prompt may
 		// already hold a command an earlier Prepare typed and nobody
@@ -253,4 +260,22 @@ func handleTerminalRun(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ran": true, "command": req.Text})
 	}
+}
+
+// worktreeCreateHere reports whether text is the worktree-creating command
+// (gitcmd.WorktreeCreate) for the repository cwd belongs to: an absolute
+// root must be that repository's, a relative one resolves from cwd.
+func worktreeCreateHere(text, cwd string) bool {
+	root, ok := gitcmd.WorktreeCreate(text)
+	if !ok {
+		return false
+	}
+	key := gitgraph.Key(cwd)
+	if key == "" {
+		return false
+	}
+	if root == "" {
+		return canonDir(cwd) == canonDir(filepath.Dir(key))
+	}
+	return canonDir(root) == canonDir(filepath.Dir(key))
 }

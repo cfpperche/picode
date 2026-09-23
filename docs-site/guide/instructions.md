@@ -51,6 +51,10 @@ AGENTS.md or both), the extra file names and the size limit Codex uses,
 Hermes's size limit, and extra instruction files for OpenCode. A finding
 whose fix is one of them opens that page.
 
+Under the table, **What agents here read** lists what the latest session of
+each agent in this workspace actually loaded, for Claude Code, Codex and Grok,
+which record it. The other CLIs do not record it, so they are not listed.
+
 When you create an agent from the sidebar, the **New agent** dialog shows the
 same answer in one line for the CLI you pick.
 

@@ -9,9 +9,10 @@ import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
+import { formatTokens as formatTokensShort } from "@picode/shared/domain/dashboardStats.js";
 import { checklistLevelLabel } from "@picode/shared/domain/checklist.js";
 import {
-  choiceLabel, emptyExitDraft, exitHeadline, fmtLifetime, fmtTurns, outcomeRows, pickOutcome, reasonRows, takesReasons, toggleReason,
+  choiceLabel, emptyExitDraft, exitHeadline, fmtExitCost, fmtLifetime, fmtTurns, outcomeRows, pickOutcome, reasonRows, takesReasons, toggleReason,
 } from "@picode/shared/domain/agentExit.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -164,7 +165,12 @@ export default function Outcomes({ hidden, workspaces = [] }) {
       ) : null}
 
       <div className="dash-kpi-row outc-kpis">
-        <StatTile label="Removed" value={String(head.total)} loading={firstLoad} compareLabel={range === "all" ? "all time" : undefined} />
+        <StatTile
+          label="Removed"
+          value={String(head.total)}
+          loading={firstLoad}
+          compareLabel={summary && summary.costMeasured ? `${fmtExitCost({ cost: summary.cost, estimated: summary.estimated })} across ${summary.costMeasured} measured` : range === "all" ? "all time" : undefined}
+        />
         <StatTile label="Resolved" value={head.resolvedShare} loading={firstLoad} compareLabel={head.attempts ? `${head.resolved} of ${head.attempts} tasks` : "no answers yet"} />
         <StatTile label="Answered when asked" value={head.answerRate} loading={firstLoad} compareLabel={summary && summary.asked ? `${summary.askedAnswered} of ${summary.asked} asked` : "not asked yet"} />
         <StatTile
@@ -223,6 +229,7 @@ export default function Outcomes({ hidden, workspaces = [] }) {
           <span>Workspace</span>
           <span className="outc-num">Lived</span>
           <span className="outc-num">Turns</span>
+          <span className="outc-num">Cost</span>
           <span>Outcome</span>
           <span className="outc-when">Removed</span>
         </div>
@@ -241,6 +248,7 @@ export default function Outcomes({ hidden, workspaces = [] }) {
                   <span className="outc-ws" title={ex.workspaceName}>{ex.workspaceId === FREE ? "Free" : ex.workspaceName || "—"}</span>
                   <span className="outc-num" title="How long it lived">{fmtLifetime(ex.lifetimeS)}</span>
                   <span className="outc-num" title={ex.turns == null ? "Born before PiCode counted turns" : "Turns"}>{fmtTurns(ex.turns)}</span>
+                  <span className="outc-num" title={ex.cost ? "What its sessions cost" : "Not measured: this CLI keeps no session files PiCode can read"}>{fmtExitCost(ex.cost)}</span>
                   <span className="outc-answer">
                     {ex.outcome
                       ? <span className="exit-outcome" data-outcome={ex.outcome}>{choiceLabel(tax && tax.outcomes, ex.outcome)}</span>
@@ -317,6 +325,16 @@ function ExitDetail({ ex, tax, onLabel, onDelete }) {
         <dl className="outc-facts">
           <Fact label="Lived">{fmtLifetime(ex.lifetimeS)}{ex.lastWorkedAt ? <span className="outc-sub"> · last worked {ago(ex.lastWorkedAt)}</span> : null}</Fact>
           <Fact label="Turns">{ex.turns == null ? <span className="outc-sub">Not counted — this agent predates turn counting</span> : ex.turns}</Fact>
+          <Fact label="Cost">
+            {fmtExitCost(ex.cost)}
+            {ex.cost ? (
+              <span className="outc-sub">
+                {" · "}{formatTokensShort(ex.cost.tokens)} tokens
+                {ex.cost.estimated > 0 ? ` · $${ex.cost.estimated.toFixed(2)} estimated at list price` : ""}
+                {" · "}{ex.cost.scope === "agent" ? `${ex.cost.sessions} session${ex.cost.sessions === 1 ? "" : "s"} of this agent` : "its last session only"}
+              </span>
+            ) : <span className="outc-sub"> — not measured</span>}
+          </Fact>
           <Fact label="Needed you">{neededYou}</Fact>
           {sig.checklistTotal ? <Fact label="Checklist">{sig.checklistDone} of {sig.checklistTotal} steps done</Fact> : null}
           <Fact label="Sessions">{ex.sessionsPurged ? "Deleted with the agent" : where ? <span className="outc-mono">{where}</span> : "Not recorded"}</Fact>

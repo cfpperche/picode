@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/climetrics"
+	"github.com/cfpperche/picode/internal/pricing"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -60,6 +62,21 @@ func readExitRequest(w http.ResponseWriter, r *http.Request) (exitRequest, error
 		return exitRequest{}, fmt.Errorf("invalid request body")
 	}
 	return req, nil
+}
+
+// exitMeter prices an exit's sessions the way the dashboard does: the CLI's
+// own recorded cost, and list price (ADR-0185) only for turns it left
+// unpriced, kept apart as the estimate. It runs before the removal's purge,
+// while the files still exist.
+func exitMeter() store.ExitMeter {
+	prices := pricing.Current()
+	return func(cli, path string) (store.ExitCost, bool) {
+		c, ok := climetrics.MeterSessionFile(cli, path, prices)
+		if !ok {
+			return store.ExitCost{}, false
+		}
+		return store.ExitCost{Cost: c.Cost, Estimated: c.Estimated, Unpriced: c.Unpriced, Tokens: c.Tokens, Turns: c.Turns}, true
+	}
 }
 
 // exitOriginOf is the face a removal body names ("" = the API).
@@ -118,7 +135,7 @@ func (deps Deps) exitPreviewFor(agent store.Agent, now time.Time) *exitPreview {
 // the client did not show the question, the skip says why: the server's
 // own reason, or "client" when the server would have asked.
 func (deps Deps) exitInput(agent store.Agent, req exitRequest, purgeSessions, purgeWork bool, now time.Time) store.ExitInput {
-	in := store.ExitInput{Origin: store.ExitFromAPI, SessionsPurged: purgeSessions, WorkPurged: purgeWork}
+	in := store.ExitInput{Origin: store.ExitFromAPI, SessionsPurged: purgeSessions, WorkPurged: purgeWork, Meter: exitMeter()}
 	if b := req.Exit; b != nil {
 		in.Origin = b.Origin
 		in.Asked = b.Asked

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/gitgraph"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -128,6 +129,24 @@ func TestTerminalRunRefusals(t *testing.T) {
 		t.Fatalf("busy message = %q", msg)
 	}
 
+	// ADR-0202: the exact worktree-creating command for this repository goes
+	// past the busy check (the shim tmux then fails to type: "closed", not
+	// "busy"); aimed at another repository, or with anything added, it does not.
+	repoRoot := filepath.Dir(gitgraph.Key(repo))
+	wt := func(text string) string { return `{"text":` + jsonString(text) + `,"root":` + jsonString(root) + `}` }
+	if code, page := postRaw(t, ts, runPath, wt("git worktree add -b fork '"+repoRoot+"/.worktrees/fork' HEAD")); code != http.StatusConflict || page["reason"] != "closed" {
+		t.Fatalf("worktree create while busy = %d %v, want past the interlock", code, page)
+	}
+	for _, text := range []string{
+		"git worktree add -b fork '/elsewhere/.worktrees/fork' HEAD",
+		"git worktree add -b fork '" + repoRoot + "/.worktrees/fork' HEAD; echo second",
+		"git worktree add '" + repoRoot + "/.worktrees/fork' HEAD",
+	} {
+		if code, page := postRaw(t, ts, runPath, wt(text)); code != http.StatusConflict || page["reason"] != "busy" {
+			t.Fatalf("%q while busy = %d %v, want 409 busy", text, code, page)
+		}
+	}
+
 	swapProbes(t, map[string]string{tmux.ShellSessionName(other.ID): "sleep"}, map[string]string{})
 	if code, page := postRaw(t, ts, runPath, ok); code != http.StatusConflict || page["reason"] != "busy" || page["error"] != "Terminal Other is running sleep in this repository." {
 		t.Fatalf("other terminal foreground = %d %v", code, page)
@@ -154,6 +173,67 @@ func TestTerminalRunRefusals(t *testing.T) {
 func jsonString(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
+}
+
+// ADR-0202 end to end: with an agent mid-turn in the repository, the
+// worktree-creating command still runs in the real shell and git makes the
+// worktree on its new branch.
+func TestTerminalRunCreatesWorktreeWhileBusy(t *testing.T) {
+	tm := tmux.New()
+	if !tm.Available() {
+		t.Skip("tmux missing")
+	}
+	repo := gitRepo(t)
+	st := testStore(t)
+	ts := graphServer(t, st)
+	ws, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, page := postRaw(t, ts, "/api/terminals", `{"name":"QA","cwd":`+jsonString(repo)+`,"workspaceId":`+jsonString(ws.ID)+`}`)
+	if code != http.StatusCreated {
+		t.Fatalf("create terminal = %d %v", code, page)
+	}
+	id, _ := page["id"].(string)
+	session, _ := page["session"].(string)
+	t.Cleanup(func() { _ = tm.KillSession(context.Background(), session) })
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		cmd, err := tm.PaneCommand(context.Background(), session)
+		if err == nil && isShell(cmd) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Skipf("shell never came up in %s (%v)", session, err)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	time.Sleep(700 * time.Millisecond)
+	// The agent is busy; the pane probe stays the real one.
+	t.Cleanup(func() { agentBusyFn = agentBusy })
+	agentBusyFn = func(_ context.Context, _ Deps, a store.Agent) (bool, string) {
+		if a.ID == agent.ID {
+			return true, "mid-turn"
+		}
+		return false, ""
+	}
+	root := filepath.Dir(gitgraph.Key(repo))
+	text := "git worktree add -b fork '" + root + "/.worktrees/fork' HEAD"
+	code, page = postRaw(t, ts, "/api/terminals/"+id+"/run", `{"text":`+jsonString(text)+`,"root":`+jsonString(canonDir(repo))+`}`)
+	if code != http.StatusOK || page["ran"] != true {
+		t.Fatalf("run while busy = %d %v", code, page)
+	}
+	made := filepath.Join(root, ".worktrees", "fork")
+	deadline = time.Now().Add(15 * time.Second)
+	for {
+		if _, err := os.Stat(filepath.Join(made, ".git")); err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("worktree %s never appeared", made)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 // With nobody busy, the command is typed into the real shell and submitted:
