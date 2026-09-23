@@ -1519,7 +1519,7 @@ export default function App({ shellChrome = false } = {}) {
     }
   }
 
-  async function typeIntoTerminal(owner, root, command, { run = false, quiet = false } = {}) {
+  async function typeIntoTerminal(owner, root, command, { run = false, quiet = false, prepareNote = true } = {}) {
     if (!owner || !command) return;
     const post = (tid, resource, body) => api("/api/terminals/" + encodeURIComponent(tid) + "/" + resource, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -1527,21 +1527,24 @@ export default function App({ shellChrome = false } = {}) {
     // Stage 2 (ADR-0078): with the run preference on, the server presses
     // Enter only when its interlock finds nobody else writing the repository;
     // a busy answer becomes a prepared command plus a note saying why.
+    // The outcome is returned — "ran", or "prepared" when the command waits
+    // for Enter — so a caller watching for its effect can say which.
     const deliver = async (tid) => {
       if (run) {
         try {
           await post(tid, "run", { text: command, root });
-          return;
+          return "ran";
         } catch (err) {
           // Only the target terminal's own refusals ("This terminal moved
           // to…", "This terminal is running…") send the command elsewhere;
           // a busy repository is prepared right here, with the reason.
           const msg = (err && err.message) || "";
           if (/^(This terminal (moved to|is running)|This is an Agent CLI)/i.test(msg)) throw err;
-          toast.info(runFallbackNote(humanizeError(msg)));
+          if (prepareNote) toast.info(runFallbackNote(humanizeError(msg)));
         }
       }
       await post(tid, "type", { text: command, root });
+      return "prepared";
     };
     const create = async () => {
       const loc = owner.kind === "agent" ? locate(workspaces, freeAgents, owner.id) : null;
@@ -1567,19 +1570,16 @@ export default function App({ shellChrome = false } = {}) {
         const idle = terminals.find((t) => terminalIsIdleShellAt(t, root, agentTerms));
         if (idle) tid = idle.id;
       }
-      if (!tid) {
-        await deliver(await create());
-        return;
-      }
+      if (!tid) return await deliver(await create());
       await openTermTab(tid);
       try {
-        await deliver(tid);
+        return await deliver(tid);
       } catch (err) {
         // The chosen terminal moved away, holds a foreground program or
         // turned out to be an Agent CLI: a fresh terminal in the folder
         // takes the command instead.
         if (!/^(This terminal (moved to|is running)|This is an Agent CLI)/i.test((err && err.message) || "")) throw err;
-        await deliver(await create());
+        return await deliver(await create());
       }
     } catch (err) {
       // A caller that announces the outcome (the graph's pending banner)
@@ -4497,9 +4497,17 @@ export default function App({ shellChrome = false } = {}) {
         open={!!forkSource}
         agent={forkSource ? forkSource.agent : null}
         cliName={forkSource ? forkSource.cliName : ""}
-        deliverGit={(command, root) => typeIntoTerminal({ kind: "agent", id: forkSource.agent.id }, root, command, { run: true, quiet: true })}
+        deliverGit={(command, root) => typeIntoTerminal({ kind: "agent", id: forkSource.agent.id }, root, command, { run: true, quiet: true, prepareNote: false })}
         onClose={() => setForkSource(null)}
         onDone={onForkAgentDone}
+        onBackground={(name) => {
+          // Another agent is writing the repository, so the worktree command
+          // waits for the person's Enter (ADR-0078). The git terminal is the
+          // open tab; the dialog steps aside so the key can reach it.
+          setForkSource(null);
+          toast.info("Press Enter in the git terminal to create the worktree. " + (name || "The fork") + " starts when it appears.");
+        }}
+        onBackgroundError={(e) => toastError(e)}
       />
 
       <GitActionDialog
