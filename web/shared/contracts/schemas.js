@@ -131,6 +131,20 @@ export const apiKeySchema = z.object({
   key: z.string().trim().min(1, "API key is required."),
 });
 
+// Codex on Amazon Bedrock (ADR-0191): the two ways Codex's own app-server
+// signs in to Bedrock. The server checks the same rules.
+export const codexBedrockSchema = z.object({
+  type: z.enum(["amazonBedrock", "amazonBedrockAccessKeys"]),
+  region: z.string().trim().regex(/^[a-z0-9-]{2,32}$/, "An AWS region is required, like us-east-1."),
+  apiKey: z.string().trim().optional(),
+  accessKeyId: z.string().trim().optional(),
+  secretAccessKey: z.string().trim().optional(),
+  sessionToken: z.string().trim().optional(),
+}).superRefine((v, ctx) => {
+  if (v.type === "amazonBedrock" && !v.apiKey) ctx.addIssue({ code: "custom", path: ["apiKey"], message: "A Bedrock API key is required." });
+  if (v.type === "amazonBedrockAccessKeys" && !(v.accessKeyId && v.secretAccessKey)) ctx.addIssue({ code: "custom", path: ["accessKeyId"], message: "An access key ID and its secret are required." });
+});
+
 // Claude Code on a third-party platform (ADR-0189): the fields Claude Code's
 // own /login wizard asks for, per platform and sign-in method. The server
 // checks the same rules; these give the same message in every browser.

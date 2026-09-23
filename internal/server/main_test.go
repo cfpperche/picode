@@ -25,6 +25,12 @@ import (
 // a throwaway HOME here; tests that need a second one still Setenv their
 // own on top.
 func TestMain(m *testing.M) {
+	// The test binary doubles as a fake `codex app-server` (codex_login_test.go):
+	// a script on PATH re-executes it with this variable set.
+	if os.Getenv("PICODE_FAKE_CODEX") == "1" {
+		fakeCodexAppServer()
+		os.Exit(0)
+	}
 	home, err := os.MkdirTemp("", "picode-test-home")
 	if err != nil {
 		panic(err)
