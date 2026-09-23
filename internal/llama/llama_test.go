@@ -1,9 +1,18 @@
 package llama
 
 import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -66,7 +75,7 @@ func TestConnectionTimeoutAndTransport(t *testing.T) {
 	}
 	server.Close()
 	_, err = c.List()
-	if ConnectionFailure(err).Code != "unreachable" {
+	if ConnectionFailure(err).Code != "refused" {
 		t.Fatal(err)
 	}
 }
@@ -92,5 +101,46 @@ func TestWaitOutcomes(t *testing.T) {
 				t.Fatalf("pass=%v err=%v", tc.pass, err)
 			}
 		})
+	}
+}
+
+type timeoutErr struct{}
+
+func (timeoutErr) Error() string   { return "i/o timeout" }
+func (timeoutErr) Timeout() bool   { return true }
+func (timeoutErr) Temporary() bool { return true }
+
+// Each cause reads as itself, so the pane can say what to change.
+func TestConnectionFailureNamesTheCause(t *testing.T) {
+	wrap := func(err error) error { return &url.Error{Op: "Get", URL: "http://127.0.0.1:8080/models", Err: err} }
+	refused := &net.OpError{Op: "dial", Net: "tcp", Err: os.NewSyscallError("connect", syscall.ECONNREFUSED)}
+	cases := []struct {
+		err  error
+		code string
+	}{
+		{wrap(timeoutErr{}), "timeout"},
+		{wrap(refused), "refused"},
+		{wrap(&net.DNSError{Err: "no such host", Name: "llama.lan", IsNotFound: true}), "dns"},
+		{wrap(&tls.CertificateVerificationError{Err: x509.UnknownAuthorityError{}}), "tls"},
+		{wrap(tls.RecordHeaderError{Msg: "first record does not look like a TLS handshake"}), "tls"},
+		{wrap(context.Canceled), "cancelled"},
+		{wrap(errors.New("something else")), "unreachable"},
+		{&ConnectionError{"authentication", "The server rejected the API key."}, "authentication"},
+	}
+	for _, c := range cases {
+		got := ConnectionFailure(c.err)
+		if got.Code != c.code {
+			t.Errorf("%v → %q, want %q", c.err, got.Code, c.code)
+		}
+		if strings.Contains(got.Message, "127.0.0.1") {
+			t.Errorf("message leaks the endpoint: %q", got.Message)
+		}
+	}
+}
+
+func TestStartArgsReadIPv6(t *testing.T) {
+	args := strings.Join(startArgs("llama-server", "/m", "http://[::1]:9090"), " ")
+	if !strings.Contains(args, "--host ::1") || !strings.Contains(args, "--port 9090") {
+		t.Fatalf("args = %s", args)
 	}
 }

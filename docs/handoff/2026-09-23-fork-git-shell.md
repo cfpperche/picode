@@ -1,0 +1,6 @@
+# 2026-09-23 — fork-git-shell
+
+- **Bug (owner, live, right after the agent-fork deploy):** Fork agent… → New worktree failed with "This is an Agent CLI. Send from the attach bar." The git door (`typeIntoTerminal`) chose an agent's terminal as the "idle plain shell" for `git worktree add`: its filter read `tui`/`cli`/`state`, which a stopped CLI terminal (and a feed-patched row) lacks. The server's refusal kept anything from being typed into the agent.
+- **Fix:** `terminalIsIdleShellAt` (shared/domain/terminalCli.js) also rejects `launchCli` and any terminal an agent owns (ADR-0184: every CLI launch is an agent); a "This is an Agent CLI" refusal now falls back to a fresh shell like "moved"/"running" did. Same path serves the graph's git actions.
+- **Verified:** node test for the helper; `make ci-scoped` PASS; scratch instance: a stopped Claude agent with a pinned session in a git repo → Fork into a new worktree created a new git shell, ran the command, and opened the fork on branch `calc-fork`.
+- **Not reproduced:** the exact production row the browser picked (every live terminal in ~/picode carried `cli`/`tui` in `/api/terminals`); the stale client row is the inferred cause, the agent-owned exclusion covers it either way.

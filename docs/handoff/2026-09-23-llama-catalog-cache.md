@@ -7,8 +7,9 @@ forget (feed listener); `?fresh=1` waits for a new answer; concurrent cold reads
 The llama pane's `/api/llama` files its answer under the setting its request read and returns that URL.
 Verified: `make ci-scoped` PASS; six new tests (keep a failure, shared cold probe, A-never-under-B, forget during
 a probe, fresh, listener) pass 5× under `-race`.
-Found on the way: on the owner's WSL (mirrored networking) every closed 127.0.0.1 port drops the connection
-instead of refusing it, so an unused llama.cpp setting costs a full timeout; nothing listens on :8080.
+Found on the way: nothing listens on :8080. *Corrected later the same day:* the "closed port hangs" behaviour
+is of processes launched from the agent session (curl, scratch daemons); the owner's daemon answers a cold
+`/api/catalog` in 0.43 s — the refusal is immediate there.
 
 ## Next up
 

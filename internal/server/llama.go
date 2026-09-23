@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
@@ -41,6 +42,10 @@ func llamaURL() string {
 	return llama.DefaultURL
 }
 
+// paneLlamaFor bounds the llama pane's connection check: long enough for a
+// server on another machine, short enough that a dead address says so fast.
+var paneLlamaFor = 4 * time.Second
+
 func handleLlamaList(w http.ResponseWriter, r *http.Request) {
 	url, secret := llamaURL(), catalog.LlamaKey()
 	c, err := llama.New(url, secret)
@@ -48,21 +53,38 @@ func handleLlamaList(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	models, err := c.List()
+	// Bounded by the request (a closed tab stops asking) and by the pane's own
+	// budget: against a server that never answers this took 15 s plus 3 s of
+	// capabilities, with Save disabled throughout (2026-09-23 review).
+	ctx, cancel := context.WithTimeout(r.Context(), paneLlamaFor)
+	models, err := c.ListContext(ctx)
+	cancel()
 	// The pane asked the server live; the catalog keeps that answer, under the
-	// setting this request read.
-	rememberCatalogLlama(catalogLlamaKey(url, secret), models, err)
+	// setting this request read — unless the browser gave up first, which says
+	// nothing about the server.
+	if r.Context().Err() == nil {
+		rememberCatalogLlama(catalogLlamaKey(url, secret), models, err)
+	}
 	ok := err == nil
 	if models == nil {
 		models = []llama.Model{}
 	}
+	// Capabilities are asked only of a server that answered.
+	caps := llama.Capabilities{}
+	if ok {
+		caps = c.Capabilities(r.Context())
+	}
+	// endpoint is the saved address as jobs record it (normalized), so the
+	// pane can match a running job to this server.
+	endpoint, _ := llama.NormalizeURL(url)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"url":          url,
+		"endpoint":     endpoint,
 		"ok":           ok,
 		"models":       models,
 		"setup":        llama.Inspect(url, models, ok),
 		"connection":   llamaConnection(err),
-		"capabilities": c.Capabilities(r.Context()),
+		"capabilities": caps,
 	})
 }
 
@@ -93,11 +115,11 @@ func handleLlamaHFInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 // The catalog asks the llama.cpp server which models are loaded, and every
-// catalog read used to ask again with a 2 s timeout. A configured server that
-// does not answer (measured 2026-09-23: on the owner's WSL, mirrored
-// networking drops a connection to a closed 127.0.0.1 port instead of
-// refusing it) made every /api/catalog, and so every model picker, wait those
-// 2 s. The answer — a failure included — is kept per server and key and served
+// catalog read used to ask again with a 2 s timeout, so a configured server
+// that does not answer (a machine off the network, a firewall that drops)
+// made every /api/catalog, and so every model picker, wait those 2 s. Seen on
+// 2026-09-23 on scratch instances started from an agent session, where a
+// closed 127.0.0.1 port hangs; the owner's daemon gets an immediate refusal. The answer — a failure included — is kept per server and key and served
 // at once; once stale it is refreshed in the background, so only a read with
 // no answer for the current setting waits, and concurrent ones share that one
 // probe.

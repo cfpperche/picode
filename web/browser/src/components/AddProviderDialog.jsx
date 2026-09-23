@@ -204,7 +204,8 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
         body: JSON.stringify({ url: parsed.value.url, key: parsed.value.key || "" }),
       });
       pushRecent("llama.cpp");
-      toast.ok("Signed in to llama.cpp.");
+      // Saved, not checked: the llama.cpp page says whether it answers.
+      toast.ok("llama.cpp server saved. Open llama.cpp to check the connection.");
       await saved();
     } catch (ex) {
       toastError(ex);
