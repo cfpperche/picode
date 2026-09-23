@@ -16,6 +16,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/climodels"
 )
 
 // The four APIs pi accepts on a provider (pi docs/models.md).
@@ -656,7 +658,12 @@ func writeModelsJSON(path string, obj map[string]json.RawMessage) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(out, '\n'), 0o600)
+	if err := os.WriteFile(path, append(out, '\n'), 0o600); err != nil {
+		return err
+	}
+	// A custom provider changed: Pi's kept list is stale now.
+	climodels.Forget("pi")
+	return nil
 }
 
 func mustRaw(v any) json.RawMessage {

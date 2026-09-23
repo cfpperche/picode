@@ -107,11 +107,14 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     }
   }, [cli]);
 
-  const loadCatalog = useCallback(async () => {
+  // fresh: "Try again" asks Pi again; every other read — mount, focus, after
+  // a save — is answered from the server's kept list, which a sign-in or a
+  // custom-provider save already updates.
+  const loadCatalog = useCallback(async (fresh = false) => {
     if (cli !== "pi") return;
     const request = ++catalogSeq.current;
     try {
-      const next = await api("/api/catalog");
+      const next = await api("/api/catalog" + (fresh === true ? "?fresh=1" : ""));
       if (!Array.isArray(next?.providers)) throw new Error("Invalid provider catalog.");
       if (!live.current || request !== catalogSeq.current) return;
       setCatalog(next);
@@ -607,7 +610,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
         {catalogError && cli === "pi" ? (
           <div className="cli-notice is-error" role="alert">
             <span>{catalogError}</span>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={loadCatalog}>Try again</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => loadCatalog(true)}>Try again</button>
           </div>
         ) : null}
         <div className="cred-loading" aria-label="Loading the provider catalog" role="status">
@@ -640,7 +643,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
       {catalogError && !missing ? (
         <div className="cli-notice is-error" role="alert">
           <span>{catalogError}</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={loadCatalog}>Try again</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => loadCatalog(true)}>Try again</button>
         </div>
       ) : null}
       {/* The server knows no credential mechanism for this CLI: one line, and

@@ -91,17 +91,20 @@ func handleLlamaHFInfo(w http.ResponseWriter, r *http.Request) {
 // The catalog asks the llama.cpp server which models are loaded, and every
 // catalog read used to ask again with a 2 s timeout. A configured server that
 // accepts and never answers (measured 2026-09-23: 127.0.0.1:8080 on the owner's
-// WSL) made every /api/catalog, and so every model picker, wait those 2 s. The
-// answer — a failure included — is kept for catalogLlamaFor per server and
-// key; the llama pane's own live read and its model operations refresh it.
+// WSL) made every /api/catalog, and so every model picker, wait those 2 s. Now
+// the answer — a failure included — is kept per server and key and served at
+// once; past catalogLlamaFor it is refreshed in the background, so only the
+// first read after the daemon starts (or after the server setting changes)
+// waits. The llama pane's own live read and its model operations refresh it.
 const catalogLlamaFor = 30 * time.Second
 
 var catalogLlama struct {
 	sync.Mutex
-	key    string
-	at     time.Time
-	models []llama.Model
-	err    error
+	key        string
+	at         time.Time
+	models     []llama.Model
+	err        error
+	refreshing bool
 }
 
 // listCatalogLlama is the probe itself; tests replace it.
@@ -125,8 +128,15 @@ func catalogLlamaKey() string {
 func catalogLlamaModels() ([]llama.Model, error) {
 	key := catalogLlamaKey()
 	catalogLlama.Lock()
-	if catalogLlama.key == key && time.Since(catalogLlama.at) < catalogLlamaFor {
+	if catalogLlama.key == key && !catalogLlama.at.IsZero() {
 		models, err := catalogLlama.models, catalogLlama.err
+		if time.Since(catalogLlama.at) >= catalogLlamaFor && !catalogLlama.refreshing {
+			catalogLlama.refreshing = true
+			go func() {
+				models, err := listCatalogLlama()
+				rememberCatalogLlama(models, err)
+			}()
+		}
 		catalogLlama.Unlock()
 		return models, err
 	}
@@ -139,14 +149,18 @@ func catalogLlamaModels() ([]llama.Model, error) {
 func rememberCatalogLlama(models []llama.Model, err error) {
 	catalogLlama.Lock()
 	catalogLlama.key, catalogLlama.at, catalogLlama.models, catalogLlama.err = catalogLlamaKey(), time.Now(), models, err
+	catalogLlama.refreshing = false
 	catalogLlama.Unlock()
 }
 
-// forgetCatalogLlama drops the kept answer: a load, unload or download
-// changes which models are loaded.
+// forgetCatalogLlama ages the kept answer out: a load, unload or download
+// changes which models are loaded, so the next catalog read refreshes it in
+// the background while still answering at once.
 func forgetCatalogLlama() {
 	catalogLlama.Lock()
-	catalogLlama.at = time.Time{}
+	if !catalogLlama.at.IsZero() {
+		catalogLlama.at = time.Now().Add(-catalogLlamaFor)
+	}
 	catalogLlama.Unlock()
 }
 
