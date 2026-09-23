@@ -419,7 +419,9 @@ func parseHermes(raw []byte, provider string) (Login, bool) {
 				}
 				switch strings.ToLower(text(entry, "auth_type")) {
 				case "api_key", "key":
-					if login, ok := loginAPIKey(provider, text(entry, "key"), ""); ok {
+					// Hermes 0.21 keeps a pooled key in access_token (measured);
+					// older pools used key.
+					if login, ok := loginAPIKey(provider, firstText(entry, "key", "access_token"), ""); ok {
 						return login, true
 					}
 				}
