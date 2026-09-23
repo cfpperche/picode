@@ -90,6 +90,26 @@ const PATH_RE = new RegExp(
   "g",
 );
 
+function trimHttpToken(raw) {
+  // Printed Markdown often wraps a URL in (...); keep balanced URL brackets.
+  let end = raw.length;
+  const pairs = { ")": "(", "]": "[", "}": "{" };
+  while (end > 0) {
+    const last = raw[end - 1];
+    if (/[.,;!?]/.test(last)) {
+      end--;
+      continue;
+    }
+    const open = pairs[last];
+    if (!open) break;
+    const text = raw.slice(0, end);
+    const count = (char) => [...text].filter((c) => c === char).length;
+    if (count(last) <= count(open)) break;
+    end--;
+  }
+  return raw.slice(0, end);
+}
+
 function scanTokens(line) {
   const s = String(line || "");
   const hits = [];
@@ -103,7 +123,7 @@ function scanTokens(line) {
   }
   let m;
   const http = new RegExp(HTTP_RE.source, "gi");
-  while ((m = http.exec(s))) add(m.index, m[0]);
+  while ((m = http.exec(s))) add(m.index, trimHttpToken(m[0]));
   const path = new RegExp(PATH_RE.source, "g");
   while ((m = path.exec(s))) add(m.index, m[0]);
   hits.sort((a, b) => a.start - b.start);

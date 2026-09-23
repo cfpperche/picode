@@ -188,6 +188,9 @@ wiring hands the URL up (`web/shared/domain/termLinks.js` takes the app's
 opener) instead of calling `window.open` itself. The Servers panel's own
 **Open** button does not consult it: an explicit control inside PiCode asks for
 PiCode, and the preference governs the default, not a click.
+The terminal's plain-text link scanner excludes trailing prose punctuation and
+unmatched closing brackets, while retaining balanced brackets inside a URL.
+The same boundary supplies the Ctrl+click target, underline and pane-menu link.
 
 ## What this does not do
 
