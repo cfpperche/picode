@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -280,6 +282,48 @@ func TestTerminalReportsCountTurns(t *testing.T) {
 	}
 	// A plain shell has no agent: reporting on it counts nothing and fails nothing.
 	reportTermState(deps, shell.ID, TermWorking, "", now)
+}
+
+// Integrated CLIs (Claude Code, Codex, Omp…) report with their native
+// session, which writes the state on its own path; it counts turns by the
+// same rule. Production recorded 0 turns for a 175-turn Omp agent before.
+func TestNativeSessionReportsCountTurns(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	a, _ := st.AddAgentWithCLI(store.FreeWorkspaceID, "codex", "reviewer", "")
+	term, _ := st.CreateTerminal("reviewer", t.TempDir())
+	if _, err := st.UpdateAgent(a.ID, store.AgentPatch{TerminalID: &term.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetTerminalLaunch(term.ID, "codex", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	deps := Deps{Store: st, TermRuntimes: NewTermRuntimes(), TermStates: NewTermStates()}
+	deps.TermRuntimes.Start(term.ID, TermRuntime{CLI: "codex", RunID: "run", PID: os.Getpid()})
+	seq := time.Now().UnixNano()
+	steps := []struct {
+		state string
+		want  int64
+	}{
+		{TermWorking, 1},  // no state before: a turn
+		{TermWorking, 1},  // still working
+		{TermNeedsYou, 1}, // waiting on the person
+		{TermWorking, 1},  // resumed after the answer: the same turn
+		{TermIdle, 1},
+		{TermWorking, 2}, // a new prompt
+	}
+	for i, step := range steps {
+		if err := recordNativeTerminalObservation(deps, term.ID, "codex", "run", "session", "", seq+int64(i), step.state, "codex-hook", ""); err != nil {
+			t.Fatalf("step %d: %v", i, err)
+		}
+		act, _ := st.AgentActivityOf(a.ID)
+		if act.Turns == nil || *act.Turns != step.want {
+			t.Fatalf("step %d (%s): turns = %v, want %d", i, step.state, act.Turns, step.want)
+		}
+	}
 }
 
 func TestWorkspaceRemovalEndsItsAgentsWithExits(t *testing.T) {

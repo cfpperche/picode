@@ -20,6 +20,7 @@ import CliTabs from "./CliTabs.jsx";
 import SurfaceWrappers from "./SurfaceWrappers.jsx";
 import CliSettings from "./CliSettings.jsx";
 import CliMemory from "./CliMemory.jsx";
+import CliSkills from "./CliSkills.jsx";
 import PeerMessages from "./PeerMessages.jsx";
 import CliProviders from "./CliProviders.jsx";
 import CliModels from "./CliModels.jsx";
@@ -261,6 +262,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
         {pane === "models" ? <CliModels cli={route.id} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
         {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} workspaceId={setupCtx.workspaceId} workspaceName={wsCtxName} /> : null}
         {pane === "memory" ? <CliMemory route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
+        {pane === "skills" ? <CliSkills key={route.id + ":" + (route.workspaceId || setupCtx.workspaceId || "")} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
         {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} describe={new URLSearchParams((hash || "").split("?")[1] || "").get("describe") === "1"} /> : null}
         {pane === "connectors" ? <ConnectorsPane route={route} onReload={onReloadAgent} /> : null}
       </div>
