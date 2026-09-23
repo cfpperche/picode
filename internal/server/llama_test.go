@@ -1,12 +1,18 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/llama"
 	"github.com/cfpperche/picode/internal/llamajob"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -46,5 +52,78 @@ func TestLlamaJobHTTP(t *testing.T) {
 	handleLlamaOperation(Deps{}, "load")(rec, httptest.NewRequest("POST", "/api/llama/load", nil))
 	if rec.Code != 503 {
 		t.Fatal(rec.Code)
+	}
+}
+
+// The catalog's llama.cpp read is kept, a failure included, and a stale one
+// is served at once while it refreshes in the background: a server that
+// accepts and never answers cost every /api/catalog its 2 s timeout.
+func TestCatalogLlamaIsKept(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeAuth := func(url string) {
+		dir := filepath.Join(home, ".pi", "agent")
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		body := `{"llama.cpp":{"type":"api_key","key":"k","env":{"LLAMA_BASE_URL":"` + url + `"}}}`
+		if err := os.WriteFile(filepath.Join(dir, "auth.json"), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reset := func() {
+		catalogLlama.Lock()
+		catalogLlama.key, catalogLlama.at, catalogLlama.refreshing = "", time.Time{}, false
+		catalogLlama.Unlock()
+	}
+	writeAuth("http://127.0.0.1:1")
+	var mu sync.Mutex
+	calls := 0
+	fail := true
+	prev := listCatalogLlama
+	listCatalogLlama = func() ([]llama.Model, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		calls++
+		if fail {
+			return nil, errors.New("timeout")
+		}
+		return []llama.Model{{ID: "qwen", Status: "loaded"}}, nil
+	}
+	t.Cleanup(func() { listCatalogLlama = prev; reset() })
+	reset()
+	count := func() int { mu.Lock(); defer mu.Unlock(); return calls }
+
+	rep := catalog.Report{Providers: []catalog.Provider{{ID: "llama.cpp"}}}
+	attachLlamaModels(&rep)
+	attachLlamaModels(&rep)
+	if count() != 1 {
+		t.Fatalf("a failed read asked %d times, want 1", count())
+	}
+	// A changed server is a different entry, asked at once, never the old answer.
+	mu.Lock()
+	fail = false
+	mu.Unlock()
+	writeAuth("http://127.0.0.1:2")
+	attachLlamaModels(&rep)
+	if count() != 2 || len(rep.Providers[0].Models) != 1 {
+		t.Fatalf("calls=%d models=%v after the URL changed", count(), rep.Providers[0].Models)
+	}
+	// A model operation ages the answer: the next read still answers at once
+	// (no wait) and refreshes in the background, once.
+	forgetCatalogLlama()
+	rep2 := catalog.Report{Providers: []catalog.Provider{{ID: "llama.cpp"}}}
+	attachLlamaModels(&rep2)
+	attachLlamaModels(&catalog.Report{})
+	if len(rep2.Providers[0].Models) != 1 {
+		t.Fatalf("a stale answer must still be served: %v", rep2.Providers[0].Models)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for count() < 3 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	time.Sleep(20 * time.Millisecond)
+	if count() != 3 {
+		t.Fatalf("calls=%d, want exactly one background refresh", count())
 	}
 }

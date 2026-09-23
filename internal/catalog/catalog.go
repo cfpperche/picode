@@ -2,12 +2,14 @@
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/climodels"
 
 	"github.com/cfpperche/picode/internal/llama"
 )
@@ -59,16 +61,23 @@ type Report struct {
 // ThinkingLevels is the full pi scale. Per-model subsets come from thinkingLevelMap.
 var ThinkingLevels = []string{"off", "minimal", "low", "medium", "high", "xhigh", "max"}
 
-// Load runs pi --list-models --offline and merges auth.json key names.
-func Load(piCmd string) (Report, error) {
-	if piCmd == "" {
-		piCmd = "pi"
-	}
-	out, err := exec.Command(piCmd, "--list-models", "--offline").Output()
+// Load is Pi's model list (ADR-0009, amended 2026-09-23) merged with what only
+// Pi's files say: sign-in, custom providers, thinking levels. The list comes
+// through climodels — `pi --list-models --offline`, kept while the files that
+// decide it are unchanged — so a catalog read no longer runs Pi every time;
+// the merge reads its small files on every call, so a sign-in shows at once.
+// The machine answer: Pi runs in the home directory.
+func Load(piCmd string) (Report, error) { return LoadFresh(piCmd, false) }
+
+// LoadFresh is Load that, with fresh, asks Pi again whatever is kept — a
+// Refresh, for a change made outside PiCode that no input file shows.
+func LoadFresh(piCmd string, fresh bool) (Report, error) {
+	dir, _ := os.UserHomeDir()
+	rep, err := climodels.ReadCommand(context.Background(), "pi", piCmd, dir, fresh)
 	if err != nil {
 		return Report{Providers: []Provider{}, Thinking: ThinkingLevels}, fmt.Errorf("catalog: list-models: %w", err)
 	}
-	return build(string(out)), nil
+	return buildRows(rowsOf(rep.Models)), nil
 }
 
 // LoadAccounts is the provider list for what is signed in on this machine,
@@ -79,18 +88,19 @@ func LoadAccounts(piCmd string) Report {
 	if rep, err := Load(piCmd); err == nil {
 		return rep
 	}
-	return build("")
+	return buildRows(nil)
 }
 
-func build(listModels string) Report {
+func build(listModels string) Report { return buildRows(ParseListModels(listModels)) }
+
+func buildRows(rows []parsedRow) Report {
 	rep := Report{Providers: []Provider{}, Thinking: ThinkingLevels}
-	out := listModels
 	info := authInfo()
 	syncFromAuth()
 	store := loadThinkingMaps()
 	byID := map[string]*Provider{}
 	var order []string
-	for _, m := range ParseListModels(out) {
+	for _, m := range rows {
 		p := byID[m.provider]
 		if p == nil {
 			order = append(order, m.provider)
@@ -157,40 +167,17 @@ type parsedRow struct {
 	thinking, images                 bool
 }
 
-// ParseListModels turns the table from `pi --list-models` into rows.
-func ParseListModels(text string) []parsedRow {
-	var rows []parsedRow
-	for _, line := range strings.Split(text, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 6 {
-			continue
-		}
-		if fields[0] == "provider" {
-			continue
-		}
-		// provider | model… | context | max-out | thinking | images
-		images := fields[len(fields)-1]
-		thinking := fields[len(fields)-2]
-		// The CLI also prints prose when no models are available. A table
-		// row always ends in two yes/no capability columns; prose is not
-		// a provider or a model, even when it contains six or more words.
-		if (images != "yes" && images != "no") || (thinking != "yes" && thinking != "no") {
-			continue
-		}
-		maxOut := fields[len(fields)-3]
-		context := fields[len(fields)-4]
-		model := strings.Join(fields[1:len(fields)-4], " ")
+// ParseListModels turns the table from `pi --list-models` into rows; the
+// parser itself is climodels' (one reading of Pi's table, not two).
+func ParseListModels(text string) []parsedRow { return rowsOf(climodels.ParsePiTable(text)) }
+
+func rowsOf(models []climodels.Model) []parsedRow {
+	rows := make([]parsedRow, 0, len(models))
+	for _, m := range models {
 		rows = append(rows, parsedRow{
-			provider: fields[0],
-			model:    model,
-			context:  context,
-			maxOut:   maxOut,
-			thinking: thinking == "yes",
-			images:   images == "yes",
+			provider: m.Provider, model: m.ID,
+			context: m.ContextLabel, maxOut: m.MaxOutLabel,
+			thinking: m.Reasoning, images: len(m.Input) > 0,
 		})
 	}
 	return rows
@@ -423,5 +410,10 @@ func mutateAuth(fn func(map[string]json.RawMessage) error) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(out, '\n'), 0o600)
+	if err := os.WriteFile(path, append(out, '\n'), 0o600); err != nil {
+		return err
+	}
+	// Pi lists only signed-in providers: its kept list is stale now.
+	climodels.Forget("pi")
+	return nil
 }

@@ -190,9 +190,11 @@ which is why the move needed no change to ADR-0181.
 
 
 
-`#/clis/<cli>/models` exists only for a CLI PiCode can ask for its catalog
-(`internal/climodels`; omp today, and `TestJSListMatchesTheReaders` holds the
-JS list `MODELS_CLIS` equal to the server's). It shows what the CLI reports it
+`#/clis/<cli>/models` exists only for a CLI whose Models pane edits its own
+model lists (`climodels.Panes()`: omp today, and `TestJSListMatchesTheReaders`
+holds the JS list `MODELS_CLIS` equal to it). Having a reader is a separate
+fact: Pi has one (its catalog feeds the pickers and `/api/catalog`) and no such
+pane. It shows what the CLI reports it
 can reach, grouped by provider, with kind chips, a filter, context size and the
 vendor's price pair, and it edits the two lists that decide which of those the
 CLI may use: `enabledModels` (**Allowed**) and `disabledProviders` (**Hide
@@ -233,6 +235,15 @@ before it. The credential store and the catalog cache are deliberately not in
 the fingerprint: omp rewrites both on every run (the first version keyed on
 them and never hit), and several omp terminals share them. **Refresh** sends
 `fresh=1`, which asks the CLI again regardless.
+
+**Readers are registered per CLI.** Each names its command and the files that
+decide its answer; the cache, the ten-minute bound, `fresh` and `Forget(cli)`
+are shared. Pi's reader (`pi.go`, ADR-0009 amendment) runs
+`pi --list-models --offline` in the home directory for the machine answer and
+keys on `auth.json`, `models.json`, `models-store.json`, `settings.json`,
+`npm/package-lock.json` and the binary — measured: listing rewrites none of
+them, so unlike omp the credential store is an input. The catalog's own writes
+(`mutateAuth`, `writeModelsJSON`) also call `Forget("pi")`.
 
 ## Checks: what a CLI resolves here, and what is wrong with it (slice 4)
 

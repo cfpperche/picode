@@ -101,6 +101,10 @@ impl Board {
         self.inner.lock().expect("board").url = url;
     }
 
+    pub fn app(&self) -> &tauri::AppHandle {
+        &self.app
+    }
+
     pub fn url(&self) -> Option<String> {
         self.inner.lock().expect("board").url.clone()
     }

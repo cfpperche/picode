@@ -742,6 +742,9 @@ export const browserGrantSchema = z.object({
 // rows are the form's, not the declaration's: they are dropped before this.
 export const workspaceSettingsSchema = z.object({
   name: required("Name").max(120, "Use up to 120 characters for the name."),
+  // The engine the project declares (ADR-0186): its own merge queue, PiCode's
+  // local runner, or nothing declared — which runs nothing.
+  mode: z.union([z.literal(""), z.enum(["provider", "local"])]),
   ffOnly: z.boolean(),
   checks: z.array(
     z.string().trim().min(1, "A check cannot be empty.")

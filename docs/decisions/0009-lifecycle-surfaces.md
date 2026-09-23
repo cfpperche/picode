@@ -32,6 +32,20 @@ models), philosophy "door, not cage", UI chrome carries state not docs.
 Starting an agent (interactive or managed) passes stored
 `--provider` / `--model` / `--thinking` when set.
 
+## Amendment (2026-09-23): Pi's list is read through climodels
+
+Pi's model list is read by `internal/climodels` (ADR-0181), like the catalog of
+any CLI with a reader, and kept while the files that decide it are unchanged —
+measured on pi 0.87.1: `auth.json` (only signed-in providers are listed),
+`models.json`, `models-store.json`, `settings.json`, the installed packages and
+the binary. `GET /api/catalog` composes that list with what only Pi's files say
+(sign-in, custom providers, thinking levels, usage counts) and no longer runs
+`pi --list-models` on every call; `?fresh=1` asks again. Point 1 stands — the
+source is still whatever Pi reports; only how often it is asked changed. The
+same measurement found the 2 s a catalog read used to cost was its llama.cpp
+probe, not Pi; that answer — a failure included — is now served from memory
+and refreshed in the background once it is 30 s old.
+
 ## Consequences
 
 - **Easier**: one source of truth (pi) for models and credentials; wizard

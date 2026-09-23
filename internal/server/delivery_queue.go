@@ -45,6 +45,14 @@ func registerDeliveryQueueRoutes(mux Registrar, deps Deps) {
 				writeErr(w, 400, err.Error())
 				return
 			}
+			// Under provider mode the project's own queue owns the order, so the
+			// owner's order is refused where it would be a second opinion.
+			if m.Action == "order" {
+				if settings, err := deps.Store.EffectiveIntegrationSettings(ownerWorkspaceID(deps, route.kind, r.PathValue("id"))); err == nil && settings.Mode == store.ModeProvider {
+					writeErr(w, 409, "this project integrates through its own provider, which owns the queue's order")
+					return
+				}
+			}
 			entry, err := deps.Store.ApplyQueueMutation(repo, store.OwnerActor, m)
 			if err != nil {
 				writeQueueErr(w, err)

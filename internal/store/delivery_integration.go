@@ -16,7 +16,11 @@ import (
 // Scope follows the owner's rule for the queue: a workspace declares first, and
 // a workspace that declares nothing falls back to the machine default.
 type IntegrationSettings struct {
-	Scope     string   `json:"scope"`
+	Scope string `json:"scope"`
+	// Mode is the engine the project declared (ADR-0186): its own provider queue,
+	// or PiCode's local runner. Empty means nothing was declared, which is a
+	// named blocker — never a guess about which engine to use.
+	Mode      string   `json:"mode,omitempty"`
 	FFOnly    bool     `json:"ffOnly"`
 	Checks    []string `json:"checks,omitempty"`
 	Version   int      `json:"version"`
@@ -34,8 +38,17 @@ const MachineIntegrationScope = ""
 // MaxIntegrationChecks bounds how many commands a project may declare.
 const MaxIntegrationChecks = 8
 
+// The integration modes a project may declare (ADR-0186). Under Provider the
+// project's own queue performs the integration and PiCode only enqueues and
+// observes it; under Local the runner here does, with the declared commands.
+const (
+	ModeProvider = "provider"
+	ModeLocal    = "local"
+)
+
 // IntegrationSettingsMutation is one declaration write.
 type IntegrationSettingsMutation struct {
+	Mode            string   `json:"mode,omitempty"`
 	FFOnly          bool     `json:"ffOnly"`
 	Checks          []string `json:"checks,omitempty"`
 	ExpectedVersion int      `json:"expectedVersion,omitempty"`
@@ -44,6 +57,16 @@ type IntegrationSettingsMutation struct {
 // ValidateIntegrationSettings checks a declaration's shape: at most eight
 // commands, each one non-empty line of at most 300 bytes. Nothing runs them.
 func ValidateIntegrationSettings(m IntegrationSettingsMutation) error {
+	switch m.Mode {
+	case "", ModeProvider, ModeLocal:
+	default:
+		return fmt.Errorf("mode must be %q or %q", ModeProvider, ModeLocal)
+	}
+	// The provider's own CI runs its checks; declared commands belong to the
+	// local runner, and carrying both would say two engines must run.
+	if m.Mode == ModeProvider && len(m.Checks) > 0 {
+		return errors.New("provider mode runs the checks of its provider; declare local to run commands here")
+	}
 	if len(m.Checks) > MaxIntegrationChecks {
 		return fmt.Errorf("at most %d checks", MaxIntegrationChecks)
 	}
@@ -131,7 +154,7 @@ func (s *Store) PutIntegrationSettings(scope string, m IntegrationSettingsMutati
 		return IntegrationSettings{}, err
 	}
 	defer s.rollback(tx)
-	next := IntegrationSettings{Scope: scope, FFOnly: m.FFOnly, Checks: append([]string{}, m.Checks...), UpdatedAt: nowUTC()}
+	next := IntegrationSettings{Scope: scope, Mode: m.Mode, FFOnly: m.FFOnly, Checks: append([]string{}, m.Checks...), UpdatedAt: nowUTC()}
 	var raw string
 	err = tx.QueryRow(`SELECT body FROM delivery_integration WHERE scope=?`, scope).Scan(&raw)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {

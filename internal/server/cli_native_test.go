@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cfpperche/picode/internal/climodels"
 )
 
 func seedFile(t *testing.T, path, body string) {
@@ -394,7 +396,7 @@ func TestCLISettingsAPIRefusesARoleTheCLIWouldNotAccept(t *testing.T) {
 // ask answers at all.
 func TestCLIModelsAPIRefusesCLIsItCannotAsk(t *testing.T) {
 	ts := newTestServer(t, "cat")
-	for _, cli := range []string{"pi", "", "codex", "claude-code"} {
+	for _, cli := range []string{"", "codex", "claude-code"} {
 		status, _ := getJSONBody(t, ts, ts.URL+"/api/cli-models?cli="+cli)
 		if status != http.StatusBadRequest {
 			t.Errorf("cli=%q: want 400, got %d", cli, status)
@@ -409,5 +411,26 @@ func TestCLIDoctorAPIRefusesCLIsWithoutChecks(t *testing.T) {
 		if status != http.StatusBadRequest {
 			t.Errorf("cli=%q: want 400, got %d", cli, status)
 		}
+	}
+}
+
+// Pi has a reader (ADR-0009 amendment): the API runs the daemon's configured
+// Pi, not whatever "pi" is on PATH.
+func TestCLIModelsAPIAsksTheConfiguredPi(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "my-pi")
+	table := "provider model context max-out thinking images\nanthropic claude-haiku-4-5 200K 64K yes yes\n"
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '"+table+"'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { climodels.Forget("pi") })
+	ts := newTestServer(t, script)
+	status, body := getJSONBody(t, ts, ts.URL+"/api/cli-models?cli=pi&fresh=1")
+	if status != http.StatusOK {
+		t.Fatalf("status %d: %v", status, body)
+	}
+	models, _ := body["models"].([]any)
+	if len(models) != 1 || models[0].(map[string]any)["selector"] != "anthropic/claude-haiku-4-5" {
+		t.Fatalf("models = %v", body["models"])
 	}
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as Sheet from "./MobileSheet.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { workspaceSettingsSchema } from "@picode/shared/contracts/schemas.js";
-import { blocksLanding, cleanChecks, draftFrom, inheritedLine, integrationSave, integrationSource } from "@picode/shared/domain/workspaceSettings.js";
+import { blocksLanding, cleanChecks, draftFrom, inheritedLine, integrationIntro, integrationSave, integrationSource } from "@picode/shared/domain/workspaceSettings.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import LandingRulesFields from "./LandingRulesFields.jsx";
 import { toast } from "../lib/toast.js";
@@ -120,7 +120,7 @@ export default function WorkspaceSettingsSheet({ ws, open, onClose }) {
 
               <section className="wsset-section" aria-labelledby={"wsset-int-" + id}>
                 <h3 id={"wsset-int-" + id} className="wsset-label">Landing work</h3>
-                <p className="wsset-help">When you authorize a branch an agent delivered, PiCode runs these checks and then merges it.</p>
+                <p className="wsset-help">{integrationIntro(draft)}</p>
                 {loadError ? (
                   <p className="wsset-state" role="alert">{loadError} <button type="button" className="btn btn-sm" onClick={load}>Retry</button></p>
                 ) : !page ? (
