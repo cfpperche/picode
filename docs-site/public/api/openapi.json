@@ -5871,6 +5871,71 @@
         ]
       }
     },
+    "/api/grok/login": {
+      "delete": {
+        "operationId": "deleteApiGrokLogin",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "grok"
+        ]
+      },
+      "get": {
+        "operationId": "getApiGrokLogin",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "grok"
+        ]
+      },
+      "post": {
+        "operationId": "postApiGrokLogin",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "grok"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "getApiHealth",
@@ -11881,6 +11946,9 @@
     },
     {
       "name": "github"
+    },
+    {
+      "name": "grok"
     },
     {
       "name": "health"
