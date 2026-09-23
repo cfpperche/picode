@@ -6,4 +6,4 @@ Merge: fast-forward ready.
 
 ## Debts
 
-- dnd drag of a workspace row not exercised with the sticky header live; exposure minimal (hidden children, overlay-portal card) but unverified.
+- [x] dnd drag of a workspace row not exercised with the sticky header live; exposure minimal (hidden children, overlay-portal card) but unverified. — PAID 2026-09-23: feat/ws-drag-sticky exercised the live drag (owner-reported glitch), found the real failure (sticky inside the dragged slot's transform) and fixed it by collapsing the pressed folder at pointerdown and standing sticky down for the gesture; see docs/handoff/2026-09-23-ws-drag-sticky.md.
