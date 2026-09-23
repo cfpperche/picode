@@ -118,6 +118,7 @@
     "./tokens/theme.css": "./tokens/theme.css",
     "./styles/agent-exit.css": "./styles/agent-exit.css",
     "./styles/providers.css": "./styles/providers.css",
+    "./styles/scrollbars.css": "./styles/scrollbars.css",
     "./domain/llamaJobs.js": "./domain/llamaJobs.js",
     "./domain/forkAgent.js": "./domain/forkAgent.js",
     "./domain/sessionHandoff.js": "./domain/sessionHandoff.js",
