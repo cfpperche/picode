@@ -7,6 +7,7 @@
 @import "tailwindcss" source(none);
 @source "./";
 @import "@picode/shared/tokens/theme.css";
+@import "@picode/shared/styles/scrollbars.css";
 @import "./styles/app.css";
 /* The roster's own sheet loads last: it owns the .prov-* geometry, and an
    app stylesheet must not out-rank it by load order (see its header). */

@@ -12,8 +12,9 @@ Study: `docs/benchmarks/2026-09-23-agents-md.md`. The owner's decisions of
 
 ## Next
 
+- Settings rows, observed reads and ADR-0204's first fixes (bridge, personal file) landed 2026-09-23.
 - Slice 1 landed (`feat/agents-md-instructions`): the resolver, the workspace Instructions tab and the New agent line, read-only. Next: the Settings rows (Claude Code's Project instructions mode, Codex's `project_doc_max_bytes` and fallback names, Hermes's `context_file_max_chars`) and the "what this agent read" line from session records (Claude transcript, Codex rollout, Grok `prompt_context.json`).
-- Still the owner's: trim, split or keep this repository's `AGENTS.md` (study §10.6). Repository writes (option E) wait for one ADR; exit records carrying instruction revisions (§10.5) come after.
+- Proposal for the owner: trim this repository's `AGENTS.md` by moving long reference parts (repo map, command table, tmux and hooks details) into files it points to, shown as a diff for approval. Then the New agent line on the phone app. Exit records carrying instruction revisions (§10.5) come after.
 
 ## Debts
 

@@ -107,13 +107,13 @@ Each write publishes an ephemeral `skills.changed` event. The agent list uses
 | CLI | Project | User | Toggle | Launch |
 |---|---|---|---|---|
 | pi | `.agents/skills`, `.pi/skills` | `~/.agents/skills`, `~/.pi/agent/skills` | none | `--skill <path>`; isolated `--no-skills` |
-| omp | `.agents`, `.claude`, `.omp`, `.github` (`/skills`) | `~/.omp/agent/skills` (`~/.agents`: measure) | `skills.ignoredSkills` (project splice; user `omp config set`) | `--skills=<globs>`; `--no-skills` |
+| omp | `.omp`, `.agents`, `.agent` (walk-up), `.claude`, `.github` | `~/.omp/agent/skills`, `~/.agents/skills`, `~/.agent/skills` (measured) | `skills.ignoredSkills` (project splice; user `omp config set`) | `--skills=<globs>`; `--no-skills` |
 | claude-code | `.claude/skills` only → link | `~/.claude/skills` → link | `skillOverrides` | `--plugin-dir` synthetic plugin in the run dir (measure: manifest needed?) |
 | codex | `.agents/skills` | `~/.agents/skills` | `[[skills.config]]` (new TOML array-of-tables primitive) | `-c` or `-p` (measure) |
-| grok | `.grok`, `.agents`, `.claude` | `~/.grok/skills`, `~/.claude/skills` | `[skills] disabled` (TOML list) | measure |
+| grok | `.grok`, `.agents`, `.claude` (trusted projects only, measured) | `~/.grok/skills`, `~/.agents/skills`, `~/.claude/skills` | `[skills] disabled` (TOML list) | measure |
 | hermes | `.hermes`, `.agents` after `hermes skills trust` | `~/.hermes/skills` → link | `skills.disabled` (YAML list) | `--skills=<name>` (the `=` form: `term_intercept.go:620` does not know `-s`) |
 | opencode | `.opencode`, `.agents`, `.claude` | `~/.config/opencode/skills`, `~/.agents/skills` | `permission.skill` (JSONC splice) | `OPENCODE_CONFIG_CONTENT` with `permission.skill` |
-| muse | measure (`--trust-workspace` trusts one run, saves nothing) | `~/.agents/skills` | `muse skills enable/disable --scope` | none |
+| muse | `.agents`, `.claude` in trusted workspaces, above the user folders (measured) | `~/.agents/skills`, `~/.claude/skills` | `muse skills enable/disable --scope` | none |
 | agy | `.agents/skills` | `~/.gemini/antigravity-cli/skills` → link | none | none |
 
 ## Slices

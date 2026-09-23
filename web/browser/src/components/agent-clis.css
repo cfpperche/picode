@@ -674,3 +674,37 @@
 #cli-settings-view .settings-section { display: flex; flex-direction: column; gap: 6px; }
 #cli-settings-view .set-row-role .set-ctl, #cli-models-view .set-row-role .set-ctl { grid-template-columns: 14rem 11rem 7.5rem; }
 @media (max-width: 860px) { #cli-settings-view .set-row-role .set-ctl, #cli-models-view .set-row-role .set-ctl { grid-template-columns: none; } }
+
+/* Skills (ADR-0196): what one CLI loads, from which folder. The bar, the
+   filter and the note reuse the Memory pane's; the table is its own. */
+.cli-skills { padding-top: 12px; }
+.cli-memory-note.is-warn { color: var(--warn); }
+.cli-skills-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12.5px; }
+.cli-skills-table thead th { text-align: left; font-weight: 500; font-size: 11.5px; color: var(--text-secondary); padding: 0 8px 6px; white-space: nowrap; }
+.cli-skills-table th.is-num, .cli-skills-table td.is-num { text-align: right; font-variant-numeric: tabular-nums; }
+.cli-skills-table td { padding: 5px 8px; vertical-align: middle; }
+.cli-skills-head > td { border-top: 1px solid var(--border); cursor: pointer; }
+.cli-skills-table tbody tr.cli-skills-head:first-child > td { border-top: 0; }
+.cli-skills-head:hover > td, .cli-skills-head.is-open > td { background: var(--bg-hover, var(--bg-base)); }
+.cli-skills-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cli-skills-head.is-dim .cli-skills-name, .cli-skills-head.is-dim .cli-skills-desc { opacity: .6; }
+.cli-skills-c-name { width: auto; min-width: 0; overflow: hidden; }
+.cli-skills-c-status { width: 118px; }
+.cli-skills-c-origin { width: 180px; }
+.cli-skills-c-root { width: 170px; }
+.cli-skills-c-cost { width: 112px; }
+.cli-skills-c-status, .cli-skills-c-origin, .cli-skills-c-root, .cli-skills-c-cost { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cli-skills-c-root { font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary); }
+.cli-skills-name { display: block; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cli-skills-desc { display: block; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.cli-skills .pkg-scope-btn { display: inline-flex; align-items: center; }
+.cli-skills-status { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.cli-skills-status.is-ok { color: var(--ok); }
+.cli-skills-status.is-warn { color: var(--warn); }
+.cli-skills-status.is-info { color: var(--accent); }
+.cli-skills-status.is-muted { color: var(--text-secondary); }
+.cli-skills-flag { color: var(--text-secondary); font-size: 11px; }
+.cli-skills-detail > td { padding: 4px 8px 10px; background: var(--bg-hover, var(--bg-base)); font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.cli-skills-detail p { margin: 0 0 4px; overflow-wrap: anywhere; }
+.cli-skills-detail .is-warn { color: var(--warn); }
+.cli-skills-path { font-family: var(--mono); font-size: 11.5px; }

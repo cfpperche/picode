@@ -47,5 +47,5 @@ test("Packages and Providers stay searchable inside Agent CLIs", () => {
 test("CLI shortcuts share one Agent CLIs group", () => {
   const groups = moreGroups("s").filter((g) => g.title === "Agent CLIs");
   assert.equal(groups.length, 1);
-  assert.deepEqual(groups[0].rows.map((r) => r[1]), ["CLI settings", "Packages", "Providers", "Connectors"]);
+  assert.deepEqual(groups[0].rows.map((r) => r[1]), ["CLI settings", "Packages", "Skills", "Providers", "Connectors"]);
 });
