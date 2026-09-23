@@ -205,6 +205,15 @@ func New(addr string, deps Deps) *http.Server {
 			observer = deps.LlamaService.ObserveDownload
 		}
 		deps.LlamaJobs, _ = llamajob.New(deps.Store, func() (string, string) { return llamaURL(), catalog.LlamaKey() }, observer)
+		// A job on PiCode's own service while it is not running is not in
+		// flight (ADR-0083/0090 amendments): the service tells the jobs, and
+		// its lifecycle preview settles them before its guard reads them.
+		if deps.LlamaJobs != nil && deps.LlamaService != nil {
+			deps.LlamaJobs.SetStopped(deps.LlamaService.Stopped)
+			jobs := deps.LlamaJobs
+			deps.LlamaService.SetJobResolver(func() { _ = jobs.InterruptStopped() })
+			_ = jobs.InterruptStopped()
+		}
 	}
 	if deps.Store != nil && deps.CLIJobs == nil {
 		deps.CLIJobs, _ = clijob.New(clijob.Deps{

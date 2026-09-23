@@ -97,6 +97,7 @@ type Preview struct {
 }
 type Service struct {
 	mu           sync.Mutex
+	resolveJobs  func() // SetJobResolver; run by Preview before its guard
 	st           *store.Store
 	root         string
 	doc          Document
@@ -143,6 +144,7 @@ func New(st *store.Store, dataDir string, consumers func() ([]string, error)) (*
 			}
 		}
 	}
+	s.sweepInterrupted()
 	changed := false
 	for i := range s.doc.Jobs {
 		if s.doc.Jobs[i].State == "running" || s.doc.Jobs[i].State == "queued" {
@@ -335,6 +337,12 @@ func (s *Service) preview(req Request) (Preview, error) {
 	return p, nil
 }
 func (s *Service) Preview(req Request) (Preview, error) {
+	s.mu.Lock()
+	resolve := s.resolveJobs
+	s.mu.Unlock()
+	if resolve != nil {
+		resolve() // settle jobs on a stopped owned endpoint before the guard reads them
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, err := s.preview(req)

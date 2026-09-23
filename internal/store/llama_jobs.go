@@ -119,7 +119,9 @@ func (s *Store) BeginLlamaJob(j LlamaJob) (LlamaJob, bool, error) {
 // overwrite each other. Identity and completed outcomes are immutable.
 func (s *Store) UpdateLlamaJob(j LlamaJob) (LlamaJob, error) {
 	switch j.State {
-	case "queued", "running", "unknown", "succeeded", "failed", "canceled", "interrupted":
+	// abandoned (ADR-0083 amendment, 2026-09-23): the owner stopped following an
+	// unknown job; it releases the reservation and never touched the server.
+	case "queued", "running", "unknown", "succeeded", "failed", "canceled", "interrupted", "abandoned":
 	default:
 		return j, fmt.Errorf("invalid model job state")
 	}

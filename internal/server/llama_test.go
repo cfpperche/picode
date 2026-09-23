@@ -314,3 +314,60 @@ func TestLlamaPaneCheckIsBounded(t *testing.T) {
 		t.Fatalf("asked %v; a failed check must not go on to ask for capabilities", paths)
 	}
 }
+
+// fresh never takes an older probe's answer: with a refresh in flight, it
+// asks again and gets the server's current state.
+func TestCatalogLlamaFreshDoesNotJoinAnOlderProbe(t *testing.T) {
+	f := newCatalogLlamaFixture(t)
+	f.point(urlA)
+	f.answer[urlA] = []llama.Model{{ID: "old", Status: "loaded"}}
+	f.models()
+	forgetCatalogLlama()
+	g := make(chan struct{})
+	f.mu.Lock()
+	f.gate[urlA] = g
+	f.mu.Unlock()
+	f.models() // a background refresh starts and blocks
+	waitFor(t, "the refresh", func() bool { return f.count(urlA) == 2 })
+	f.mu.Lock()
+	f.answer[urlA] = []llama.Model{{ID: "new", Status: "loaded"}}
+	f.gate[urlA] = nil
+	f.mu.Unlock()
+	rep := catalog.Report{Providers: []catalog.Provider{{ID: "llama.cpp"}}}
+	attachLlamaModels(&rep, true)
+	if f.count(urlA) != 3 || len(rep.Providers[0].Models) != 1 || rep.Providers[0].Models[0].ID != "new" {
+		t.Fatalf("probes=%d models=%v", f.count(urlA), rep.Providers[0].Models)
+	}
+	close(g)
+}
+
+// Abandon is an owner route: 200 for an unknown job, 409 otherwise.
+func TestLlamaAbandonRoute(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	service, err := llamajob.New(st, func() (string, string) { return "http://127.0.0.1:1", "" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
+	mux := http.NewServeMux()
+	registerLlama(mux, Deps{Store: st, LlamaJobs: service})
+	j, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "k", Endpoint: "http://127.0.0.1:1", ConnectionID: "c", Model: "m", Operation: "load"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.State = "unknown"
+	if _, err = st.UpdateLlamaJob(j); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []int{200, 409} {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/llama/jobs/"+j.ID+"/abandon", nil))
+		if rec.Code != want {
+			t.Fatalf("abandon = %d, want %d: %s", rec.Code, want, rec.Body.String())
+		}
+	}
+}
