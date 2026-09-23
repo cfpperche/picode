@@ -7,14 +7,16 @@ const KINDS = [
   { id: "follow_up", label: "Follow-up" },
 ];
 
-export default function KindChip({ value, onChange }) {
-  const cur = KINDS.find((k) => k.id === value) || KINDS[0];
+// `options` narrows the list to what the target takes (the attach
+// composer offers only the modes a working CLI has, ADR-0206).
+export default function KindChip({ value, onChange, options = KINDS, id = "task-kind" }) {
+  const cur = options.find((k) => k.id === value) || options[0];
   return (
     <SearchCombo
-      id="task-kind"
+      id={id}
       value={cur.id}
       onChange={onChange}
-      options={KINDS}
+      options={options}
       label={cur.label}
       searchPlaceholder="Delivery"
       icon={<IconKind />}

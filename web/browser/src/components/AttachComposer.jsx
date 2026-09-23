@@ -6,6 +6,7 @@ import { shellInvoke, shellClipboardFiles } from "../lib/shellClipboard.js";
 import { fitAttachField, isAttachSendKey } from "@picode/shared/domain/attachText.js";
 import { sceneHasInk } from "@picode/shared/domain/composerImage.js";
 import { toast } from "../lib/toast.js";
+import KindChip from "./KindChip.jsx";
 
 // Excalidraw loads with the sketch, never with the composer.
 const SketchEditor = lazy(() => import("./SketchEditor.jsx"));
@@ -40,6 +41,9 @@ export default function AttachComposer({
   sendLabel = "Send",
   hideSend = false,
   autoFocus = true,
+  deliveryOptions = [],
+  delivery = "prompt",
+  onDelivery,
 }) {
   const imgPick = useRef(null);
   const filePick = useRef(null);
@@ -175,6 +179,11 @@ export default function AttachComposer({
         ) : (
           <p className="term-attach-empty">Add a photo, a file or a sketch.</p>
         )}
+        {deliveryOptions.length && onDelivery ? (
+          <span className="term-attach-kind" title="How the message reaches the working CLI">
+            <KindChip id="attach-kind" value={delivery} onChange={onDelivery} options={deliveryOptions} />
+          </span>
+        ) : null}
         {onClose ? <button type="button" className="ws-icon-btn" title="Close (Esc)" aria-label="Close the message bar" onClick={onClose}><IconX size={13} /></button> : null}
       </div>
       {/* Not a [data-align-row]: the field grows by design (overlayAudit's

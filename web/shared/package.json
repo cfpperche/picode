@@ -139,7 +139,9 @@
     "./domain/delivery.js": "./domain/delivery.js",
     "./domain/missions.js": "./domain/missions.js",
     "./client/useMissions.js": "./client/useMissions.js",
-    "./styles/missions.css": "./styles/missions.css"
+    "./styles/missions.css": "./styles/missions.css",
+    "./domain/deliveryModes.js": "./domain/deliveryModes.js",
+    "./client/useDeliveryModes.js": "./client/useDeliveryModes.js"
   },
   "scripts": {
     "test": "node --test client/*.test.js contracts/*.test.js domain/*.test.js"

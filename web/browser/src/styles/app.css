@@ -2525,6 +2525,7 @@ img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: 
 .term-attach-head .term-attach-empty, .term-attach-head .term-attach-chips { flex: 1; min-width: 0; }
 .term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
 .term-attach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.term-attach-head .term-attach-kind { flex: none; margin-bottom: 8px; }
 /* The message field grows with the text (shared/domain/attachText.js): one
    line is one control height, four lines is the cap, then it scrolls. The
    row is bottom-aligned and deliberately not [data-align-row] — overlayAudit's

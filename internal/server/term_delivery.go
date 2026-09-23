@@ -279,7 +279,7 @@ func handleTerminalPromptModes(deps Deps) http.HandlerFunc {
 		if st, ok := deps.TermStates.Get(t.ID); ok {
 			state = st.State
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"cli": cli, "modes": deliveryModesFor(cli), "state": state})
+		writeJSON(w, http.StatusOK, map[string]any{"cli": cli, "modes": deliveryModesFor(cli), "state": state, "termId": t.ID})
 	}
 }
 
@@ -292,9 +292,10 @@ func handleAgentPromptModes(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		state := ""
+		state, termID := "", ""
 		if agent.TerminalID != nil {
-			if st, ok := deps.TermStates.Get(*agent.TerminalID); ok {
+			termID = *agent.TerminalID
+			if st, ok := deps.TermStates.Get(termID); ok {
 				state = st.State
 			}
 		}
@@ -302,6 +303,6 @@ func handleAgentPromptModes(deps Deps) http.HandlerFunc {
 		if deps.runMode(r, agent.ID) == modeInteractive {
 			modes = append(modes, deliverySteer, deliveryFollowUp)
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"cli": "pi", "modes": modes, "state": state})
+		writeJSON(w, http.StatusOK, map[string]any{"cli": "pi", "modes": modes, "state": state, "termId": termID})
 	}
 }

@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AttachComposer from "./AttachComposer.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { focusPane } from "../lib/termActions.js";
 import { toast } from "../lib/toast.js";
+import { createUseDeliveryModes } from "@picode/shared/client/useDeliveryModes.js";
+import { deliveryNotice, deliveryPlaceholder } from "@picode/shared/domain/deliveryModes.js";
+
+const useDeliveryModes = createUseDeliveryModes({ useEffect, useState });
 
 const json = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -22,6 +26,8 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [sendError, setSendError] = useState("");
+  // Steer / Follow-up while the CLI works (ADR-0206); hidden when idle.
+  const { options, delivery, setDelivery } = useDeliveryModes(dropBase);
 
   async function send() {
     if (busy || (!text.trim() && !items.length)) return;
@@ -36,10 +42,9 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
       // No success toast: the user is looking at the terminal and sees the
       // message land. Toasts stay reserved for failures and for the one
       // receipt the pane cannot show: a prompt PiCode could not confirm.
-      const res = await api(dropBase + "/prompt", json({ message: text, paths }));
-      if (res && res.delivery === "unconfirmed") {
-        toast.warn("Sent, but PiCode could not confirm it left the composer. Check the terminal.");
-      }
+      const res = await api(dropBase + "/prompt", json({ message: text, paths, delivery }));
+      const notice = deliveryNotice(res, delivery);
+      if (notice) toast.warn(notice);
       setItems([]);
       setText("");
       setSendError("");
@@ -71,6 +76,11 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
       seed={seed}
       agentId={agentId}
       termId={termId}
+      deliveryOptions={options}
+      delivery={delivery}
+      onDelivery={setDelivery}
+      placeholder={deliveryPlaceholder(delivery, "Message the terminal")}
+      sendLabel={delivery === "follow_up" ? "Queue" : "Send"}
     />
   );
 }

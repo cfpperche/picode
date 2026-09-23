@@ -9,6 +9,10 @@ import { sceneHasInk } from "@picode/shared/domain/composerImage.js";
 import { terminalOwnerBase } from "@picode/shared/domain/agentTerminal.js";
 import { isSubmitKey } from "../lib/agentDrafts.js";
 import { toast, toastError } from "../lib/toast.js";
+import { createUseDeliveryModes } from "@picode/shared/client/useDeliveryModes.js";
+import { deliveryNotice, deliveryPlaceholder } from "@picode/shared/domain/deliveryModes.js";
+
+const useDeliveryModes = createUseDeliveryModes({ useEffect, useState });
 
 // Excalidraw loads with the sketch, never with the terminal screen.
 const SketchEditor = lazy(() => import("./SketchEditor.jsx"));
@@ -26,6 +30,10 @@ export default function TermAttachSheet({ term, owner = { kind: "term", id: term
   const [sendError, setSendError] = useState("");
   const [pick, setPick] = useState(false);
   const [sketch, setSketch] = useState(null);
+  // Steer / Follow-up while the CLI works (ADR-0206); read when the sheet
+  // opens, hidden when the CLI is idle.
+  const { options, delivery, setDelivery } = useDeliveryModes(open ? base : "");
+  const placeholder = deliveryPlaceholder(delivery, "Message the terminal");
 
   // One line at rest, four lines maximum (shared/domain/attachText.js).
   useEffect(() => { fitAttachField(fieldRef.current); }, [text]);
@@ -94,10 +102,9 @@ export default function TermAttachSheet({ term, owner = { kind: "term", id: term
       // No success toast: the user is looking at the terminal and sees the
       // message land. Toasts stay reserved for failures and for the one
       // receipt the pane cannot show: a prompt PiCode could not confirm.
-      const res = await api(base + "/prompt", json({ message: text, paths }));
-      if (res && res.delivery === "unconfirmed") {
-        toast.warn("Sent, but PiCode could not confirm it left the composer. Check the terminal.");
-      }
+      const res = await api(base + "/prompt", json({ message: text, paths, delivery }));
+      const notice = deliveryNotice(res, delivery);
+      if (notice) toast.warn(notice);
       setItems([]);
       setText("");
       setSendError("");
@@ -156,6 +163,14 @@ export default function TermAttachSheet({ term, owner = { kind: "term", id: term
               <button type="button" className="icon-btn composer-attach term-attach-choice" title="Attach from folder" aria-label="Attach from folder" onClick={() => setPick(true)}><IconClip /><span>Folder</span></button>
               <button type="button" className="icon-btn composer-attach term-attach-choice" title="Sketch" aria-label="Sketch" onClick={() => openSketch()}><IconSketch /><span>Sketch</span></button>
             </div>
+            {options.length ? (
+              <div className="m-composer-delivery" data-align-row>
+                <label htmlFor="attach-kind">Delivery</label>
+                <select id="attach-kind" value={delivery} onChange={(e) => setDelivery(e.target.value)}>
+                  {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
+              </div>
+            ) : null}
             {/* Not a [data-align-row]: the field grows by design
                 (overlayAudit's equal-height rule is for fixed controls). */}
             <div className="term-attach-row">
@@ -167,8 +182,8 @@ export default function TermAttachSheet({ term, owner = { kind: "term", id: term
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => { if (isSubmitKey(e.nativeEvent)) { e.preventDefault(); send(); } }}
-                placeholder="Message the terminal"
-                aria-label="Message the terminal"
+                placeholder={placeholder}
+                aria-label={placeholder}
                 autoComplete="off"
               />
               <button type="submit" className="icon-btn icon-btn-send" title="Send · Ctrl/⌘ Enter" disabled={busy || (!text.trim() && !items.length)}><IconSend size={16} /></button>
