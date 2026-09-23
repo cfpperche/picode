@@ -127,7 +127,7 @@ type Login struct {
 func Declarations() []Spec {
 	out := make([]Spec, len(catalog))
 	for i, s := range catalog {
-		out[i] = withHermesCatalog(withOMPCatalog(s))
+		out[i] = withOpencodeCatalog(withHermesCatalog(withOMPCatalog(s)))
 	}
 	return out
 }
@@ -136,7 +136,7 @@ func Declarations() []Spec {
 func For(cli string) (Spec, bool) {
 	for _, s := range catalog {
 		if s.CLI == cli {
-			return withHermesCatalog(withOMPCatalog(s)), true
+			return withOpencodeCatalog(withHermesCatalog(withOMPCatalog(s))), true
 		}
 	}
 	return Spec{}, false

@@ -60,7 +60,7 @@ func TestOMPRosterCarriesItsCatalog(t *testing.T) {
 // Omp opens pi's Add flow (add.kind "provider"), and each provider says how
 // its account sign-in runs: PiCode's browser flow where the OAuth engine
 // knows it, the CLI's own /login in a terminal otherwise, nothing where the
-// provider takes only a key. Other guests keep the key form.
+// provider takes only a key. Other guests open a sign-in of their own.
 func TestOMPRosterSaysHowEachSigninRuns(t *testing.T) {
 	ts, _, _, _ := credentialsServer(t)
 	roster := cliRequest(t, ts, "GET", "/api/credentials?cli=omp", nil, 200)
@@ -83,8 +83,10 @@ func TestOMPRosterSaysHowEachSigninRuns(t *testing.T) {
 			t.Fatalf("%s signin = %q, want %q", id, got, want)
 		}
 	}
+	// Every guest CLI now opens a sign-in of its own; OpenCode's is its own
+	// server's flow (ADR-0201), not omp's picker.
 	other := cliRequest(t, ts, "GET", "/api/credentials?cli=opencode", nil, 200)
-	if add, _ := other["add"].(map[string]any); add["kind"] != "key" {
-		t.Fatalf("opencode add = %+v, want the key form", other["add"])
+	if add, _ := other["add"].(map[string]any); add["kind"] != "opencode" {
+		t.Fatalf("opencode add = %+v, want OpenCode's own dialog", other["add"])
 	}
 }
