@@ -141,11 +141,13 @@ Agent v0.18.2, `opencode --session <id>` on OpenCode 1.18.29, `omp --resume
 <id>` on omp 18.2.4); pi's row carries none — pi resumes
 through its own chat flow. Cost is pi-only on this surface: CLI formats
 are not shown with per-session spend. Non-Pi sessions open through
-`POST /api/clis/<cli>/terminals` with the resume arguments as launch
-argument overrides — no transcript replay, no writes, no deletes for other
+the handoff door (`POST /api/clis/<cli>/sessions/handoff`, ADR-0088) or the
+one agents door (ADR-0184), the resume arguments riding as launch
+overrides — no transcript replay, no writes, no deletes for other
 CLIs' sessions. pi's management surface (delete, auto-clean, resume,
 in-use guards) stays on its own endpoints.
-`POST /api/clis/<cli>/terminals` saves and opens a configured terminal.
+`POST /api/agents` (ADR-0184's one door) saves and opens a configured
+terminal as an agent.
 `/api/terminals/<id>/launch` reads/writes overrides; its `start`, `stop`,
 `restart` and `remove` POST routes serialize per terminal. Start is idempotent
 while live, Stop retains configuration, and active destructive actions require
@@ -202,17 +204,18 @@ After a succeeded job the setup check re-runs and update facts reset so no
 stale badge survives.
 
 ADR-0093 closes the cycle for missing CLIs: `install` is offered only when
-the executable is absent, npm-backed for pi/codex/claude-code (the same argv
-as reinstall) through the same job lane, and guided (docs link, no
-executable action) for grok/hermes whose installers are vendor curl scripts.
+the executable is absent, npm-backed for pi, omp, claude-code, codex and
+opencode (the same argv as reinstall) through the same job lane, and
+guided (docs link, no executable action) for grok, hermes, muse and agy,
+whose installers are vendor curl scripts or launchers.
 Installing an installed CLI is refused — reinstall covers it. The update
 check line no longer reports "failed" for unmanaged installs; the real check
 error text is shown for genuine failures.
 
-**Catalog capabilities** (`surface`): Muse Code (`muse`) and Antigravity
-(`agy`) carry `surface: terminal` — PATH detection, `POST …/check`
-(`--version`), New agent (an agent whose terminal runs the CLI with its own
-defaults) and `POST …/update-check` against the vendor's channel JSON —
+**Catalog capabilities**: Muse Code (`muse`) and Antigravity (`agy`)
+launched as `surface: terminal` rows and graduated to full rows in the
+launch-parity project (launch defaults, sessions, PATH wrapper, lifecycle);
+their update checks still read the vendor's channel JSON —
 Muse Code's release channel and Antigravity's per-platform release manifest
 (`manifests/<os>_<arch>[_musl].json`, the same file its installer reads; only
 `version` is used). Lifecycle jobs run the vendors' own commands: `agy
@@ -301,15 +304,17 @@ startup copy it forces off is never persisted — a future mechanism must
 not inherit a stale owner-off.
 
 **The pane tabs are the same everywhere.** `cliPanes` returns Launch,
-Terminals, Sessions (when the CLI has a session source) and the five setup
-tabs — Providers, Settings, Keyboard, Packages, Connectors — for every
-launchable CLI. The setup group is a placeholder wherever the native editor
-does not exist yet (`supportsCli*` in `web/shared/domain/`), rendering
-*"<Tab> for <CLI> are in development — coming soon"* instead of the editor.
-Pi is the only CLI with all five: Packages covers the guests since ADR-0167
-(their own verb set, and one line where the CLI has none), Settings and
-Connectors cover them since ADR-0163/0150, Providers reads the shared vault
-(ADR-0165), and Keyboard stays Pi-only. A CLI's placeholder never links to
+Terminals, Sessions (when the CLI has a session source) and the setup tabs
+— Providers, Settings, Keyboard, Memory, Packages, Connectors, plus Models
+where PiCode can ask the CLI what it reaches (omp only today, ADR-0181) —
+for every launchable CLI. The setup group is a placeholder wherever the
+native editor does not exist yet (`supportsCli*` in `web/shared/domain/`),
+rendering *"<Tab> for <CLI> are in development — coming soon"* instead of
+the editor. Packages covers the guests since ADR-0167 (their own verb set,
+and one line where the CLI has none), Settings and Connectors cover them
+since ADR-0163/0150, Providers reads the shared vault (ADR-0165), Memory
+serves the six CLIs with a native memory shape (ADR-0163), and Keyboard
+stays Pi-only. A CLI's placeholder never links to
 Pi. `CliPaneTabs` scrolls the selected tab into view, so a deep link to a late
 tab is not a strip reading Launch…Sessions while the panel says Packages.
 
