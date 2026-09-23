@@ -888,3 +888,27 @@ func TestInboxAnswerAgentQuestionHook(t *testing.T) {
 		t.Fatalf("gone agent = %v", err)
 	}
 }
+
+// Ignore on an agent in its terminal closes the item locally: it sends
+// nothing, so the terminal delivery (and its session check) never runs.
+func TestInboxIgnoreInteractiveAgentClosesLocally(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	ws, _ := h.Store.AddWorkspace("wsx", t.TempDir())
+	ag, _ := h.Store.AddAgentWithCLI(ws.ID, "claude-code", "cc", "")
+	h.AgentDeliverable = func(string) bool { return false }
+	h.DeliverReply = func(string, string, string) (string, error) {
+		return "", fmt.Errorf("The terminal session could not be identified safely. Open the TUI and try again.")
+	}
+	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q", Body: "?"})
+	if _, err := app.Action(context.Background(), h, ActionRequest{Action: "ignore", Path: "item/" + q.ID}); err != nil {
+		t.Fatalf("ignore = %v", err)
+	}
+	got, _ := h.Store.GetInboxItem(q.ID)
+	if got.State != store.InboxDone || got.Response == nil || *got.Response != store.VerbIgnore {
+		t.Fatalf("item = %+v", got)
+	}
+	if tasks, _ := h.Store.ListTasks(ag.ID, 5); len(tasks) != 0 {
+		t.Fatalf("ignore queued a task: %+v", tasks)
+	}
+}

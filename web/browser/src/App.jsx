@@ -3697,6 +3697,7 @@ export default function App({ shellChrome = false } = {}) {
         }
       }}>
       <Sidebar
+        fleetLoaded={bootstrapped}
         onOpenDocs={() => {
           // The work browser tab hosts pages only in the shell (WebView2);
           // in a plain browser the docs keep going to the system browser,
@@ -3804,6 +3805,10 @@ export default function App({ shellChrome = false } = {}) {
                     </>
                   )}
                 </>
+              ) : !bootstrapped ? (
+                // Before the boot has read the fleet, "nothing yet" is not
+                // known: the card waits like the sidebar does.
+                <div className="empty-skel" aria-label="Loading your work"><div className="skel-line w-70" /><div className="skel-line w-90" /><div className="skel-line w-40" /></div>
               ) : (
                 <>
                   <h2>No agents yet</h2>
