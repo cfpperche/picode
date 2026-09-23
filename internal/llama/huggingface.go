@@ -92,10 +92,18 @@ func hfGet(path string) ([]byte, error) {
 	cli := &http.Client{Timeout: 15 * time.Second}
 	res, err := cli.Do(req)
 	if err != nil {
-		return nil, err
+		// A plain line for the pane, never Go's "Get https://…: dial tcp…".
+		if ConnectionFailure(err).Code == "timeout" {
+			return nil, fmt.Errorf("Hugging Face did not answer in time. Try again.")
+		}
+		return nil, fmt.Errorf("Cannot reach Hugging Face from PiCode. Check the internet connection.")
 	}
 	defer res.Body.Close()
-	raw, _ := io.ReadAll(res.Body)
+	// Bounded: a search or a repo's file list is kilobytes; 8 MiB is generous.
+	raw, err := io.ReadAll(io.LimitReader(res.Body, 8<<20))
+	if err != nil {
+		return nil, fmt.Errorf("Hugging Face's answer was cut off. Try again.")
+	}
 	if res.StatusCode == 429 {
 		return nil, fmt.Errorf("Hugging Face rate limit")
 	}
@@ -151,6 +159,12 @@ func HFInfo(id string) (HFDetails, error) {
 	if err != nil {
 		return HFDetails{}, err
 	}
+	return hfDetailsFrom(raw, id)
+}
+
+// hfDetailsFrom reads a repo's `?blobs=true` answer: its gate and its GGUF
+// quantizations, summed across shards.
+func hfDetailsFrom(raw []byte, id string) (HFDetails, error) {
 	var payload struct {
 		ID       string `json:"id"`
 		Gated    any    `json:"gated"`
@@ -195,6 +209,11 @@ func HFInfo(id string) (HFDetails, error) {
 			continue
 		}
 		q := strings.ToUpper(m[1])
+		// Every quant gets an entry, sized or not: one whose files report no
+		// size used to vanish, the recommended Q4_K_M included (2026-09-23).
+		if _, ok := sizes[q]; !ok {
+			sizes[q] = 0
+		}
 		if s.Size > 0 {
 			sizes[q] += s.Size
 			if _, seen := okSize[q]; !seen {

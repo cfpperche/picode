@@ -59,7 +59,7 @@
   editable memory box, its actions and the Codex Memory group were captured
   there. A real iPhone, the PWA and IME behaviour remain external.
 
-- **A flake in the gate, seen once (2026-09-19).** `TestCLIAdapterPreviewMatchesExecution`
+- ~~**A flake in the gate, seen once (2026-09-19).**~~ **Paid 2026-09-23** (`feat/fixture-kill-wait`): `killFixture` and `killTmuxOnCleanup` read the pane pid before the kill and then end the pane's process group (SIGTERM, SIGKILL after 5 s; only when that pid still leads its own group) — `reapPaneGroup`, `internal/server/fixture_reap_unix_test.go`. Measured under 3 parallel loops of both flaky tests: main 2 failures in 24 runs, both `directory not empty`; the fix 0 in 48. Original entry: `TestCLIAdapterPreviewMatchesExecution`
   failed in a parallel `make ci` shard with `TempDir RemoveAll cleanup: unlinkat
   …/data/native-observations: directory not empty` — a writer still touching the
   temp data dir while the test's cleanup removes it. It passes 3/3 alone and the

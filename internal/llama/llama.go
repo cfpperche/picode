@@ -3,6 +3,8 @@ package llama
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -61,9 +64,28 @@ func ConnectionFailure(err error) *ConnectionError {
 	if errors.As(err, &failure) {
 		return failure
 	}
+	// Each cause gets its own plain line, so the pane says what to change
+	// rather than one "cannot reach" for all of them (2026-09-23 review).
+	if errors.Is(err, context.Canceled) {
+		return &ConnectionError{"cancelled", "The check was interrupted before the server answered."}
+	}
 	var timeout net.Error
 	if errors.As(err, &timeout) && timeout.Timeout() {
-		return &ConnectionError{"timeout", "The server did not respond in time."}
+		return &ConnectionError{"timeout", "The server did not respond in time. Check that llama.cpp is running at this address."}
+	}
+	var dns *net.DNSError
+	if errors.As(err, &dns) {
+		return &ConnectionError{"dns", "The server name could not be found. Check the address."}
+	}
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		return &ConnectionError{"refused", "Nothing is listening at this address. Start llama.cpp or check the port."}
+	}
+	var unknownCA x509.UnknownAuthorityError
+	var hostname x509.HostnameError
+	var certInvalid x509.CertificateInvalidError
+	var tlsRecord tls.RecordHeaderError
+	if errors.As(err, &unknownCA) || errors.As(err, &hostname) || errors.As(err, &certInvalid) || errors.As(err, &tlsRecord) {
+		return &ConnectionError{"tls", "The secure connection failed: the server's certificate is not trusted, or it does not speak HTTPS."}
 	}
 	return &ConnectionError{"unreachable", "Cannot reach the server from PiCode."}
 }

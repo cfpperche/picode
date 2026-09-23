@@ -5,10 +5,12 @@
 - tmux 3.7c is in PATH (`/usr/local/bin`) while the running server is still 3.6: at the first server restart (reboot, or the last session ending) re-measure `extended-keys-format`, `allow-passthrough`, `display-popup` and the floating-pane gestures on 3.7c, then refresh ADR-0025's 3.6-era numbers (ADR-0164).
 
 ## Debts
+- [x] **Fixed by construction 2026-09-23** (`feat/restart-test-flake`; not reproduced, so not measured): both pane-pid reads dropped their error, so a tmux call that failed under load read as pid 0 and looked like a killed process; `panePIDSoon` retries for 5 s and fails with the real error. Original: `TestCLIRestartPreparationFailureAndWorkspaceCleanup` failed once in a full 4-shard `make close` (2026-09-23, "preparation failure killed the old process") and passed on the retry; 0 of 24 under three parallel loops alone, on main and on `feat/fixture-kill-wait` alike. Suspect: it reads `PanePID` right after the launch returns, before the pane may exist, so a 0 read later differs. Not diagnosed.
 
 - [x] **`make ci` was red on `main` in `internal/server`** (2026-09-20) — root cause found and fixed on `feat/tmux-server-red`: with no `SHELL` in the daemon's environment, `defaultShell()` fell back to `/bin/sh` (dash) and `ensureShell` handed dash `--rcfile`, which it rejects (`Illegal option --`, status 2). The pane exited at once, a server with nothing else on it followed under `exit-empty`, `new-session` still answered 0, and the API reported `running:true` — which is why the failures read `no server running`, `mouse=""` and `catalog = 503` in four shards. The fix: bash fallback, `--rcfile` only for a shell that resolves to bash, and a liveness check that refuses a pane which never lived. The earlier note's two candidates were both wrong; the socket plumbing was innocent.
 - Agent CLIs Terminals ⋯ on the phone is still hand-built (Launch settings / Restart / Stop / Remove), not `termRowMenu`. Work rows use the shared menu (`surface: "phone"`) since 2026-09-19.
 - [ ] `TestRespawnPanePreservesSessionAndQuotesArgs` (`internal/tmux`) failed once in the merge gate on `main` at `e24d51f2` (2026-09-22): `quoted env = ""`. It passed 3/3 alone and the next full `make ci` on the same commit was green. Not diagnosed; the traps below suggest a shared fixture name or a read before the respawned pane's env is set.
+- [ ] `TestCLIRestartPreparationFailureAndWorkspaceCleanup` (`internal/server`, shard 3) failed once in `make close` on `feat/agy-login` right after a merge of `main` (2026-09-23); it passed 3/3 alone and the rerun of `make close` was green. Not diagnosed — a load-sensitive test, like the respawn flake above.
 - Scrollbars: the web terminal draws none (a tmux client has no scrollback — `term-scrollbar.test.mjs`); a draggable bar means taking the tmux client off the alternate screen, a decision.
 
 ## Traps
@@ -18,7 +20,7 @@
 
 - Tab strip backlog: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 - CLI pane-death (ADR-0085): an owned OpenCode QA stop left two processes after its pane closed; ADR-0084 pins nothing for terminals stopped before it.
-- `TestCLIAdapterPreviewMatchesExecution` failed once in a full worktree run with a live scratch server and passed alone (2026-09-13) — not diagnosed.
+- ~~`TestCLIAdapterPreviewMatchesExecution` failed once in a full worktree run with a live scratch server and passed alone (2026-09-13) — not diagnosed.~~ **Diagnosed and paid 2026-09-23** (`feat/fixture-kill-wait`): the launch root ignores SIGHUP (ADR-0085), so the fixture's tmux kill left the pane tree writing under the temp dir; cleanup now ends the pane's process group (see `docs/handoff/open/agent-clis-native.md`).
 - CLI launch fixtures: `waitCLIFile` only waits for the path to exist — a second launch into the same file needs the file removed (or a wait on its own argv).
 
 - tmux fixtures: a **fixed session name shared across concurrent test binaries** (the heavy package runs in four shards) was the cause of the 2026-09-13 flakes — `TestPaneRootSurvivesSIGHUP` and `TestPeerStopStubbornChildStaysPending` went red under concurrent closes. Process-unique fixture names, plus a ready-marker handshake so the pane's script has installed its traps before a stop signals it, are the fixes. If a tmux fixture reddens again, suspect a shared fixed name first.

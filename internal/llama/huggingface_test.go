@@ -28,3 +28,16 @@ func TestQuantGuidance(t *testing.T) {
 		t.Fatalf("unknown size = %d, %q", memory, guidance)
 	}
 }
+
+// A quant whose files report no size is listed (without a size), not dropped:
+// Q4_K_M is the recommended default and must stay first.
+func TestHFQuantWithoutSizeIsKept(t *testing.T) {
+	raw := []byte(`{"id":"o/m","siblings":[{"rfilename":"m-Q4_K_M.gguf","size":0},{"rfilename":"m-Q8_0.gguf","size":10},{"rfilename":"mmproj-f16.gguf","size":5}]}`)
+	d, err := hfDetailsFrom(raw, "o/m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Quantizations) != 2 || d.Quantizations[0].Name != "Q4_K_M" || d.Quantizations[0].Size != 0 || d.Quantizations[1].Name != "Q8_0" || d.Quantizations[1].Size != 10 {
+		t.Fatalf("quants = %+v", d.Quantizations)
+	}
+}
