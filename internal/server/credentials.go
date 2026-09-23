@@ -163,6 +163,11 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			if spec.CLI == "omp" {
 				out["add"] = map[string]any{"kind": "provider", "label": "Add provider"}
 			}
+			// Claude Code has a dialog of its own, shaped like its /login:
+			// subscription, Console key (ADR-0187).
+			if spec.CLI == "claude-code" {
+				out["add"] = map[string]any{"kind": "claude-code", "label": "Add provider"}
+			}
 			// omp keeps provider definitions of its own in models.yml (the
 			// owner's amendment to ADR-0169): the same custom door pi has,
 			// with the definitions riding this roster as rows below.
@@ -176,6 +181,9 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 		}
 		if spec.CLI != "pi" {
 			attachSignin(spec, providers)
+		}
+		if spec.CLI == "claude-code" {
+			markClaudeInUse(deps, providers)
 		}
 		attachRowUsage(providers, time.Now())
 		out["providers"] = providers
@@ -263,7 +271,7 @@ func attachSignin(spec clicreds.Spec, providers []providerView) {
 			continue
 		}
 		switch {
-		case spec.CLI == "omp" && oauth.Supports(p.ID):
+		case (spec.CLI == "omp" || spec.CLI == "claude-code") && oauth.Supports(p.ID):
 			p.Signin = "browser"
 		case spec.Login != nil:
 			p.Signin = "terminal"
@@ -712,9 +720,13 @@ func handleCredentialSignin(deps Deps) http.HandlerFunc {
 		// loopback/device callback returns to PiCode, and the minted
 		// credential lands in the vault, from which omp reads it through its
 		// declared env names. The terminal strip stays for everything else.
-		if req.CLI == "omp" && strings.TrimSpace(req.Provider) != "" && oauth.Supports(strings.TrimSpace(req.Provider)) {
+		if (req.CLI == "omp" || req.CLI == "claude-code") && strings.TrimSpace(req.Provider) != "" && oauth.Supports(strings.TrimSpace(req.Provider)) {
 			provider := strings.TrimSpace(req.Provider)
-			url, userCode, err := oauth.StartSink(provider, "", ompVaultSink)
+			sink := ompVaultSink
+			if req.CLI == "claude-code" {
+				sink = claudeVaultSink(deps)
+			}
+			url, userCode, err := oauth.StartSink(provider, "", sink)
 			if err != nil {
 				writeErr(w, http.StatusConflict, err.Error())
 				return
@@ -847,37 +859,72 @@ func handleCredentialActivate(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "Unknown account.")
 			return
 		}
+		// Claude Code takes a Console key from the environment, never from its
+		// file (ADR-0187): Use on a key row records it as the login in use and
+		// approves it in Claude Code's own config; nothing is written under a
+		// running agent, so it applies to the next terminal.
+		if cli == "claude-code" && row.Type == catalog.LoginAPIKey {
+			if row.Paused {
+				writeErr(w, http.StatusBadRequest, "Resume this key before using it.")
+				return
+			}
+			if err := approveClaudeKey(rowKey(row)); err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			if err := setClaudeKeyInUse(deps, provider, id); err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "env": claudeKeyEnv})
+			return
+		}
 		if n := liveTerminalsFor(deps, cli); n > 0 {
 			writeErr(w, http.StatusConflict, fmt.Sprintf(
 				"Close the %d running %s terminal(s) first — writing a login under a running agent can corrupt its session.", n, spec.Name))
 			return
 		}
-		path := clicreds.CredentialPath(cli, provider)
-		if path == "" {
-			writeErr(w, http.StatusBadRequest, "PiCode does not know where "+spec.Name+" keeps that login.")
-			return
-		}
-		existing, readErr := os.ReadFile(path)
-		if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
-			writeErr(w, http.StatusInternalServerError, readErr.Error())
-			return
-		}
-		out, ok := clicreds.RenderLogin(decl.Native.Format, provider, row.Cred, existing)
-		if !ok {
-			writeErr(w, http.StatusBadRequest, "PiCode will not write this login into "+spec.Name+"'s file — it cannot do that faithfully.")
-			return
-		}
-		backup, err := keepCredentialBackup(deps.DataDir, cli, path, existing)
+		path, backup, status, err := writeCLILogin(deps, spec, decl, provider, row)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if err := writeInterceptFile(path, out, 0o600); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			writeErr(w, status, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "path": path, "backup": backup})
 	}
+}
+
+// writeCLILogin writes one vault login into the CLI's own credential file —
+// the body of Use, shared with a GUI sign-in that activates what it minted.
+// The caller has already refused a CLI with live terminals. The status is the
+// HTTP code an error maps to.
+func writeCLILogin(deps Deps, spec clicreds.Spec, decl *clicreds.Provider, provider string, row credentials.Row) (path, backup string, status int, err error) {
+	path = clicreds.CredentialPath(spec.CLI, provider)
+	if path == "" {
+		return "", "", http.StatusBadRequest, errors.New("PiCode does not know where " + spec.Name + " keeps that login.")
+	}
+	existing, readErr := os.ReadFile(path)
+	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+		return "", "", http.StatusInternalServerError, readErr
+	}
+	out, ok := clicreds.RenderLogin(decl.Native.Format, provider, row.Cred, existing)
+	if !ok {
+		return "", "", http.StatusBadRequest, errors.New("PiCode will not write this login into " + spec.Name + "'s file — it cannot do that faithfully.")
+	}
+	backup, err = keepCredentialBackup(deps.DataDir, spec.CLI, path, existing)
+	if err != nil {
+		return "", "", http.StatusInternalServerError, err
+	}
+	if err := writeInterceptFile(path, out, 0o600); err != nil {
+		return "", "", http.StatusInternalServerError, err
+	}
+	// A subscription chosen for Claude Code ends the key's turn: the key
+	// would otherwise outrank the file just written (ADR-0187).
+	if spec.CLI == "claude-code" {
+		if err := setClaudeKeyInUse(deps, "", ""); err != nil {
+			return "", "", http.StatusInternalServerError, err
+		}
+	}
+	return path, backup, http.StatusOK, nil
 }
 
 // keepCredentialBackup keeps the file PiCode is about to replace, once per

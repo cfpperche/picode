@@ -165,6 +165,12 @@ func renderClaude(doc object, c vaultCred) bool {
 	if c.expires > 0 {
 		oauth["expiresAt"] = c.expires
 	}
+	// A fresh file has no scopes; Claude Code reads them to decide what the
+	// login may do. These are the scopes PiCode's sign-in asks claude.ai for
+	// (internal/oauth), minus the one Claude Code never lists.
+	if _, ok := oauth["scopes"]; !ok {
+		oauth["scopes"] = []any{"user:file_upload", "user:inference", "user:mcp_servers", "user:profile", "user:sessions:claude_code"}
+	}
 	doc["claudeAiOauth"] = oauth
 	return true
 }
