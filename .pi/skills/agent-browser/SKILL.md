@@ -17,6 +17,14 @@ scripts/qa-scratch.sh seed <name>      # a workspace, an agent and a terminal vi
 scripts/qa-scratch.sh stop <name>
 ```
 
+`start` reports up only when **this** scratch's daemon answers on its port —
+it wrote `server.json` for that port and is the listener — and `seed` refuses
+any other instance. A healthy answer is not proof: on 2026-09-22 another
+session's scratch took the port during the build, this daemon never bound,
+and the old `seed` created a workspace, an agent and a terminal inside the
+other session's instance. If `start` says the port is answered by someone
+else, pick another port (`start <name> <port>`).
+
 Production (`~/.picode/server.json`, usually :8445) is other agents' working
 instance: never restart it, never `pkill` around it, and read it only when
 the owner asks about a live report. It is HTTPS with a self-signed
