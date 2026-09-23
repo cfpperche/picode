@@ -479,6 +479,7 @@ func handleListFreeAgents(deps Deps) http.HandlerFunc {
 			return
 		}
 		out := make([]agentView, 0, len(agents))
+		origins := forkOrigins(deps)
 		for _, a := range agents {
 			mode := deps.runMode(r, a.ID)
 			cwd := ""
@@ -486,7 +487,7 @@ func handleListFreeAgents(deps Deps) http.HandlerFunc {
 				cwd = *a.WorkPath
 			}
 			st, wt, dl := deps.liveState(a.ID)
-			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode), Git: gitinfo.Inspect(cwd), Streaming: st, Waiting: wt, Dialog: dl, Terminal: deps.agentTerminalView(r, a), LegacyInteractive: deps.legacyAgentInteractive(a)})
+			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode), Git: gitinfo.Inspect(cwd), Streaming: st, Waiting: wt, Dialog: dl, Terminal: deps.agentTerminalView(r, a), LegacyInteractive: deps.legacyAgentInteractive(a), ForkedFrom: origins[a.ID]})
 		}
 		writeJSON(w, http.StatusOK, out)
 	}

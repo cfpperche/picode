@@ -9,7 +9,7 @@ import { shortModel } from "@picode/shared/domain/chip.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import StateChip, { agentState } from "./StateChip.jsx";
 import { checklistLine } from "@picode/shared/domain/checklist.js";
-import { agentSubtitle } from "@picode/shared/domain/managedPrincipal.js";
+import { agentSubtitleWithFork, forkLine } from "@picode/shared/domain/managedPrincipal.js";
 import { terminalActivityStamp } from "@picode/shared/domain/terminalCli.js";
 import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMenu.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
@@ -40,7 +40,10 @@ export default function AgentRow({ agent, workspace, workingIds, checklist, busy
   const model = shortModel(agent.model || "");
   const check = checklistLine(checklist);
   const path = agent.workPath || (workspace && workspace.path) || "";
-  const context = [model, path === workspace?.path ? "" : shortPath(path)].filter(Boolean).join(" · ");
+  // Model and folder when they say something; else the CLI. A fork adds
+  // where it came from to whichever line is shown.
+  const base = [model, path === workspace?.path ? "" : shortPath(path)].filter(Boolean).join(" · ");
+  const context = base ? [base, forkLine(agent)].filter(Boolean).join(" · ") : "";
   // A legacy interactive Pi pane has no bound terminal to restart; the
   // row drops the item instead of offering a no-op. Fork agent… has no
   // phone sheet yet (docs/handoff/open/agent-fork.md), so it stays desktop.
@@ -51,8 +54,8 @@ export default function AgentRow({ agent, workspace, workingIds, checklist, busy
         <span className="m-row-face"><ProviderFace agent={agent} /></span>
         <span className="m-row-text">
           <span className="m-row-title">{name}</span>
-          <span className="m-row-sub">{check && check.kind === "step" ? check.position + "/" + check.total + " · " + check.text : context || agentSubtitle(agent)}</span>
-          {check && check.kind === "step" ? <span className="m-row-context">{context || agentSubtitle(agent)}</span> : null}
+          <span className="m-row-sub">{check && check.kind === "step" ? check.position + "/" + check.total + " · " + check.text : context || agentSubtitleWithFork(agent)}</span>
+          {check && check.kind === "step" ? <span className="m-row-context">{context || agentSubtitleWithFork(agent)}</span> : null}
         </span>
         <StateChip state={status} age={age} />
         <IconChevronRight size={16} className="m-row-chev" />

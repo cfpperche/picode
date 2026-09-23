@@ -1,0 +1,6 @@
+# 2026-09-23 — fork-lineage
+
+- **Asked by the owner:** item 7 of the agent-fork debts — show in the sidebar which agent is a fork of which.
+- **Done:** the fork's `session_handoffs` manifest names the source agent; `forkOrigins` (internal/server/agent_fork.go) maps fork → source from those rows (live name, or the fork-time name with `gone`); `agentView.forkedFrom` on `GET /api/workspaces` and `GET /api/agents`; `forkLine`/`agentSubtitleWithFork` (shared/domain/managedPrincipal.js) render "fork of <name>" / "(removed)": its own full-width line on the desktop row (the ~100px subtitle beside the status chip cut it to "fork of planne…" — visual-review FAIL, fixed), appended to the CLI line on the phone's Work list; both refetch on a `session.handoff` fork event. Docs: architecture, docs-site guide, open topic debt paid.
+- **Verified:** `TestForkAgentListsItsOrigin` (origin, rename followed, removed keeps fork-time name), node tests for the line, `make ci-scoped` PASS; scratch instance with real Claude Code: desktop and phone show "fork of planner (removed)" after removing the source and "fork of planner fork" for a fork of a fork, the list updating live on the fork event; visual-review PASS.
+- **Not done:** the source row does not list its forks; forks made before this change carry no source agent in their row and show no line.
