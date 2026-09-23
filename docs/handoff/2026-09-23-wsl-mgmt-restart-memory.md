@@ -10,7 +10,7 @@ Verified: read-only live probe with the new `picode-desktop host` — Windows 64
 Adversarial review fixed: declined update shut WSL down; missing timeouts; inbox-WSL usage text accepted; Windows memory read before the distro's; vmmem preferred over vmmemWSL; unbounded GitHub body (now LimitReader).
 visual-review: PASS (sys/, 11 states) after three FAIL rounds.
 Not done: GitHub "latest" can run ahead of what `wsl --update` installs (Store rollout); "Restart to apply" lasts one window session only; the page never offers `--force` past a busy answer, by design.
-Merge: `make close` had not run when this note was written.
+Merge: on `main` at 72a0f67c, `make ci` green.
 
 ## Next up
 

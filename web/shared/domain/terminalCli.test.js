@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
+import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark, terminalDisplayCli, terminalIsIdleShellAt, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
 
 test("terminal CLI aliases use one canonical identity", () => {
   assert.equal(normalizeTerminalCli("claude"), "claude-code");
@@ -126,4 +126,22 @@ test("terminal state table distinguishes presence from activity", () => {
   assert.equal(terminalStatus({ running: true, state: "working", cli: "grok" }), "working");
   assert.equal(terminalStatus({ running: false }), "stopped");
   assert.equal(terminalStatus({ running: false, state: "working", tui: { cli: "pi" } }), "stopped");
+});
+
+// Where a git command may be typed (ADR-0096): a plain idle shell in the
+// folder. An idle Agent CLI terminal reports no runtime `cli` but keeps its
+// launchCli — typing there was refused as "This is an Agent CLI" and broke
+// Fork agent… on 2026-09-23.
+test("only a plain idle shell in the folder takes a git command", () => {
+  assert.equal(terminalIsIdleShellAt({ cwd: "/r" }, "/r"), true);
+  assert.equal(terminalIsIdleShellAt({ cwd: "/r", launchCli: "claude-code" }, "/r"), false);
+  assert.equal(terminalIsIdleShellAt({ cwd: "/r", cli: "codex" }, "/r"), false);
+  assert.equal(terminalIsIdleShellAt({ cwd: "/r", tui: { cli: "pi" } }, "/r"), false);
+  assert.equal(terminalIsIdleShellAt({ cwd: "/r", state: "working" }, "/r"), false);
+  assert.equal(terminalIsIdleShellAt({ cwd: "/other" }, "/r"), false);
+  assert.equal(terminalIsIdleShellAt(null, "/r"), false);
+  assert.equal(terminalIsIdleShellAt({ cwd: "" }, ""), false);
+  // A row a feed patch stripped of its live fields is still an agent's.
+  assert.equal(terminalIsIdleShellAt({ id: "fork-1", cwd: "/r" }, "/r", new Set(["fork-1"])), false);
+  assert.equal(terminalIsIdleShellAt({ id: "sh-1", cwd: "/r" }, "/r", new Set(["fork-1"])), true);
 });
