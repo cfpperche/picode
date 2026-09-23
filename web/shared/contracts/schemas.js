@@ -131,6 +131,42 @@ export const apiKeySchema = z.object({
   key: z.string().trim().min(1, "API key is required."),
 });
 
+// Claude Code on a third-party platform (ADR-0189): the fields Claude Code's
+// own /login wizard asks for, per platform and sign-in method. The server
+// checks the same rules; these give the same message in every browser.
+const REGION = /^[a-z0-9-]{2,32}$/;
+export const claudePlatformSchema = z.object({
+  kind: z.enum(["bedrock", "vertex", "foundry"]),
+  auth: z.string().min(1, "Pick how Claude Code signs in."),
+  region: z.string().trim().optional(),
+  profile: z.string().trim().optional(),
+  bearerToken: z.string().trim().optional(),
+  accessKeyId: z.string().trim().optional(),
+  secretAccessKey: z.string().trim().optional(),
+  sessionToken: z.string().trim().optional(),
+  project: z.string().trim().optional(),
+  keyFile: z.string().trim().optional(),
+  resource: z.string().trim().optional(),
+  apiKey: z.string().trim().optional(),
+}).superRefine((v, ctx) => {
+  const need = (ok, path, message) => { if (!ok) ctx.addIssue({ code: "custom", path: [path], message }); };
+  if (v.kind === "bedrock") {
+    need(REGION.test(v.region || ""), "region", "An AWS region is required, like us-east-1.");
+    if (v.auth === "bearer") need(!!v.bearerToken, "bearerToken", "A Bedrock API key is required.");
+    if (v.auth === "profile") need(!!v.profile, "profile", "An AWS profile name is required.");
+    if (v.auth === "accessKey") need(!!v.accessKeyId && !!v.secretAccessKey, "accessKeyId", "An access key ID and its secret are required.");
+  }
+  if (v.kind === "vertex") {
+    need(!!v.project, "project", "A Google Cloud project ID is required.");
+    need(REGION.test(v.region || ""), "region", "A region is required, like us-east5 or global.");
+    if (v.auth === "serviceAccount") need((v.keyFile || "").startsWith("/"), "keyFile", "The service account key file needs its full path.");
+  }
+  if (v.kind === "foundry") {
+    need(/^[A-Za-z0-9-]{2,64}$/.test(v.resource || ""), "resource", "The Foundry resource name is required (letters, digits and dashes).");
+    if (v.auth === "apiKey") need(!!v.apiKey, "apiKey", "A Foundry API key is required.");
+  }
+});
+
 // Custom provider endpoints (ADR-0129): the closed list of pi API types the
 // form offers, in display order. urlHint is what pi expects in the base URL
 // (pi appends the route itself), taken from pi's own examples so the form

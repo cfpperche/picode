@@ -78,7 +78,14 @@ ADR-0187) shaped like its `/login`: a Claude subscription through the browser
 Console key ("Save and use": the key becomes the login in use — the setting
 `credentials.claude-code.key`, its tail approved in `~/.claude.json`, and
 `ANTHROPIC_API_KEY` at launch, since a key outranks the subscription there),
-and "Sign in from a terminal" as the fallback. Use switches between them. The
+and "Sign in from a terminal" as the fallback. Use switches between them. A
+third option, "3rd-party platform" (ADR-0189), sets Claude Code up on Amazon
+Bedrock, Microsoft Foundry or Google Vertex AI with the sign-in methods its
+own wizard lists, by writing the same `env` block into `~/.claude/settings.json`
+(`PUT`/`DELETE /api/claude-code/platform`); the roster's `platform` field says
+which is in use, never a secret, and the pane shows "Claude Code uses …" with
+Edit and Stop using. A platform outranks the subscription and the key, so
+choosing one clears the key and choosing either removes the platform. The
 other guests'
 dialog still holds a provider `<select>`
 limited to that CLI's providers, the key field with the line that says the
