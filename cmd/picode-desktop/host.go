@@ -113,7 +113,11 @@ type wslOutcome struct {
 	Error   string `json:"error,omitempty"`
 	// Stopped: WSL was shut down and every session in it ended.
 	Stopped bool `json:"stopped,omitempty"`
-	Done    bool `json:"done,omitempty"`
+	// Copied: a move or backup's copy finished — true even when starting
+	// the distro afterwards failed, so the window never says the disk is
+	// still where it was.
+	Copied bool `json:"copied,omitempty"`
+	Done   bool `json:"done,omitempty"`
 }
 
 // runWSLRestart stops the whole WSL VM and starts the distro again — the
@@ -176,6 +180,12 @@ func runWSLRestart(distroFlag, userFlag string, update, yes, force, unreachable,
 		upd = timedRunner{d: 15 * time.Minute}
 	}
 	a.runner = timedRunner{d: 2 * time.Minute}
+	if update {
+		// Nothing may start the distro under the installer (the shell's
+		// keepalive and discovery read this hold).
+		release := desktop.HoldDistro("update")
+		defer release()
+	}
 	restartFlow(a, upd, say, &out)
 	return emit()
 }

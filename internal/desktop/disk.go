@@ -36,9 +36,13 @@ type DiskFacts struct {
 	// WSL is the product version, and CanSparse says whether this build can
 	// convert the file (`wsl --manage <distro> --set-sparse true`). WSL 2.0
 	// and later can; older builds have to be compacted by hand.
-	WSL       string    `json:"wsl"`
-	CanSparse bool      `json:"canSparse"`
-	At        time.Time `json:"at"`
+	WSL       string `json:"wsl"`
+	CanSparse bool   `json:"canSparse"`
+	// CanMove / CanExportVHD: this WSL knows `--manage --move` and
+	// `--export --format vhd` — checked before anything is stopped.
+	CanMove      bool      `json:"canMove"`
+	CanExportVHD bool      `json:"canExportVhd"`
+	At           time.Time `json:"at"`
 }
 
 // DistroFolder is one distro as WSL itself records it.
@@ -88,7 +92,10 @@ func DistroDisk(r Runner, distro string) (DiskFacts, error) {
 		facts.WSL = ParseWSLVersion(out)
 	}
 	if out, err := r.Output(WSLExe, "--help"); err == nil || len(out) > 0 {
-		facts.CanSparse = strings.Contains(DecodeWindows(out), "--set-sparse")
+		help := DecodeWindows(out)
+		facts.CanSparse = strings.Contains(help, "--set-sparse")
+		facts.CanMove = strings.Contains(help, "--move")
+		facts.CanExportVHD = strings.Contains(help, "--format")
 	}
 	return facts, nil
 }

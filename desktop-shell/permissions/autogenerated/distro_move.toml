@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-distro-move"
+description = "Enables the distro_move command without any pre-configured scope."
+commands.allow = ["distro_move"]
+
+[[permission]]
+identifier = "deny-distro-move"
+description = "Denies the distro_move command without any pre-configured scope."
+commands.deny = ["distro_move"]
