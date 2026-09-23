@@ -10,7 +10,7 @@ Shipped (bed416175, ADR-0203):
 Verified live on the owner's machine: two real scans today wrote one line (same-day replace), no temp file left; C: 10.4 GB free, disk file 227 GB, 119 GB used inside the distro. Blind spot: the shell's daily background scan never ran live (needs `make desktop-restart`).
 Adversarial review, fixed: background scan racing compact/move/backup/update (job lock); growth inventing a whole cache size when the baseline lacked it; a "7 days" heading after gaps; unbounded, hourly-repeating scan; shared temp file and Windows rename failures; chart drawn on a hidden tab; unescaped day text; docs claiming `disk` changes nothing.
 visual-review: PASS (hist/, 6 states, synthetic 21-day data; chart per the dataviz skill, palette validated on both surfaces). The later tooltip-side, date-format and heading fixes were verified by geometry only; 07-hover-right-half.png was not reviewed by a subagent.
-Merge: `make close` had not run when this note was written.
+Merge: on `main` at b1e7ab53, `make ci` green.
 
 ## Next up
 
