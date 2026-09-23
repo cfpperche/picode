@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "identifier": "management",
-  "description": "The Management window (WSL disk, cache clean, .wslconfig): a served bundle in its own undecorated window, reached from the tray. It gets exactly the seven management commands plus the window controls its page drives, nothing else. It loads from the daemon's origin, so that origin is listed under remote.",
+  "description": "The Management window (WSL disk, cache clean, .wslconfig): a served bundle in its own undecorated window, reached from the tray. It gets exactly the management commands plus the window controls its page drives, nothing else. It loads from the daemon's origin, so that origin is listed under remote.",
   "windows": [
     "management"
   ],
@@ -15,6 +15,9 @@
     "allow-disk-report",
     "allow-disk-compact",
     "allow-disk-compact-dry-run",
+    "allow-host-report",
+    "allow-wsl-restart",
+    "allow-wsl-update",
     "allow-clean-list",
     "allow-clean-apply",
     "allow-wslconfig-read",

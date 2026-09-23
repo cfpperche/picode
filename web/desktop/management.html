@@ -104,7 +104,7 @@
       .activity .what { font-weight: 500; }
       .activity .detail { color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .activity li.failed .detail { color: var(--danger); white-space: normal; }
-      .activity .tech, .why .tech, .err .tech { display: block; color: var(--text-secondary); font-size: 12px; margin-top: .15rem; white-space: pre-wrap; }
+      .tech { display: block; color: var(--text-secondary); font-size: 12px; margin-top: .15rem; white-space: pre-wrap; }
       .activity .dur { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
       .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -194,6 +194,7 @@
       <button role="tab" data-tab="disk" aria-selected="true">Disk</button>
       <button role="tab" data-tab="clean" aria-selected="false">Clean</button>
       <button role="tab" data-tab="config" aria-selected="false">Config</button>
+      <button role="tab" data-tab="system" aria-selected="false">System</button>
     </nav>
 
     <section class="tab active" id="tab-disk" role="tabpanel">
@@ -237,9 +238,42 @@
       <p class="hint">The WSL settings file (<span id="config-path"></span>). A save backs it up to <code>.wslconfig.bak</code> first; keys this window does not know stay untouched. Every choice left on "default" is removed from the file so WSL's own default applies. Changes apply at the next full WSL restart.</p>
       <div id="config-form"></div>
       <p class="actions"><button id="config-save" class="primary">Save</button> <span id="config-outcome"></span></p>
+      <p class="actions" id="config-apply" hidden><button id="config-restart" class="danger">Restart WSL to apply…</button> <span class="hint">Saved settings take effect only after WSL restarts; that ends every session inside it.</span></p>
     </section>
 
-    <footer>Reading changes nothing. Cleaning and giving space back run only after you confirm — giving space back stops the distro and ends every session inside it.</footer>
+    <section class="tab" id="tab-system" role="tabpanel">
+      <ul id="sys-activity" class="activity" aria-live="polite"></ul>
+      <p class="err" id="sys-error" hidden></p>
+      <div class="cards">
+        <div class="card" id="card-memory">
+          <h2>Memory</h2>
+          <div class="row"><span class="k">WSL may use up to</span><span id="m-limit" class="v big">—</span></div>
+          <div class="row"><span class="k">In use inside</span><span id="m-used" class="v">—</span></div>
+          <div class="row"><span class="k">Of which reclaimable cache</span><span id="m-cache" class="v">—</span></div>
+          <div class="row"><span class="k">Held on Windows now</span><span id="m-held" class="v">—</span></div>
+          <div class="row"><span class="k">Swap used</span><span id="m-swap" class="v">—</span></div>
+          <div class="row"><span class="k">Windows RAM free</span><span id="m-host" class="v">—</span></div>
+          <p class="hint" id="m-note"></p>
+          <p class="why" id="why-memory" hidden></p>
+        </div>
+        <div class="card" id="card-wsl">
+          <h2>WSL</h2>
+          <div class="row"><span class="k">Version</span><span id="w-ver" class="v">—</span></div>
+          <div class="row"><span class="k">Linux kernel</span><span id="w-kernel" class="v">—</span></div>
+          <div class="row"><span class="k">Newest release</span><span id="w-latest" class="v">—</span></div>
+          <p class="hint" id="w-note"></p>
+          <div class="actions" id="w-update-row" hidden><button id="sys-update" class="danger">Update WSL…</button></div>
+          <p class="why" id="why-wsl" hidden></p>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="sys-restart" class="danger">Restart WSL…</button>
+        <span class="hint">Applies saved settings and gives the memory WSL holds back to Windows. Stops all of WSL; every session inside ends.</span>
+      </div>
+      <div id="sys-outcome" aria-live="polite"></div>
+    </section>
+
+    <footer>Reading changes nothing. Cleaning, giving space back, restarting and updating WSL run only after you confirm — the last three stop WSL and end every session inside it.</footer>
 
     <script type="module">
       import "@picode/shared/tokens/theme.css";
@@ -271,6 +305,8 @@
         [/picode disk printed no JSON|older than this program/i, 'PiCode inside the distro is older than the desktop app. Update PiCode, then scan again.'],
         [/picode is not installed/i, 'PiCode is not installed inside the distro. Install it there, then scan again.'],
         [/picode-desktop\.exe was not found/i, 'A file of PiCode Desktop is missing. Reinstall PiCode Desktop.'],
+        [/exit status 1223/, 'The Windows permission prompt was declined, so nothing changed. Try again and choose Yes.'],
+        [/^PiCode is not answering/, 'PiCode is not answering, so nobody can check whether an agent is working.'],
         [/ask PiCode whether anyone is working/i, 'PiCode did not say whether anyone is working. Try again.'],
         [/Optimize-VHD needs an administrator/i, 'Giving space back from here needs WSL 2.0 or newer. Update WSL, then try again.'],
         [/ended without an outcome/i, 'The tool stopped before it finished. Scan again.'],
@@ -320,6 +356,7 @@
         document.body.classList.toggle('busy', !!job);
         el('refresh').disabled = !!job;
         el('giveback').disabled = !!job || !(lastReport && lastReport.held);
+        for (const id of ['sys-restart', 'sys-update', 'config-restart']) el(id).disabled = !!job;
         updateCleanButtons();
         renderStatus();
       }
@@ -372,6 +409,7 @@
       }
       const scanLog = activity('activity');
       const cleanLog = activity('clean-activity');
+      const sysLog = activity('sys-activity');
 
       // ---- the status line in the header ------------------------------------
       let statusTick = null;
@@ -380,7 +418,7 @@
         const s = el('status');
         if (busy) {
           if (!statusTick) { jobStart = performance.now(); statusTick = setInterval(renderStatus, 250); }
-          const verb = { scan: 'Scanning', compact: 'Giving space back', clean: 'Cleaning' }[busy];
+          const verb = { scan: 'Scanning', compact: 'Giving space back', clean: 'Cleaning', restart: 'Restarting WSL', update: 'Updating WSL' }[busy];
           s.textContent = `${verb} · ${secs(performance.now() - jobStart)}`;
           return;
         }
@@ -409,7 +447,10 @@
         n.textContent = text;
         // A dash is "not known": neutral, never the warn/ok colour of a value.
         n.classList.toggle('none', text === '—');
-        if (n.classList.contains('skel')) { n.classList.remove('skel'); n.classList.add('fresh'); }
+        // The landing fade only where it can be seen: an animation in a
+        // hidden tab waits and then starts from transparent when the tab
+        // opens, which reads as a dimmed value.
+        if (n.classList.contains('skel')) { n.classList.remove('skel'); if (n.offsetParent !== null) n.classList.add('fresh'); }
       }
       function consumerSkeleton(tbody, rows, cols) {
         tbody.innerHTML = Array.from({ length: rows }, () =>
@@ -522,6 +563,9 @@
         } else if (p.op === 'compact') {
           scanLog.finishRunning('done');
           scanLog.set('c:' + p.progress, p.progress, 'running', '');
+        } else if (p.op === 'restart' || p.op === 'update') {
+          sysLog.finishRunning('done');
+          sysLog.set('c:' + p.progress, p.progress, 'running', '');
         } else if (p.op === 'clean') {
           cleanLog.finishRunning('done');
           cleanLog.set('c:' + p.progress, p.progress, 'running', '');
@@ -552,7 +596,7 @@
         if (!confirm(`Give ≈${gb(lastReport.held)} back to Windows?\n\nThe distro stops, its disk file is converted, and it starts again. Everything inside it ends now — agents, terminals and tmux sessions do not come back.\n\nContinue?`)) return;
         el('outcome').innerHTML = '';
         scanLog.reset();
-        scanLog.set('c:start', 'Checking that no one is mid-turn', 'running', '');
+        scanLog.set('c:start', 'Checking that no agent is working', 'running', '');
         setBusy('compact');
         try {
           const o = asData(await invoke('disk_compact', { run: newRun() }));
@@ -565,6 +609,137 @@
         setBusy('');
         await scan();
       }
+
+      // ---- system tab: memory, WSL version, restart / update ------------------
+      // Read-only facts load with the window; the two actions end every
+      // session, so they go through the same interlock and confirmation as
+      // Give back, and the window rescans afterwards.
+      const SYS_IDS = ['m-limit', 'm-used', 'm-cache', 'm-held', 'm-swap', 'm-host', 'w-ver', 'w-kernel', 'w-latest'];
+      let lastHost = null;
+      function whyIn(id, err) {
+        const n = el(id);
+        n.hidden = !err;
+        if (err) putError(n, err); else n.textContent = '';
+      }
+      function renderHost(h) {
+        lastHost = h;
+        const vm = h.vm, w = h.windows, v = h.versions;
+        if (vm) {
+          const used = vm.totalBytes - vm.availableBytes;
+          const swapUsed = vm.swapTotalBytes - vm.swapFreeBytes;
+          put('m-limit', gb(vm.totalBytes));
+          put('m-used', `${gb(used)} (${Math.round(100 * used / vm.totalBytes)}%)`);
+          put('m-cache', gb(vm.cachedBytes));
+          put('m-swap', vm.swapTotalBytes ? `${gb(swapUsed)} of ${gb(vm.swapTotalBytes)}` : 'no swap');
+          el('m-swap').classList.toggle('warn', vm.swapTotalBytes > 0 && swapUsed / vm.swapTotalBytes > 0.5);
+          // One line on what the numbers mean for this machine, only when
+          // there is something to do about them.
+          el('m-note').textContent =
+            vm.swapTotalBytes && swapUsed / vm.swapTotalBytes > 0.5
+              ? `Swap is ${Math.round(100 * swapUsed / vm.swapTotalBytes)}% used: Linux ran short of memory. Set memory and swap in Config, then restart WSL.`
+              : vm.availableBytes / vm.totalBytes < 0.1
+                ? 'Less than 10% of the VM\'s memory is free. Set a larger memory limit in Config, then restart WSL.'
+                : '';
+        } else { for (const id of ['m-limit', 'm-used', 'm-cache', 'm-swap']) put(id, '—'); el('m-note').textContent = ''; }
+        if (w) {
+          put('m-held', w.vmWorkingSetBytes ? gb(w.vmWorkingSetBytes) : 'not running');
+          put('m-host', `${gb(w.freeBytes)} of ${gb(w.totalBytes)}`);
+        } else { put('m-held', '—'); put('m-host', '—'); }
+        whyIn('why-memory', !vm ? h.vmError : !w ? h.windowsError : '');
+        el('card-memory').classList.toggle('failed', !vm && !w);
+
+        put('w-ver', v ? v.wsl : '—');
+        put('w-kernel', v ? v.kernel : '—');
+        put('w-latest', h.latest || '—');
+        el('w-update-row').hidden = !h.newer;
+        el('w-note').textContent = h.newer
+          ? `WSL ${h.latest} is out. Update installs the newest release Microsoft offers this PC and restarts WSL; every session inside ends.`
+          : h.latest && v ? 'This is the newest WSL.' : h.latestError ? 'Could not check for a newer WSL.' : '';
+        whyIn('why-wsl', v ? '' : h.versionError);
+        el('card-wsl').classList.toggle('failed', !v);
+      }
+
+      async function loadHost() {
+        if (!lastHost) skeleton(SYS_IDS);
+        el('sys-error').hidden = true;
+        try {
+          renderHost(asData(await invoke('host_report')));
+        } catch (e) {
+          // The tool itself failed: one line above both cards, not a
+          // diagnosis guessed onto one of them.
+          if (!lastHost) for (const id of SYS_IDS) put(id, '—');
+          const n = el('sys-error');
+          n.hidden = false;
+          n.textContent = lastHost
+            ? 'Could not read memory and the WSL version again — showing the last reading. Use Scan again at the top.'
+            : 'Could not read memory and the WSL version. Use Scan again at the top.';
+          const t = document.createElement('span');
+          t.className = 'tech';
+          t.textContent = String(e);
+          n.appendChild(t);
+        }
+      }
+
+      function renderWSLOutcome(o, verb, update) {
+        const out = el('sys-outcome');
+        if (o.refused) {
+          const unknown = /^PiCode is not answering/.test(o.refused);
+          out.innerHTML = unknown
+            ? `<p class="warn">Not run — ${errorHTML(o.refused)}</p>`
+            : `<p class="warn">Not run — ${esc(o.refused)}</p>`;
+          // PiCode not answering is "nobody can tell", not "someone is
+          // working": a wedged VM is exactly when a restart is wanted, so
+          // the person may choose it. A busy answer never gets this door.
+          if (/^PiCode is not answering/.test(o.refused)) {
+            const p = document.createElement('p');
+            p.className = 'actions';
+            p.innerHTML = `<button class="danger" id="sys-anyway">${update ? 'Update' : 'Restart'} anyway…</button> <span class="hint">PiCode cannot say whether an agent is working; restarting ends whatever runs.</span>`;
+            out.appendChild(p);
+            el('sys-anyway').addEventListener('click', () => restartWSL(update, true));
+          }
+          return;
+        }
+        if (o.error) {
+          out.innerHTML = o.stopped
+            ? `<p class="err">WSL was stopped and its sessions ended, but the ${verb} did not finish.<span class="tech">${esc(o.error)}</span></p>`
+            : `<p class="err">Nothing was stopped. ${errorHTML(o.error)}</p>`;
+          return;
+        }
+        if (o.note && !o.done) { out.innerHTML = `<p>${esc(o.note)}</p>`; return; }
+        out.innerHTML = `<p class="ok">Done — ${esc(o.distro)} is running again; its sessions do not come back.</p>`;
+      }
+
+      async function restartWSL(update, anyway = false) {
+        if (busy) return;
+        const what = (update ? `Update WSL to ${lastHost?.latest || 'the newest release'}?` : 'Restart WSL?') +
+          (anyway ? '\n\nPiCode is not answering, so nobody can check whether an agent is working.' : '');
+        if (!confirm(`${what}\n\nAll of WSL stops and starts again. Everything inside it ends now — agents, terminals and tmux sessions do not come back.${update ? '\n\nWindows may ask for permission to install.' : ''}\n\nContinue?`)) return;
+        for (const b of document.querySelectorAll('nav button')) if (b.dataset.tab === 'system') b.click();
+        el('sys-outcome').innerHTML = '';
+        sysLog.reset();
+        sysLog.set('c:start', 'Starting', 'running', '');
+        const op = update ? 'update' : 'restart';
+        setBusy(op);
+        let stoppedWSL = true; // unknown outcome (a thrown error): re-read
+        try {
+          const o = asData(await invoke(update ? 'wsl_update' : 'wsl_restart', { run: newRun(), ifUnreachable: anyway }));
+          stoppedWSL = !!o.stopped;
+          // The reason lives once, in the result line below the rows.
+          sysLog.finishRunning(o.error || o.refused ? 'failed' : 'done', '');
+          renderWSLOutcome(o, update ? 'update' : 'restart', update);
+          if (o.done) el('config-apply').hidden = true;
+        } catch (e) {
+          sysLog.finishRunning('failed', String(e));
+          el('sys-outcome').innerHTML = `<p class="err">${errorHTML(e)}</p>`;
+        }
+        setBusy('');
+        // A refusal stopped nothing: the numbers on screen are still true.
+        if (stoppedWSL) { await loadHost(); await scan(); }
+      }
+
+      el('sys-restart').addEventListener('click', () => restartWSL(false));
+      el('sys-update').addEventListener('click', () => restartWSL(true));
+      el('config-restart').addEventListener('click', () => restartWSL(false));
 
       // ---- tabs -------------------------------------------------------------
       for (const b of document.querySelectorAll('nav button')) {
@@ -751,6 +926,7 @@
         try {
           const r = asData(await invoke('wslconfig_write', { edits }));
           el('config-outcome').innerHTML = `<span class="ok">Saved — backup at ${esc(r.backup)}.</span>`;
+          el('config-apply').hidden = false;
           await loadConfig();
         } catch (e) {
           el('config-outcome').innerHTML = `<span class="err">${esc(String(e))}</span>`;
@@ -771,10 +947,11 @@
         }
       }
 
-      el('refresh').addEventListener('click', scan);
+      el('refresh').addEventListener('click', () => { scan(); loadHost(); });
       el('giveback').addEventListener('click', giveBack);
       // Listen first: the scan's opening step can arrive within milliseconds.
       listening.finally(() => scan());
+      loadHost();
       loadConfig();
     </script>
   </body>

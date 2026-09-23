@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-wsl-restart"
+description = "Enables the wsl_restart command without any pre-configured scope."
+commands.allow = ["wsl_restart"]
+
+[[permission]]
+identifier = "deny-wsl-restart"
+description = "Denies the wsl_restart command without any pre-configured scope."
+commands.deny = ["wsl_restart"]
