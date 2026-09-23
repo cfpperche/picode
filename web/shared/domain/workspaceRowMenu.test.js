@@ -86,3 +86,18 @@ test("order moves sit above Remove, only the moves that exist", () => {
   assert.deepEqual(ids(workspaceRowMenu(FOLDER, { canMoveDown: true })).slice(-4), ["|", "move-down", "|", "remove"]);
   assert.equal(workspaceRowMenu(FOLDER).at(-1).danger, true);
 });
+
+// Decision table: the quick sorts appear only where they can change
+// something, and "Working first" carries its state for the checkbox.
+// | agents in the card | sort row     | working-first     |
+// | ------------------ | ------------ | ----------------- |
+// | 0 or 1             | —            | —                 |
+// | more than 1        | Sort agents… | checked per state |
+test("quick sorts apply to this card's agents, or stay hidden", () => {
+  assert.equal(row(workspaceRowMenu(FOLDER), "sort-agents"), undefined);
+  assert.equal(row(workspaceRowMenu(FOLDER), "working-first"), undefined);
+  const rows = workspaceRowMenu(FOLDER, { canSortAgents: true, canMoveUp: true, canMoveDown: true, workingFirst: true });
+  assert.deepEqual(ids(rows).slice(-7), ["|", "sort-agents", "move-up", "move-down", "working-first", "|", "remove"]);
+  assert.equal(row(rows, "working-first").checked, true);
+  assert.equal(row(workspaceRowMenu(FOLDER, { canSortAgents: true }), "working-first").checked, false);
+});

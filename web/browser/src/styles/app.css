@@ -1151,6 +1151,19 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 
 .ws-list { list-style: none; margin: 0; padding: 0; }
 .ws-list.tree-children { padding-left: var(--tree-indent); }
+/* "Working first" buckets (ADR-0173 amendment): quiet labels between rows,
+   only for non-empty buckets. The dot borrows the status pill's colors. */
+.ws-state-head {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 4px 2px;
+  color: var(--text-secondary); font-size: 10.5px;
+  letter-spacing: .06em; text-transform: uppercase; user-select: none;
+}
+.ws-state-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: currentcolor; }
+.ws-state-dot.is-needs-you { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ws-state-dot.is-working { background: var(--accent); }
+.ws-state-dot.is-stopped, .ws-state-dot.is-open { opacity: .7; }
+.ws-state-count { margin-left: auto; font-variant-numeric: tabular-nums; }
 .ws-group { margin-bottom: 6px; }
 /* The in-list copy is the slot the row will land in. The lifted card is a
    clone in the overlay, so this well stays dashed and quiet. */
@@ -1285,6 +1298,7 @@ img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: 
 .ws-status.is-interactive, .ws-status.is-ready { color: var(--text-secondary); }
 .ws-status.is-stopped { color: var(--text-secondary); opacity: .7; }
 .ws-status-age { color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
+.ws-menu-tick { width: 16px; height: 16px; display: grid; place-items: center; flex: none; color: var(--accent); }
 .ws-row-menu-trigger {
   width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
   flex: none; border: 1px solid transparent; border-radius: 6px;

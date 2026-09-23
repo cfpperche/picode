@@ -7,7 +7,8 @@
 //   2. out of PiCode — the folder in the owner's file manager (Explorer under
 //      WSL), the repository's web page, its pull request, and the path
 //   3. Settings… — the name and how delivered work lands (WorkspaceSettings)
-//   4. order — Move up / Move down, only the moves that exist
+//   4. order — Sort agents by name, Move up / Move down, and the device-only
+//      "Working first" view — only what applies to this card
 //   5. Remove workspace
 // Every folder can be shown in the file manager, a repository included; the
 // web page needs a remote with a web host, so a plain folder or a local-only
@@ -60,7 +61,7 @@ function requestRow(ws, remote, pr) {
   return url ? { id: "pr", label: "Create " + noun, url, title: "Propose " + branch + " on " + remote.host + "." } : null;
 }
 
-export function workspaceRowMenu(ws = {}, { canMoveUp = false, canMoveDown = false, pr } = {}) {
+export function workspaceRowMenu(ws = {}, { canMoveUp = false, canMoveDown = false, canSortAgents = false, workingFirst = false, pr } = {}) {
   const repo = !!(ws.git && (ws.git.branch || ws.git.worktree));
   const remote = ws.remote && ws.remote.url ? ws.remote : null;
   const inside = [
@@ -84,9 +85,16 @@ export function workspaceRowMenu(ws = {}, { canMoveUp = false, canMoveDown = fal
     ...(ws.path ? [copy] : []),
   ];
   const own = [{ id: "settings", label: "Settings…" }];
+  // Order group. Sort by name is a one-shot reorder (ADR-0173): the sorted
+  // ids go through the same PUT as a drop, so every client keeps one order.
+  // Working first is the opposite contract — a presentation-only view this
+  // device keeps to itself (ADR-0173 amendment, 2026-09-23) — and `checked`
+  // tells the renderer to draw it as a checkbox, not an action.
   const order = [
+    ...(canSortAgents ? [{ id: "sort-agents", label: "Sort agents by name", title: "One order for every device; you can still drag rows after." }] : []),
     ...(canMoveUp ? [{ id: "move-up", label: "Move up" }] : []),
     ...(canMoveDown ? [{ id: "move-down", label: "Move down" }] : []),
+    ...(canSortAgents ? [{ id: "working-first", label: "Working first", checked: !!workingFirst, title: "Keeps working agents on top — this device only; the saved order stays." }] : []),
   ];
   return [
     ...inside,

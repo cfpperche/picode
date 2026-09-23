@@ -10,7 +10,7 @@ import PiSpinner from "./PiSpinner.jsx";
 import { checklistLine, checklistProgress, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
-import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
+import { agentRowStatus, agentStatusLabel, agentTerm } from "@picode/shared/domain/agentStatus.js";
 import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMenu.js";
 import { agentSubtitle, forkLine } from "@picode/shared/domain/managedPrincipal.js";
 import { termRowMenu } from "../lib/termRowMenu.js";
@@ -161,7 +161,7 @@ export function AgentRow({
   // A CLI agent's process is its bound terminal (ADR-0160): the status pill
   // and the lifecycle rows read the terminal, because runMode never sees
   // the terminal's tmux session.
-  const term = !ag.legacyInteractive && ag.mode !== "managed" && ag.terminalId ? (terms || []).find((t) => t.id === ag.terminalId) || ag.terminal : null;
+  const term = agentTerm(ag, terms);
   const label = displayAgentName(ag, ws);
   const model = shortModel(ag.model || "");
   const title = model ? label + " — " + model : label;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
@@ -8,8 +8,9 @@ import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconChevron
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
+import { agentRowStatus, agentStatusLabel, agentTerm, bucketAgentsByState } from "@picode/shared/domain/agentStatus.js";
 import { freeTerminals, workspaceTerminals, FREE_WS } from "../lib/termGroups.js";
-import { moveId, movePhrase } from "../lib/sidebarOrder.js";
+import { moveId, movePhrase, sameIds, sortIdsBy } from "../lib/sidebarOrder.js";
 import { sidebarBody } from "../lib/sidebarBody.js";
 import ProviderFaces from "./ProviderFaces.jsx";
 import { AgentRow, TermRow } from "./WorkspaceRows.jsx";
@@ -36,6 +37,10 @@ export function WsFavicon({ ws }) {
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
 const SIDE_KEY = "picode-sidebar-w";
+// "Working first" is a per-workspace view preference, device-local by
+// design (ADR-0173 amendment): it never writes positions, so the phone and
+// a second browser keep the order this one saved.
+const WORKING_FIRST_KEY = "picode-ws-working-first";
 
 // Where a list's rows will be, until the boot has read the fleet.
 function SideSkeleton() {
@@ -87,6 +92,10 @@ export default function Sidebar({
     try { return JSON.parse(localStorage.getItem("picode-ws-open") || "{}"); }
     catch { return {}; }
   });
+  const [workingFirst, setWorkingFirst] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(WORKING_FIRST_KEY) || "{}"); }
+    catch { return {}; }
+  });
 
   function onSizerDown(e) {
     e.preventDefault();
@@ -123,23 +132,54 @@ export default function Sidebar({
     });
   }
 
+  function stateFirstOf(ws, wsAgents) {
+    return !!workingFirst[ws.id] && wsAgents.length > 1;
+  }
+  function toggleWorkingFirst(id) {
+    setWorkingFirst((s) => {
+      const n = { ...s, [id]: !s[id] };
+      try { localStorage.setItem(WORKING_FIRST_KEY, JSON.stringify(n)); } catch { /* ignore */ }
+      return n;
+    });
+  }
+
   function commitOrder(kind, workspaceId, before, next, id, label) {
     if (next === before || !onReorder) return;
     setOrderLive(movePhrase(before, next, id, label));
     onReorder(kind, workspaceId, next);
   }
 
+  // The row pill's own derivation, so a bucket and its rows can never
+  // disagree about which bucket a row belongs to.
+  function statusOf(ag) {
+    return agentRowStatus(ag, { workingId, workingIds, waitingId, term: agentTerm(ag, terminals) });
+  }
+
+  // "Sort agents by name" (ADR-0173): a one-shot reorder, not a view — the
+  // sorted ids go through the same PUT as a drop, so every client keeps one
+  // order and the next drag still lands where it is dropped.
+  function sortAgentsByName(ws) {
+    const wsAgents = agentsOf(ws);
+    const before = wsAgents.map((a) => a.id);
+    const next = sortIdsBy(before, (id) => displayAgentName(wsAgents.find((a) => a.id === id) || {}, ws));
+    if (sameIds(before, next)) return;
+    setOrderLive("Sorted " + before.length + " agents by name.");
+    onReorder("agents", ws.id, next);
+  }
+
   function agentRow(ag, ws, ids, kind, workspaceId) {
     const selected = ag.terminalId && selectedId === "t:" + ag.terminalId ? ag.id : selectedId;
     const i = ids.indexOf(ag.id);
     const label = (id) => displayAgentName((ws ? agentsOf(ws) : sortedFreeAgents).find((a) => a.id === id) || ag, ws);
-    return (
-      <SortableRow key={ag.id} id={ag.id}>
-      {(drag) => (
+    // kind === null is the "Working first" view: presentation only, so the
+    // row renders without a drag handle and without Move up / Move down —
+    // both would write positions the view is not showing (ADR-0173
+    // amendment). Stored order is untouched underneath.
+    const row = (drag) => (
       <AgentRow
         drag={drag}
-        onMoveUp={i > 0 ? () => commitOrder(kind, workspaceId, ids, moveId(ids, ag.id, -1), ag.id, label) : null}
-        onMoveDown={i >= 0 && i < ids.length - 1 ? () => commitOrder(kind, workspaceId, ids, moveId(ids, ag.id, 1), ag.id, label) : null}
+        onMoveUp={kind && i > 0 ? () => commitOrder(kind, workspaceId, ids, moveId(ids, ag.id, -1), ag.id, label) : null}
+        onMoveDown={kind && i >= 0 && i < ids.length - 1 ? () => commitOrder(kind, workspaceId, ids, moveId(ids, ag.id, 1), ag.id, label) : null}
         agent={ag} ws={ws}
         selectedId={selected} onSelect={(id) => {
           if (ag.terminalId && ag.cli && ag.cli !== "pi") onSelectTerm && onSelectTerm(ag.terminalId);
@@ -153,9 +193,9 @@ export default function Sidebar({
         onChat={onChat} onTerm={onTerm} termView={termView}
         clis={clis} terms={terminals} onLaunchAction={onLaunchAction} onContinueTerm={onContinueTerm} onForkAgent={onForkAgent}
       />
-      )}
-      </SortableRow>
     );
+    if (!kind) return <Fragment key={ag.id}>{row(null)}</Fragment>;
+    return <SortableRow key={ag.id} id={ag.id}>{row}</SortableRow>;
   }
 
   function termRow(t, ids, kind, workspaceId) {
@@ -262,6 +302,7 @@ export default function Sidebar({
             const wsAgentIds = wsAgents.map((a) => a.id);
             const wsTermIds = wsTerms.map((t) => t.id);
             const wsIndex = workspaces.findIndex((w) => w.id === ws.id);
+            const stateFirst = stateFirstOf(ws, wsAgents);
             return (
             <SortableRow key={ws.id} id={ws.id}>
             {(drag) => (
@@ -289,6 +330,9 @@ export default function Sidebar({
                     ws={ws}
                     onMoveUp={wsIndex > 0 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, -1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
                     onMoveDown={wsIndex >= 0 && wsIndex < workspaces.length - 1 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, 1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
+                    onSortAgents={wsAgents.length > 1 ? () => sortAgentsByName(ws) : null}
+                    workingFirst={stateFirst}
+                    onToggleWorkingFirst={wsAgents.length > 1 ? () => toggleWorkingFirst(ws.id) : null}
                     onFileTree={onFileTree}
                     onGitGraph={onGitGraph}
                     onInstructions={onInstructions}
@@ -300,9 +344,24 @@ export default function Sidebar({
                 (wsAgents.length || wsTerms.length) ? (
                   <>
                     {wsAgents.length ? (
-                      <SortableList ids={wsAgentIds} onReorder={(ids, activeId) => commitOrder("agents", ws.id, wsAgentIds, ids, activeId, (id) => displayAgentName(wsAgents.find((a) => a.id === id), ws))}>
-                        <ul className="ws-list tree-children">{wsAgents.map((ag) => agentRow(ag, ws, wsAgentIds, "agents", ws.id))}</ul>
-                      </SortableList>
+                      stateFirst ? (
+                        <ul className="ws-list tree-children">
+                          {bucketAgentsByState(wsAgents, statusOf).map((b) => (
+                            <Fragment key={b.status}>
+                              <li className="ws-state-head">
+                                <span className={"ws-state-dot is-" + b.status} aria-hidden="true" />
+                                <span>{agentStatusLabel(b.status)}</span>
+                                <span className="ws-state-count">{b.agents.length}</span>
+                              </li>
+                              {b.agents.map((ag) => agentRow(ag, ws, wsAgentIds, null, ws.id))}
+                            </Fragment>
+                          ))}
+                        </ul>
+                      ) : (
+                        <SortableList ids={wsAgentIds} onReorder={(ids, activeId) => commitOrder("agents", ws.id, wsAgentIds, ids, activeId, (id) => displayAgentName(wsAgents.find((a) => a.id === id), ws))}>
+                          <ul className="ws-list tree-children">{wsAgents.map((ag) => agentRow(ag, ws, wsAgentIds, "agents", ws.id))}</ul>
+                        </SortableList>
+                      )
                     ) : null}
                     {wsTerms.length ? (
                       <SortableList ids={wsTermIds} onReorder={(ids, activeId) => commitOrder("terminals", ws.id, wsTermIds, ids, activeId, (id) => (wsTerms.find((t) => t.id === id) || {}).name || "Terminal")}>

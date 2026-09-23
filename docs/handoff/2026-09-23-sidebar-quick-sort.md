@@ -1,0 +1,10 @@
+# 2026-09-23 — feat/sidebar-quick-sort: sidebar quick sorts — sort agents by name, working-first view
+Shipped: 47e2ceffa — the workspace card menu gains two quick sorts. "Sort agents by name" is a one-shot reorder through the existing ADR-0173 PUT/event (`sortIdsBy`, web/browser/src/lib/sidebarOrder.js; case-insensitive, numeric, stable). "Working first" is a presentation-only view, per workspace and device-local (localStorage `picode-ws-working-first`): rows bucket by `agentRowStatus` (needs-you, working, interactive, open, ready, stopped; unknown statuses still render at the end) via `bucketAgentsByState` in web/shared/domain/agentStatus.js; the stored order rules inside a bucket; drag and Move up/down hide while the view is on (agentRow kind=null skips SortableRow); the menu item is a Radix CheckboxItem that stays open on toggle. Shared menu rows (sort-agents, working-first with a checked flag) were added to web/shared/domain/workspaceRowMenu.js, so other clients simply hide them until they pass handlers. ADR-0173 amended in place ("Amendment — presentation-only views (2026-09-23)"), index row updated.
+Verified: `make ci-scoped` green (fmt, vet, hooks, test-js, build) and `make close` green. Tests added: `sortIdsBy` (sidebarOrder.test.js), `bucketAgentsByState` + `agentTerm` (agentStatus.test.js), quick-sort menu rows decision table (workspaceRowMenu.test.js). Visual QA on qa-scratch (scripts/qa-scratch.sh, instance quicksort): 7 screenshots in var/screenshots/ (baseline, menu, sorted, buckets READY 1/STOPPED 4, row menu without moves, checked toggle, view off); order survives reload (server positions). Blind spot: the live bucket transition (agent starts streaming → its row jumps bucket) was never observed — the scratch agent's queued turn never reached streaming.
+visual-review: PASS (card 5/5, overlayAudit ok:true)
+Not done / debts: the live bucket transition, below.
+Merge: fast-forward ready
+
+## Debts
+
+- The live bucket transition (agent streaming → row jumps bucket) was never demoed live; the bucket partition is unit-tested instead. Durable item — per ADR-0086 it belongs in a `docs/handoff/open/<topic>.md` topic file.

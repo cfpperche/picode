@@ -33,3 +33,7 @@ The drag gesture, move-between-workspaces, and mixing agents with terminals into
 - **Keep sorting and store the order in localStorage.** The phone and a second browser would disagree, and a refetch would undo it.
 - **Lexicographic rank (one row touched per drop).** The lists are dozens of rows. Rewriting `0..n-1` is one transaction and a trivial feed payload.
 - **One mixed sequence of agents and terminals per workspace.** That needs a union table and changes the collapsed group, which shows agents first and terminals after. Reorder stays inside each block.
+
+## Amendment — presentation-only views (2026-09-23)
+
+The rule "clients append a newly added workspace and do not sort these lists again" governs the stored order: a client sort that fed positions back or survived a refetch would undo a reorder and split the clients. It does not forbid a presentation-only view. The sidebar's **Working first** reorders rows on one device, per container, as buckets of `agentRowStatus` (needs-you, working, interactive, open, ready, stopped — a status outside the list still renders, at the end); inside a bucket the stored position rules; it writes no position, emits no event, and lives in the client's local preferences. While the view is on, the drag handle and Move up / Move down hide: a drop or menu move under a sorted view would write positions the user is not looking at. **Sort agents by name** is not a view — it is a one-shot reorder through the same PUT and event as a drop, and every client keeps one order.

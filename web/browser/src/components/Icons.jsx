@@ -2,6 +2,7 @@ import {
   Activity,
   History,
   ArrowDownToLine,
+  ArrowDownUp,
   ArrowUp,
   ArrowDown,
   AudioLines,
@@ -149,6 +150,7 @@ export const IconPullRequest = lucide(GitPullRequest, 13);
 export const IconFork = lucide(GitFork, 13);
 export const IconMoveUp = lucide(ArrowUp, 13);
 export const IconMoveDown = lucide(ArrowDown, 13);
+export const IconSort = lucide(ArrowDownUp, 13);
 export const IconGrid = lucide(LayoutGrid, 13);
 // The Canvas app's tile (ADR-0109 icon map). A 3×3 grid drew the engine
 // ADR-0118 removed, so the glyph is a frame with its guides: a bounded plane
