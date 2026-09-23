@@ -40,6 +40,10 @@ export default function Outcomes({ hidden, workspaces = [] }) {
   const [editing, setEditing] = useState(null); // { id, draft }
   const [more, setMore] = useState(false);
   const seq = useRef(0);
+  // A hidden page stays mounted (routes keep their state); it must not
+  // refetch on every feed event nobody is looking at.
+  const hiddenRef = useRef(hidden);
+  hiddenRef.current = hidden;
 
   function load() {
     const n = ++seq.current;
@@ -63,6 +67,7 @@ export default function Outcomes({ hidden, workspaces = [] }) {
   // Every removal, label, undo or delete announces itself (ADR-0048); the
   // page refetches rather than patching, since a count moves with each.
   useEffect(() => subscribeFeed((ev) => {
+    if (hiddenRef.current) return;
     if (ev.type === "feed.open" || ev.type === "feed.reset" || String(ev.type || "").startsWith("agent_exit.")) load();
   }), [range, ws, cli, outcome]);
 
