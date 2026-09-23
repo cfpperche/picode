@@ -3,11 +3,11 @@
 Plan: docs/plans/missions.md
 Verification: docs/plans/missions-verification.md
 
-Status: approved M0–M3 implemented under ADRs 0199–0200; one controlled Codex → Claude Code native pilot exercised transfer and review. Deployment remains the owner's choice.
+Status: approved M0–M3 implemented under ADRs 0199–0200; one controlled Codex → Claude Code native pilot exercised transfer and review. The owner reported deployment; the public Missions guide now covers the lifecycle and controls.
 
 ## Next
 
-- After owner-chosen deployment, run five real owner-workflow missions, including a cross-CLI transfer, interruption, rejected review and phone answer; record outcomes and compare time spent recovering context with five baseline tasks.
+- Run five real owner-workflow missions, including a cross-CLI transfer, interruption, rejected review and phone answer; record outcomes and compare time spent recovering context with five baseline tasks.
 - M4 (separate reviewer) and M5 (dependent stages and unattended execution) require separate approval and current runner capability evidence before implementation.
 
 ## Debts
