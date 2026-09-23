@@ -2,13 +2,14 @@
 
 Plan: docs/plans/missions.md
 Verification: docs/plans/missions-verification.md
+Integration boundary: [Delivery flow](delivery-flow.md) owns the queue and its provider/local modes.
 
 Status: approved M0–M3 implemented under ADRs 0199–0200; one controlled Codex → Claude Code native pilot exercised transfer and review. The owner reported deployment; the public Missions guide now covers the lifecycle and controls.
 
 ## Next
 
 - Run five real owner-workflow missions, including a cross-CLI transfer, interruption, rejected review and phone answer; record outcomes and compare time spent recovering context with five baseline tasks.
-- M4 (separate reviewer) and M5 (dependent stages and unattended execution) require separate approval and current runner capability evidence before implementation.
+- M4 (separate reviewer) requires separate approval. For M5 (dependent stages and unattended execution), the owner must decide in a new ADR whether its integration step consumes Delivery's declared queue/provider boundary under ADR-0186 instead of adding a second integration executor; check current runner capability evidence first.
 
 ## Debts
 
