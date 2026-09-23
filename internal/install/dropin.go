@@ -87,6 +87,11 @@ func quoteEnv(kv string) string {
 	return "\"" + strings.NewReplacer("\\", "\\\\", "\"", "\\\"").Replace(kv) + "\""
 }
 
+// ParseEnvironment reads the Environment= lines of any unit or drop-in text
+// the way systemd does: each line is a whitespace-separated list of
+// KEY=value words, double quotes group, and a later assignment wins.
+func ParseEnvironment(text string) map[string]string { return parseDropIn(text) }
+
 func parseDropIn(text string) map[string]string {
 	out := map[string]string{}
 	for _, line := range strings.Split(text, "\n") {
