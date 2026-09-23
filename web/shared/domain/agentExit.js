@@ -104,3 +104,16 @@ export function outcomeRows(summary, taxonomy) {
   rows.push({ key: "unanswered", label: "No answer", value: outcomes.unanswered || 0, display: String(outcomes.unanswered || 0), muted: true });
   return rows.filter((r) => r.value > 0);
 }
+
+// What an exit's sessions cost, as the dashboard writes spend: "—" when not
+// measured (a CLI whose sessions are not files), "not priced" when every
+// turn went unpriced, "~" when part of it is a list-price estimate
+// (ADR-0185), and never "$0.00" for something that merely was not priced.
+export function fmtExitCost(cost) {
+  if (!cost) return "—";
+  const n = Number(cost.cost) || 0;
+  if (n === 0 && cost.unpriced > 0) return "not priced";
+  const est = (Number(cost.estimated) || 0) > 0 ? "~" : "";
+  if (n > 0 && n < 0.01) return est + "<$0.01";
+  return est + "$" + n.toFixed(2);
+}
