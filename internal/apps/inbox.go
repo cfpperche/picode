@@ -559,6 +559,18 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			}
 			return a.backTo(h, returnPath, "Reply sent to the terminal.")
 		}
+		if it.SourceKind == store.InboxFromAgent && h.AnswerAgentQuestion != nil &&
+			it.State != store.InboxDone && verb != store.VerbIgnore &&
+			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) {
+			toast, err := h.AnswerAgentQuestion(id, verb, text)
+			if err != nil {
+				if strings.Contains(err.Error(), "agent no longer exists") {
+					return ActionResult{}, fmt.Errorf("Reply not delivered — the agent no longer exists; the item stays open")
+				}
+				return ActionResult{}, err
+			}
+			return a.backTo(h, returnPath, toast)
+		}
 		if interactive && h.DeliverReply != nil && it.State != store.InboxDone &&
 			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) {
 			if _, err := h.DeliverReply(id, verb, text); err != nil {

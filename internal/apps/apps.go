@@ -69,6 +69,13 @@ type Host struct {
 	// durable JSONL proof with reopen-on-failure. It returns the source
 	// agent. Optional means this host cannot deliver to a TUI agent.
 	DeliverReply func(itemID, verb, text string) (agentID string, err error)
+	// AnswerAgentQuestion answers an agent-sourced question or approval
+	// through the door that agent listens on — a waiting ask_human, Pi's
+	// receiver, a verified paste into any other CLI's TUI — and returns the
+	// toast naming which one took it. When set it replaces DeliverReply and
+	// the plain forward for those items. Optional: nil keeps the older path
+	// (tests, the demo app).
+	AnswerAgentQuestion func(itemID, verb, text string) (toast string, err error)
 	// DeliverTerminalReply sends an Inbox reply into a pi running in an
 	// Agent CLI terminal (sourceKind "terminal", ADR-0089's amendment)
 	// through that terminal's receiver. It returns the source terminal.

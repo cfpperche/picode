@@ -77,7 +77,7 @@ func TestNotifyAndAskThroughTheWire(t *testing.T) {
 	c = &Caller{Daemon: d, Identity: Identity{Term: "t1"}}
 	d.status, d.body = 200, `{"id":"in_3","state":"open"}`
 	res = askCall(t.Context(), c, json.RawMessage(`{"item":"in_3"}`), 0, func(time.Duration) {})
-	if res.IsError || !strings.Contains(res.Content[0].Text, `item="in_3"`) || d.path != "/api/inbox/in_3" {
+	if res.IsError || !strings.Contains(res.Content[0].Text, `item="in_3"`) || d.path != "/api/inbox/in_3?wait=1" {
 		t.Fatalf("still open = %+v path %s", res, d.path)
 	}
 	// Closed without an answer.
