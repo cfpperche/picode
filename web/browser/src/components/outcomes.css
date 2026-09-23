@@ -16,7 +16,7 @@
 .outc-row:last-child { border-bottom: 1px solid var(--border); }
 .outc-row-head {
   display: grid; align-items: center; gap: 10px; width: 100%;
-  grid-template-columns: 14px minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 0.9fr) 52px 48px 132px 64px;
+  grid-template-columns: 14px minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 0.9fr) 52px 48px 68px 132px 64px;
   min-height: 40px; padding: 6px 6px; box-sizing: border-box;
   background: none; border: 0; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer;
 }
@@ -31,7 +31,7 @@
 .outc-answer { min-width: 0; }
 /* The Outcome column sits right after a right-aligned number; without the
    inset the gap was half the others'. Header and rows share the grid. */
-.outc-row-head > :nth-child(7) { padding-left: 12px; }
+.outc-row-head > :nth-child(8) { padding-left: 12px; }
 .outc-noanswer { font-size: 12px; color: var(--text-secondary); }
 .outc-when { font-size: 12px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
 .outc-skel { padding: 14px 6px; }

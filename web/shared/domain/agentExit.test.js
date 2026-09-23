@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  emptyExitDraft, exitHeadline, exitRequestBody, fmtLifetime, fmtTurns, outcomeRows,
+  emptyExitDraft, exitHeadline, fmtExitCost, exitRequestBody, fmtLifetime, fmtTurns, outcomeRows,
   pickOutcome, reasonRows, takesReasons, toggleReason,
 } from "./agentExit.js";
 
@@ -77,4 +77,13 @@ test("rows use the taxonomy's words and drop zero outcomes", () => {
   const sum = { outcomes: { resolved: 2, partial: 0, unresolved: 1, trial: 0, unanswered: 3 }, reasons: [{ id: "stuck", count: 2 }] };
   assert.deepEqual(outcomeRows(sum, TAX).map((r) => r.label), ["Resolved", "Didn't resolve", "No answer"]);
   assert.deepEqual(reasonRows(sum, TAX), [{ key: "stuck", label: "Got stuck or looped", value: 2, display: "2" }]);
+});
+
+test("exit cost reads like spend: unknown is a dash, unpriced says so, estimates carry ~", () => {
+  assert.equal(fmtExitCost(null), "—");
+  assert.equal(fmtExitCost({ cost: 0, unpriced: 3 }), "not priced");
+  assert.equal(fmtExitCost({ cost: 1.234, estimated: 0 }), "$1.23");
+  assert.equal(fmtExitCost({ cost: 1.2, estimated: 0.2 }), "~$1.20");
+  assert.equal(fmtExitCost({ cost: 0.004, estimated: 0 }), "<$0.01");
+  assert.equal(fmtExitCost({ cost: 0, unpriced: 0 }), "$0.00");
 });

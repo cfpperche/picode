@@ -3,6 +3,8 @@ package store
 import (
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -380,5 +382,63 @@ func TestRemoveWorkspaceWithExitsEndsEachAgent(t *testing.T) {
 	}
 	if removed, exits, err := s.RemoveWorkspaceWithExits(ws.ID, ExitInput{}); removed || len(exits) != 0 || err != nil {
 		t.Fatalf("second removal = %v %v %v", removed, exits, err)
+	}
+}
+
+func TestMeterExitScopes(t *testing.T) {
+	dir := t.TempDir()
+	agentDir := filepath.Join(dir, "pi-1")
+	_ = os.MkdirAll(agentDir, 0o755)
+	for _, n := range []string{"a.jsonl", "b.jsonl"} {
+		_ = os.WriteFile(filepath.Join(agentDir, n), []byte("{}\n"), 0o644)
+	}
+	calls := 0
+	meter := func(cli, path string) (ExitCost, bool) {
+		calls++
+		return ExitCost{Cost: 1.5, Estimated: 0.5, Tokens: 100, Turns: 2}, true
+	}
+	pi := Agent{ID: "pi-1", CLI: CLIPi}
+	c := meterExit(pi, ExitSessions{PiSessionPath: filepath.Join(agentDir, "a.jsonl")}, meter)
+	if c == nil || c.Scope != "agent" || c.Sessions != 2 || c.Cost != 3 || c.Estimated != 1 || c.Tokens != 200 || c.Turns != 4 {
+		t.Fatalf("pi agent folder = %+v", c)
+	}
+	guest := Agent{ID: "g-1", CLI: "codex"}
+	c = meterExit(guest, ExitSessions{CLISessionPath: filepath.Join(dir, "rollout.jsonl")}, meter)
+	if c == nil || c.Scope != "last-session" || c.Sessions != 1 {
+		t.Fatalf("guest last session = %+v", c)
+	}
+	if c := meterExit(guest, ExitSessions{}, meter); c != nil {
+		t.Fatalf("no session known must be not measured: %+v", c)
+	}
+	none := func(string, string) (ExitCost, bool) { return ExitCost{}, false }
+	if c := meterExit(guest, ExitSessions{CLISessionPath: "x"}, none); c != nil {
+		t.Fatalf("an unmeasurable session must be nil, not zero: %+v", c)
+	}
+}
+
+func TestExitCostIsStoredAndSummed(t *testing.T) {
+	s := openTest(t)
+	a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+	sp := filepath.Join(t.TempDir(), "s.jsonl")
+	_ = os.WriteFile(sp, []byte("{}\n"), 0o644)
+	if _, err := s.UpdateAgent(a.ID, AgentPatch{SessionPath: &sp}); err != nil {
+		t.Fatal(err)
+	}
+	meter := func(cli, path string) (ExitCost, bool) { return ExitCost{Cost: 2.25, Tokens: 10, Turns: 1}, true }
+	ex, err := s.RemoveAgentWithExit(a.ID, ExitInput{Meter: meter})
+	if err != nil || ex.Cost == nil || ex.Cost.Cost != 2.25 {
+		t.Fatalf("exit cost = %+v %v", ex.Cost, err)
+	}
+	got, _ := s.GetAgentExit(ex.ID)
+	if got.Cost == nil || got.Cost.Cost != 2.25 || got.Cost.Scope != "last-session" {
+		t.Fatalf("stored cost = %+v", got.Cost)
+	}
+	b, _ := s.AddAgent(FreeWorkspaceID, "b", "")
+	if _, err := s.RemoveAgentWithExit(b.ID, ExitInput{Meter: meter}); err != nil {
+		t.Fatal(err)
+	}
+	sum, _ := s.AgentExitSummary(ExitFilter{})
+	if sum.CostMeasured != 1 || sum.Cost != 2.25 || sum.Total != 2 {
+		t.Fatalf("summary cost = %+v (an agent with no session is not measured)", sum)
 	}
 }

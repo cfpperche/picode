@@ -141,3 +141,12 @@ person their catalog as JSON lines; nothing is sent anywhere.
   would also have mixed an estimate into the person's answer.
 - **Keep answers in the browser.** Not durable, and a phone and a desktop would
   keep two catalogs.
+
+## Amendment 2026-09-23 — cost
+
+The exit also records what the agent's sessions cost, priced at removal
+before any purge with the dashboard's own rule (recorded cost; list price
+only for unpriced turns, kept apart as the estimate). A Pi agent's folder
+counts whole; another CLI's last known session only; a CLI whose sessions
+are not files is "not measured" (NULL), never zero. Migration 071 adds the
+`cost` column.
