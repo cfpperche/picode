@@ -252,6 +252,43 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.DeleteAgent(a.ID)
 		}, []string{"agent.deleted"}},
+		{"RemoveAgentWithExit", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			s.OnEvent = recorder(s)
+			if _, err := s.RemoveAgentWithExit(a.ID, ExitInput{Origin: ExitFromDesktop, Asked: true, Label: ExitLabel{Outcome: ExitResolved}}); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"agent_exit.recorded", "agent.deleted"}},
+		{"LabelAgentExit", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			ex, _ := s.RemoveAgentWithExit(a.ID, ExitInput{})
+			s.OnEvent = recorder(s)
+			if _, err := s.LabelAgentExit(ex.ID, ExitLabel{Outcome: ExitUnresolved, Reasons: []string{"stuck"}}); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"agent_exit.updated"}},
+		{"MarkAgentExitUndone", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			ex, _ := s.RemoveAgentWithExit(a.ID, ExitInput{})
+			s.OnEvent = recorder(s)
+			if _, err := s.MarkAgentExitUndone(ex.ID, "back-1"); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"agent_exit.updated"}},
+		{"DeleteAgentExit", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			ex, _ := s.RemoveAgentWithExit(a.ID, ExitInput{})
+			s.OnEvent = recorder(s)
+			if err := s.DeleteAgentExit(ex.ID); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"agent_exit.deleted"}},
+		{"SetExitAskOn", func(s *Store) {
+			s.OnEvent = recorder(s)
+			if err := s.SetExitAskOn(false); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"setting.updated"}},
 		{"SetChecklist", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
 			s.OnEvent = nil
