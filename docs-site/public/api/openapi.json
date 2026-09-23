@@ -235,6 +235,93 @@
         ]
       }
     },
+    "/api/agent-history": {
+      "get": {
+        "operationId": "getApiAgent-history",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-history"
+        ]
+      }
+    },
+    "/api/agent-history/{id}/forget": {
+      "post": {
+        "operationId": "postApiAgent-historyForget",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-history"
+        ]
+      }
+    },
+    "/api/agent-history/{id}/restore": {
+      "post": {
+        "operationId": "postApiAgent-historyRestore",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-history"
+        ]
+      }
+    },
     "/api/agents": {
       "get": {
         "operationId": "getApiAgents",
@@ -9284,9 +9371,128 @@
         ]
       }
     },
+    "/api/skills": {
+      "delete": {
+        "operationId": "deleteApiSkills",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      },
+      "post": {
+        "operationId": "postApiSkills",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/skills/preview": {
+      "post": {
+        "operationId": "postApiSkillsPreview",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
     "/api/skills/report": {
       "get": {
         "operationId": "getApiSkillsReport",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/skills/update": {
+      "post": {
+        "operationId": "postApiSkillsUpdate",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/skills/updates": {
+      "get": {
+        "operationId": "getApiSkillsUpdates",
         "parameters": null,
         "responses": {
           "200": {
@@ -12746,6 +12952,9 @@
     },
     {
       "name": "agent-exits"
+    },
+    {
+      "name": "agent-history"
     },
     {
       "name": "agents"

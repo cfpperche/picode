@@ -1,0 +1,2 @@
+### Added
+- **Add, update and remove skills.** The Skills tab's **Add skill** reads a GitHub repository, a site's skills index or a local folder, shows each skill's files, format problems and what the safety scan noticed, and installs the one you pick into the workspace or this computer, where most agent CLIs read it. **Check for updates** compares installed skills with their sources; **Update** and **Remove** ask before touching your edits. Installs are recorded in the same lock files the `skills` command-line tool uses.

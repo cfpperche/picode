@@ -3771,6 +3771,11 @@ img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: 
    card). The button's 3px side padding + negative margins extend the hit
    area without moving the content (23 − 3 + 3 = 23). */
 .ws-check-disclosure { margin: 3px 31px 0 23px; min-width: 0; }
+/* "fork of <name>" (Fork agent…): the checklist line's inset and type, not
+   italic — it is a fact about the agent, not its current step. */
+.ws-fork-line { display: flex; align-items: center; gap: 4px; min-width: 0; margin: 3px 8px 0 23px; font-size: 11.5px; line-height: 16px; color: var(--text-secondary); }
+.ws-fork-line svg { flex: none; }
+.ws-fork-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 button.ws-check-line { display: flex; align-items: center; gap: 4px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; font-style: italic; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
 button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
 button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text { color: var(--text-primary); }

@@ -184,6 +184,10 @@ type ExitInput struct {
 	// LeaveTerminal: the caller is deleting the bound terminal itself (a
 	// terminal removal ends its agent), so the store must not.
 	LeaveTerminal bool
+	// PiSessionFallback finds the Pi session of an agent that never bound
+	// one (lazy binding): the store never reads session files itself.
+	// Called only when the agent row names none; nil finds nothing.
+	PiSessionFallback func(Agent) string
 }
 
 // ExitLaunch is a CLI agent's terminal launch record, without secrets:
@@ -228,6 +232,10 @@ type ExitSessions struct {
 	PiSessionPath  string `json:"piSessionPath,omitempty"`
 	CLISessionID   string `json:"cliSessionId,omitempty"`
 	CLISessionPath string `json:"cliSessionPath,omitempty"`
+	// Cwd is the folder the agent's CLI ran in (ADR-0205): where a
+	// transcript is looked up and a resumed session starts. Exits written
+	// before it read "".
+	Cwd string `json:"cwd,omitempty"`
 }
 
 // AgentExit is one row of agent_exits.
@@ -262,6 +270,9 @@ type AgentExit struct {
 	Cost            *ExitCost    `json:"cost"` // nil = not measured
 	UndoneAt        *string      `json:"undoneAt"`
 	RestoredAgentID string       `json:"restoredAgentId,omitempty"`
+	// ForgottenAt: the person removed it from the agent history (ADR-0205);
+	// the exit stays in the catalog.
+	ForgottenAt *string `json:"forgottenAt,omitempty"`
 }
 
 // AgentActivity is the agent's own work record (ADR-0194).
@@ -468,6 +479,7 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 	}
 	if ws, err := s.GetWorkspace(a.WorkspaceID); err == nil {
 		ex.WorkspaceName = ws.Name
+		ex.Sessions.Cwd = AgentCwd(ws, a)
 	}
 	ex.Config = ExitConfig{
 		Thinking:         deref(a.Thinking),
@@ -480,7 +492,13 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 	}
 	ex.Signals = ExitSignals{LastStatus: a.LastStatus, LastStatusAt: a.LastStatusAt, LastStartedAt: a.LastStartedAt}
 	ex.Sessions.PiSessionPath = deref(a.SessionPath)
+	if ex.Sessions.PiSessionPath == "" && a.IsPi() && in.PiSessionFallback != nil {
+		ex.Sessions.PiSessionPath = strings.TrimSpace(in.PiSessionFallback(a))
+	}
 	if a.TerminalID != nil && strings.TrimSpace(*a.TerminalID) != "" {
+		if t, err := s.GetTerminal(*a.TerminalID); err == nil && strings.TrimSpace(t.Cwd) != "" {
+			ex.Sessions.Cwd = t.Cwd
+		}
 		if l, err := s.TerminalLaunch(*a.TerminalID); err == nil && l != nil {
 			ex.Config.Launch = exitLaunchOf(l)
 			if l.LastSession != nil {
@@ -599,7 +617,7 @@ func exitLaunchOf(l *TerminalLaunch) *ExitLaunch {
 
 const exitCols = `id, agent_id, agent_name, workspace_id, workspace_name, cli, provider, model, config, created_at, removed_at,
 	lifetime_s, turns, first_worked_at, last_worked_at, signals, sessions, sessions_purged, work_purged, origin, asked, ask_skip,
-	outcome, reasons, note, labeled_at, taxonomy, undone_at, restored_agent_id, cost`
+	outcome, reasons, note, labeled_at, taxonomy, undone_at, restored_agent_id, cost, forgotten_at`
 
 func insertExitTx(tx *sql.Tx, ex AgentExit) error {
 	config, err := marshalJSON(ex.Config)
@@ -626,11 +644,11 @@ func insertExitTx(tx *sql.Tx, ex AgentExit) error {
 		}
 		cost = raw
 	}
-	_, err = tx.Exec(`INSERT INTO agent_exits (`+exitCols+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	_, err = tx.Exec(`INSERT INTO agent_exits (`+exitCols+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		ex.ID, ex.AgentID, ex.AgentName, ex.WorkspaceID, ex.WorkspaceName, ex.CLI, ex.Provider, ex.Model, config, ex.CreatedAt, ex.RemovedAt,
 		ex.LifetimeS, turns, orNull(ex.FirstWorkedAt), orNull(ex.LastWorkedAt), signals, sessions, boolInt(ex.SessionsPurged), boolInt(ex.WorkPurged),
 		ex.Origin, boolInt(ex.Asked), ex.AskSkip, ex.Outcome, encodePackages(ex.Reasons), ex.Note, orNull(ex.LabeledAt), ex.Taxonomy,
-		orNull(ex.UndoneAt), ex.RestoredAgentID, cost)
+		orNull(ex.UndoneAt), ex.RestoredAgentID, cost, orNull(ex.ForgottenAt))
 	if err != nil {
 		return fmt.Errorf("store: insert exit: %w", err)
 	}
@@ -641,11 +659,11 @@ func scanExit(row interface{ Scan(...any) error }) (AgentExit, error) {
 	var ex AgentExit
 	var config, signals, sessions, reasons string
 	var turns sql.NullInt64
-	var first, last, labeled, undone, cost sql.NullString
+	var first, last, labeled, undone, cost, forgotten sql.NullString
 	var purgedS, purgedW, asked int
 	err := row.Scan(&ex.ID, &ex.AgentID, &ex.AgentName, &ex.WorkspaceID, &ex.WorkspaceName, &ex.CLI, &ex.Provider, &ex.Model, &config,
 		&ex.CreatedAt, &ex.RemovedAt, &ex.LifetimeS, &turns, &first, &last, &signals, &sessions, &purgedS, &purgedW, &ex.Origin, &asked,
-		&ex.AskSkip, &ex.Outcome, &reasons, &ex.Note, &labeled, &ex.Taxonomy, &undone, &ex.RestoredAgentID, &cost)
+		&ex.AskSkip, &ex.Outcome, &reasons, &ex.Note, &labeled, &ex.Taxonomy, &undone, &ex.RestoredAgentID, &cost, &forgotten)
 	if err != nil {
 		return AgentExit{}, err
 	}
@@ -664,6 +682,7 @@ func scanExit(row interface{ Scan(...any) error }) (AgentExit, error) {
 	ex.LastWorkedAt = nullStr(last)
 	ex.LabeledAt = nullStr(labeled)
 	ex.UndoneAt = nullStr(undone)
+	ex.ForgottenAt = nullStr(forgotten)
 	if cost.Valid && cost.String != "" {
 		var c ExitCost
 		if json.Unmarshal([]byte(cost.String), &c) == nil {
@@ -800,6 +819,42 @@ func (s *Store) LabelAgentExit(id string, l ExitLabel) (AgentExit, error) {
 // stays for the record and leaves every count.
 func (s *Store) MarkAgentExitUndone(id, restoredAgentID string) (AgentExit, error) {
 	return s.updateExit(id, `undone_at = COALESCE(undone_at, ?), restored_agent_id = ?`, nowUTC(), strings.TrimSpace(restoredAgentID))
+}
+
+// AgentHistoryCandidates returns the exits the agent history may list
+// (ADR-0205), newest first: not restored, not forgotten, and pointing at a
+// session. Whether the transcript is still on disk is the caller's check —
+// the store never reads CLI files. sessions_purged is not a filter: the
+// purge deletes Pi's files only, so another CLI's transcript outlives it.
+func (s *Store) AgentHistoryCandidates(limit int) ([]AgentExit, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 500
+	}
+	rows, err := s.db.Query(`SELECT `+exitCols+` FROM agent_exits
+		WHERE undone_at IS NULL AND forgotten_at IS NULL
+		ORDER BY removed_at DESC, id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("store: history exits: %w", err)
+	}
+	defer rows.Close()
+	out := []AgentExit{}
+	for rows.Next() {
+		ex, err := scanExit(rows)
+		if err != nil {
+			return nil, fmt.Errorf("store: scan exit: %w", err)
+		}
+		if ex.Sessions.PiSessionPath == "" && ex.Sessions.CLISessionID == "" && ex.Sessions.CLISessionPath == "" {
+			continue
+		}
+		out = append(out, ex)
+	}
+	return out, rows.Err()
+}
+
+// ForgetAgentExit takes an exit out of the agent history (ADR-0205). The
+// exit stays in the catalog and no file is touched.
+func (s *Store) ForgetAgentExit(id string) (AgentExit, error) {
+	return s.updateExit(id, `forgotten_at = COALESCE(forgotten_at, ?)`, nowUTC())
 }
 
 func (s *Store) updateExit(id, set string, args ...any) (AgentExit, error) {

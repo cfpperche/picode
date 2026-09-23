@@ -772,3 +772,17 @@ export const workspaceSettingsSchema = z.object({
       .refine((c) => !/[\r\n]/.test(c), "Each check is one line."),
   ).max(8, "Use up to eight checks."),
 });
+
+// A skill source (ADR-0196): owner/repo[/path][#ref], a GitHub URL, an
+// https:// site with a .well-known skills index, or an absolute folder.
+export const skillSourceSchema = z.object({
+  source: required("Source").max(500, "Use a source up to 500 characters.").refine((raw) => {
+    const s = raw.trim();
+    if (s.startsWith("/") || s.startsWith("~/")) return true;
+    if (/^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9._-]{1,100}(\/[A-Za-z0-9._@-]+)*(#[A-Za-z0-9._/-]+)?$/.test(s)) return true;
+    try {
+      const u = new URL(s);
+      return (u.protocol === "https:" || (u.protocol === "http:" && u.hostname === "github.com")) && !u.username && !u.password;
+    } catch { return false; }
+  }, "Use owner/repo, a GitHub or https:// address, or a folder path starting with / or ~/."),
+});

@@ -132,6 +132,12 @@ var dfArgs = []string{"-B1", "--output=size,used,avail,target"}
 // Measure reads the filesystem numbers, the reclaim table and the top-level
 // breakdown of home. It changes nothing.
 func Measure(r Runner, home string) (Report, error) {
+	return MeasureWith(r, home, Consumers(home))
+}
+
+// MeasureWith is Measure over a given table — the table with each cache's
+// path as its own tool reports it (LocateConsumers).
+func MeasureWith(r Runner, home string, consumers []Consumer) (Report, error) {
 	out, err := r.Output("df", dfArgs...)
 	if err != nil {
 		return Report{}, fmt.Errorf("df: %w", err)
@@ -155,7 +161,6 @@ func Measure(r Runner, home string) (Report, error) {
 		names = append(names, filepath.Join(home, e.Name()))
 	}
 
-	consumers := Consumers(home)
 	var consumerPaths []string
 	for _, c := range consumers {
 		consumerPaths = append(consumerPaths, c.Paths...)
@@ -430,4 +435,66 @@ func Bytes(n int64) string {
 		return fmt.Sprintf("%.1f %s", v, units[i])
 	}
 	return fmt.Sprintf("%.0f %s", v, units[i])
+}
+
+// locateArgs asks each cache's own tool where the cache is. The table's
+// paths are the defaults; a tool configured elsewhere (pnpm's store under
+// ~/.local/share, a GOCACHE set with `go env -w`) would otherwise be
+// measured in the wrong place — its prune would then free nothing the row
+// shows, and the row would never shrink.
+var locateArgs = map[string][]string{
+	"go-build": {"go", "env", "GOCACHE"},
+	"go-mod":   {"go", "env", "GOMODCACHE"},
+	"npm":      {"npm", "config", "get", "cache"},
+	"pnpm":     {"pnpm", "store", "path"},
+	"uv":       {"uv", "cache", "dir"},
+}
+
+// LocateConsumers returns the table with each tool-owned cache's path
+// replaced by what its tool answers. ask runs one argv and returns its
+// answer; an error, an empty answer or a relative path keeps the default.
+// Caches pruned by path (rm -rf) and data rows are never moved: their path
+// is the one the prune removes.
+//
+// An answer is used only when it is a folder inside home (where every
+// default lives: the distro's own disk, never /mnt/c, never / — du would
+// walk the Windows drive or the whole filesystem), and when it neither
+// contains nor sits inside another cache's path: the one du pass skips a
+// path it already visited, so nested rows would hide each other.
+func LocateConsumers(consumers []Consumer, ask func(argv []string) (string, error), home string) []Consumer {
+	out := make([]Consumer, len(consumers))
+	copy(out, consumers)
+	home = filepath.Clean(home)
+	inside := func(p, dir string) bool { return p == dir || strings.HasPrefix(p, dir+string(filepath.Separator)) }
+	for i, c := range out {
+		argv, ok := locateArgs[c.ID]
+		if !ok {
+			continue
+		}
+		answer, err := ask(argv)
+		answer = strings.TrimSpace(answer)
+		if err != nil || answer == "" || !filepath.IsAbs(answer) || strings.ContainsAny(answer, "\n\r") {
+			continue
+		}
+		answer = filepath.Clean(answer)
+		if answer == home || !inside(answer, home) {
+			continue
+		}
+		clash := false
+		for j, other := range out {
+			if j == i {
+				continue
+			}
+			for _, p := range other.Paths {
+				if inside(p, answer) || inside(answer, p) {
+					clash = true
+				}
+			}
+		}
+		if clash {
+			continue
+		}
+		out[i].Paths = []string{answer}
+	}
+	return out
 }

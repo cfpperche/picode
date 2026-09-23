@@ -1,16 +1,27 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import {
-  alsoLoadedLine, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
-  skillsSummary, tokensLabel, trustLine, visibleSkills,
+  alsoLoadedLine, canRemoveSkill, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
+  skillsSummary, skillTargetBody, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
 } from "@picode/shared/domain/cliSkills.js";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
+import AddSkillDialog from "./AddSkillDialog.jsx";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { toast } from "../lib/toast.js";
 
 // What one agent CLI loads as Agent Skills, and from where (ADR-0196). Slice
-// 1 reads only: every folder the CLI reads in its own precedence order, which
-// copy wins, who installed it, and what it costs at start. Installing and
-// switching skills off land in the next slices (docs/plans/skills.md).
+// 1 reads: every folder the CLI reads in its own precedence order, which copy
+// wins, who installed it, and what it costs at start. Slice 2 installs,
+// removes, checks and updates — PiCode's own writes into .agents/skills and
+// the skills CLI's locks (docs/plans/skills.md).
+
+// Brings a row's detail into view the first time it renders.
+function scrollOnce(el) {
+  if (el && !el.dataset.seen) {
+    el.dataset.seen = "1";
+    el.scrollIntoView({ block: "nearest" });
+  }
+}
 
 function copy(command) {
   navigator.clipboard.writeText(command)
@@ -27,6 +38,11 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
   const [scope, setScope] = useState(route.scope || "all");
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [updates, setUpdates] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [rowBusy, setRowBusy] = useState("");
+  const [ask, setAsk] = useState(null); // { key, text, action }
 
   const load = useCallback(() => api(skillsReportPath(cli, workspaceId)), [cli, workspaceId]);
 
@@ -44,6 +60,11 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
     });
     return () => { active = false; };
   }, [load, reload]);
+
+  // PiCode's own writes announce themselves (skills.changed).
+  useEffect(() => subscribeFeed((event) => {
+    if (event.type === "skills.changed") setReload((n) => n + 1);
+  }), []);
 
   // Skill folders change outside PiCode (an installer, an editor): coming back
   // to the tab reads them again rather than showing a stale list.
@@ -76,12 +97,74 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
     { id: "machine", label: "This machine" },
   ];
 
+  const updateOf = updates ? updatesByKey(updates) : {};
+  const dialog = (
+    <AddSkillDialog
+      open={adding}
+      onClose={() => setAdding(false)}
+      workspaceId={workspaceId}
+      workspaceName={workspaceName}
+      onDone={(res) => {
+        toast.ok(res.status === "already" ? res.name + " is already installed." : res.status === "adopted" ? "Recorded where " + res.name + " came from." : res.name + " installed.");
+        (res.notes || []).forEach((n) => toast.info(n));
+        setReload((n) => n + 1);
+      }}
+    />
+  );
+
+  const check = async () => {
+    setChecking(true);
+    try {
+      const q = new URLSearchParams();
+      if (workspaceId) q.set("workspace", workspaceId);
+      const res = await api("/api/skills/updates?" + q);
+      setUpdates(res.rows || []);
+    } catch (x) {
+      toast.error(x.message);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  // Remove and update: the first call carries no confirmation; a refusal the
+  // person can answer (409) becomes a question under the row.
+  const act = async (row, verb, extra = {}) => {
+    const key = row.dir;
+    setRowBusy(key);
+    setAsk(null);
+    const body = { ...skillTargetBody(row, workspaceId), ...extra };
+    try {
+      if (verb === "remove") {
+        await api("/api/skills", { method: "DELETE", body: JSON.stringify(body) });
+        toast.ok(row.name + " removed.");
+        setOpen("");
+      } else {
+        const res = await api("/api/skills/update", { method: "POST", body: JSON.stringify(body) });
+        toast.ok(res.status === "current" ? row.name + " is already current." : row.name + " updated.");
+        setUpdates((u) => (u ? u.map((r) => (r.scope === row.scope && r.name === row.name ? { ...r, status: "current" } : r)) : u));
+      }
+      setReload((n) => n + 1);
+    } catch (x) {
+      const code = x.body?.code || "";
+      if (code === "modified" || code === "unlocked") {
+        setAsk({ key, text: x.message, verb, extra: verb === "remove" ? { confirm: true } : { force: true } });
+      } else {
+        toast.error(x.message);
+      }
+    } finally {
+      setRowBusy("");
+    }
+  };
+
   if (!rows.length) {
     return (
-      <div className="cli-notice" role="status">
-        <span>{skillsEmptyLine(cli, { workspaceName, hasWorkspace })}</span>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setReload((n) => n + 1)}>Check again</button>
-      </div>
+      <>
+        <div className="cli-notice" role="status">
+          <span>{skillsEmptyLine(cli, { workspaceName, hasWorkspace })}</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>Add skill</button>
+        </div>
+        {dialog}
+      </>
     );
   }
 
@@ -108,7 +191,11 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
           aria-label="Filter skills"
           onChange={(e) => setFilter(e.target.value)}
         />
+        <span className="cli-skills-bar-gap" />
+        <button type="button" className="btn btn-ghost" disabled={checking} onClick={check}>{checking ? <span className="cred-waiting">Checking</span> : "Check for updates"}</button>
+        <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>Add skill</button>
       </div>
+      {updates ? <p className="cli-memory-note">{updatesSummary(updates)}</p> : null}
 
       <p className="cli-memory-note">
         {summary.loaded} of {summary.total} load in {terminalCliLabel(cli)}
@@ -161,19 +248,41 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
                         <span className="cli-skills-name">{row.name}</span>
                         <span className="cli-skills-desc" title={row.description}>{row.description || "No description"}</span>
                       </td>
-                      <td className="cli-skills-c-status"><span className={"cli-skills-status is-" + st.tone} title={st.detail || ""}>{st.label}</span></td>
+                      <td className="cli-skills-c-status">
+                        <span className={"cli-skills-status is-" + st.tone} title={st.detail || ""}>{st.label}</span>
+                        {updateOf[row.scope + ":" + row.name]?.status === "behind" && canRemoveSkill(row) ? <span className="cli-skills-flag is-update"> · update</span> : null}
+                      </td>
                       <td className="cli-skills-c-origin" title={origin.title}>{origin.label}{origin.modified ? <span className="cli-skills-flag"> · edited</span> : null}</td>
                       <td className="cli-skills-c-root" title={row.dir}>{row.root}{row.linked ? <span className="cli-skills-flag"> · link</span> : null}</td>
                       <td className="cli-skills-c-cost is-num">{row.status === "loaded" ? tokensLabel(row.tokens) : ""}</td>
                     </tr>
                     {isOpen ? (
-                      <tr className="cli-skills-detail" ref={(el) => el?.scrollIntoView({ block: "nearest" })}>
+                      <tr className="cli-skills-detail" ref={scrollOnce}>
                         <td colSpan={5}>
                           {st.detail ? <p>{st.detail}.</p> : null}
                           {(row.problems || []).length && row.status !== "invalid" ? <p className="is-warn">{row.problems.join("; ")}.</p> : null}
                           <p className="cli-skills-path">{row.dir}</p>
                           {alsoLoadedLine(row) ? <p>{alsoLoadedLine(row)}.</p> : null}
                           {row.digest ? <p className="cli-skills-path" title={"sha256 " + row.digest + " — the folder's fingerprint, as the skills tool records it"}>Fingerprint {row.digest.slice(0, 12)}</p> : null}
+                          {updateOf[row.scope + ":" + row.name] && updateOf[row.scope + ":" + row.name].status !== "current" && updateOf[row.scope + ":" + row.name].reason
+                            ? <p className="is-warn">{updateOf[row.scope + ":" + row.name].reason}.</p> : null}
+                          {canRemoveSkill(row) ? (ask && ask.key === row.dir ? null : (
+                            <div className="cli-skills-actions" data-align-row>
+                              {updateOf[row.scope + ":" + row.name]?.status === "behind"
+                                ? <button type="button" className="btn btn-primary btn-sm" disabled={rowBusy === row.dir} onClick={() => act(row, "update")}>Update</button> : null}
+                              <button type="button" className="btn btn-ghost btn-danger btn-sm" disabled={rowBusy === row.dir} onClick={() => setAsk({ key: row.dir, text: "Remove " + row.name + " from " + (row.scope === "workspace" ? (workspaceName || "this workspace") : "this computer") + "? Every CLI that reads this folder loses it.", verb: "remove", extra: {} })}>Remove</button>
+                            </div>
+                          ))
+ : <p>{terminalCliLabel(cli)} manages this folder itself; PiCode removes only what lives in .agents/skills.</p>}
+                          {ask && ask.key === row.dir ? (
+                            <div className="cli-notice" role="alert">
+                              <span>{ask.text}</span>
+                              <span className="cli-skills-ask">
+                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAsk(null)}>Cancel</button>
+                                <button type="button" className={"btn btn-sm " + (ask.verb === "remove" ? "btn-danger" : "btn-primary")} disabled={rowBusy === row.dir} onClick={() => act(row, ask.verb, ask.extra)}>{ask.verb === "remove" ? (ask.extra.confirm ? "Remove anyway" : "Remove") : "Update anyway"}</button>
+                              </span>
+                            </div>
+                          ) : null}
                         </td>
                       </tr>
                     ) : null}
@@ -184,6 +293,7 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
           </table>
         </div>
       )}
+      {dialog}
     </div>
   );
 }

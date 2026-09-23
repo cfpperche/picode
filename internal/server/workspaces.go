@@ -47,6 +47,8 @@ type agentView struct {
 	Dialog            *rpc.UIDialog  `json:"dialog,omitempty"`
 	Terminal          map[string]any `json:"terminal,omitempty"`
 	LegacyInteractive bool           `json:"legacyInteractive,omitempty"`
+	// ForkedFrom names the agent this one was forked from (Fork agent…).
+	ForkedFrom *forkOrigin `json:"forkedFrom,omitempty"`
 }
 
 func asAgentView(a store.Agent, running bool) agentView {
@@ -101,6 +103,7 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 		return workspaceView{}, err
 	}
 	views := make([]agentView, 0, len(agents))
+	origins := forkOrigins(deps)
 	for _, a := range agents {
 		mode := deps.runMode(r, a.ID)
 		// Each agent carries its own git facts, read from its EFFECTIVE
@@ -109,7 +112,7 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 		// sidebar line is about the agent, not its container.
 		st, wt, dl := deps.liveState(a.ID)
 		views = append(views, agentView{MissionID: deps.Store.AgentMissionID(a.ID), Agent: a, Running: mode != modeStopped, Mode: string(mode),
-			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl, Terminal: deps.agentTerminalView(r, a), LegacyInteractive: a.TerminalID != nil && deps.agentSession(a.ID) == tmux.SessionName(a.ID)})
+			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl, Terminal: deps.agentTerminalView(r, a), LegacyInteractive: a.TerminalID != nil && deps.agentSession(a.ID) == tmux.SessionName(a.ID), ForkedFrom: origins[a.ID]})
 	}
 	var first *agentView
 	if len(views) > 0 {
@@ -253,10 +256,11 @@ func handleRemove(deps Deps) http.HandlerFunc {
 		preview := deps.previewCleanup(wk.Path, dying)
 		// Its agents end with it: each gets an unasked exit (ADR-0194).
 		exitIn := store.ExitInput{
-			Meter:          exitMeter(),
-			Origin:         exitOriginOf(req),
-			SessionsPurged: queryFlag(r, "sessions"),
-			WorkPurged:     queryFlag(r, "work") && preview.LastOccupant && preview.CanPurgeWork,
+			Meter:             exitMeter(),
+			PiSessionFallback: piSessionFallback,
+			Origin:            exitOriginOf(req),
+			SessionsPurged:    queryFlag(r, "sessions"),
+			WorkPurged:        queryFlag(r, "work") && preview.LastOccupant && preview.CanPurgeWork,
 		}
 		removed, _, err := deps.Store.RemoveWorkspaceWithExits(wk.ID, exitIn)
 		if err != nil || !removed {

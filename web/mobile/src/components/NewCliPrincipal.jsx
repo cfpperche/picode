@@ -3,6 +3,7 @@ import * as Dialog from "./MobileSheet.jsx";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { managedPrincipalSchema, freeAgentPickSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { catalogForAgent } from "@picode/shared/domain/managedPrincipal.js";
+import { createLine } from "@picode/shared/domain/instructions.js";
 import FolderField from "./FolderField.jsx";
 
 // Workspace catalog picker (ADR-0159 Fatia 3). Same fields as desktop;
@@ -21,6 +22,9 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
+  // What the picked CLI reads in this workspace (docs/architecture/
+  // cli-instructions.md): null while reading, false when it could not be read.
+  const [instr, setInstr] = useState(null);
 
   useEffect(() => {
     if (!open) return;
@@ -47,7 +51,18 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
     return () => { live = false; };
   }, [open, retry]);
 
+  useEffect(() => {
+    if (!open || free || !workspace || !workspace.id) { setInstr(null); return; }
+    let live = true;
+    setInstr(null);
+    api("/api/workspaces/" + encodeURIComponent(workspace.id) + "/instructions")
+      .then((r) => { if (live) setInstr(r); })
+      .catch(() => { if (live) setInstr(false); });
+    return () => { live = false; };
+  }, [open, free, workspace && workspace.id]);
+
   const selected = clis.find((c) => c.id === cliId);
+  const instrLine = instr ? createLine(instr, cliId) : "";
   const title = "New agent" + (!free && workspace && workspace.name ? " in " + workspace.name : "");
 
   async function onSubmit(e) {
@@ -113,6 +128,9 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
             <option key={c.id} value={c.id}>{c.name || c.id}</option>
           ))}
         </select>
+        {!free && instr !== false ? (
+          <p className="create-instr" role="status" aria-live="polite">{instr === null ? "\u00a0" : instrLine}</p>
+        ) : null}
         <input
           name="name"
           type="text"

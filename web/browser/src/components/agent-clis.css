@@ -708,3 +708,33 @@
 .cli-skills-detail p { margin: 0 0 4px; overflow-wrap: anywhere; }
 .cli-skills-detail .is-warn { color: var(--warn); }
 .cli-skills-path { font-family: var(--mono); font-size: 11.5px; }
+
+/* Add a skill (ADR-0196 slice 2). */
+.skill-add { max-width: 640px; }
+.skill-add-scope { margin: 0; }
+.skill-add-scope .pkg-scope-btn { display: inline-flex; align-items: center; }
+.skill-add-note, .skill-add-clean, .skill-add-blocker { margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.skill-add-blocker { color: var(--warn); }
+.skill-add-review { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.skill-add-list { border: 1px solid var(--border); border-radius: var(--radius-ctl); padding: 4px; margin: 0; max-height: 220px; overflow-y: auto; }
+.skill-add-list legend { font-size: 12px; color: var(--text-secondary); padding: 0 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-add-cand { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.skill-add-cand.is-on, .skill-add-cand:hover { background: var(--bg-hover, var(--bg-base)); }
+.skill-add-cand-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-add-cand-desc { grid-column: 2 / 4; font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-add-flag.is-critical { grid-row: 1; grid-column: 3; font-size: 11px; color: var(--danger); }
+.skill-add-detail { display: flex; flex-direction: column; gap: 6px; }
+.skill-add-head, .skill-add-desc, .skill-add-problem { margin: 0; font-size: 12.5px; }
+.skill-add-desc { color: var(--text-secondary); }
+.skill-add-problem { color: var(--warn); }
+.skill-add-findings { list-style: none; margin: 0; padding: 0; font-size: 12px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.skill-add-findings .is-critical .skill-add-sev { color: var(--danger); font-weight: 600; }
+.skill-add-findings .is-warning .skill-add-sev { color: var(--warn); font-weight: 600; }
+.skill-add-files summary { cursor: pointer; font-size: 12px; color: var(--text-secondary); }
+.skill-add-files ul { margin: 4px 0 0; padding-left: 16px; max-height: 140px; overflow-y: auto; font-family: var(--mono); font-size: 11.5px; }
+.skill-add-accept { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.cli-skills .cli-memory-bar .btn { height: var(--ctl-h); min-height: var(--ctl-h); white-space: nowrap; }
+.cli-skills-bar-gap { flex: 1; }
+.cli-skills-actions { display: flex; gap: 8px; margin: 6px 0 2px; }
+.cli-skills-ask { display: inline-flex; gap: 8px; flex-shrink: 0; }
+.cli-skills-flag.is-update { color: var(--accent); }

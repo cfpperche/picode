@@ -63,9 +63,12 @@ pub fn wslconfig_read() -> Result<WslConfig, String> {
     let values = OWNED
         .iter()
         .map(|(sec, key, _)| {
+            // The documented section's copy when the file has one there —
+            // the copy a save edits (edit's target) — else any WSL section's.
             let found = current
                 .iter()
-                .find(|((fs, fk), _)| fk.eq_ignore_ascii_case(key))
+                .find(|((fs, fk), _)| fk.eq_ignore_ascii_case(key) && fs.eq_ignore_ascii_case(sec))
+                .or_else(|| current.iter().find(|((_, fk), _)| fk.eq_ignore_ascii_case(key)))
                 .map(|((fs, _), v)| (fs.clone(), Some(v.clone())));
             let (section, value) = found.unwrap_or_else(|| ((*sec).to_string(), None));
             WslValue {
