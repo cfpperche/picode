@@ -10,6 +10,7 @@ import AppsGrid from "./AppsGrid.jsx";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
 import { freeTerminals, workspaceTerminals, FREE_WS } from "../lib/termGroups.js";
 import { moveId, movePhrase } from "../lib/sidebarOrder.js";
+import { sidebarBody } from "../lib/sidebarBody.js";
 import ProviderFaces from "./ProviderFaces.jsx";
 import { AgentRow, TermRow } from "./WorkspaceRows.jsx";
 import WorkspaceMenu from "./WorkspaceMenu.jsx";
@@ -36,10 +37,15 @@ const SIDE_MIN = 180;
 const SIDE_MAX = 480;
 const SIDE_KEY = "picode-sidebar-w";
 
+// Where a list's rows will be, until the boot has read the fleet.
+function SideSkeleton() {
+  return <div className="side-skel" aria-label="Loading"><div className="skel-line w-80" /><div className="skel-line w-50" /></div>;
+}
+
 export default function Sidebar({
   inShell = false,
   tab, selectTab,
-  workspaces, selectedId,
+  workspaces, selectedId, fleetLoaded = true,
   onNew, onSelect, onRun, onStop, onRemove,
   userMenu, termView, onChat, onTerm, onOpenDocs,
   freeAgents, onNewFree, onNewAgent, onRemoveAgent, onRenameAgent,
@@ -212,7 +218,7 @@ export default function Sidebar({
           <button type="button" className="ws-icon-btn" title="New terminal" onClick={() => onNewTerm && onNewTerm()}><IconPlus /></button>
         </div>
         <div className="side-scroll">
-        {shellFree.length === 0 ? (
+        {sidebarBody(fleetLoaded, shellFree.length) === "skeleton" ? <SideSkeleton /> : sidebarBody(fleetLoaded, shellFree.length) === "empty" ? (
           <p className="side-empty pins-empty">No terminals yet. <button type="button" className="side-empty-act" onClick={() => onNewTerm && onNewTerm()}>New terminal</button></p>
         ) : (
           <SortableList ids={shellFree.map((t) => t.id)} onReorder={(ids, activeId) => commitOrder("terminals", FREE_WS, shellFree.map((t) => t.id), ids, activeId, (id) => ((terminals || []).find((row) => row.id === id) || {}).name || "Terminal")}>
@@ -228,7 +234,7 @@ export default function Sidebar({
           <button type="button" className="ws-icon-btn" title="New agent" onClick={() => onNewFree()}><IconPlus /></button>
         </div>
         <div className="side-scroll">
-        {sortedFreeAgents.length === 0 ? (
+        {sidebarBody(fleetLoaded, sortedFreeAgents.length) === "skeleton" ? <SideSkeleton /> : sidebarBody(fleetLoaded, sortedFreeAgents.length) === "empty" ? (
           <p className="side-empty pins-empty">No agents yet. <button type="button" className="side-empty-act" onClick={() => onNewFree()}>New agent</button></p>
         ) : (
           <SortableList ids={sortedFreeAgents.map((a) => a.id)} onReorder={(ids, activeId) => commitOrder("agents", FREE_WS, sortedFreeAgents.map((a) => a.id), ids, activeId, (id) => displayAgentName(sortedFreeAgents.find((a) => a.id === id), null))}>
@@ -244,7 +250,7 @@ export default function Sidebar({
           <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={() => onNew()}><IconPlus /></button>
         </div>
         <div className="side-scroll">
-        {workspaces.length === 0 ? (
+        {sidebarBody(fleetLoaded, workspaces.length) === "skeleton" ? <SideSkeleton /> : sidebarBody(fleetLoaded, workspaces.length) === "empty" ? (
           <p className="side-empty pins-empty">No workspaces yet. <button type="button" className="side-empty-act" onClick={() => onNew()}>Add workspace</button></p>
         ) : (
         <SortableList ids={workspaces.map((w) => w.id)} onReorder={(ids, activeId) => commitOrder("workspaces", null, workspaces.map((w) => w.id), ids, activeId, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace")}>

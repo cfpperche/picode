@@ -204,6 +204,12 @@ body {
   color: var(--text-secondary);
 }
 .pins-empty { padding-left: 0; margin: 8px 0; }
+/* Before the boot has read the fleet: two quiet bars where the rows will
+   be, never the "No … yet" line a cold load used to flash. */
+.side-skel { display: flex; flex-direction: column; gap: 8px; padding: 10px 8px; }
+/* --bg-hover is nearly the sidebar's own ground: one step up so the bars read. */
+.side-skel .skel-line, .empty-skel .skel-line { background: var(--border-strong); }
+.empty-skel { display: flex; flex-direction: column; gap: 10px; width: 260px; max-width: 100%; }
 /* Shared flex helpers retained for compact sidebar surfaces outside the
    supervision-row markup below. */
 .ws-row1, .ws-row2 {
