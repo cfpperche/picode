@@ -205,3 +205,21 @@ func TestGuestScopesNameTheContextOrStepAside(t *testing.T) {
 		t.Fatalf("scopes = %+v, want the agent layer dropped and the workspace named", noAgent)
 	}
 }
+
+func TestGuestWorkspaceScopeKeepsItsQualifier(t *testing.T) {
+	// Claude Code's local layer is workspace-class with its own word: naming
+	// the workspace may not erase "(local)", or the pane shows two identical
+	// radios for two different files. Both rows carry the Workspace class id;
+	// the vendor word tells them apart.
+	scopes := []ScopeRow{
+		{ID: Workspace, Vendor: "project", Label: "This workspace"},
+		{ID: Workspace, Vendor: "local", Label: "This workspace (local)"},
+	}
+	got := scopesForGuestContext(scopes, Query{WorkspaceName: "Atlas"})
+	if got[0].Label != "Atlas" {
+		t.Fatalf("project label = %q, want the workspace's name", got[0].Label)
+	}
+	if got[1].Label != "Atlas (local)" {
+		t.Fatalf("local label = %q, want the name with the qualifier kept", got[1].Label)
+	}
+}
