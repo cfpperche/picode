@@ -15,4 +15,4 @@ Merge: on `main` at 2d195616, `make ci` green.
 
 ## Debts
 
-- Management capability allows only port 8445; a daemon on 8446–8455 gets no IPC in the Management window.
+- [x] Management capability allows only port 8445; a daemon on 8446–8455 gets no IPC in the Management window. Paid by feat/mgmt-port-range: the daemon's exact origin is granted at runtime.

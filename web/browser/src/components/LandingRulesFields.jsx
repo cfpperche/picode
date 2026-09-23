@@ -26,6 +26,15 @@ export default function LandingRulesFields({ draft, setDraft, idPrefix, checksHe
 
   return (
     <div className="wsset-own">
+      <label className="wsset-field">
+        <span className="wsset-sublabel">Who integrates</span>
+        <select className="dlg-input wsset-mode" value={draft.mode || ""} onChange={(e) => setDraft((d) => ({ ...d, mode: e.target.value }))}>
+          <option value="">Not declared — nothing runs</option>
+          <option value="local">PiCode runs it here</option>
+          <option value="provider">The project's own merge queue</option>
+        </select>
+      </label>
+      {draft.mode === "provider" ? <p className="wsset-effect">The project's own queue integrates it: PiCode enqueues and observes only, and the checks are that provider's.</p> : <>
       <label className="dlg-choice wsset-choice">
         <input type="checkbox" checked={draft.ffOnly} aria-describedby={!draft.ffOnly ? idPrefix + "-ff-warn" : undefined} onChange={(e) => setDraft((d) => ({ ...d, ffOnly: e.target.checked }))} />
         <span>Only land a branch that is up to date with the target <span className="wsset-muted">(fast-forward)</span></span>
@@ -62,6 +71,7 @@ export default function LandingRulesFields({ draft, setDraft, idPrefix, checksHe
           </button>
         ) : null}
       </div>
+      </>}
     </div>
   );
 }

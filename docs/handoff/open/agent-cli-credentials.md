@@ -19,6 +19,15 @@ Plan: docs/plans/agent-cli-credentials.md
   *who* holds it in the error (the daemon's pid is knowable), and let the test
   skip with that reason instead of failing the gate. Not touched: the holder was
   the owner's live daemon with terminals attached.
+  **Reviewed 2026-09-23:** two of those three candidates already exist — the
+  engine refuses a second login with *"an account login is already in progress"*
+  (`StartSink`'s `cur` guard) and a flow nobody finishes releases its listener
+  on a timeout (the comment above the call says so). What is left is naming a
+  *foreign* holder — an older daemon, a leftover process — and
+  `internal/server/devservers.go` already walks `/proc` for exactly that
+  attribution. The honest shape is therefore to lift that walk into a package
+  both callers can use, not to hand-roll a second one inside `internal/oauth`:
+  a unit of work, worth doing if the 409 costs someone again.
 - [ ] Muse Code and Antigravity credential paths were probed on this machine and neither vendor publishes documentation to confirm them — re-probe at implementation (`docs/benchmarks/2026-09-20-agent-cli-credentials.md`).
 - [ ] OpenCode `OPENCODE_CONFIG*` semantics (file vs directory, precedence over the vendor's own `auth.json`) are unverified against a real binary (`docs/plans/agent-cli-credentials.md`).
 - [ ] Claude Code publishes no non-interactive status command in the study (`/status` is in-REPL only) — re-check before wiring vendor verify into its pane (`docs/plans/agent-cli-credentials.md` §2.7).

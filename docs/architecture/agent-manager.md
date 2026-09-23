@@ -135,7 +135,7 @@ HTTP API (Go 1.22 method patterns):
   `\\wsl.localhost` path, `osopen.WindowsPath`). Two local git execs per
   repository workspace; a plain folder or an ssh alias remote carries none.
   The menu itself is `@picode/shared/domain/workspaceRowMenu.js`: inside
-  PiCode (Communication, Files, Git graph, Sessions), out of it (Show in
+  PiCode (Communication, Files, Git graph), out of it (Show in
   Explorer / file manager through `POST /api/workspaces/{id}/reveal`, Open
   on <host>, the branch's pull request, Copy path — Linux and Windows under
   WSL), Settings…, order moves, then Remove. Settings… is
@@ -166,8 +166,9 @@ HTTP API (Go 1.22 method patterns):
 - `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
   (work only if cwd is under `~/.picode/work/` and nobody else uses it).
 - `GET /api/clis/{cli}/sessions` — the per-CLI session index (ADR-0079
-  phase 2): pi plus Claude Code, Codex, Grok, Hermes Agent and OpenCode, read-only from disk
-  (`internal/clisession`), each row with size/age/messages and
+  phase 2): read-only from disk for every catalogued CLI (all nine, each
+  with its own reader in `internal/clisession`), each row with
+  size/age/messages and
   server-verified resume arguments, tagged with the PiCode workspace that
   owns its folder. For pi the row also carries `inUseBy` (the agent whose
   current session it is) and the response adds `cleanupDays`; scoping by
