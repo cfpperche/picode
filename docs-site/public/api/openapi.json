@@ -4228,6 +4228,97 @@
         ]
       }
     },
+    "/api/codex/login": {
+      "delete": {
+        "operationId": "deleteApiCodexLogin",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "codex"
+        ]
+      },
+      "get": {
+        "operationId": "getApiCodexLogin",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "codex"
+        ]
+      },
+      "post": {
+        "operationId": "postApiCodexLogin",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "codex"
+        ]
+      }
+    },
+    "/api/codex/platform": {
+      "delete": {
+        "operationId": "deleteApiCodexPlatform",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "codex"
+        ]
+      }
+    },
     "/api/communication": {
       "get": {
         "operationId": "getApiCommunication",
@@ -11745,6 +11836,9 @@
     },
     {
       "name": "clis"
+    },
+    {
+      "name": "codex"
     },
     {
       "name": "communication"
