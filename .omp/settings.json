@@ -1,5 +1,6 @@
 {
   "extensions": [
+    "packages/pi-inbox/extensions/inbox.ts",
     "packages/pi-browser/extensions/browser.ts",
     "packages/omp-checklist/extensions/checklist.ts"
   ]
