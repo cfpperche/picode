@@ -105,7 +105,7 @@ func KillIsolatedServer(ctx context.Context, dir string) error {
 	if err := refuseUserServer(filepath.Join(dir, "tmux-"+strconv.Itoa(os.Getuid()), "default")); err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(ctx, "tmux", "kill-server")
+	cmd := exec.CommandContext(ctx, Binary(), "kill-server")
 	cmd.Env = IsolatedEnv(dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil && (strings.Contains(string(out), "no server running") || strings.Contains(string(out), "error connecting")) {
@@ -130,6 +130,14 @@ func refuseUserServer(socket string) error {
 	clean := filepath.Clean(socket)
 	if dir := filepath.Clean(DefaultSocketDir()); clean == dir || strings.HasPrefix(clean, dir+string(os.PathSeparator)) {
 		return fmt.Errorf("tmux: refusing kill-server in %s — that is the user's own socket directory", dir)
+	}
+	// The production instance's own server lives in its data directory
+	// (ADR-0139). PiCode's own tmux calls no longer pass through the session
+	// guard (Binary), so this refusal carries that protection instead.
+	if home, err := os.UserHomeDir(); err == nil {
+		if prod := filepath.Join(home, ".picode"); strings.HasPrefix(clean, prod+string(os.PathSeparator)) {
+			return fmt.Errorf("tmux: refusing kill-server on %s — that is the PiCode instance's own server", clean)
+		}
 	}
 	if live := socketFromTmuxEnv(os.Getenv("TMUX")); live != "" && filepath.Clean(live) == clean {
 		return fmt.Errorf("tmux: refusing kill-server on %s ($TMUX) — that is the server this session is attached to", live)
@@ -227,7 +235,7 @@ func (m *Manager) KillServer(ctx context.Context) error {
 }
 
 func execTmux(ctx context.Context, stdin string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "tmux", args...)
+	cmd := exec.CommandContext(ctx, Binary(), args...)
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}
@@ -244,7 +252,7 @@ func (m *Manager) Available() bool {
 // `tmux -V` answers. The binary and the running server are different things:
 // VersionInUse is the one reports name.
 func (m *Manager) Version() (string, error) {
-	out, err := exec.Command("tmux", "-V").Output()
+	out, err := exec.Command(Binary(), "-V").Output()
 	if err != nil {
 		return "", fmt.Errorf("tmux -V: %w", err)
 	}
