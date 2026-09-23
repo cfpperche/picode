@@ -9,6 +9,7 @@ import { OPEN_WORKSPACE_SETTINGS } from "./LandingWork.jsx";
 import { toast, toastError } from "../lib/toast.js";
 
 const ICONS = {
+  missions: <IconGit size={13} />,
   communication: <IconCommunication size={13} />,
   files: <IconFolder size={13} />,
   "git-graph": <IconGit size={13} />,
@@ -94,6 +95,7 @@ export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onFileTree, on
     if (r.url) { window.open(r.url, "_blank", "noopener,noreferrer"); return; }
     switch (r.id) {
       case "communication": location.hash = "#/clis/messages/" + encodeURIComponent("workspace:" + ws.id); break;
+      case "missions": location.hash = "#/missions?workspace=" + encodeURIComponent(ws.id); break;
       case "files": onFileTree && onFileTree("workspace", ws.id, ws.name); break;
       case "git-graph": onGitGraph && onGitGraph("workspace", ws.id, ws.name); break;
       case "reveal": void reveal(); break;

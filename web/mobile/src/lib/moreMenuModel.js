@@ -5,6 +5,7 @@ import { matchesListSearch } from "./mobileListSearch.js";
 // Notifications are mobile-only; Providers/Packages stay search-only
 // because those routes live under Agent CLIs.
 export const MORE_SECTIONS = [
+  ["missions", "Missions", "Objectives, evidence and agent handoffs"],
   ["pins", "Pins", "Notes, files and reminders"],
   ["snippets", "Snippets", "Reusable prompts and commands"],
   ["automations", "Automations", "Scheduled and triggered work"],
@@ -24,7 +25,7 @@ export const MORE_SECTIONS = [
 export const MORE_TITLES = { ...Object.fromEntries(MORE_SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
 
 export const MORE_GROUPS = [
-  ["Tools", ["pins", "snippets", "clis", "automations", "apps", "llama"]],
+  ["Tools", ["missions", "pins", "snippets", "clis", "automations", "apps", "llama"]],
   ["PiCode", ["preferences", "notifications", "devices", "system", "integrations"]],
 ];
 

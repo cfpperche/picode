@@ -302,6 +302,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [MCP (Model Context Protocol) support](architecture/mcp.md) | `docs/architecture/mcp.md` |
 | [Integrations (ADR-0075)](architecture/integrations.md) | `docs/architecture/integrations.md` |
 | [Computer tool (ADR-0148)](architecture/computer-tool.md) | `docs/architecture/computer-tool.md` |
+| [Missions (ADRs 0199–0200)](architecture/missions.md) | `docs/architecture/missions.md` |
 | [Delivery declarations (ADR-0171)](architecture/delivery.md) | `docs/architecture/delivery.md` |
 | [picode-mcp (ADR-0154)](architecture/picode-mcp.md) | `docs/architecture/picode-mcp.md` |
 | [Pins](architecture/pins.md) | `docs/architecture/pins.md` |

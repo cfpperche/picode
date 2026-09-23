@@ -184,6 +184,7 @@ export const PICODE_TOOL_FAMILIES = [
   { id: "inbox", label: "Inbox", hint: "File notes and questions into your Inbox; a question waits for your answer there." },
   { id: "checklist", label: "Checklist", hint: "The agent's plan for the task, shown as the current step on this terminal's card." },
   { id: "delivery", label: "Delivery", hint: "Declare the change and ask for review in the project the CLI opens in; Git ▸ Delivery follows it. No merge, queue or deploy." },
+	{ id: "mission", label: "Missions", hint: "Follow the assigned mission and report progress and evidence." },
 ];
 
 const toolList = (tools) => Array.isArray(tools) ? tools.filter((t) => typeof t === "string" && t) : [];

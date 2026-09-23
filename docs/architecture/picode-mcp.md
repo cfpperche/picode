@@ -137,3 +137,11 @@ execution authority. Unset tool defaults in the three supported managed CLI
 launchers include the family; explicit selections remain explicit. The UI tool
 picker is unchanged and does not offer this family yet. No messages connection
 is enabled or used.
+
+## Mission reporting
+
+The optional `mission` family shares `picode mission` and `/api/missions/tool`.
+It inherits launch identity and allows only the assigned executor to read,
+acknowledge, report, block, attach evidence and request review. Version and
+assignment generation are mandatory for writes; owner-only actions remain in
+the Missions surface. See [missions](missions.md) and ADR-0200.

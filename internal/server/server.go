@@ -281,6 +281,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerRolesState(mux, deps)
 	registerChecklistRoutes(mux, deps)
 	registerDeliveryRoutes(mux, deps)
+	registerMissionRoutes(mux, deps)
 	registerDeliveryObservationRoutes(mux, deps)
 	registerDeliveryQueueRoutes(mux, deps)
 	registerAgentFileRoutes(mux, deps)

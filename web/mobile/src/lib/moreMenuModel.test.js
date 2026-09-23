@@ -11,8 +11,8 @@ test("every group id resolves to a section; every section is reachable", () => {
 
 test("Tools holds Agent CLIs and llama.cpp; Webhooks sit under PiCode", () => {
   assert.deepEqual(MORE_GROUPS.map(([title]) => title), ["Tools", "PiCode"]);
-  assert.deepEqual(MORE_GROUPS[0][1], ["pins", "snippets", "clis", "automations", "apps", "llama"]);
-  assert.deepEqual(moreGroups("").find(g => g.title === "Tools").rows.map(r => r[0]), ["pins", "snippets", "clis", "automations", "apps", "llama"]);
+  assert.deepEqual(MORE_GROUPS[0][1], ["missions", "pins", "snippets", "clis", "automations", "apps", "llama"]);
+  assert.deepEqual(moreGroups("").find(g => g.title === "Tools").rows.map(r => r[0]), ["missions", "pins", "snippets", "clis", "automations", "apps", "llama"]);
   assert.ok(moreGroups("").find(g => g.title === "PiCode").rows.some(row => row[0] === "integrations"));
 });
 
