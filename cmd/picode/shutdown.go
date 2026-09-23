@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/cfpperche/picode/internal/server"
 )
 
 // Drain is how long HTTP Shutdown may wait for in-flight requests.
@@ -23,6 +25,11 @@ type httpStopper interface {
 
 func gracefulShutdown(srv *http.Server) {
 	drainHTTP(srv, httpDrain, httpHard)
+	// Helper processes a dialog started (OpenCode's server, ADR-0201) go
+	// down with PiCode, synchronously: a RegisterOnShutdown hook runs in a
+	// goroutine the exit may not wait for, and server.New's hooks sit on a
+	// server this binary never shuts down.
+	server.StopSidecars()
 }
 
 func drainHTTP(srv httpStopper, drain, hard time.Duration) {
