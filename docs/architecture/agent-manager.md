@@ -94,7 +94,10 @@ HTTP API (Go 1.22 method patterns):
   never HTML. Questions and approvals block by nature. `GET
   /api/inbox?state=&blocking=` lists (snoozed hidden until due). `POST
   /api/inbox/{id}/respond` `{verb: accept|edit|respond|ignore, text}`
-  answers and marks done. A stopped or managed agent receives the existing
+  answers and marks done. Agent-sourced questions and approvals take
+  `Deps.AnswerAgentQuestion`'s rule (table in `picode-mcp.md`): a waiting
+  asker reads the recorded answer, a non-Pi CLI gets it typed into its TUI,
+  and what follows here is the Pi (and Omp) door. A stopped or managed agent receives the existing
   durable `follow_up` task. A TUI agent instead receives the reply inside its
   terminal (ADR-0060): receiver extension or tmux paste, gated on the item's
   exact captured session, refused before mutation when identity is absent or

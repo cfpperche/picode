@@ -662,3 +662,15 @@
 
 .doctor-head { position: sticky; top: 0; background: var(--bg-surface, var(--bg-base)); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); min-height: 24px; }
 @media (max-width: 767px) { .doctor-head > :nth-child(2) { display: none; } }
+
+/* Polish (2026-09-22, owner): the picker carries its chevron at the right edge
+   like the selects beside it; a role row keeps air between its help line and
+   its controls; Settings rows with no help line no longer touch each other. */
+.role-pick { justify-content: space-between; }
+.role-pick .cockpit-chip-label { flex: 1 1 auto; min-width: 0; text-align: left; }
+.role-pick > svg { flex: none; }
+#cli-settings-view .set-row-role, #cli-models-view .set-row-role { column-gap: 24px; }
+#cli-settings-view .set-row-role .set-label, #cli-models-view .set-row-role .set-label { padding-right: 8px; }
+#cli-settings-view .settings-section { display: flex; flex-direction: column; gap: 6px; }
+#cli-settings-view .set-row-role .set-ctl, #cli-models-view .set-row-role .set-ctl { grid-template-columns: 14rem 11rem 7.5rem; }
+@media (max-width: 860px) { #cli-settings-view .set-row-role .set-ctl, #cli-models-view .set-row-role .set-ctl { grid-template-columns: none; } }

@@ -148,6 +148,8 @@ type TuiReplies struct {
 	pid    map[string]int
 	active map[string]bool
 	acks   map[string]chan replyAck
+	// waiting is when an asker last polled each Inbox item (agent_answer.go).
+	waiting map[string]time.Time
 }
 
 // NewTuiReplies creates the shared receiver registry for routes and background delivery.
@@ -160,6 +162,7 @@ func NewTuiReplies() *TuiReplies {
 		pid:        map[string]int{},
 		active:     map[string]bool{},
 		acks:       map[string]chan replyAck{},
+		waiting:    map[string]time.Time{},
 	}
 }
 
@@ -685,7 +688,7 @@ func (deps Deps) resolveReplySession(agent store.Agent, it store.InboxItem, cwd 
 	// back to the agent's current or latest session can deliver an answer
 	// into a different conversation.
 	path := strings.TrimSpace(it.SessionPath)
-	if path == "" || !safeSessionPath(path, session.AgentDir(agent.ID), session.Dir(cwd)) {
+	if path == "" || !safeSessionPath(path, session.AgentDir(agent.ID), session.Dir(cwd), ompAgentSessionDir(deps.DataDir, agent.ID)) {
 		return "", false
 	}
 	st, err := os.Stat(path)

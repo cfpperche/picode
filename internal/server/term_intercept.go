@@ -526,6 +526,10 @@ func writeOmpIntercept(dataDir, hook string) error {
 	if err := writeInterceptFile(extension, []byte(body), 0o600); err != nil {
 		return err
 	}
+	// The wrapper names Pi's reply receiver too (cliIntegrationPlan).
+	if _, err := ensurePiReplyExtension(dataDir); err != nil {
+		return err
+	}
 	ompArgs := quotedCLIArgs(cliIntegrationPlan("omp", dataDir, hook).Branches[0].Args)
 	passthrough := `# Named maintenance subcommands skip the presence lease and the extension.
 # Bare runs (with or without a prompt), -c/--continue and -r/--resume keep both.

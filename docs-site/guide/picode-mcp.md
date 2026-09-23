@@ -19,7 +19,7 @@ is asking, and whether you switched them on.
 |---|---|---|
 | Computer | `computer` | The Windows desktop through the desktop app: screenshot, windows, click, type, clipboard, open. Same twenty-three actions as [Computer use for pi](/guide/computer-tool). |
 | Browser | `browser` | The browser beside the agent's session: open, navigate, click, type. Not a headless browser. Same verbs as [Browser tools for pi](/guide/browser-tool). |
-| Inbox | `notify_human`, `ask_human` | A note into your [Inbox](/guide/inbox-tools), or a question. Over MCP `ask_human` waits for your answer in the Inbox — hours if needed, reporting progress to the CLI so the call stays alive — and returns it to the agent. |
+| Inbox | `notify_human`, `ask_human` | A note into your [Inbox](/guide/inbox-tools), or a question. Over MCP `ask_human` waits for your answer in the Inbox — hours if needed, reporting progress to the CLI so the call stays alive — and returns it to the agent. If the agent stopped waiting, your reply is typed into its terminal instead. |
 | Checklist | `checklist` | The agent's plan for the task; the current step shows on the terminal's card, as it does for pi ([Checklist](/guide/checklist)). The gate pi enforces before a change does not exist over MCP; the plan is the agent's discipline. |
 
 Same names, same parameters, same answers. A prompt written for the pi tool
@@ -118,7 +118,14 @@ picode inbox ask --question "postgres or sqlite for this service?" \
 Answer in the Inbox app — the item shows the question, the source (the
 agent's name in a PiCode terminal, otherwise an honest `user@host`), and a
 reply box. The reply is recorded on the item, which is exactly what the
-waiting command picks up. Without `--wait`, the command prints the item id
+waiting command picks up.
+
+A reply to a CLI agent always reaches it one way or another. While the agent
+is still waiting in `ask_human`, the answer comes back as the tool's result.
+If it stopped waiting (the wait timed out, or you interrupted it) and its
+terminal is open, PiCode types the reply into that terminal. If the agent is
+not running, the reply stays on the item, and the item and the message after
+Reply both say so. Without `--wait`, the command prints the item id
 and returns; `--timeout 30m` caps the wait when you want it capped.
 
 Discovery is the same as every PiCode client: `--url`, else `PICODE_URL`,
