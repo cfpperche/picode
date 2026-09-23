@@ -2619,7 +2619,9 @@ export default function App({ shellChrome = false } = {}) {
     const adopted = res && res.agent;
     const brief = res && res.brief;
     if (next && next.launchError) {
+      // The agent exists (ADR-0184); its stopped terminal says why and offers Start.
       toastError(new Error(next.launchError));
+      if (next.id) location.hash = termHash(next.id);
     } else if (next && next.id) {
       toast.ok(target.name + " is opening with this conversation.");
       location.hash = termHash(next.id);
@@ -2957,7 +2959,9 @@ export default function App({ shellChrome = false } = {}) {
   async function removeAgent(ag) {
     const choice = await confirmCleanup({
       title: "Remove agent",
-      message: `Remove "${ag.name}"? The project folder is not deleted.`,
+      // A bound terminal goes with its agent — for a shell made an agent
+      // (ADR-0184), that is the shell and whatever runs in it.
+      message: `Remove "${ag.name}"? ` + (ag.terminalId ? "Its terminal closes with it, and anything running there stops. " : "") + "The project folder is not deleted.",
       path: "/api/agents/" + ag.id + "/cleanup",
     });
     if (!choice) return;

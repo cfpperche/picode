@@ -56,11 +56,11 @@ export default function TermSurface({ adopt = "", term, error, hidden, onOpenFil
   const [resumeError, setResumeError] = useState("");
   if (!term && !error) return null;
   // One-click recovery of the pinned conversation (ADR-0084).
-  async function resumeLast() {
+  async function resumeLast(resume = true) {
     setResuming(true);
     setResumeError("");
     try {
-      await api(`/api/terminals/${encodeURIComponent(term.id)}/launch/start`, json("POST", { resume: true }));
+      await api(`/api/terminals/${encodeURIComponent(term.id)}/launch/start`, json("POST", { resume }));
     } catch (e) {
       setResumeError(humanizeError(e && e.message ? e.message : String(e)));
     } finally {
@@ -109,12 +109,12 @@ export default function TermSurface({ adopt = "", term, error, hidden, onOpenFil
             alert={resumeError}
           >
             {last ? (
-              <button type="button" className="btn btn-primary" disabled={resuming} onClick={resumeLast}>
+              <button type="button" className="btn btn-primary" disabled={resuming} onClick={() => resumeLast(true)}>
                 {resuming ? <IconReload size={13} className="term-msg-spin" /> : <IconPlay size={12} />}
                 {resuming ? "Resuming…" : "Resume last session"}
               </button>
             ) : null}
-            <a className="btn" href="#/clis">Start from Agent CLIs</a>
+            <button type="button" className={"btn" + (last ? "" : " btn-primary")} disabled={resuming} onClick={() => resumeLast(false)}>{last ? "Start fresh" : "Start"}</button>
           </TermMessage>
         </TermWindow>
       ) : (

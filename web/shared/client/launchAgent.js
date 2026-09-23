@@ -10,7 +10,13 @@ import { api } from "./api.js";
 // was created.
 export async function createLaunchAgent({ cli, name, workspaceId, folder, overrides }, request = api) {
   const free = !workspaceId || workspaceId === "ws_free";
-  const body = { cli, name: name || "", overrides: overrides || {} };
+  const body = { cli, name: name || "" };
+  // A Pi agent has chat and terminal both; with nothing to change in its
+  // launch it is the same agent the palette's New agent makes, and it gets
+  // its terminal when one is opened. Any other CLI runs in its terminal
+  // from the start, so its launch always travels.
+  const plain = !overrides || Object.keys(overrides).length === 0;
+  if (!(cli === "pi" && plain)) body.overrides = overrides || {};
   if (folder) body[free ? "path" : "workPath"] = folder;
   const url = free ? "/api/agents" : "/api/workspaces/" + encodeURIComponent(workspaceId) + "/agents";
   const agent = await request(url, post(body));

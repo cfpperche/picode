@@ -424,7 +424,9 @@ export default function MobileApp() {
     const next = res && res.terminal;
     const adopted = res && res.agent;
     if (next && next.launchError) {
+      // The agent exists (ADR-0184); its stopped terminal says why and offers Start.
       toastError(new Error(next.launchError));
+      if (next.id) openTerm(next.id);
     } else if (next && next.id) {
       toast.ok(target.name + " is opening with this conversation.");
       openTerm(next.id);

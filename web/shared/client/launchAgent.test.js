@@ -35,3 +35,17 @@ test("an agent without a terminal is not started", async () => {
   assert.equal(calls.length, 1);
   assert.equal(out.terminalId, "");
 });
+
+test("a plain Pi launch is the palette's Pi agent: no launch overrides, no start", async () => {
+  const { calls, request } = recorder({ "/api/agents": { id: "p1", cli: "pi" } });
+  const out = await createLaunchAgent({ cli: "pi", name: "P", workspaceId: "", overrides: {} }, request);
+  assert.equal(calls.length, 1);
+  assert.equal("overrides" in calls[0].body, false);
+  assert.equal(out.terminalId, "");
+});
+
+test("a Pi launch with a profile keeps its overrides", async () => {
+  const { calls, request } = recorder({ "/api/agents": { id: "p2", terminalId: "t2" }, "/api/terminals/t2/launch/start": {} });
+  await createLaunchAgent({ cli: "pi", overrides: { args: ["--verbose"] } }, request);
+  assert.deepEqual(calls[0].body.overrides, { args: ["--verbose"] });
+});
