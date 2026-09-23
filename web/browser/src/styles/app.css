@@ -1189,10 +1189,17 @@ body.is-row-dragging, body.is-row-dragging * { cursor: grabbing; }
 /* Flex, flush left: the chevron hangs at the section edge and the name
    lands on the same column as the child cards' names — the container must
    not sit further right than its content. */
+/* Sticky in the .side-scroll scrollport: the folder header holds the top of
+   the list while its rows scroll under an opaque panel (the sidebar's own
+   surface), so a long folder never loses its name, chevron and actions. A
+   later folder's header covers this one as it arrives — the standard
+   sticky-stack handoff. */
 .ws-group-head {
+  position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; gap: 6px;
   padding: 4px 4px 4px 0;
   border: 1px solid transparent;
+  background: var(--bg-panel);
   color: var(--text-secondary); font-size: 11px;
   letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
 }
@@ -1380,8 +1387,8 @@ img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: 
 /* Keep the group header actions usable without reserving a second row. The
    two triggers stay legible at rest — hiding a control until hover puts it
    out of reach of touch and of anyone scanning the card (WCAG 1.4.13) — and
-   come forward on hover, focus or while their menu is open. */
-.ws-group-head { position: relative; }
+   come forward on hover, focus or while their menu is open. (The header's
+   own `position: sticky` above is the containing block for these.) */
 .ws-group-actions {
   display: flex; gap: 2px; flex: none; opacity: .55; transition: opacity .12s;
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
