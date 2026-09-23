@@ -10,7 +10,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { cliLaunchSchema, cliTerminalSchema, parseForm } from "@picode/shared/contracts/schemas.js";
-import { cliLocation, cliPaneHash, cliPaneSetupContext, cliCapabilities, cliPanes, launchDraft, launchConfig, editLaunchOverrides, resolveLaunch, cliTerminals, terminalLaunchCLI, profileOverrides, cliWorkspaceList } from "@picode/shared/domain/cliLaunch.js";
+import { adoptOffer, cliLocation, cliPaneHash, cliPaneSetupContext, cliCapabilities, cliPanes, launchDraft, launchConfig, editLaunchOverrides, resolveLaunch, cliTerminals, terminalLaunchCLI, profileOverrides, cliWorkspaceList } from "@picode/shared/domain/cliLaunch.js";
 import { loadPiPackagesContext } from "@picode/shared/domain/cliPackages.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { terminalCli, terminalCliLabel, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
@@ -402,6 +402,12 @@ function TerminalEditor({ route, data, run, busy }) {
     return () => { stopped = true; };
   }, [retry]); // this editor is keyed by its route
   if (route.view === "terminal" && !existing) return <Notice action="Choose a CLI" onAction={() => navigate("")}>That terminal is gone.</Notice>;
+  // ADR-0184: launch settings are an agent's. A shell has none to edit; one
+  // running a CLI PiCode knows can become an agent from here.
+  if (existing && !agent) {
+    const running = adoptOffer(existing, null);
+    return <Notice action={running ? "Make agent" : "Back"} onAction={running ? () => run("adopt", async () => { const a = await api(`/api/terminals/${encodeURIComponent(existing.id)}/adopt`, json("POST", {})); toast.ok((a && a.name ? a.name : existing.name) + " is an agent now."); }).catch((e) => toastError(e)) : () => navigate("")}>{running ? "Only an agent's terminal has launch settings. This shell runs " + terminalCliLabel(running) + "." : "Only an agent's terminal has launch settings."}</Notice>;
+  }
   // A CLI with no adapter (Muse Code, Antigravity) opens with its own
   // settings: the same launch screens, read-only — the plan PiCode will run,
   // and nothing to edit or save.

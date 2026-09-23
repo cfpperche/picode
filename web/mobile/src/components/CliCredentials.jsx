@@ -63,12 +63,6 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const [signin, setSignin] = useState(null);
   // The sign-in terminal shown in the card's dialog (ADR-0184).
   const [signinView, setSigninTerm] = useState(null);
-  // A vendor login on a phone needs Esc, arrows and Tab: the same key bar
-  // as the terminal screen, on the sign-in's own pane.
-  const signinHost = useRef(null);
-  const signinKeys = useTermAccessory(signinHost, () => terms.get("sh:" + (signinView ? signinView.id : "")), signinView ? signinView.id : "", () => {
-    toast.warn("Terminal reconnecting — tap the pane, then try again.");
-  });
   // pi's provider + model catalog (ADR-0129): the Add-provider dialog reads it,
   // and so does the app's model picker through onCatalogChange. No other CLI
   // has one to fetch.
@@ -843,10 +837,8 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
           >
             <Dialog.Title className="dlg-title">{cliName} sign-in</Dialog.Title>
             <Dialog.Description className="dlg-body">{(signin && signin.hint) || "Finish the sign-in, then check again."} Closing this keeps the sign-in running; Cancel ends it.</Dialog.Description>
-            <div className="cred-signin-term" ref={signinHost}>{signinView ? <TermSurface term={signinView} hidden={false} /> : null}</div>
-            {signinKeys.visible ? <KeyBar armed={signinKeys.armed} onArm={signinKeys.armKey} onKey={signinKeys.sendKey} onHide={signinKeys.hide} /> : null}
+            {signinView ? <SigninPane term={signinView} /> : null}
             <div className="dlg-actions">
-              <button type="button" className="btn btn-ghost btn-sm" aria-pressed={signinKeys.visible} onPointerDown={(e) => { if (signinKeys.visible) e.preventDefault(); }} onClick={() => { signinKeys.visible ? signinKeys.hide() : signinKeys.show(); }}>{signinKeys.visible ? "Hide keys" : "Keys"}</button>
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSigninTerm(null)}>Close</button>
               <button type="button" className="btn btn-primary btn-sm" disabled={busy === "check"} onClick={() => { setSigninTerm(null); checkSignin(); }}>Check now</button>
             </div>
@@ -1026,5 +1018,24 @@ function AccountRow({
         </DropdownMenu.Root>
       </span>
     </li>
+  );
+}
+
+// The sign-in's terminal with the phone's key bar (Esc, arrows, Tab — what a
+// vendor login asks for). Its own component so the pane exists when the key
+// accessory attaches: the sheet's portal mounts after the card renders.
+function SigninPane({ term }) {
+  const host = useRef(null);
+  const keys = useTermAccessory(host, () => terms.get("sh:" + term.id), term.id, () => {
+    toast.warn("Terminal reconnecting — tap the pane, then try again.");
+  });
+  return (
+    <>
+      <div className="cred-signin-term" ref={host}><TermSurface term={term} hidden={false} /></div>
+      {keys.visible ? <KeyBar armed={keys.armed} onArm={keys.armKey} onKey={keys.sendKey} onHide={keys.hide} /> : null}
+      <div className="dlg-actions">
+        <button type="button" className="btn btn-ghost btn-sm" aria-pressed={keys.visible} onPointerDown={(e) => { if (keys.visible) e.preventDefault(); }} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>{keys.visible ? "Hide keys" : "Keys"}</button>
+      </div>
+    </>
   );
 }
