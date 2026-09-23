@@ -205,3 +205,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0198](0198-management-root-in-distro.md) | management-root-in-distro | accepted |
 | [0201](0201-opencode-gui-login.md) | OpenCode signs in from the GUI through its own `opencode serve` API: its 223-provider catalog, its plugin login methods and prompts, keys by PUT /auth, OAuth auto or by pasted code | accepted (owner direction, 2026-09-23) |
 | [0202](0202-worktree-create-past-interlock.md) | Creating a worktree runs past the busy-repository interlock | accepted |
+| [0204](0204-instruction-file-writes.md) | The Instructions tab proposes instruction-file fixes and writes them only on confirmation | proposed |
