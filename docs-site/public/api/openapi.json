@@ -996,6 +996,41 @@
         ]
       }
     },
+    "/api/agents/{id}/fork-agent": {
+      "post": {
+        "operationId": "postApiAgentsFork-agent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agents"
+        ]
+      }
+    },
     "/api/agents/{id}/git": {
       "get": {
         "operationId": "getApiAgentsGit",

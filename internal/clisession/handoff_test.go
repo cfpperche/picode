@@ -69,12 +69,12 @@ func seedClaudeTranscript(t *testing.T, home, proj string) string {
 func TestCapabilitiesOf(t *testing.T) {
 	cases := map[string]Capabilities{
 		"pi":          {List: true, Read: true, Write: true, Prompt: true},
-		"claude-code": {List: true, Read: true, Write: true, Prompt: true},
-		"codex":       {List: true, Read: true, Write: true, Prompt: true},
-		"grok":        {List: true, Read: true, Write: true, Prompt: true},
+		"claude-code": {List: true, Read: true, Write: true, Prompt: true, Fork: true},
+		"codex":       {List: true, Read: true, Write: true, Prompt: true, Fork: true},
+		"grok":        {List: true, Read: true, Write: true, Prompt: true, Fork: true},
 		"hermes":      {List: true, Read: true, Write: true, Prompt: false},
-		"opencode":    {List: true, Read: true, Write: true, Prompt: true},
-		"omp":         {List: true, Read: true, Write: true, Prompt: true},
+		"opencode":    {List: true, Read: true, Write: true, Prompt: true, Fork: true},
+		"omp":         {List: true, Read: true, Write: true, Prompt: true, Fork: true},
 		"nope":        {},
 	}
 	for cli, want := range cases {
@@ -780,6 +780,51 @@ func TestPromptArgs(t *testing.T) {
 	}
 	if _, ok := PrompterFor("hermes"); ok {
 		t.Error("hermes cannot take an initial prompt interactively")
+	}
+}
+
+func TestForkArgs(t *testing.T) {
+	src := Ref{ID: "s1", Path: "/sessions/s1.jsonl"}
+	cases := []struct {
+		cli    string
+		prompt string
+		want   Fork
+	}{
+		{"claude-code", "do it", Fork{Args: []string{"--resume", "s1", "--fork-session", "--session-id", "new", "do it"}, ID: "new", ResumeArgs: []string{"--resume", "new"}}},
+		{"claude-code", "", Fork{Args: []string{"--resume", "s1", "--fork-session", "--session-id", "new"}, ID: "new", ResumeArgs: []string{"--resume", "new"}}},
+		{"grok", "do it", Fork{Args: []string{"--resume", "s1", "--fork-session", "--session-id", "new", "do it"}, ID: "new", ResumeArgs: []string{"--resume", "new"}}},
+		{"codex", "do it", Fork{Args: []string{"fork", "s1", "do it"}}},
+		{"codex", "", Fork{Args: []string{"fork", "s1"}}},
+		{"opencode", "do it", Fork{Args: []string{"--session", "s1", "--fork", "--prompt", "do it"}}},
+		{"opencode", "", Fork{Args: []string{"--session", "s1", "--fork"}}},
+		{"omp", "do it", Fork{Args: []string{"--fork", "/sessions/s1.jsonl", "do it"}}},
+	}
+	for _, c := range cases {
+		f, ok := ForkerFor(c.cli)
+		if !ok {
+			t.Fatalf("%s has no forker", c.cli)
+		}
+		if got := f.ForkArgs(src, c.prompt, "new"); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s %q: %+v", c.cli, c.prompt, got)
+		}
+	}
+	// omp without a file falls back to the id prefix.
+	f, _ := ForkerFor("omp")
+	if got := f.ForkArgs(Ref{ID: "s1"}, "", "new"); !reflect.DeepEqual(got.Args, []string{"--fork", "s1"}) {
+		t.Errorf("omp by id: %v", got.Args)
+	}
+	// No fork from the command line (Hermes, Muse, Antigravity: in-TUI
+	// only), and Pi agents own their session file (--session is reserved).
+	for _, cli := range []string{"hermes", "muse", "agy", "pi"} {
+		if _, ok := ForkerFor(cli); ok {
+			t.Errorf("%s must not advertise a fork", cli)
+		}
+		if CapabilitiesOf(cli).Fork {
+			t.Errorf("%s capabilities claim a fork", cli)
+		}
+	}
+	if !CapabilitiesOf("claude-code").Fork {
+		t.Error("claude-code capabilities must advertise its fork")
 	}
 }
 

@@ -96,3 +96,38 @@ A long-term memory server in the same folder (hooks that inject a next-
 session brief) is a different layer: it does not replace Native session,
 and Continue does not wrap launches through it. Study:
 [2026-09-13-ai-memory](../benchmarks/2026-09-13-ai-memory.md).
+
+## Fork
+
+**Fork agent…** (sidebar `⋯` of a CLI agent whose terminal has a pinned
+conversation) starts a new agent of the **same** CLI on a copy of that
+conversation, with a task of its own, while the source keeps running. It
+never goes through the portable timeline: `clisession.Forker` composes the
+vendor's own fork, and `GET /api/clis` advertises it as `sessions.fork`.
+
+| CLI | Launch | Copy's id |
+|---|---|---|
+| Claude Code | `--resume <id> --fork-session --session-id <new> <task>` | pre-assigned, pinned at once |
+| Grok | `--resume <id> --fork-session --session-id <new> <task>` | pre-assigned, pinned at once |
+| Codex | `fork <id> <task>` | pinned on its first turn |
+| OpenCode | `--session <id> --fork --prompt <task>` | pinned on its first turn |
+| Omp | `--fork <file\|id> <task>` (parsed, not in `--help`) | pinned on its first turn |
+
+Hermes, Muse Code and Antigravity fork only inside their TUI; Pi agents own
+their session file. None of them advertises a fork yet
+(`docs/handoff/open/agent-fork.md`).
+
+`POST /api/agents/{id}/fork-agent` takes `{name, prompt, workPath, files,
+paths}`. The source's launch overrides carry over with the fork recipe as
+the arguments (resume's rule). Attachments are staged in the fork's folder
+(`.picode/drop/`, as the attach bar does) and named in the task as `@path`;
+the task is one launch argument, so line breaks become spaces. The row lands
+in `session_handoffs` with `mode = "fork"`.
+
+The dialog's task field is the terminal's attach composer
+(`AttachComposer.jsx`, shared with `TermAttachBar`). **New worktree** is the
+default in a repository: the dialog composes `create-worktree-branch`
+(`git worktree add -b <slug> <root>/.worktrees/<slug> HEAD`), hands it to
+the git door (ADR-0096, typed into a visible shell, run only when the
+ADR-0078 interlock allows), waits for the folder in the graph, then forks
+into it. **Same folder** shares the source's files.

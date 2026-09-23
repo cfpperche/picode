@@ -25,6 +25,7 @@ func TestComposeEveryAction(t *testing.T) {
 		{"create-tag", Args{Target: hash, Name: "v1.2.0"}, "git tag v1.2.0 " + hash, TierA},
 		{"create-worktree", Args{Target: "feat/x", Name: "x"}, "git worktree add .worktrees/x feat/x", TierA},
 		{"create-worktree", Args{Target: "feat/x", Name: "x", RepoRoot: "/home/me/my repo"}, "git worktree add '/home/me/my repo/.worktrees/x' feat/x", TierA},
+		{"create-worktree-branch", Args{Target: "abc1234", Name: "fix-race", RepoRoot: "/home/me/my repo"}, "git worktree add -b fix-race '/home/me/my repo/.worktrees/fix-race' abc1234", TierA},
 		{"reset-keep", Args{Target: hash}, "git reset --keep " + hash, TierB},
 		{"delete-remote-branch", Args{Target: "upstream/feat-x", Remotes: []string{"origin", "upstream"}}, "git push upstream --delete feat-x", TierC},
 		{"prune-worktrees", Args{}, "git worktree prune", TierA},
