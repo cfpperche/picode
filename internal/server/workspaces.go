@@ -84,7 +84,7 @@ func registerWorkspaceRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/workspaces/{id}/agents", handleAddWorkspaceAgent(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/principals", handleListWorkspacePrincipals(deps))
 	mux.HandleFunc("POST /api/workspaces/{id}/principals", handleAddWorkspacePrincipal(deps))
-	mux.HandleFunc("DELETE /api/managed-clis/{id}", handleDeleteManagedCLI(deps))
+	mux.HandleFunc("DELETE /api/managed-clis/{id}", handleDeleteAgent(deps)) // the alias stops the CLI first, like the agent route
 	mux.HandleFunc("GET /api/agents", handleListFreeAgents(deps))
 	mux.HandleFunc("POST /api/agents", handleAddFreeAgent(deps))
 	mux.HandleFunc("DELETE /api/agents/{id}", handleDeleteAgent(deps))

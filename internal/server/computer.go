@@ -69,7 +69,7 @@ func handleComputerTool(deps Deps) http.HandlerFunc {
 			params = req.Params
 		}
 		key := callerKey(deps, req.Agent, req.Term)
-		step := computerStep{principal: key, termID: strings.TrimSpace(req.Term), agentID: strings.TrimSpace(req.Agent), call: req.Call, action: action}
+		step := computerStep{principal: key, termID: strings.TrimSpace(req.Term), agentID: callerAgentID(deps, req.Agent, req.Term), call: req.Call, action: action}
 		if key == "" {
 			step.record(deps, "refused", "no identity", nil)
 			writeErr(w, http.StatusForbidden, computerRefused+" (this caller has no identity: run it as a PiCode agent or inside a PiCode terminal)")

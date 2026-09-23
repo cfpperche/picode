@@ -86,7 +86,11 @@ func TestSigninTerminalLifecycle(t *testing.T) {
 	if tm := tmux.New(); tm.Available() {
 		deps.Tmux = tm
 		d := signin("hermes")
-		if n := reapSigninTerminals(ctx, deps, now, false); n != 1 || !gone(d) {
+		// Within the grace a sign-in with no session yet is being created.
+		if n := reapSigninTerminals(ctx, deps, time.Now(), false); n != 0 || gone(d) {
+			t.Fatalf("a sign-in inside its grace was reaped (%d)", n)
+		}
+		if n := reapSigninTerminals(ctx, deps, time.Now().Add(signinGrace+time.Second), false); n != 1 || !gone(d) {
 			t.Fatalf("ended sign-in kept (%d)", n)
 		}
 	}
@@ -116,5 +120,36 @@ func TestCredentialSigninOpenNamesTheLiveOne(t *testing.T) {
 	res.Body.Close()
 	if res.StatusCode != http.StatusNotFound {
 		t.Fatalf("unknown cli = %d", res.StatusCode)
+	}
+}
+
+// ADR-0184: a shell or a sign-in never gains a launch through the launch
+// editor; an agent's terminal still does. The removed route answers 404.
+func TestLaunchEditRefusesShellsAndSignins(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st}).Handler)
+	t.Cleanup(ts.Close)
+	shell, _ := st.CreateTerminal("zsh", t.TempDir())
+	in, _ := st.CreateSigninTerminal("Codex sign-in", t.TempDir())
+	body := map[string]any{"cli": "codex", "overrides": map[string]any{}}
+	cliRequest(t, ts, "PUT", "/api/terminals/"+shell.ID+"/launch", body, 409)
+	cliRequest(t, ts, "PUT", "/api/terminals/"+in.ID+"/launch", body, 409)
+	if l, _ := st.TerminalLaunch(shell.ID); l != nil {
+		t.Fatal("a shell gained a launch")
+	}
+	ws, _ := st.AddWorkspace("w", t.TempDir())
+	a, _ := st.AddAgentWithCLI(ws.ID, "codex", "c", "")
+	own, _ := st.CreateTerminalIn(ws.ID, "c", "")
+	tid := own.ID
+	if _, err := st.UpdateAgent(a.ID, store.AgentPatch{TerminalID: &tid}); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "PUT", "/api/terminals/"+own.ID+"/launch", body, 200)
+	if res := cliRequestFull(t, ts, "POST", "/api/clis/codex/terminals", map[string]any{}); res["status"] == "201" || res["status"] == "200" {
+		t.Fatalf("removed route answered %v", res)
 	}
 }

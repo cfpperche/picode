@@ -340,7 +340,24 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 			return
 		}
 		merged := clilaunch.Resolve(c, v.Overrides)
-		if a, e := deps.Store.AgentByTerminal(id); e == nil {
+		// ADR-0184: a launch belongs to an agent. A shell becomes one through
+		// Make agent, never by gaining a launch here; a sign-in's launch is
+		// the credential flow's alone.
+		t, err := deps.Store.GetTerminal(id)
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		if t.Kind != "" {
+			writeErr(w, 409, "This terminal belongs to a sign-in.")
+			return
+		}
+		a, e := deps.Store.AgentByTerminal(id)
+		if e != nil {
+			writeErr(w, 409, "Only an agent's terminal has launch settings. Make it an agent first.")
+			return
+		}
+		{
 			if v.CLI != a.CLI {
 				writeErr(w, 400, "Choose a new agent to use a different CLI.")
 				return
@@ -574,6 +591,9 @@ func createCLIAgent(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTerminal
 	if strings.TrimSpace(v.Name) == "" {
 		v.Name = cli.Name
 	}
+	if err := launchFolderExists(v.Cwd); err != nil {
+		return store.Agent{}, nil, http.StatusBadRequest, err
+	}
 	wsID, cwd, work := store.FreeWorkspaceID, "", ""
 	if v.WorkspaceID != "" && v.WorkspaceID != store.FreeWorkspaceID {
 		wk, err := deps.Store.GetWorkspace(v.WorkspaceID)
@@ -608,14 +628,17 @@ func createCLIAgent(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTerminal
 		return agent, nil, status, err
 	}
 	if session != "" {
-		if agent, err = deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &session}); err != nil {
+		updated, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &session})
+		if err != nil {
 			_ = deps.Store.DeleteAgent(agent.ID)
-			return agent, nil, http.StatusInternalServerError, err
+			return store.Agent{}, nil, http.StatusInternalServerError, err
 		}
+		agent = updated
 	}
 	t, err := deps.Store.GetTerminal(*agent.TerminalID)
 	if err != nil {
-		return agent, nil, http.StatusInternalServerError, err
+		_ = deps.Store.DeleteAgent(agent.ID)
+		return store.Agent{}, nil, http.StatusInternalServerError, err
 	}
 	unlock := terminalLock(deps, t.ID)
 	defer unlock()
@@ -1369,17 +1392,23 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	}
 	body.WriteByte('\n')
 	body.WriteString("picode_exit=$?\nprintf '\\nProcess exited (%s).\\n' \"$picode_exit\"\n")
-	// Returning to the normal shell also restores the manual CLI wrappers.
-	rc, err := ensureInterceptBashrc(deps.DataDir)
-	if err != nil {
-		return nil, err
+	if t, e := deps.Store.GetTerminal(v.TerminalID); e == nil && t.Kind == store.TerminalKindSignin {
+		// A sign-in ends with its CLI (ADR-0184): no shell is left behind
+		// in a terminal nobody sees; the reaper then finds no session.
+		body.WriteString("exit \"$picode_exit\"\n")
+	} else {
+		// Returning to the normal shell also restores the manual CLI wrappers.
+		rc, err := ensureInterceptBashrc(deps.DataDir)
+		if err != nil {
+			return nil, err
+		}
+		shell := defaultShell()
+		fmt.Fprintf(&body, "exec %s", shellQuote(shell))
+		if shellTakesRcfile(shell) {
+			fmt.Fprintf(&body, " --rcfile %s", shellQuote(rc))
+		}
+		body.WriteByte('\n')
 	}
-	shell := defaultShell()
-	fmt.Fprintf(&body, "exec %s", shellQuote(shell))
-	if shellTakesRcfile(shell) {
-		fmt.Fprintf(&body, " --rcfile %s", shellQuote(rc))
-	}
-	body.WriteByte('\n')
 	script := filepath.Join(dir, "launch.sh")
 	if err := os.WriteFile(script, []byte(body.String()), 0o700); err != nil {
 		return nil, err

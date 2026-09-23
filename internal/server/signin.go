@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
@@ -10,7 +12,7 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-// signinOpenLimit is how long a sign-in terminal may stay open (ADR-0184):
+// signinOpenLimit is how long a sign-in terminal may sit idle (ADR-0184):
 // a vendor login takes a minute or two; one left behind is closed, never
 // kept running where nobody sees it.
 const signinOpenLimit = 15 * time.Minute
@@ -65,12 +67,34 @@ func signinTerminals(deps Deps, cli string) []store.Terminal {
 	return out
 }
 
+// signinGrace is how long a sign-in terminal may have no session: the row
+// exists a moment before its tmux session does, and a reaper tick or a
+// second click in that moment must not take it for an ended one.
+var signinGrace = 30 * time.Second
+
+// signinStamps holds, per sign-in terminal, the stamp of the account the
+// CLI's store held when the sign-in started, so a card that comes back to
+// it can still tell a new login from the old one. In memory: boot closes
+// every sign-in anyway.
+var signinStamps sync.Map
+
+// signinStamp is the stamp recorded when the sign-in started, or "".
+func signinStamp(termID string) string {
+	v, _ := signinStamps.Load(termID)
+	stamp, _ := v.(string)
+	return stamp
+}
+
 // closeSigninTerminal ends one sign-in terminal: its exact tmux session,
 // its runtime state, its launch files and its row. The store's
 // terminal.deleted event tells the card.
 func closeSigninTerminal(ctx context.Context, deps Deps, t store.Terminal) error {
 	unlock := terminalLock(deps, t.ID)
 	defer unlock()
+	return closeSigninLocked(ctx, deps, t)
+}
+
+func closeSigninLocked(ctx context.Context, deps Deps, t store.Terminal) error {
 	if deps.Tmux != nil && deps.Tmux.Available() {
 		if err := deps.Tmux.KillSession(ctx, tmux.ShellSessionName(t.ID)); err != nil {
 			return err
@@ -85,7 +109,8 @@ func closeSigninTerminal(ctx context.Context, deps Deps, t store.Terminal) error
 	if deps.DataDir != "" {
 		_ = cleanCLILaunches(deps.DataDir, t.ID, "")
 	}
-	if err := deps.Store.DeleteTerminal(t.ID); err != nil {
+	signinStamps.Delete(t.ID)
+	if err := deps.Store.DeleteTerminal(t.ID); err != nil && !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
 	invalidateTerminals(deps)
@@ -100,27 +125,51 @@ func closeSigninFor(ctx context.Context, deps Deps, cli string) {
 	}
 }
 
-// reapSigninTerminals closes every sign-in terminal whose session is gone
-// (its process exited) or that has been open longer than signinOpenLimit;
+// signinEnded reports whether a sign-in is over: its session is gone (the
+// CLI exited — the launch script ends with it) and it is past the grace, or
+// nobody has typed or seen output in it for signinOpenLimit.
+func signinEnded(ctx context.Context, deps Deps, t store.Terminal, now time.Time) bool {
+	created, err := time.Parse(time.RFC3339, t.CreatedAt)
+	if err != nil {
+		created = now
+	}
+	if deps.Tmux == nil || !deps.Tmux.Available() {
+		return now.Sub(created) > signinOpenLimit
+	}
+	name := tmux.ShellSessionName(t.ID)
+	alive, err := deps.Tmux.HasSession(ctx, name)
+	if err != nil {
+		return false
+	}
+	if !alive {
+		return now.Sub(created) > signinGrace
+	}
+	last, err := deps.Tmux.SessionActivity(ctx, name)
+	if err != nil || last.Before(created) {
+		last = created
+	}
+	return now.Sub(last) > signinOpenLimit
+}
+
+// reapSigninTerminals closes every sign-in that has ended (signinEnded);
 // all closes every one (boot: nothing from a previous run keeps running
-// unseen). Returns how many it closed.
+// unseen). The verdict is taken under the terminal's lock, so a sign-in
+// being created or reused in the same moment is judged on its real state.
+// Returns how many it closed.
 func reapSigninTerminals(ctx context.Context, deps Deps, now time.Time, all bool) int {
 	n := 0
 	for _, t := range signinTerminals(deps, "") {
-		stale := all
-		if !stale {
-			if at, err := time.Parse(time.RFC3339, t.CreatedAt); err == nil && now.Sub(at) > signinOpenLimit {
-				stale = true
+		func() {
+			unlock := terminalLock(deps, t.ID)
+			defer unlock()
+			cur, err := deps.Store.GetTerminal(t.ID)
+			if err != nil {
+				return
 			}
-		}
-		if !stale && deps.Tmux != nil && deps.Tmux.Available() {
-			if alive, err := deps.Tmux.HasSession(ctx, tmux.ShellSessionName(t.ID)); err == nil && !alive {
-				stale = true
+			if (all || signinEnded(ctx, deps, cur, now)) && closeSigninLocked(ctx, deps, cur) == nil {
+				n++
 			}
-		}
-		if stale && closeSigninTerminal(ctx, deps, t) == nil {
-			n++
-		}
+		}()
 	}
 	return n
 }

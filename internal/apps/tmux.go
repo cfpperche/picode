@@ -505,6 +505,9 @@ func tmuxAbsent(h Host, sessions []tmux.ServerSession) []tmux.AbsentTerminal {
 		return out
 	}
 	for _, t := range terms {
+		if t.Kind != "" {
+			continue // a sign-in the server closes on its own (ADR-0184)
+		}
 		session := tmux.ShellSessionName(t.ID)
 		if live[session] {
 			continue

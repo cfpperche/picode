@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"encoding/json"
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"os"
 	"path/filepath"
 	"slices"
@@ -109,9 +110,10 @@ func TestStopPinsWrapperlessSession(t *testing.T) {
 		{"omp", "pin-omp-1", seedPinOmpSessions, []string{"--resume", "pin-omp-1"}},
 	} {
 		t.Run(tc.cli, func(t *testing.T) {
-			created := cliRequest(t, ts, "POST", "/api/terminals", map[string]any{"name": "pin-" + tc.cli, "cwd": cwd}, 201)
+			// ADR-0184: a launch is an agent's; the CLI runs as `cat`.
+			cliRequest(t, ts, "PUT", "/api/clis/"+tc.cli, clilaunch.Config{Executable: "/bin/cat"}, 200)
+			created := launchFixture(t, ts, tc.cli, map[string]any{"name": "pin-" + tc.cli, "cwd": cwd}, 201)
 			id, _ := created["id"].(string)
-			cliRequest(t, ts, "PUT", "/api/terminals/"+id+"/launch", map[string]any{"cli": tc.cli, "overrides": map[string]any{}}, 200)
 			// Seed after the terminal exists: the pin only accepts sessions
 			// written after the run started (no stealing across terminals).
 			tc.seed(t, t.TempDir(), cwd, tc.id)
@@ -167,9 +169,9 @@ func TestStopSkipsStaleSession(t *testing.T) {
 	}
 	clisession.MuseTestDB = path
 	t.Cleanup(func() { clisession.MuseTestDB = "" })
-	created := cliRequest(t, ts, "POST", "/api/terminals", map[string]any{"name": "pin-stale", "cwd": cwd}, 201)
+	cliRequest(t, ts, "PUT", "/api/clis/muse", clilaunch.Config{Executable: "/bin/cat"}, 200)
+	created := launchFixture(t, ts, "muse", map[string]any{"name": "pin-stale", "cwd": cwd}, 201)
 	id, _ := created["id"].(string)
-	cliRequest(t, ts, "PUT", "/api/terminals/"+id+"/launch", map[string]any{"cli": "muse", "overrides": map[string]any{}}, 200)
 	cliRequest(t, ts, "POST", "/api/terminals/"+id+"/launch/stop", map[string]any{"confirm": true}, 200)
 	rows := cliRequest(t, ts, "GET", "/api/terminals", nil, 200)["terminals"].([]any)
 	for _, raw := range rows {

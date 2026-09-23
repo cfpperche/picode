@@ -511,7 +511,7 @@ func handleAddFreeAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		if status, err := checkAgentLaunch(deps, req.CLI, req.Overrides); err != nil {
+		if status, err := checkAgentLaunch(deps, req.CLI, req.Path, req.Overrides); err != nil {
 			writeErr(w, status, err.Error())
 			return
 		}
@@ -564,7 +564,7 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		if status, err := checkAgentLaunch(deps, req.CLI, req.Overrides); err != nil {
+		if status, err := checkAgentLaunch(deps, req.CLI, req.WorkPath, req.Overrides); err != nil {
 			writeErr(w, status, err.Error())
 			return
 		}
@@ -610,9 +610,14 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 // settings with the overrides must validate and point at an installed
 // executable before any row exists. Without overrides a create stays as
 // it was.
-func checkAgentLaunch(deps Deps, cliID string, ov *clilaunch.Overrides) (int, error) {
+func checkAgentLaunch(deps Deps, cliID, folder string, ov *clilaunch.Overrides) (int, error) {
 	if ov == nil {
 		return 0, nil
+	}
+	// A launch names a folder the CLI starts in; a typo or a folder that is
+	// gone is refused, not created (the terminal door refused it too).
+	if err := launchFolderExists(folder); err != nil {
+		return http.StatusBadRequest, err
 	}
 	if deps.Tmux == nil || !deps.Tmux.Available() {
 		return http.StatusServiceUnavailable, errors.New("Install tmux to open a terminal.")
@@ -922,4 +927,22 @@ func slugDir(name string) string {
 		s = "agent"
 	}
 	return s
+}
+
+// launchFolderExists refuses a named folder that is not there. "" is fine:
+// the agent then works in its workspace's folder or a private one.
+func launchFolderExists(folder string) error {
+	folder = strings.TrimSpace(folder)
+	if folder == "" {
+		return nil
+	}
+	if strings.HasPrefix(folder, "~/") {
+		if h, err := os.UserHomeDir(); err == nil {
+			folder = filepath.Join(h, folder[2:])
+		}
+	}
+	if st, err := os.Stat(folder); err != nil || !st.IsDir() {
+		return errors.New("That folder doesn't exist.")
+	}
+	return nil
 }
