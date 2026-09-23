@@ -367,10 +367,10 @@ fn logs_flow() {
 /// unreadable or root answer means "the distro default", which is what an
 /// omitted -u already selects.
 fn resolve_user(distro: &str) -> Option<String> {
-    let out = std::process::Command::new("wsl.exe")
-        .args(["-d", distro, "--", "whoami"])
-        .output()
-        .ok()?;
+    let mut cmd = std::process::Command::new("wsl.exe");
+    cmd.args(["-d", distro, "--", "whoami"]);
+    hide_console(&mut cmd);
+    let out = cmd.output().ok()?;
     let name = console_string(&out.stdout);
     let name = name.trim();
     if name.is_empty() || name == "root" || name.chars().any(char::is_whitespace) {
@@ -570,25 +570,28 @@ fn show(win: &tauri::Window) {
 // targets there is exactly one — and the winner's name comes back with the
 // URL, because the keepalive must hold that same distro open.
 fn discover_server() -> Option<(String, tauri::Url)> {
-    let out = Command::new("wsl.exe")
-        .args(["--list", "--quiet"])
-        .output()
-        .ok()?;
+    // Every wsl.exe here runs without a console: the shell is a GUI app, so
+    // a console child spawned plainly gets its own window — and this runs on
+    // every Management open.
+    let mut list = Command::new("wsl.exe");
+    list.args(["--list", "--quiet"]);
+    hide_console(&mut list);
+    let out = list.output().ok()?;
     for distro in console_string(&out.stdout).lines().map(str::trim) {
         if distro.is_empty() {
             continue;
         }
-        let out = Command::new("wsl.exe")
-            .args([
-                "-d",
-                distro,
-                "--",
-                "sh",
-                "-lc",
-                "cat \"$HOME/.picode/server.json\" 2>/dev/null",
-            ])
-            .output()
-            .ok()?;
+        let mut cat = Command::new("wsl.exe");
+        cat.args([
+            "-d",
+            distro,
+            "--",
+            "sh",
+            "-lc",
+            "cat \"$HOME/.picode/server.json\" 2>/dev/null",
+        ]);
+        hide_console(&mut cat);
+        let out = cat.output().ok()?;
         let text = console_string(&out.stdout);
         if let Some(start) = text.find('{') {
             if let Ok(found) = serde_json::from_str::<ServerJson>(text[start..].trim_end()) {

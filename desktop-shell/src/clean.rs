@@ -2,11 +2,8 @@
 //! the same streaming contract as the compact: one progress object per line,
 //! the final outcome as the last line.
 
-use crate::disk::{hide_console, run_cli, tool_exe};
+use crate::disk::{run_cli, stream_cli};
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader};
-use std::process::{Command, Stdio};
-use tauri::Emitter;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CleanCache {
@@ -52,49 +49,23 @@ pub fn clean_list() -> Result<CleanList, String> {
 /// Prunes the named caches through the in-distro tool. The tool refuses
 /// anything that is not a cache — including Pi sessions and the database,
 /// even when asked for by exact name. Steps stream to the window as
-/// `mgmt-progress` events; the outcome is the last line or a failure.
+/// `mgmt-progress` events (op "clean"); the outcome is the last line or a
+/// failure.
 #[tauri::command(async)]
-pub fn clean_apply(app: tauri::AppHandle, ids: Vec<String>) -> Result<CleanOutcome, String> {
+pub fn clean_apply(
+    app: tauri::AppHandle,
+    ids: Vec<String>,
+    run: Option<String>,
+) -> Result<CleanOutcome, String> {
     if ids.is_empty() {
         return Err("no caches selected".into());
     }
-    let exe = tool_exe().ok_or_else(|| {
-        "picode-desktop.exe was not found next to the shell or in %LOCALAPPDATA%\\PiCode — reinstall PiCode Desktop".to_string()
-    })?;
     let joined = ids.join(",");
-    let mut cmd = Command::new(&exe);
-    cmd.args(["clean", "--apply", &joined, "--yes", "--json"]);
-    hide_console(&mut cmd);
-    cmd.stdout(Stdio::piped());
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
-
-    let stdout = child.stdout.take().ok_or("the tool opened no stdout")?;
-    let reader = BufReader::new(stdout);
-    let mut outcome: Option<CleanOutcome> = None;
-    for line in reader.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        if line.trim().is_empty() {
-            continue;
-        }
-        if let Some(start) = line.find('{') {
-            if let Ok(o) = serde_json::from_str::<CleanOutcome>(line[start..].trim_end()) {
-                outcome = Some(o);
-                break; // the outcome is the last line by contract
-            }
-        }
-        if let Ok(v) = serde_json::from_str::<std::collections::HashMap<String, String>>(&line) {
-            if let Some(step) = v.get("progress") {
-                let _ = app.emit("mgmt-progress", step.clone());
-            }
-        }
+    let v = stream_cli(&app, "clean", &run.unwrap_or_default(), &["clean", "--apply", &joined, "--yes", "--json"])?;
+    // A refusal is an object with `refused`, not an outcome — say it plainly
+    // instead of reporting a missing `results` field.
+    if let Some(why) = v.get("refused").and_then(|r| r.as_str()) {
+        return Err(format!("not run — {why}"));
     }
-
-    let status = child.wait().map_err(|e| e.to_string())?;
-    match outcome {
-        Some(o) => Ok(o),
-        None => Err(format!(
-            "the clean ended without an outcome (exit {})",
-            status
-        )),
-    }
+    serde_json::from_value(v).map_err(|e| format!("clean outcome JSON: {e}"))
 }

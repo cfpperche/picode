@@ -167,7 +167,12 @@ another account (the Docker engine's own storage is the usual one) appear as
 ## The Management window
 
 The tray menu's **Management** item opens a window with three tabs over the
-WSL distro.
+WSL distro. Opening it starts a scan: one row for Windows and one for the
+distro, each with a spinner and a clock, and each card fills as soon as its
+half is read — Windows in about a second, the distro after it walks the home
+directory. No terminal window opens; everything runs in the background.
+**Scan again** re-measures and keeps the last numbers on screen until the
+new ones land.
 
 **Disk** — what the distro holds: free space, the size of the disk file,
 and how much of it is *held for nothing* (freed inside the distro but not
@@ -178,9 +183,9 @@ step streams into the window. Stopping the distro ends everything inside it
 readiness interlock refuses the run while someone is mid-turn, unless you
 force it.
 
-**Clean** — the caches `picode disk` measures, with sizes: build caches,
+**Clean** — the caches the scan measured, with sizes: build caches,
 package caches, downloaded engines and models. Select and prune; nothing
-stops. Caches marked *redownload* come back from the network the next time
+stops. Caches marked `redownload` come back from the network the next time
 something needs them. Agent CLI sessions and the PiCode database never appear
 here — their cleanup is not a delete. This runs `picode clean`; the
 subcommand refuses any id that is not a cache, even when asked for by exact

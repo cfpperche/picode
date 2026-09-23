@@ -99,62 +99,140 @@ fn parse_outcome(text: &str) -> Result<CompactOutcome, String> {
         .map_err(|e| format!("compact outcome JSON: {e} — raw: {text}"))
 }
 
-/// The full two-sided report: `disk --json` already measures Windows and the
-/// distro in one shot.
-#[tauri::command(async)]
-pub fn disk_report() -> Result<String, String> {
-    run_cli(&["disk", "--json"])
-}
+/// The event every streamed Management operation reports on. The payload is
+/// the tool's own progress object plus `op`, so the window knows which of its
+/// views a step belongs to.
+pub(crate) const PROGRESS_EVENT: &str = "mgmt-progress";
 
-/// The compact flow, gates included: readiness interlock, stop, convert,
-/// restart, measured outcome. Refusals (someone working) come back in the
-/// outcome's `refused` field — the window renders them, nothing was stopped.
-/// The compact flow as a stream. The Go tool prints one progress object per
-/// line and the final outcome as the last line; this command forwards each
-/// step to the window as a `disk-progress` event and returns the outcome.
-/// Refusals (someone working) come back in `refused` — nothing was stopped.
-#[tauri::command(async)]
-pub fn disk_compact(app: tauri::AppHandle) -> Result<CompactOutcome, String> {
+/// Runs the Go tool with piped stdout and no console, forwarding every line
+/// that carries `progress` as a `mgmt-progress` event tagged with `op`, and
+/// returns the first line that does not — the outcome, by contract the last
+/// line. One reader for scan, compact and clean: the three copies this
+/// replaced had already drifted (the page listened on a name none emitted).
+/// One Management job at a time across every window: `busy` lives in the
+/// page, and a page closed and reopened mid-run would otherwise start a
+/// second compact over the first.
+static JOB: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+pub(crate) fn stream_cli(
+    app: &tauri::AppHandle,
+    op: &str,
+    run: &str,
+    args: &[&str],
+) -> Result<serde_json::Value, String> {
+    let _job = match JOB.try_lock() {
+        Ok(g) => g,
+        Err(std::sync::TryLockError::Poisoned(p)) => p.into_inner(),
+        Err(std::sync::TryLockError::WouldBlock) => {
+            return Err("another Management job is still running — wait for it to finish".into())
+        }
+    };
     let exe = tool_exe().ok_or_else(|| {
         "picode-desktop.exe was not found next to the shell or in %LOCALAPPDATA%\\PiCode — reinstall PiCode Desktop".to_string()
     })?;
     let mut cmd = Command::new(&exe);
-    cmd.args(["disk-compact", "--yes", "--json"]);
+    cmd.args(args);
     hide_console(&mut cmd);
     cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
     let mut child = cmd.spawn().map_err(|e| e.to_string())?;
 
     // A stream with no stdout is a tool that cannot answer; a stream that
     // ends without an outcome is a run we must not pretend succeeded.
     let stdout = child.stdout.take().ok_or("the tool opened no stdout")?;
-    let reader = BufReader::new(stdout);
-    let mut outcome: Option<CompactOutcome> = None;
-    for line in reader.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        if line.trim().is_empty() {
+    // Drain stderr on its own thread so a chatty tool cannot fill the pipe
+    // and stall stdout; it is the diagnosis when no outcome arrives.
+    let stderr = child.stderr.take();
+    let err_reader = std::thread::spawn(move || {
+        let mut text = String::new();
+        if let Some(mut e) = stderr {
+            let _ = std::io::Read::read_to_string(&mut e, &mut text);
+        }
+        text
+    });
+    let outcome = read_stream(BufReader::new(stdout), |mut step| {
+        step.insert("op".into(), serde_json::Value::String(op.into()));
+        // The page's own token for this call: steps from an earlier run (or
+        // another window) arriving late are told apart by it.
+        step.insert("run".into(), serde_json::Value::String(run.into()));
+        let _ = app.emit(PROGRESS_EVENT, serde_json::Value::Object(step));
+    });
+    // Reading stops at the outcome; whatever follows is not read, so the
+    // child is waited for rather than left holding a full pipe.
+    let status = child.wait().map_err(|e| e.to_string())?;
+    let stderr = err_reader.join().unwrap_or_default();
+    outcome.map_err(|e| {
+        let why = stderr.trim();
+        if why.is_empty() {
+            format!("{e} (exit {status})")
+        } else {
+            format!("{e} (exit {status}): {why}")
+        }
+    })
+}
+
+/// The pure half of stream_cli: sorts lines into progress steps and the
+/// outcome. Non-JSON noise (a login banner) is skipped, not fatal.
+pub(crate) fn read_stream<R: BufRead>(
+    reader: R,
+    mut on_step: impl FnMut(serde_json::Map<String, serde_json::Value>),
+) -> Result<serde_json::Value, String> {
+    let mut reader = reader;
+    let mut buf = Vec::new();
+    loop {
+        buf.clear();
+        // Bytes, then lossy text: one non-UTF-8 line (a translated wsl.exe
+        // message) must not abort a run — for clean, dropping the pipe
+        // mid-prune would kill the prune in the distro.
+        if reader.read_until(b'\n', &mut buf).map_err(|e| e.to_string())? == 0 {
+            break;
+        }
+        let line = String::from_utf8_lossy(&buf);
+        let Some(start) = line.find('{') else { continue };
+        let Ok(serde_json::Value::Object(obj)) =
+            serde_json::from_str::<serde_json::Value>(line[start..].trim_end())
+        else {
+            continue;
+        };
+        if obj.contains_key("progress") {
+            on_step(obj);
             continue;
         }
-        if let Some(start) = line.find('{') {
-            if let Ok(v) = serde_json::from_str::<CompactOutcome>(line[start..].trim_end()) {
-                outcome = Some(v);
-                break; // the outcome is the last line by contract
-            }
-        }
-        if let Ok(v) = serde_json::from_str::<std::collections::HashMap<String, String>>(&line) {
-            if let Some(step) = v.get("progress") {
-                let _ = app.emit("mgmt-progress", step.clone());
-            }
-        }
+        return Ok(serde_json::Value::Object(obj));
     }
+    Err("the tool ended without an outcome".into())
+}
 
-    let status = child.wait().map_err(|e| e.to_string())?;
-    match outcome {
-        Some(o) => Ok(o),
-        None => Err(format!(
-            "the compact ended without an outcome (exit {}) — the distro was restarted by the flow itself",
-            status
-        )),
+/// The full two-sided report as a scan: `disk --json --stream` reads the
+/// Windows half, then the distro half, and each one reaches the window as a
+/// `mgmt-progress` event (op "scan") the moment it lands. The report itself
+/// is the return value.
+#[tauri::command(async)]
+pub fn disk_report(app: tauri::AppHandle, run: Option<String>) -> Result<serde_json::Value, String> {
+    let run = run.unwrap_or_default();
+    match stream_cli(&app, "scan", &run, &["disk", "--json", "--stream"]) {
+        // An older picode-desktop.exe (the %LOCALAPPDATA% fallback) predates
+        // --stream: read the report whole rather than failing the window.
+        Err(e) if e.contains("-stream") => {
+            let text = run_cli(&["disk", "--json"])?;
+            serde_json::from_str(text[text.find('{').ok_or(e)?..].trim_end())
+                .map_err(|e| format!("disk report JSON: {e}"))
+        }
+        other => other,
     }
+}
+
+/// The compact flow, gates included: readiness interlock, stop, convert,
+/// restart, measured outcome. Steps stream as `mgmt-progress` (op
+/// "compact"). Refusals (someone working) come back in the outcome's
+/// `refused` field — nothing was stopped.
+#[tauri::command(async)]
+pub fn disk_compact(app: tauri::AppHandle, run: Option<String>) -> Result<CompactOutcome, String> {
+    // No claim about the distro here: a missing tool or an early failure
+    // stopped nothing, and a failure after the stop arrives as the
+    // outcome's own `error`, which says so.
+    let v = stream_cli(&app, "compact", &run.unwrap_or_default(), &["disk-compact", "--yes", "--json"])?;
+    serde_json::from_value(v).map_err(|e| format!("compact outcome JSON: {e}"))
 }
 
 /// The plan without stopping anything — what the window shows before asking.
@@ -162,4 +240,32 @@ pub fn disk_compact(app: tauri::AppHandle) -> Result<CompactOutcome, String> {
 pub fn disk_compact_dry_run() -> Result<CompactOutcome, String> {
     let text = run_cli(&["disk-compact", "--json", "--dry-run"])?;
     parse_outcome(&text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_stream;
+
+    #[test]
+    fn stream_sorts_steps_from_the_outcome() {
+        let text = "Welcome to Ubuntu\n\
+{\"progress\":\"Reading\",\"stage\":\"windows\",\"state\":\"running\"}\n\
+not json {\n\
+{\"progress\":\"Read\",\"stage\":\"windows\",\"state\":\"done\"}\n\
+{\"at\":\"2026-09-22T00:00:00Z\",\"held\":5}\n\
+{\"progress\":\"after the outcome is never read\"}\n";
+        let mut bytes = text.as_bytes().to_vec();
+        bytes.splice(0..0, b"\xff\xfe bad bytes\n".iter().copied());
+        let mut steps = Vec::new();
+        let out = read_stream(&bytes[..], |s| steps.push(s)).expect("an outcome");
+        assert_eq!(steps.len(), 2);
+        assert_eq!(steps[1]["state"], "done");
+        assert_eq!(out["held"], 5);
+    }
+
+    #[test]
+    fn stream_without_outcome_is_an_error() {
+        let text = "{\"progress\":\"Cleaning\"}\n";
+        assert!(read_stream(text.as_bytes(), |_| {}).is_err());
+    }
 }

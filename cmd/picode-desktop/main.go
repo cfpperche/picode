@@ -49,6 +49,7 @@ func main() {
 	// message below instead of an unknown-flag dump.
 	tray := fs.Bool("tray", false, "retired with the Go tray (ADR-0142)")
 	asJSON := fs.Bool("json", false, "with `disk`: emit the measurement as JSON")
+	stream := fs.Bool("stream", false, "with `disk --json`: one line per scanned half, the report last")
 	yes := fs.Bool("yes", false, "with disk-compact: stop the distro and compact without asking again; with install: install the runtime on an adopted distro without asking")
 	dryRun := fs.Bool("dry-run", false, "with disk-compact: print the plan, stop nothing")
 	force := fs.Bool("force", false, "with disk-compact: proceed even when someone is mid-turn")
@@ -66,7 +67,7 @@ func main() {
 	case cmd == "doctor":
 		exit(runDoctor(*distro, *user))
 	case cmd == "disk":
-		exit(runDisk(*distro, *user, *asJSON))
+		exit(runDisk(*distro, *user, *asJSON, *stream))
 	case cmd == "disk-compact":
 		exit(runDiskCompact(*distro, *user, *method, *yes, *dryRun, *force, *asJSON))
 	case cmd == "clean":
@@ -163,6 +164,7 @@ Flags:
   --distro string   WSL distribution (default: the only WSL 2 one, else the default)
   --user string     Linux account to provision (default: the distro's own)
   --json            with the disk command: emit the measurement as JSON
+  --stream          with disk --json: one line per scanned half, the report last
   --yes             with disk-compact: stop the distro and compact without asking again
                   with install: install the runtime on an adopted distro without asking
   --dry-run         with disk-compact: print the plan, stop nothing

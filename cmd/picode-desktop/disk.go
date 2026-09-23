@@ -30,13 +30,26 @@ type diskReport struct {
 // sparse or compacting it stops the distro and costs the sessions in it, so
 // that decision belongs to a reviewed, confirmed action
 // (docs/plans/wsl-control.md), never to a command someone runs to read.
-func runDisk(distroFlag, userFlag string, asJSON bool) error {
+//
+// With stream (and JSON), each half is printed as a scanStep line the moment
+// it is read, and the whole report is the last line — the same one-object-
+// per-line contract disk-compact and clean use, so the Management window
+// shows the scan as it happens instead of a page of dashes.
+func runDisk(distroFlag, userFlag string, asJSON, stream bool) error {
 	a, err := resolve(distroFlag, userFlag)
 	if err != nil {
 		return err
 	}
-	rep := collectDisk(a)
+	var onStep func(scanStep)
+	if asJSON && stream {
+		enc := json.NewEncoder(os.Stdout)
+		onStep = func(s scanStep) { _ = enc.Encode(s) }
+	}
+	rep := collectDisk(a, onStep)
 
+	if asJSON && stream {
+		return json.NewEncoder(os.Stdout).Encode(rep)
+	}
 	if asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -46,22 +59,49 @@ func runDisk(distroFlag, userFlag string, asJSON bool) error {
 	return nil
 }
 
-// collectDisk reads both halves, keeping each failure with its half.
-func collectDisk(a app) diskReport {
+// scanStep is one line of a streamed scan: which half, where it is, and the
+// half itself once it is read. Progress is the sentence a person reads; the
+// shell forwards every line that carries it and treats the first line
+// without it as the outcome.
+type scanStep struct {
+	Progress string             `json:"progress"`
+	Stage    string             `json:"stage"` // "windows" | "distro"
+	State    string             `json:"state"` // "running" | "done" | "failed"
+	Windows  *desktop.DiskFacts `json:"windows,omitempty"`
+	Distro   *hostfs.Report     `json:"distro,omitempty"`
+	Error    string             `json:"error,omitempty"`
+}
+
+// collectDisk reads both halves, keeping each failure with its half. The
+// Windows half goes first: it is a few registry and file reads, while the
+// distro half walks the home directory, so the first card fills in seconds.
+// onStep, when set, hears each half start and end.
+func collectDisk(a app, onStep func(scanStep)) diskReport {
+	step := func(s scanStep) {
+		if onStep != nil {
+			onStep(s)
+		}
+	}
 	rep := diskReport{At: time.Now().UTC()}
 
+	step(scanStep{Stage: "windows", State: "running", Progress: "Reading the disk file from Windows"})
 	facts, err := desktop.DistroDisk(a.runner, a.distro)
 	if err != nil {
 		rep.WindowsError = err.Error()
+		step(scanStep{Stage: "windows", State: "failed", Progress: "Windows could not be read", Error: rep.WindowsError})
 	} else {
 		rep.Windows = &facts
+		step(scanStep{Stage: "windows", State: "done", Progress: "Read the disk file from Windows", Windows: &facts})
 	}
 
+	step(scanStep{Stage: "distro", State: "running", Progress: "Measuring inside " + a.distro})
 	distro, err := distroReport(a.runner, a.distro, a.user)
 	if err != nil {
 		rep.DistroError = err.Error()
+		step(scanStep{Stage: "distro", State: "failed", Progress: a.distro + " could not be measured", Error: rep.DistroError})
 	} else {
 		rep.Distro = &distro
+		step(scanStep{Stage: "distro", State: "done", Progress: "Measured inside " + a.distro, Distro: &distro})
 	}
 
 	if rep.Windows != nil && rep.Distro != nil {

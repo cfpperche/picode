@@ -22,22 +22,36 @@
         --radius-panel: 12px;
         --radius-ctl: 8px;
         --ctl-h: 36px;
+        --motion-med: 220ms;
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
       }
       * { box-sizing: border-box; }
       body {
         font-family: var(--sans);
         margin: 0; padding: 1.25rem;
         background: var(--bg-base); color: var(--text-primary);
-        font-size: 14px;
+        font-size: 13px;
       }
       header {
-        display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem;
+        position: relative;
+        display: flex; align-items: center; gap: .75rem;
         /* Undecorated window: this header is also the drag strip. */
         margin: -1.25rem -1.25rem 1rem; padding: .5rem 1.25rem;
         border-bottom: 1px solid var(--border); background: var(--bg-panel);
         user-select: none;
       }
-      .shell-caps { display: flex; margin-left: auto; }
+      /* The scan bar: an indeterminate sweep on the header's bottom edge
+         while anything is being read or changed. It says "working", never
+         a percentage nobody measured. */
+      header::after {
+        content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        background-size: 40% 100%; background-repeat: no-repeat;
+        opacity: 0; transition: opacity var(--motion-med) var(--ease-out);
+      }
+      body.busy header::after { opacity: 1; animation: sweep 1.2s linear infinite; }
+      @keyframes sweep { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+      .shell-caps { display: flex; }
       .cap {
         width: 40px; height: 28px; display: grid; place-items: center;
         border: 0; border-radius: var(--radius-ctl); background: none;
@@ -45,74 +59,120 @@
       }
       .cap:hover { color: var(--text-primary); background: var(--bg-hover); }
       .cap-close:hover { color: #fff; background: var(--danger); }
-      h1 { font-size: 1rem; font-weight: 600; margin: 0; flex: 1; }
+      h1 { font-size: 14px; font-weight: 600; margin: 0; }
+      .status { flex: 1; display: inline-flex; align-items: center; gap: .45rem; color: var(--text-secondary); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       button {
         font: inherit; height: var(--ctl-h); padding: 0 .9rem; border-radius: var(--radius-ctl);
         border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); cursor: pointer;
+        display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap;
       }
       button:hover:not(:disabled) { background: var(--bg-hover); }
-      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.primary { background: var(--accent-fill, var(--accent)); border-color: var(--accent-fill, var(--accent)); color: var(--on-accent, #fff); }
       button.danger { background: var(--bg-elevated); border-color: var(--danger); color: var(--danger); }
       button.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
       button:disabled { opacity: .45; cursor: default; }
-      .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-      .card {
-        border: 1px solid var(--border); border-radius: var(--radius-panel);
-        padding: 1rem; background: var(--bg-panel);
-      }
-      .card h2 {
-        font-size: .75rem; text-transform: uppercase; letter-spacing: .06em;
-        color: var(--text-secondary); margin: 0 0 .75rem; font-weight: 600;
-      }
-      .row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .3rem 0; }
-      .row .k { color: var(--text-secondary); }
-      .big { font-size: 1.6rem; font-weight: 600; }
-      table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
-      td, th { text-align: left; padding: .3rem .5rem; border-top: 1px solid var(--border); font-size: 13px; }
-      th { color: var(--text-secondary); font-weight: 500; border-top: 0; }
-      td.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-      .kind { color: var(--text-secondary); }
-      .warn { color: var(--warn); }
-      .err { color: var(--danger); white-space: pre-wrap; }
-      .ok { color: var(--ok); }
-      .held { color: var(--warn); }
-      #state { margin: 1rem 0; color: var(--text-secondary); min-height: 1.2em; }
-      /* Tabs — Management is three views over the same distro: what it
-         holds, what it can drop, how it is configured. */
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      /* Spinner, check and cross share one 14px box so a row never jumps
+         when a stage changes state. */
+      .ico { width: 14px; height: 14px; flex: none; display: inline-grid; place-items: center; }
+      .spin { border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: turn .8s linear infinite; }
+      .ico.pending { border: 2px solid var(--border-strong); border-radius: 50%; }
+      .ico.done { color: var(--ok); }
+      .ico.failed { color: var(--danger); }
+      @keyframes turn { to { transform: rotate(360deg); } }
+
+      /* Tabs — three views over the same distro: what it holds, what it
+         can drop, how it is configured. */
       nav { display: flex; gap: .25rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
       nav button {
         border: 0; background: none; height: 2.2rem; padding: 0 .9rem;
         color: var(--text-secondary); border-radius: var(--radius-ctl) var(--radius-ctl) 0 0;
       }
       nav button:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
-      nav button.active { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); font-weight: 600; }
+      nav button[aria-selected="true"] { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); font-weight: 600; }
       section.tab { display: none; }
       section.tab.active { display: block; }
-      .cache td:first-child { width: 2rem; }
+
+      /* Activity rows — what is being read right now, one compact row per
+         step with its own clock (Cursor's tool-call row, adapted). */
+      .activity { list-style: none; margin: 0 0 1rem; padding: .25rem 0; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--bg-panel); }
+      .activity:empty { display: none; }
+      .activity li { display: flex; align-items: center; gap: .6rem; min-height: 32px; padding: .3rem .9rem; }
+      .activity li + li { border-top: 1px solid var(--border); }
+      .activity .what { font-weight: 500; }
+      .activity .detail { color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .activity li.failed .detail { color: var(--danger); white-space: normal; }
+      .activity .dur { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+      .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      .card {
+        border: 1px solid var(--border); border-radius: var(--radius-panel);
+        padding: 1rem; background: var(--bg-panel); height: fit-content;
+      }
+      .card h2 {
+        font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+        color: var(--text-secondary); margin: 0 0 .75rem; font-weight: 600;
+        display: flex; align-items: center; gap: .5rem;
+      }
+      .card h2 .ico { margin-left: auto; }
+      .card.failed { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+      .card .why { color: var(--danger); margin: .25rem 0 0; white-space: pre-wrap; }
+      .row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .3rem 0; }
+      .row .k { color: var(--text-secondary); }
+      .big { font-size: 1.4rem; font-weight: 600; }
+      .v { font-variant-numeric: tabular-nums; transition: opacity var(--motion-med) var(--ease-out); }
+      body.stale .v:not(.skel) { opacity: .55; }
+      /* Skeletons stand where a number will land; they never invent one. */
+      .skel {
+        display: inline-block; width: 4.5rem; height: .9em; border-radius: 4px; color: transparent;
+        background: linear-gradient(90deg, var(--bg-hover) 0%, var(--border-strong) 50%, var(--bg-hover) 100%);
+        background-size: 200% 100%; animation: shimmer 1.3s ease-in-out infinite;
+      }
+      .big.skel { height: 1.1em; width: 6rem; }
+      @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+      .fresh { animation: land var(--motion-med) var(--ease-out); }
+      @keyframes land { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+      table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+      td, th { text-align: left; padding: .3rem .5rem; border-top: 1px solid var(--border); font-size: 13px; }
+      th { color: var(--text-secondary); font-weight: 500; border-top: 0; }
+      td.n, th.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .kind { color: var(--text-secondary); }
+      .warn { color: var(--warn); }
+      .err { color: var(--danger); white-space: pre-wrap; }
+      .ok { color: var(--ok); }
+      .held { color: var(--warn); }
+      .note { margin: 1rem 0 0; }
       .kind-redownload { color: var(--warn); }
       .kind-safe { color: var(--ok); }
+      .clean-table td:first-child { width: 2rem; }
+      input[type="checkbox"] { accent-color: var(--accent); }
+      .actions { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; }
+      .empty { color: var(--text-secondary); padding: .75rem 0; display: flex; align-items: center; gap: .75rem; }
       .field { display: flex; align-items: center; gap: .75rem; padding: .45rem 0; }
       .field label { width: 11rem; color: var(--text-secondary); }
-      .field input[type="text"] {
+      .field input[type="text"], .field select {
         font: inherit; height: var(--ctl-h); padding: 0 .6rem; border-radius: var(--radius-ctl);
         border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); width: 11rem;
       }
+      .field select { padding: 0 .4rem; }
       .field input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
       .hint { color: var(--text-secondary); font-size: 12px; }
-      .cfg-section { margin: 1.1rem 0 .2rem; font: 600 13px var(--mono); color: var(--text-secondary); letter-spacing: .04em; }
-      .field select {
-        font: inherit; height: var(--ctl-h); padding: 0 .4rem; border-radius: var(--radius-ctl);
-        border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); width: 11rem;
-      }
+      .cfg-section { margin: 1.1rem 0 .2rem; font: 600 13px var(--mono, monospace); color: var(--text-secondary); letter-spacing: .04em; }
       .field b { color: var(--text-primary); }
       footer { margin-top: 1.25rem; color: var(--text-secondary); font-size: 12px; }
       code { background: var(--bg-hover); padding: .1rem .3rem; border-radius: 4px; }
+      @media (prefers-reduced-motion: reduce) {
+        .spin, .skel, body.busy header::after, .fresh { animation: none; }
+        body.busy header::after { background: var(--accent); background-size: 100% 100%; opacity: .6; }
+      }
     </style>
   </head>
   <body>
     <header data-tauri-drag-region>
-      <h1>Management</h1>
-      <button id="refresh">Refresh</button>
+      <h1 data-tauri-drag-region>Management</h1>
+      <span id="status" class="status" data-tauri-drag-region aria-live="polite"></span>
+      <button id="refresh">Scan again</button>
       <button id="giveback" class="danger" disabled>Give back held space…</button>
       <div class="shell-caps">
         <button type="button" class="cap" id="win-min" title="Minimize" aria-label="Minimize">
@@ -127,54 +187,56 @@
       </div>
     </header>
 
-    <nav>
-      <button data-tab="disk" class="active">Disk</button>
-      <button data-tab="clean">Clean</button>
-      <button data-tab="config">Config</button>
+    <nav role="tablist">
+      <button role="tab" data-tab="disk" aria-selected="true">Disk</button>
+      <button role="tab" data-tab="clean" aria-selected="false">Clean</button>
+      <button role="tab" data-tab="config" aria-selected="false">Config</button>
     </nav>
 
-    <section class="tab active" id="tab-disk">
-    <div id="state">Measuring…</div>
+    <section class="tab active" id="tab-disk" role="tabpanel">
+      <ul id="activity" class="activity" aria-live="polite"></ul>
 
-    <div class="cards">
-      <div class="card">
-        <h2>Windows</h2>
-        <div class="row"><span class="k">Free on the volume</span><span id="w-free" class="big">—</span></div>
-        <div class="row"><span class="k">Disk file on disk</span><span id="w-alloc">—</span></div>
-        <div class="row"><span class="k">Held for nothing</span><span id="w-held" class="big held">—</span></div>
-        <div class="row"><span class="k">Sparse</span><span id="w-sparse">—</span></div>
+      <div class="cards">
+        <div class="card" id="card-windows">
+          <h2>Windows <span class="ico" id="ico-windows"></span></h2>
+          <div class="row"><span class="k">Free on the volume</span><span id="w-free" class="v big">—</span></div>
+          <div class="row"><span class="k">Disk file on disk</span><span id="w-alloc" class="v">—</span></div>
+          <div class="row"><span class="k">Held for nothing</span><span id="w-held" class="v big held">—</span></div>
+          <div class="row"><span class="k">Sparse</span><span id="w-sparse" class="v">—</span></div>
+          <p class="why" id="why-windows" hidden></p>
+        </div>
+        <div class="card" id="card-distro">
+          <h2><span id="distro-title">Inside the distro</span> <span class="ico" id="ico-distro"></span></h2>
+          <div class="row"><span class="k">Used</span><span id="l-used" class="v big">—</span></div>
+          <div class="row"><span class="k">Free</span><span id="l-free" class="v">—</span></div>
+          <div class="row"><span class="k">Safe to reclaim</span><span id="l-safe" class="v ok">—</span></div>
+          <table id="consumers"><thead><tr><th>Biggest</th><th class="n">Size</th><th>Kind</th></tr></thead><tbody></tbody></table>
+          <p class="why" id="why-distro" hidden></p>
+        </div>
       </div>
-      <div class="card">
-        <h2>Inside the distro</h2>
-        <div class="row"><span class="k">Used</span><span id="l-used" class="big">—</span></div>
-        <div class="row"><span class="k">Free</span><span id="l-free">—</span></div>
-        <div class="row"><span class="k">Safe to reclaim</span><span id="l-safe" class="ok">—</span></div>
-        <table id="consumers"><thead><tr><th>Consumer</th><th></th><th>Kind</th></tr></thead><tbody></tbody></table>
-      </div>
-    </div>
 
-    <div id="outcome"></div>
+      <p id="held-note" class="note hint"></p>
+      <div id="outcome" class="note" aria-live="polite"></div>
     </section>
 
-    <section class="tab" id="tab-clean">
-      <p class="hint">Caches the distro can drop without stopping anything. <span class="kind-redownload">redownload</span> means the content comes back from the network the next time something needs it. Agent CLI sessions and the PiCode database are never listed — their cleanup is not a delete.</p>
-      <div id="clean-state" class="hint">Measuring caches…</div>
-      <table id="clean-table"><thead><tr><th></th><th>Cache</th><th>Size</th><th>Kind</th></tr></thead><tbody></tbody></table>
-      <p>
-        <button id="clean-refresh">Refresh sizes</button>
+    <section class="tab" id="tab-clean" role="tabpanel">
+      <p class="hint">Caches the distro can drop without stopping anything. <span class="kind-redownload">redownload</span> means the content comes back from the network the next time something needs it. Agent sessions and the PiCode database are never listed.</p>
+      <ul id="clean-activity" class="activity" aria-live="polite"></ul>
+      <div id="clean-body"></div>
+      <div class="actions">
         <button id="clean-run" class="danger" disabled>Clean selected</button>
         <span id="clean-total" class="hint"></span>
-      </p>
-      <div id="clean-outcome"></div>
+      </div>
+      <div id="clean-outcome" aria-live="polite"></div>
     </section>
 
-    <section class="tab" id="tab-config">
+    <section class="tab" id="tab-config" role="tabpanel">
       <p class="hint">The WSL settings file (<span id="config-path"></span>). A save backs it up to <code>.wslconfig.bak</code> first; keys this window does not know stay untouched. Every choice left on "default" is removed from the file so WSL's own default applies. Changes apply at the next full WSL restart.</p>
       <div id="config-form"></div>
-      <p><button id="config-save" class="primary">Save</button> <span id="config-outcome"></span></p>
+      <p class="actions"><button id="config-save" class="primary">Save</button> <span id="config-outcome"></span></p>
     </section>
 
-    <footer>Actions run <code>picode-desktop disk / disk-compact / clean</code> — read-only unless you confirm. Stopping the distro ends every session inside it.</footer>
+    <footer>Reading changes nothing. Cleaning and giving space back run only after you confirm — giving space back stops the distro and ends every session inside it.</footer>
 
     <script type="module">
       import "@picode/shared/tokens/theme.css";
@@ -183,102 +245,321 @@
       // Tauri 2 hands typed commands back as objects and string commands as
       // strings; accept both instead of guessing at the command list.
       const asData = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
-      let running = false;
-      // Live steps from the compact subprocess: one event per stage, shown
-      // in the state line while the buttons stay locked.
-      listen('disk-progress', e => { if (running) setState(e.payload, true); }).catch(() => {});
       const el = id => document.getElementById(id);
+      const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const gb = n => {
+        if (n == null || !isFinite(n)) return '—';
         if (n < 1024) return n + ' B';
         const u = ['KB','MB','GB','TB','PB'];
         let v = n / 1024, i = 0;
         while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
         return (v < 10 ? v.toFixed(1) : Math.round(v)) + ' ' + u[i];
       };
-
-      function setState(text, busy) {
-        el('state').textContent = text;
-        el('refresh').disabled = busy;
-        el('giveback').disabled = busy;
+      const secs = ms => (ms < 10000 ? (ms / 1000).toFixed(1) : Math.round(ms / 1000)) + 's';
+      const ICON = {
+        done: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.5l2.5 2.5L11 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        failed: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M4 4l6 6M10 4l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      };
+      function setIcon(node, state) {
+        node.className = 'ico ' + (state === 'running' ? 'spin' : state || '');
+        node.innerHTML = ICON[state] || '';
+        node.setAttribute('aria-label', state || '');
       }
 
-      function renderOutcome(o) {
-        el('outcome').innerHTML = '';
-        if (o.error)   { el('outcome').innerHTML = `<p class="err">Failed (the distro was restarted): ${o.error}</p>`; return; }
-        if (o.refused) { el('outcome').innerHTML = `<p class="warn">Not run — ${o.refused}</p>`; return; }
-        if (o.note && !o.after) { el('outcome').innerHTML = `<p>${o.note}</p>`; return; }
-        el('outcome').innerHTML =
-          `<p class="ok">Done — before ${gb(o.before)} · after ${gb(o.after)} · ≈${gb(o.returned)} back on C:.</p>` +
-          `<p>${o.distro} is starting again; its sessions do not come back.</p>`;
+      // ---- one job at a time ----------------------------------------------
+      // busy is what the window is doing: '' | 'scan' | 'compact' | 'clean'.
+      // Every button reads it, so no two tool runs ever overlap.
+      let busy = '';
+      let lastReport = null;
+      let scannedAt = null;
+      let scanFailed = false;
+      // Each tool call carries a token of its own; a step whose token is not
+      // the current one belongs to a run this page no longer waits for.
+      let currentRun = '';
+      const newRun = () => (currentRun = Math.random().toString(36).slice(2) + Date.now().toString(36));
+      const cleanSelection = new Set();
+
+      function setBusy(job) {
+        busy = job;
+        document.body.classList.toggle('busy', !!job);
+        el('refresh').disabled = !!job;
+        el('giveback').disabled = !!job || !(lastReport && lastReport.held);
+        updateCleanButtons();
+        renderStatus();
       }
 
-      async function refresh() {
-        setState('Measuring — one df, two du, a few Windows reads…', true);
-        el('outcome').innerHTML = '';
-        try {
-          const rep = asData(await invoke('disk_report'));
-          const w = rep.windows || {}, d = rep.distro || {};
-          el('w-free').textContent = w.freeBytes != null ? gb(w.freeBytes) : '—';
-          el('w-alloc').textContent = w.allocatedBytes != null ? gb(w.allocatedBytes) : '—';
-          el('w-held').textContent = rep.held ? '≈' + gb(rep.held) : 'none';
-          el('w-sparse').textContent = w.sparse ? 'yes' : 'no — WSL cannot return freed blocks';
-          el('l-used').textContent = d.fs ? gb(d.fs.usedBytes) : '—';
-          el('l-free').textContent = d.fs ? gb(d.fs.availBytes) : '—';
-          const safe = (d.consumers || []).filter(c => c.kind !== 'data').reduce((a, c) => a + c.bytes, 0);
-          el('l-safe').textContent = d.consumers ? gb(safe) : '—';
-          const tb = el('consumers').querySelector('tbody');
-          tb.innerHTML = '';
-          for (const c of (d.consumers || []).slice(0, 8)) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${c.title}</td><td class="n">${gb(c.bytes)}</td><td class="kind">${c.kind}</td>`;
-            tb.appendChild(tr);
+      // ---- activity rows ----------------------------------------------------
+      // A step list with a live clock per row. Rows are keyed so a streamed
+      // "running" then "done" for the same stage updates one row in place.
+      function activity(listId) {
+        const list = el(listId);
+        const rows = new Map();
+        let tick = null;
+        const paint = () => {
+          const now = performance.now();
+          for (const r of rows.values()) {
+            r.dur.textContent = r.state === 'pending' ? '' : secs((r.end ?? now) - r.start);
           }
-          el('giveback').disabled = !rep.held;
-          setState(rep.held ? `≈${gb(rep.held)} can go back to C: — stopping the distro to get it.` : 'Nothing is held right now.', false);
-        } catch (e) {
-          setState('Could not measure: ' + e, false);
+        };
+        return {
+          reset() { rows.clear(); list.innerHTML = ''; },
+          set(key, what, state, detail) {
+            let r = rows.get(key);
+            if (!r) {
+              const li = document.createElement('li');
+              li.innerHTML = '<span class="ico"></span><span class="what"></span><span class="detail"></span><span class="dur"></span>';
+              list.appendChild(li);
+              r = { li, ico: li.children[0], what: li.children[1], detail: li.children[2], dur: li.children[3], start: performance.now() };
+              rows.set(key, r);
+            }
+            if (state === 'running' && r.state !== 'running') { r.start = performance.now(); r.end = null; }
+            if ((state === 'done' || state === 'failed') && r.end == null) r.end = performance.now();
+            r.state = state;
+            r.li.className = state;
+            setIcon(r.ico, state);
+            // Tool steps arrive as "cleaning x…"; show them in sentence case,
+            // and drop the ellipsis once the step is no longer running.
+            const text = what.charAt(0).toUpperCase() + what.slice(1);
+            r.what.textContent = state === 'running' ? text : text.replace(/…$/, '');
+            r.detail.textContent = detail || '';
+            r.detail.title = detail || '';
+            const live = [...rows.values()].some(x => x.state === 'running');
+            if (live && !tick) tick = setInterval(paint, 100);
+            if (!live && tick) { clearInterval(tick); tick = null; }
+            paint();
+          },
+          finishRunning(state, detail) {
+            for (const [key, r] of rows) if (r.state === 'running') this.set(key, r.what.textContent, state, detail);
+          },
+        };
+      }
+      const scanLog = activity('activity');
+      const cleanLog = activity('clean-activity');
+
+      // ---- the status line in the header ------------------------------------
+      let statusTick = null;
+      let jobStart = 0;
+      function renderStatus() {
+        const s = el('status');
+        if (busy) {
+          if (!statusTick) { jobStart = performance.now(); statusTick = setInterval(renderStatus, 250); }
+          const verb = { scan: 'Scanning', compact: 'Giving space back', clean: 'Cleaning' }[busy];
+          s.textContent = `${verb} · ${secs(performance.now() - jobStart)}`;
+          return;
         }
+        if (statusTick) { clearInterval(statusTick); statusTick = null; }
+        if (scanFailed) {
+          s.textContent = scannedAt
+            ? `Scan failed — showing the scan from ${scannedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            : 'Scan failed — Scan again to retry';
+          return;
+        }
+        s.textContent = scannedAt ? 'Scanned at ' + scannedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      }
+
+      // ---- the scan ---------------------------------------------------------
+      // One scan feeds both tabs: the Windows half fills its card the moment
+      // it lands, the distro half fills the other card and the Clean list.
+      // A refetch keeps the last numbers on screen, dimmed, instead of
+      // blanking them.
+      const W_IDS = ['w-free', 'w-alloc', 'w-held', 'w-sparse'];
+      const L_IDS = ['l-used', 'l-free', 'l-safe'];
+      function skeleton(ids) {
+        for (const id of ids) { const n = el(id); n.textContent = ' '; n.classList.add('skel'); n.classList.remove('fresh'); }
+      }
+      function put(id, text) {
+        const n = el(id);
+        n.textContent = text;
+        if (n.classList.contains('skel')) { n.classList.remove('skel'); n.classList.add('fresh'); }
+      }
+      function consumerSkeleton(tbody, rows, cols) {
+        tbody.innerHTML = Array.from({ length: rows }, () =>
+          '<tr>' + Array.from({ length: cols }, (_, i) => `<td${i === cols - 2 ? ' class="n"' : ''}><span class="skel"></span></td>`).join('') + '</tr>').join('');
+      }
+
+      const STAGE = {
+        windows: { what: 'Windows', card: 'card-windows', ico: 'ico-windows', why: 'why-windows' },
+        distro: { what: 'Inside the distro', card: 'card-distro', ico: 'ico-distro', why: 'why-distro' },
+      };
+      function stageState(stage, state, detail) {
+        const st = STAGE[stage];
+        if (!st) return;
+        scanLog.set(stage, st.what, state, detail);
+        setIcon(el(st.ico), state);
+        el(st.card).classList.toggle('failed', state === 'failed');
+        const why = el(st.why);
+        why.hidden = state !== 'failed';
+        why.textContent = state === 'failed' ? detail : '';
+      }
+
+      function fillWindows(w, held) {
+        put('w-free', gb(w.freeBytes));
+        put('w-alloc', gb(w.allocatedBytes));
+        put('w-sparse', w.sparse ? 'yes' : 'no — WSL cannot return freed blocks');
+        if (held !== undefined) put('w-held', held ? '≈' + gb(held) : 'none');
+      }
+      function fillDistro(d) {
+        put('l-used', gb(d.fs.usedBytes));
+        put('l-free', gb(d.fs.availBytes));
+        const cs = d.consumers || [];
+        put('l-safe', gb(cs.filter(c => c.kind !== 'data').reduce((a, c) => a + c.bytes, 0)));
+        el('consumers').hidden = false;
+        const tb = el('consumers').querySelector('tbody');
+        tb.innerHTML = cs.length
+          ? cs.slice(0, 8).map(c => `<tr class="fresh"><td>${esc(c.title)}</td><td class="n">${gb(c.bytes)}</td><td class="kind">${esc(c.kind)}</td></tr>`).join('')
+          : '<tr><td colspan="3" class="hint">No known consumers here.</td></tr>';
+      }
+
+      function applyReport(rep) {
+        lastReport = rep;
+        const w = rep.windows, d = rep.distro;
+        if (w) { el('distro-title').textContent = 'Inside ' + w.distro; fillWindows(w, rep.held || 0); }
+        else { for (const id of W_IDS) put(id, '—'); }
+        if (d) fillDistro(d);
+        else { for (const id of L_IDS) put(id, '—'); el('consumers').hidden = true; }
+        // Held needs both halves; with one missing it is unknown, not zero.
+        if (!(w && d)) put('w-held', '—');
+        // Why Give back is (not) offered, in words next to the numbers.
+        el('held-note').textContent = !(w && d) ? 'Held space needs both halves measured — Scan again once both are read.'
+          : rep.held ? `≈${gb(rep.held)} can go back to Windows — Give back held space stops the distro to get it.`
+          : 'Nothing is held right now — there is nothing to give back.';
+        // The stream may have been cut short: the report is the truth.
+        stageState('windows', w ? 'done' : 'failed', w ? 'Read the disk file' : rep.windowsError);
+        stageState('distro', d ? 'done' : 'failed', d ? `Measured ${(d.consumers || []).length} places in ${d.homeDir || 'the home directory'}` : rep.distroError);
+        renderClean();
+      }
+
+      async function scan() {
+        if (busy) return;
+        const first = !lastReport;
+        document.body.classList.toggle('stale', !first);
+        if (first) {
+          skeleton([...W_IDS, ...L_IDS]);
+          consumerSkeleton(el('consumers').querySelector('tbody'), 4, 3);
+        }
+        scanLog.reset();
+        stageState('windows', 'pending', 'waiting');
+        stageState('distro', 'pending', 'waiting');
+        setBusy('scan');
+        renderClean();
+        scanFailed = false;
+        try {
+          applyReport(asData(await invoke('disk_report', { run: newRun() })));
+          scannedAt = new Date();
+        } catch (e) {
+          // The tool itself failed: say it once, in the activity rows, and
+          // mark both cards as not read rather than repeating the message.
+          scanFailed = true;
+          scanLog.reset();
+          scanLog.set('scan', 'Scan', 'failed', String(e));
+          // With nothing read yet the cards failed too; with an earlier scan
+          // on screen they keep it, neutral, and the header says its time.
+          for (const k of Object.keys(STAGE)) {
+            setIcon(el(STAGE[k].ico), first ? 'failed' : '');
+            el(STAGE[k].card).classList.toggle('failed', first);
+            el(STAGE[k].why).hidden = true;
+          }
+          if (first) { for (const id of [...W_IDS, ...L_IDS]) put(id, '—'); el('consumers').hidden = true; }
+          // A streamed half may have painted before the failure: put the
+          // last complete report back so no card mixes two scans.
+          else if (lastReport?.windows) fillWindows(lastReport.windows, lastReport.distro ? (lastReport.held || 0) : undefined);
+        }
+        document.body.classList.remove('stale');
+        setBusy('');
+        renderClean();
+      }
+
+      // Streamed steps, one listener for every job. A step that arrives
+      // for a job the window is not running is late and ignored.
+      const listening = listen('mgmt-progress', ({ payload: p }) => {
+        if (!p || p.op !== busy || (p.run && p.run !== currentRun)) return;
+        if (p.op === 'scan') {
+          if (p.stage === 'windows' && p.windows) {
+            el('distro-title').textContent = 'Inside ' + p.windows.distro;
+            fillWindows(p.windows);
+          }
+          if (p.stage === 'distro' && p.distro) fillDistro(p.distro);
+          stageState(p.stage, p.state, p.state === 'failed' ? p.error : p.progress);
+        } else if (p.op === 'compact') {
+          scanLog.finishRunning('done');
+          scanLog.set('c:' + p.progress, p.progress, 'running', '');
+        } else if (p.op === 'clean') {
+          cleanLog.finishRunning('done');
+          cleanLog.set('c:' + p.progress, p.progress, 'running', '');
+        }
+      }).catch(() => null);
+
+      // ---- give back held space --------------------------------------------
+      function renderOutcome(o) {
+        const out = el('outcome');
+        if (o.error)   { out.innerHTML = `<p class="err">Failed (the distro was restarted): ${esc(o.error)}</p>`; return; }
+        if (o.refused) { out.innerHTML = `<p class="warn">Not run — ${esc(o.refused)}</p>`; return; }
+        if (o.note && o.after == null) { out.innerHTML = `<p>${esc(o.note)}</p>`; return; }
+        out.innerHTML =
+          `<p class="ok">Done — before ${gb(o.before)} · after ${gb(o.after)} · ≈${gb(o.returned)} back on C:.</p>` +
+          `<p>${esc(o.distro)} is starting again; its sessions do not come back.</p>`;
       }
 
       async function giveBack() {
-        if (running) return;
-        if (!confirm('Stopping the distro returns the held space to C:.\n\nEverything inside it ends now — agents, terminals and tmux sessions do not come back.\n\nContinue?')) return;
-        running = true;
-        setState('Compacting — Ubuntu is stopping, converting, starting again. This takes minutes…', true);
+        if (busy || !lastReport?.held) return;
+        if (!confirm(`Give ≈${gb(lastReport.held)} back to Windows?\n\nThe distro stops, its disk file is converted, and it starts again. Everything inside it ends now — agents, terminals and tmux sessions do not come back.\n\nContinue?`)) return;
+        el('outcome').innerHTML = '';
+        scanLog.reset();
+        scanLog.set('c:start', 'Checking that no one is mid-turn', 'running', '');
+        setBusy('compact');
         try {
-          renderOutcome(asData(await invoke('disk_compact')));
+          const o = asData(await invoke('disk_compact', { run: newRun() }));
+          scanLog.finishRunning(o.error || o.refused ? 'failed' : 'done', o.refused || o.error || '');
+          renderOutcome(o);
         } catch (e) {
-          el('outcome').innerHTML = `<p class="err">${e}</p>`;
+          scanLog.finishRunning('failed', String(e));
+          el('outcome').innerHTML = `<p class="err">${esc(String(e))}</p>`;
         }
-        running = false;
-        await refresh();
+        setBusy('');
+        await scan();
       }
 
-      // ---- tabs -----------------------------------------------------------
+      // ---- tabs -------------------------------------------------------------
       for (const b of document.querySelectorAll('nav button')) {
         b.addEventListener('click', () => {
-          for (const x of document.querySelectorAll('nav button')) x.classList.toggle('active', x === b);
+          for (const x of document.querySelectorAll('nav button')) x.setAttribute('aria-selected', String(x === b));
           for (const sec of document.querySelectorAll('section.tab')) sec.classList.toggle('active', sec.id === 'tab-' + b.dataset.tab);
         });
       }
 
-      // ---- clean tab ------------------------------------------------------
-      let cleanSelection = new Set();
-      const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-
-      function renderCleanList(caches) {
-        const tb = el('clean-table').querySelector('tbody');
-        tb.innerHTML = '';
-        for (const c of caches) {
-          const tr = document.createElement('tr');
-          tr.innerHTML =
-            `<td><input type="checkbox" data-id="${esc(c.id)}" ${cleanSelection.has(c.id) ? 'checked' : ''}></td>` +
-            `<td>${esc(c.title)}<div class="hint">${esc(c.note)}</div></td>` +
-            `<td class="n">${gb(c.bytes)}</td>` +
-            `<td class="kind-${esc(c.kind)}">${esc(c.kind)}</td>`;
-          tb.appendChild(tr);
+      // ---- clean tab --------------------------------------------------------
+      // The list is the scan's own distro half minus the data rows — the same
+      // walk, never a second one.
+      function renderClean() {
+        const host = el('clean-body');
+        const d = lastReport?.distro;
+        if (!d) {
+          if (busy === 'scan') {
+            host.innerHTML = '<table class="clean-table"><thead><tr><th></th><th>Cache</th><th class="n">Size</th><th>Kind</th></tr></thead><tbody></tbody></table>';
+            consumerSkeleton(host.querySelector('tbody'), 4, 4);
+          } else if (lastReport) {
+            host.innerHTML = `<div class="empty"><span class="err">${esc(lastReport.distroError || 'The distro could not be measured.')}</span></div>`;
+          } else {
+            host.innerHTML = '';
+          }
+          updateCleanButtons();
+          return;
         }
-        for (const box of tb.querySelectorAll('input[type="checkbox"]')) {
+        const caches = (d.consumers || []).filter(c => c.kind !== 'data');
+        for (const id of [...cleanSelection]) if (!caches.some(c => c.id === id)) cleanSelection.delete(id);
+        if (!caches.length) {
+          host.innerHTML = '<div class="empty">No caches to clean right now.</div>';
+          updateCleanButtons();
+          return;
+        }
+        host.innerHTML = '<table class="clean-table"><thead><tr><th></th><th>Cache</th><th class="n">Size</th><th>Kind</th></tr></thead><tbody>' +
+          caches.map(c =>
+            `<tr><td><input type="checkbox" id="cc-${esc(c.id)}" data-id="${esc(c.id)}" ${cleanSelection.has(c.id) ? 'checked' : ''}></td>` +
+            `<td><label for="cc-${esc(c.id)}">${esc(c.title)}</label><div class="hint">${esc(c.note)}</div></td>` +
+            `<td class="n v">${gb(c.bytes)}</td>` +
+            `<td class="kind-${esc(c.kind)}">${esc(c.kind)}</td></tr>`).join('') +
+          '</tbody></table>';
+        for (const box of host.querySelectorAll('input[type="checkbox"]')) {
           box.addEventListener('change', () => {
             if (box.checked) cleanSelection.add(box.dataset.id); else cleanSelection.delete(box.dataset.id);
             updateCleanButtons();
@@ -288,50 +569,42 @@
       }
 
       function updateCleanButtons() {
-        el('clean-run').disabled = running || cleanSelection.size === 0;
-        el('clean-total').textContent = cleanSelection.size ? cleanSelection.size + ' selected' : '';
-      }
-
-      async function refreshClean() {
-        el('clean-state').textContent = 'Measuring caches — two sweeps of the home dir…';
-        el('clean-run').disabled = true;
-        try {
-          const list = asData(await invoke('clean_list'));
-          renderCleanList(list.consumers || []);
-          el('clean-state').textContent = list.consumers && list.consumers.length
-            ? '' : 'Nothing prunable is installed here.';
-        } catch (e) {
-          el('clean-state').textContent = 'Could not measure: ' + e;
-        }
+        const caches = (lastReport?.distro?.consumers || []).filter(c => cleanSelection.has(c.id));
+        el('clean-run').disabled = !!busy || caches.length === 0;
+        const listed = (lastReport?.distro?.consumers || []).some(c => c.kind !== 'data');
+        el('clean-run').parentElement.hidden = !listed && busy !== 'clean';
+        for (const box of document.querySelectorAll('#clean-body input[type="checkbox"]')) box.disabled = !!busy;
+        el('clean-total').textContent = caches.length
+          ? `${caches.length} selected · ≈${gb(caches.reduce((a, c) => a + c.bytes, 0))}` : '';
       }
 
       async function runClean() {
-        if (running || cleanSelection.size === 0) return;
-        const names = [...cleanSelection].join(', ');
-        if (!confirm('Pruning these caches: ' + names + '.\n\nRedownload caches come back from the network on demand. Continue?')) return;
-        running = true;
+        if (busy || cleanSelection.size === 0) return;
+        const titles = (lastReport?.distro?.consumers || []).filter(c => cleanSelection.has(c.id)).map(c => c.title);
+        if (!confirm('Prune ' + titles.join(', ') + '?\n\nRedownload caches come back from the network on demand. Continue?')) return;
         el('clean-outcome').innerHTML = '';
-        updateCleanButtons();
-        el('clean-state').textContent = 'Cleaning…';
+        cleanLog.reset();
+        setBusy('clean');
         try {
-          const out = asData(await invoke('clean_apply', { ids: [...cleanSelection] }));
+          const titleOf = Object.fromEntries((lastReport?.distro?.consumers || []).map(c => [c.id, c.title]));
+          const out = asData(await invoke('clean_apply', { ids: [...cleanSelection], run: newRun() }));
+          const failed = out.results.filter(r => r.error);
+          cleanLog.finishRunning(failed.length ? 'failed' : 'done');
           el('clean-outcome').innerHTML =
             `<p class="ok">Freed ≈${gb(out.totalFreed)}.</p>` +
-            out.results.map(r => `<div class="hint">${esc(r.id)}: ${gb(r.freed)}${r.error ? ' — failed: ' + esc(r.error) : ''}</div>`).join('');
+            out.results.map(r => `<div class="hint">${esc(titleOf[r.id] || r.id)}: ${gb(r.freed)}${r.error ? ' — <span class="err">failed: ' + esc(r.error) + '</span>' : ''}</div>`).join('');
           cleanSelection.clear();
         } catch (e) {
+          cleanLog.finishRunning('failed', String(e));
           el('clean-outcome').innerHTML = `<p class="err">${esc(String(e))}</p>`;
         }
-        running = false;
-        updateCleanButtons();
-        await refreshClean();
-        await refresh(); // the disk numbers move too
+        setBusy('');
+        await scan(); // the disk numbers and the cache sizes move together
       }
 
-      el('clean-refresh').addEventListener('click', () => { if (!running) refreshClean(); });
       el('clean-run').addEventListener('click', runClean);
 
-      // ---- config tab -----------------------------------------------------
+      // ---- config tab -------------------------------------------------------
       // The settings the window owns, straight from Microsoft's documented
       // .wslconfig table (learn.microsoft.com windows/wsl/wsl-config).
       // `hint` is what the setting does in one line; `def` is WSL's default.
@@ -364,7 +637,7 @@
         { section: 'experimental', key: 'dnsTunnelingIpAddress', type: 'text', hint: 'nameserver used while tunneling', def: '10.255.255.254' },
         { section: 'experimental', key: 'initialAutoProxyTimeout', type: 'number', hint: 'ms to wait for proxy info at boot', def: '1000' },
         { section: 'experimental', key: 'ignoredPorts', type: 'text', hint: 'ports Linux may bind even if Windows uses them (mirrored mode), comma-separated', def: 'none' },
-      ].filter(x => !x.skip);
+      ];
 
       function renderConfig(values, rawPath) {
         el('config-path').textContent = rawPath;
@@ -379,7 +652,7 @@
             h.textContent = '[' + st.section + ']';
             host.appendChild(h);
           }
-          const found = values.find(v => v.key === st.key);
+          const found = values.find(v => v.section === st.section && v.key === st.key) || values.find(v => v.key === st.key);
           const cur = found && found.value != null ? found.value : '';
           const row = document.createElement('div');
           row.className = 'field';
@@ -448,10 +721,10 @@
         }
       }
 
-      el('refresh').addEventListener('click', refresh);
+      el('refresh').addEventListener('click', scan);
       el('giveback').addEventListener('click', giveBack);
-      refresh();
-      refreshClean();
+      // Listen first: the scan's opening step can arrive within milliseconds.
+      listening.finally(() => scan());
       loadConfig();
     </script>
   </body>

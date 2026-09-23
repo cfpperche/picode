@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -80,7 +82,7 @@ func TestCollectDiskJoinsBothHalves(t *testing.T) {
 		[]byte("/home/goat/.local/bin/picode\n"),
 		[]byte(reportJSON),
 	}}
-	rep := collectDisk(app{runner: r, distro: "Ubuntu", user: "goat"})
+	rep := collectDisk(app{runner: r, distro: "Ubuntu", user: "goat"}, nil)
 
 	if rep.WindowsError != "" || rep.Windows == nil {
 		t.Fatalf("Windows half: %v", rep.WindowsError)
@@ -116,7 +118,7 @@ func TestCollectDiskKeepsEachFailureWithItsHalf(t *testing.T) {
 		[]byte("/home/goat/.local/bin/picode\n"),
 		[]byte("usage: picode ...\n"),
 	}}
-	rep := collectDisk(app{runner: r, distro: "Ubuntu", user: "goat"})
+	rep := collectDisk(app{runner: r, distro: "Ubuntu", user: "goat"}, nil)
 	if rep.Windows == nil {
 		t.Fatalf("the Windows half is independent: %v", rep.WindowsError)
 	}
@@ -256,5 +258,64 @@ func TestReclaimTotalsIgnoreData(t *testing.T) {
 	}}
 	if got := hostfs.Reclaimable(report.Consumers, hostfs.KindSafe, hostfs.KindRedownload); got != 30 {
 		t.Errorf("reclaimable = %d, want 30", got)
+	}
+}
+
+// TestCollectDiskStreamsEachHalf is the Management window's scan: each half
+// announces itself, then lands with its data (or its error) before the next
+// one starts, so the first card fills while the slow walk still runs.
+func TestCollectDiskStreamsEachHalf(t *testing.T) {
+	r := &diskStub{replies: [][]byte{
+		wide(diskLxss),
+		[]byte(`{"len":1,"total":2,"free":1}`),
+		wide("not sparse\r\n"),
+		wide("WSL version: 2.7.0.0\r\n"),
+		wide("--set-sparse\n"),
+		[]byte("/home/goat/.local/bin/picode\n"),
+		[]byte("usage: picode ...\n"),
+	}}
+	var steps []scanStep
+	collectDisk(app{runner: r, distro: "Ubuntu", user: "goat"}, func(s scanStep) { steps = append(steps, s) })
+
+	var got []string
+	for _, s := range steps {
+		got = append(got, s.Stage+":"+s.State)
+		if s.Progress == "" {
+			t.Errorf("%s:%s has no progress line — the shell would take it for the outcome", s.Stage, s.State)
+		}
+	}
+	want := "windows:running windows:done distro:running distro:failed"
+	if strings.Join(got, " ") != want {
+		t.Fatalf("steps = %v, want %s", got, want)
+	}
+	if steps[1].Windows == nil {
+		t.Error("the windows:done step carries no facts — the card cannot fill early")
+	}
+	if steps[3].Error == "" {
+		t.Error("the distro:failed step carries no error")
+	}
+}
+
+// TestNoBareExecCommand guards the headless promise: this program links as a
+// GUI app, so any console child spawned outside newCmd opens a visible
+// terminal window over the app (the Management scan did, through clean.go).
+func TestNoBareExecCommand(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") || strings.HasPrefix(f, "newcmd_") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, line := range strings.Split(string(src), "\n") {
+			if strings.Contains(line, "exec.Command(") || strings.Contains(line, "exec.CommandContext(") {
+				t.Errorf("%s:%d spawns without newCmd — the child gets a console window: %s", f, i+1, strings.TrimSpace(line))
+			}
+		}
 	}
 }

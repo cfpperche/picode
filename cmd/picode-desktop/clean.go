@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/cfpperche/picode/internal/desktop"
 )
@@ -12,7 +11,10 @@ import (
 // measurement asks the binary inside. The in-distro command owns the rules
 // (its table, its refusals); this side only carries the bytes, so progress
 // lines and the outcome reach the shell untouched. Stdout is wired straight
-// through: nothing here buffers a minutes-long run.
+// through: nothing here buffers a minutes-long run. newCmd, never a bare
+// exec.Command: this program links as a GUI app with no console, so a
+// console child spawned without CREATE_NO_WINDOW gets a fresh window — the
+// Management window's first scan opened a Windows Terminal this way.
 func runClean(distroFlag, userFlag, apply string, listOnly, yes bool) error {
 	a, err := resolve(distroFlag, userFlag)
 	if err != nil {
@@ -37,7 +39,7 @@ func runClean(distroFlag, userFlag, apply string, listOnly, yes bool) error {
 	}
 
 	argv := append([]string{exe}, args...)
-	cmd := exec.Command(desktop.WSLExe, desktop.WSLArgs(a.distro, a.user, argv...)...)
+	cmd := newCmd(desktop.WSLExe, desktop.WSLArgs(a.distro, a.user, argv...)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

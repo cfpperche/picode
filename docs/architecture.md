@@ -125,6 +125,22 @@ which is the state a permanently running distro stays in, since both the
 compaction and the sparse conversion need the distro stopped. The Management
 window's Disk tab shows that as one line; both disk commands only read.
 
+The Management window runs every tool **headless**: the shell and
+`picode-desktop.exe` are GUI-subsystem programs with no console, so any
+console child (`wsl.exe`, PowerShell) spawned without `CREATE_NO_WINDOW`
+gets a window of its own — Windows Terminal, on a current Windows. Go spawns
+only through `newCmd` (`TestNoBareExecCommand` guards the package), Rust
+through `hide_console`. The window opens with one **scan**,
+`picode-desktop disk --json --stream`: a `{"progress", "stage", "state"}`
+line as each half starts and ends — the Windows half (under a second) carries
+its facts so its card fills while the distro half (a `du` walk, tens of
+seconds) still runs — then the full report as the last line. Compact and
+clean speak the same line contract, and the shell reads all three with one
+reader (`stream_cli`): lines with `progress` become `mgmt-progress` events
+tagged with the operation, the first line without it is the outcome. The
+Clean tab lists the scan's own non-`data` consumers, so opening the window
+walks the home directory once, not twice.
+
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an

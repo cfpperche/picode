@@ -25,3 +25,4 @@ buildable milestone.
 
 - WSL disk: the tray warns in words only (no alert icon asset); docker's storage is the Docker app's, not measured here.
 - Windows `Close` kills only its direct child; `internal/server` tests swap package-level probes, so `t.Parallel` would race (`scripts/go-test.sh` shards by process).
+- Desktop shell: `open_management_window` runs `discover_server()` (one hidden `wsl.exe` per distro, which can boot a stopped one) on the tray event thread; a slow WSL freezes the tray with nothing on screen. Move it off the event thread or reuse the board's known distro.
