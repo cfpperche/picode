@@ -36,6 +36,7 @@ import {
   Maximize2,
   Minimize2,
   Folders,
+  ScrollText,
   GitBranch,
   Frame,
   FlaskConical,
@@ -140,6 +141,7 @@ export const IconPanelRightClose = lucide(PanelRightClose, 16);
 export const IconRemote = lucide(Cloud, 10);
 export const IconFolder = lucide(Folder, 13);
 export const IconFolders = lucide(Folders, 13);
+export const IconInstructions = lucide(ScrollText, 13);
 export const IconFolderOpen = lucide(FolderOpen, 13);
 export const IconPullRequest = lucide(GitPullRequest, 13);
 export const IconMoveUp = lucide(ArrowUp, 13);
