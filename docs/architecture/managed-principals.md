@@ -8,14 +8,20 @@ ADR-0160: a workspace instance of a launchable CLI **is an agent**
 and dropped the table. ADR-0184 ended unbound CLI terminals: migration 067
 binds every launch terminal an agent does not own (sign-in terminals excepted)
 to a new agent `a-<terminal id>`, copies its `term:` grants onto that agent and
-drops every `term:` grant. `Runtime.Start` never runs for a non-Pi agent.
+drops every `term:` grant, and moves deliveries and queue entries a terminal
+owned onto its agent. A Pi terminal's pinned conversation (or a lone
+`--session` argument) becomes the agent's `session_path`; a terminal whose
+workspace row is gone is left alone; the sign-in match is case-sensitive
+(`GLOB '* sign-in'`). `Runtime.Start` never runs for a non-Pi agent.
 
 **Terminal identity holds no grant (ADR-0184).** A caller that carries only a
 terminal id resolves to the agent bound to that terminal (`callerAgentID`);
 otherwise it keeps the `term:<id>` identity for audits and a browser session
 drive, but `computer.Resolve` reads it as off, `browser.Resolve` as the
 default, grant edits aimed at it answer 400, the policy lists no longer show
-terminal rows, and delivery refuses it (403).
+terminal rows, and delivery refuses it (403). It keeps only the browser's
+session drive in its own split (ADR-0188). Audits name the bound agent when a
+caller carries only its terminal.
 
 `internal/grant.Principal` is `{kind: agent|terminal, id}`. `Key()` is the
 house spelling ADR-0143 already uses: the agent id, or `term:<id>`.

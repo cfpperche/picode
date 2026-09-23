@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -151,5 +153,47 @@ func TestLaunchEditRefusesShellsAndSignins(t *testing.T) {
 	cliRequest(t, ts, "PUT", "/api/terminals/"+own.ID+"/launch", body, 200)
 	if res := cliRequestFull(t, ts, "POST", "/api/clis/codex/terminals", map[string]any{}); res["status"] == "201" || res["status"] == "200" {
 		t.Fatalf("removed route answered %v", res)
+	}
+}
+
+// A sign-in's launch ends with its CLI — no shell is left in a terminal
+// nobody sees — while an agent's terminal returns to its shell.
+func TestSigninLaunchEndsWithItsCLI(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	deps := Deps{Store: st, DataDir: t.TempDir()}
+	if err := st.SetCLIConfig("codex", clilaunch.Config{Executable: "/bin/cat"}); err != nil {
+		t.Skipf("cannot seed the CLI config: %v", err)
+	}
+	script := func(tm store.Terminal) string {
+		t.Helper()
+		if err := st.SetTerminalLaunch(tm.ID, "codex", clilaunch.Overrides{}); err != nil {
+			t.Fatal(err)
+		}
+		l, err := st.TerminalLaunch(tm.ID)
+		if err != nil || l == nil {
+			t.Fatal(err)
+		}
+		p, err := prepareCLITerminal(deps, tm.Cwd, l)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer p.discard()
+		raw, err := os.ReadFile(p.script)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(raw)
+	}
+	in, _ := st.CreateSigninTerminal("Codex sign-in", t.TempDir())
+	if s := script(in); !strings.Contains(s, `exit "$picode_exit"`) || strings.Contains(s, "exec ") && strings.Contains(s, "--rcfile") {
+		t.Fatalf("sign-in script does not end with its CLI:\n%s", s)
+	}
+	shell, _ := st.CreateTerminal("zsh", t.TempDir())
+	if s := script(shell); strings.Contains(s, `exit "$picode_exit"`) {
+		t.Fatalf("a terminal script ends instead of returning to its shell:\n%s", s)
 	}
 }
