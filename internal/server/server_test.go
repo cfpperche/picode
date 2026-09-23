@@ -77,9 +77,14 @@ func killTmuxOnCleanup(t *testing.T, session string) {
 		return
 	}
 	t.Cleanup(func() {
+		// The pane's pid is read while the session still exists: after the
+		// kill there is nothing left to ask, and the pane's tree may not be
+		// gone (reapPaneGroup).
+		pid, _ := tmux.New().PanePID(context.Background(), session)
 		if err := tmux.New().KillSession(context.Background(), session); err != nil {
 			t.Errorf("cleanup: kill tmux session %q: %v", session, err)
 		}
+		reapPaneGroup(pid, 5*time.Second)
 	})
 }
 
