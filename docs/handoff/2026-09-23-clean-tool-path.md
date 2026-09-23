@@ -10,7 +10,7 @@ Verified: probe in the real bare env — go, uv, pnpm unresolvable before; after
 Blind spot: not exercised through the desktop Management window; the new binary reaches the distro only via `make deploy` (no desktop-restart needed).
 visual-review: n/a
 Debts added to `docs/handoff/open/windows-wsl.md`: pnpm row measures `~/.cache/pnpm` while prune works on the store; a GOCACHE elsewhere reports 0 freed.
-Merge: `make close` not yet run when this note was written.
+Merge: on `main` at e3587a88, `make ci` green.
 
 ## Next up
 
