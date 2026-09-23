@@ -9,7 +9,7 @@ Shipped (a0e94a95):
 Verified live on the owner's machine (no restart): root read works; system caches measured (apt 136 MB, journal 2.1 GB); nonexistent account and root refused; write without `--yes` refused; set-then-remove round trip leaves /etc/wsl.conf byte-identical; /etc/wsl.conf.picode-orig equals the original (an /etc/wsl.conf.bak from the test writes remains, harmless). Blind spot: system-clean (apt-get clean, journal vacuum) is unit-tested and stubbed only; the Distro tab was never driven through the real shell.
 Adversarial review: no injection path (Windows argv escaping checked); fixed True/False case loss, BOM and commented section headers, CRLF, .bak overwrite (.picode-orig added), symlink, localized missing-file detection, default=root/missing accounts, option/root allowlists, system-stage timeout, missing paths measure 0, journal --rotate, empty sections kept, ADR accuracy, `--yes` gate.
 visual-review: PASS (root/, 12 states) after one FAIL round.
-Merge: `make close` had not run when this note was written.
+Merge: on `main` at 40033d3e, `make ci` green.
 
 ## Next up
 
