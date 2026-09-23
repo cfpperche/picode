@@ -387,3 +387,40 @@ func TestWorktreePathIsAbsoluteUnderTheRoot(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestWorktreeCreate(t *testing.T) {
+	// What the composer writes is recognized, round trip.
+	for _, a := range []Args{
+		{Target: "HEAD", Name: "fix-race", RepoRoot: "/home/me/my repo"},
+		{Target: "abc1234", Name: "fork", RepoRoot: "/r"},
+		{Target: "HEAD", Name: "fork"},
+	} {
+		cmd, _, err := Compose("create-worktree-branch", a)
+		if err != nil {
+			t.Fatal(err)
+		}
+		root, ok := WorktreeCreate(cmd)
+		if !ok || root != a.RepoRoot {
+			t.Errorf("%q: root %q ok %v", cmd, root, ok)
+		}
+	}
+	for _, bad := range []string{
+		"git worktree add .worktrees/x HEAD",                     // no new branch: not this action
+		"git worktree add -b x '/r/.worktrees/x' HEAD; rm -rf ~", // a second command
+		"git worktree add -b x '/r/.worktrees/x' HEAD && echo",   // chained
+		"git worktree add -b x '/r/.worktrees/y' HEAD",           // folder is not the branch
+		"git worktree add -b x '/r/.worktrees/x/../../etc' HEAD", // escapes .worktrees
+		"git worktree add -b x '/r/'\\''q/.worktrees/x' HEAD",    // quote inside the root
+		"git worktree add -b ../x '/r/.worktrees/../x' HEAD",     // slug is a path
+		"git worktree add -b x '/r/.worktrees/x' --detach",       // a flag, not a ref
+		"git worktree add -b x 'r/.worktrees/x' HEAD",            // relative root inside quotes
+		"git worktree add -b x '/r/.worktrees/x' HEAD\n",         // trailing newline
+		" git worktree add -b x '/r/.worktrees/x' HEAD",          // leading space
+		"git worktree add -b x '/r/.worktrees/x' HEAD extra",     // trailing word
+		"git worktree add -b x '/r/.worktrees/x'",                // no ref
+	} {
+		if _, ok := WorktreeCreate(bad); ok {
+			t.Errorf("recognized %q", bad)
+		}
+	}
+}
