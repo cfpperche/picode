@@ -1255,6 +1255,11 @@ img.ws-face.term-cli-face {
    The white plate stays — dark currentColor marks need it on the dark
    sidebar, and it is invisible on light chrome. */
 .ws-identity-mark img.ws-face { border: 0; padding: 0; }
+
+/* PiCode's own inline marks (Pi's, terminalCli.js PI_MARK) are drawn in a
+   neutral ink that reads on both grounds: the white plate other faces keep
+   for dark vendor marks turned Pi's block logo into a solid square. */
+img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: transparent; }
 .ws-activity-dot {
   position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px;
   border: 2px solid var(--bg-panel); border-radius: 50%; background: var(--accent);

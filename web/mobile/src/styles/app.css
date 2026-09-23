@@ -710,6 +710,12 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-size: 8px; font-weight: 650; color: var(--text-secondary); flex: none;
   box-sizing: border-box;
 }
+
+/* PiCode's own inline marks (Pi's, terminalCli.js PI_MARK) are drawn in a
+   neutral ink that reads on both grounds: the white plate other faces keep
+   for dark vendor marks turned Pi's block logo into a solid square. */
+img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: transparent; }
+
 .pi-spin {
   width: 16px; height: 16px; display: grid; place-items: center; flex: none;
   font-family: var(--mono); font-size: 13px; line-height: 1; color: currentColor;
