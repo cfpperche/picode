@@ -115,3 +115,33 @@ func TestListIntegrationSettings(t *testing.T) {
 		t.Fatalf("layers = %+v (%v)", all, err)
 	}
 }
+
+// The mode is declared, never guessed (ADR-0186), and provider mode carries no
+// commands: the provider's own CI runs those.
+func TestIntegrationModeIsDeclared(t *testing.T) {
+	s := openTest(t)
+	if _, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{Mode: "automatic", FFOnly: true}); err == nil ||
+		!strings.Contains(err.Error(), `mode must be "provider" or "local"`) {
+		t.Fatalf("unknown mode = %v", err)
+	}
+	if _, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{Mode: ModeProvider, FFOnly: true, Checks: []string{"make ci"}}); err == nil ||
+		!strings.Contains(err.Error(), "provider mode runs the checks of its provider") {
+		t.Fatalf("provider with commands = %v", err)
+	}
+	declared, err := s.PutIntegrationSettings("ws1", IntegrationSettingsMutation{Mode: ModeProvider, FFOnly: true})
+	if err != nil || declared.Mode != ModeProvider || len(declared.Checks) != 0 {
+		t.Fatalf("provider declaration = %+v (%v)", declared, err)
+	}
+	local, err := s.PutIntegrationSettings("ws2", IntegrationSettingsMutation{Mode: ModeLocal, FFOnly: true, Checks: []string{"make ci"}})
+	if err != nil || local.Mode != ModeLocal {
+		t.Fatalf("local declaration = %+v (%v)", local, err)
+	}
+	// A project that declared nothing has no mode, and the machine fallback does
+	// not invent one.
+	if eff, err := s.EffectiveIntegrationSettings("ws3"); err != nil || eff.Mode != "" {
+		t.Fatalf("default mode = %+v (%v)", eff, err)
+	}
+	if eff, err := s.EffectiveIntegrationSettings("ws1"); err != nil || eff.Mode != ModeProvider {
+		t.Fatalf("workspace mode = %+v (%v)", eff, err)
+	}
+}

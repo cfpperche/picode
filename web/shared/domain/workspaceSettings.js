@@ -38,14 +38,28 @@ export function inheritedLine(page) {
 
 // blocksLanding: rules the runner refuses to act on (fast-forward off).
 export function blocksLanding(rules) {
-  return !!rules && rules.ffOnly === false;
+  if (!rules || !rules.mode) return true; // nothing runs until a mode is declared (ADR-0186)
+  if (rules.mode === "provider") return false; // the project's own queue integrates it
+  return rules.ffOnly === false;
 }
 
 // rulesSummary: the rules in words — "fast-forward only, after make ci".
 export function rulesSummary(rules) {
+  if (rules && rules.mode === "provider") return "the project's own merge queue integrates it";
+  if (!rules || rules.mode !== "local") return "no integration mode declared";
   const checks = cleanChecks(rules && rules.checks);
   if (blocksLanding(rules)) return "fast-forward off, so authorized branches stay blocked";
   return "fast-forward only" + (checks.length ? ", after " + checks.join(" · ") : ", no checks");
+}
+
+// integrationIntro: the one sentence that says who does the integrating, true
+// for every mode — PiCode's local runner, the project's own queue, or nothing
+// declared yet. It sits above the editor, so it follows the draft.
+export function integrationIntro(rules) {
+  const mode = (rules && rules.mode) || "";
+  if (mode === "provider") return "Your project's own merge queue integrates it: PiCode enqueues and observes, and that provider's checks decide.";
+  if (mode === "local") return "When you authorize a branch an agent delivered, PiCode runs these checks and then merges it.";
+  return "Choose who integrates before anything runs — PiCode here, or your project's own merge queue.";
 }
 
 // cleanChecks drops the form's blank rows; the declaration never holds one.
@@ -54,13 +68,13 @@ export function cleanChecks(rows) {
 }
 
 function same(a, b) {
-  return !!a.ffOnly === !!b.ffOnly && JSON.stringify(cleanChecks(a.checks)) === JSON.stringify(cleanChecks(b.checks));
+  return (a.mode || "") === (b.mode || "") && !!a.ffOnly === !!b.ffOnly && JSON.stringify(cleanChecks(a.checks)) === JSON.stringify(cleanChecks(b.checks));
 }
 
 export function integrationSave(page, mode, draft) {
   const declared = !!(page && page.declared);
   if (mode === "machine") return declared ? { action: "delete" } : { action: "none" };
-  const body = { ffOnly: !!draft.ffOnly, checks: cleanChecks(draft.checks) };
+  const body = { mode: draft.mode || "", ffOnly: !!draft.ffOnly, checks: draft.mode === "provider" ? [] : cleanChecks(draft.checks) };
   if (!declared) return { action: "put", body };
   const stored = page.settings || {};
   if (same(stored, body)) return { action: "none" };
@@ -71,7 +85,7 @@ export function integrationSave(page, mode, draft) {
 // "own" starts from the current rules instead of a blank form.
 export function draftFrom(page) {
   const eff = (page && (page.declared ? page.settings : page.effective)) || {};
-  return { ffOnly: eff.ffOnly !== false, checks: [...(eff.checks || [])] };
+  return { mode: eff.mode || "", ffOnly: eff.ffOnly !== false, checks: [...(eff.checks || [])] };
 }
 
 // followsRows: the Preferences list of who follows the machine's rules. One
@@ -101,5 +115,5 @@ export function followsRows(workspaces, layers) {
 // reuses integrationSave: the machine has no "inherit", only its own rules.
 export function machinePage(layers) {
   const m = (layers && layers.machine) || null;
-  return m ? { declared: true, settings: m, effective: m } : { declared: false, effective: { fromScope: "default", ffOnly: true, checks: [] } };
+  return m ? { declared: true, settings: m, effective: m } : { declared: false, effective: { fromScope: "default", mode: "", ffOnly: true, checks: [] } };
 }

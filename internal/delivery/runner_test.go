@@ -84,7 +84,7 @@ func write(t *testing.T, path, body string) {
 }
 
 func declared(checks ...string) store.IntegrationSettings {
-	return store.IntegrationSettings{Scope: "ws1", FFOnly: true, Checks: checks, FromScope: "ws1", Version: 1}
+	return store.IntegrationSettings{Scope: "ws1", Mode: store.ModeLocal, FFOnly: true, Checks: checks, FromScope: "ws1", Version: 1}
 }
 
 func TestRunEntryIntegratesAfterTheDeclaredCommands(t *testing.T) {
@@ -136,10 +136,15 @@ func TestRunEntryBlockers(t *testing.T) {
 		change func(t *testing.T, f runFixture) RunConfig
 		want   string
 	}{
-		{"no declaration", func(t *testing.T, f runFixture) RunConfig {
+		{"no mode declared", func(t *testing.T, f runFixture) RunConfig {
 			return RunConfig{Store: f.st, Repo: f.repo, Cwd: f.cwd, Delivery: f.del, Entry: f.entry,
 				Settings: store.IntegrationSettings{FFOnly: true, FromScope: "default"}}
-		}, "the project declares no integration rules"},
+		}, "declares no integration mode"},
+		{"the project integrates through its provider", func(t *testing.T, f runFixture) RunConfig {
+			s := declared()
+			s.Mode = store.ModeProvider
+			return RunConfig{Store: f.st, Repo: f.repo, Cwd: f.cwd, Settings: s, Delivery: f.del, Entry: f.entry}
+		}, "integrates through its own provider"},
 		{"a policy the runner does not implement", func(t *testing.T, f runFixture) RunConfig {
 			s := declared()
 			s.FFOnly = false

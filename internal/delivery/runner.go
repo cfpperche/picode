@@ -83,10 +83,16 @@ func (cfg RunConfig) record(e store.QueueEntry, action, note string) (store.Queu
 // changing invalidates the authorization and names the reason — never silently
 // broadened, never re-authorized (ADR-0182).
 func blockReason(ctx context.Context, cfg RunConfig) string {
-	switch {
-	case cfg.Settings.FromScope == "default":
-		return "the project declares no integration rules"
-	case !cfg.Settings.FFOnly:
+	switch cfg.Settings.Mode {
+	case "":
+		return "the project declares no integration mode: declare local for PiCode to run it, or provider for its own queue"
+	case store.ModeProvider:
+		return "this project integrates through its own provider; PiCode enqueues and observes it, never runs it"
+	case store.ModeLocal:
+	default:
+		return "the declared integration mode is not one this PiCode knows"
+	}
+	if !cfg.Settings.FFOnly {
 		return "the declaration does not ask for fast-forward-only integration"
 	}
 	head, err := git(ctx, cfg.Cwd, "rev-parse", "--verify", "refs/heads/"+cfg.Delivery.Branch)
