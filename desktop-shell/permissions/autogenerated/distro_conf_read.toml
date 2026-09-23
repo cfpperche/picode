@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-distro-conf-read"
+description = "Enables the distro_conf_read command without any pre-configured scope."
+commands.allow = ["distro_conf_read"]
+
+[[permission]]
+identifier = "deny-distro-conf-read"
+description = "Denies the distro_conf_read command without any pre-configured scope."
+commands.deny = ["distro_conf_read"]
