@@ -71,7 +71,14 @@ if [ -n "$SCOPE_GO" ]; then
     pkgs="./..."
   fi
   echo "ci-scoped: go test $(printf '%s\n' $pkgs | wc -l | tr -d ' ') package(s)"
-  ./scripts/go-test.sh $pkgs
+  # Hermetic by construction: the agent CLIs are not on this PATH, so a test
+  # that reaches a vendor-locating path without stubbing or configuring the
+  # binary fails here instead of on a runner. Three landed that way on
+  # 2026-09-22 (`opencode`, `omp`, `pi`) and main went red for hours; the
+  # toolchain and /usr/bin are enough for the whole suite today, and a test
+  # that needs more says so where its reader can see it.
+  GODIR=$(dirname "$(command -v go)")
+  PATH="$GODIR:/usr/bin:/bin" ./scripts/go-test.sh $pkgs
   # What the run read, for `make close`'s reuse decision (ADR-0124): the tested
   # packages plus their transitive dependencies, and nothing else.
   stamped_pkgs=$(go list -deps -f '{{.ImportPath}} {{.Dir}}' $pkgs 2>/dev/null | awk -v mod="$(head -1 go.mod | awk '{print $2}')" '$1 ~ "^"mod { print $1 }' | sort -u | tr '\n' ' ')
