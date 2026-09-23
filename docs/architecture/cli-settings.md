@@ -588,3 +588,13 @@ the sticky rule on a bad measurement — a probe that scrolled `window`, which
 this app never scrolls; the scroller is the CLI page element.) The phone sets
 the bar back to `static`: its shell scrolls a different element and the bar is
 a short hop from the top there.
+
+## A field kept to one layer (2026-09-23)
+
+`Field.Scopes` names the layers a row may be written in. Claude Code's
+Project instructions (`pluginConfigs.agents-md@builtin.options.instructionFiles`)
+is the first row to use it: Claude Code reads that option from user and
+managed settings and ignores it in project settings, so the row exists only
+on the Global layer. `TestEveryDeclaredFieldRoundTrips` writes and reads each
+field in the layers it allows, not in all of them. The Instructions group is
+described in [cli-instructions.md](cli-instructions.md).

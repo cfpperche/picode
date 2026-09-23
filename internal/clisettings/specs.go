@@ -33,6 +33,11 @@ const (
 	groupMemory    = "Memory"
 	groupSurface   = "Interface"
 	groupUpdates   = "Updates"
+	// Instructions: which instruction files the CLI reads and how much of
+	// them (docs/architecture/cli-instructions.md, verified 2026-09-23 on the
+	// installed versions — Claude Code 2.1.280's agents-md mod and docs, the
+	// Codex 0.156.1 binary, Hermes's config_defaults.py, OpenCode's rules docs).
+	groupInstructions = "Instructions"
 )
 
 func opts(pairs ...[2]string) []Option {
@@ -81,6 +86,12 @@ var catalog = []spec{
 				[2]string{"dontAsk", "Deny unless allowed"},
 				[2]string{"bypassPermissions", "Skip all prompts"},
 			), Danger: "bypassPermissions", DangerNote: "Runs without permission prompts. For containers or disposable VMs."},
+			{Key: "pluginConfigs.agents-md@builtin.options.instructionFiles", Label: "Project instructions", Kind: KindSelect, Group: groupInstructions, Scopes: []string{"user"}, Fallback: "CLAUDE.md, or AGENTS.md when there is none", Help: "Claude Code reads this from your own settings only.", Options: opts(
+				[2]string{"claude-md-or-agents-md", "CLAUDE.md, or AGENTS.md when there is none"},
+				[2]string{"claude-md-and-agents-md", "CLAUDE.md and AGENTS.md"},
+				[2]string{"claude-md", "CLAUDE.md only"},
+				[2]string{"managed-only", "Organization's managed file only"},
+			)},
 			{Key: "autoMemoryEnabled", Label: "Auto memory", Kind: KindBool, Group: groupMemory, Fallback: "On", DefaultOn: true, Help: "Claude writes its own notes between sessions."},
 			{Key: "autoMemoryDirectory", Label: "Memory folder", Kind: KindText, Group: groupMemory, Fallback: "~/.claude/projects/<project>/memory", Help: "Where those notes are kept."},
 			{Key: "cleanupPeriodDays", Label: "Keep transcripts for", Kind: KindNumber, Group: groupUpdates, Fallback: "30 days", Help: "Days before old session transcripts are removed. Memory files are never swept."},
@@ -107,6 +118,8 @@ var catalog = []spec{
 				[2]string{"workspace-write", "Write inside the workspace"},
 				[2]string{"danger-full-access", "Full access"},
 			), Danger: "danger-full-access", DangerNote: "No sandbox: full file and network access."},
+			{Key: "project_doc_fallback_filenames", Label: "Also read", Kind: KindList, Group: groupInstructions, Fallback: "AGENTS.md only", Help: "File names Codex reads when a folder has no AGENTS.md, such as CLAUDE.md."},
+			{Key: "project_doc_max_bytes", Label: "Instructions size limit", Kind: KindNumber, Group: groupInstructions, Fallback: "32768 bytes", Help: "Codex stops adding instruction files past this many bytes."},
 			{Key: "features.memories", Label: "Memories", Kind: KindBool, Group: groupMemory, Fallback: "Off", Help: "Codex turns finished chats into local notes."},
 			{Key: "memories.generate_memories", Label: "Write new memories", Kind: KindBool, Group: groupMemory, Fallback: "On while memories are on", DefaultOn: true},
 			{Key: "memories.use_memories", Label: "Read memories back", Kind: KindBool, Group: groupMemory, Fallback: "On while memories are on", DefaultOn: true},
@@ -162,6 +175,7 @@ var catalog = []spec{
 				[2]string{"queue", "Queue it for after"},
 				[2]string{"steer", "Steer the running turn"},
 			)},
+			{Key: "context_file_max_chars", Label: "Instructions size limit", Kind: KindNumber, Group: groupInstructions, Fallback: "Sized from the model's window", Help: "Characters of AGENTS.md Hermes keeps; longer files are cut."},
 			{Key: "memory.memory_enabled", Label: "Agent notes", Kind: KindBool, Group: groupMemory, Fallback: "On", DefaultOn: true, Help: "What Hermes learned about this environment."},
 			{Key: "memory.user_profile_enabled", Label: "Profile of you", Kind: KindBool, Group: groupMemory, Fallback: "On", DefaultOn: true},
 			{Key: "memory.memory_char_limit", Label: "Notes size limit", Kind: KindNumber, Group: groupMemory, Fallback: "2200 characters"},
@@ -177,6 +191,7 @@ var catalog = []spec{
 		fields: []Field{
 			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "OpenCode default", Help: "In provider/model form."},
 			{Key: "theme", Label: "Theme", Kind: KindText, Group: groupSurface, Fallback: "OpenCode default"},
+			{Key: "instructions", Label: "Extra instruction files", Kind: KindList, Group: groupInstructions, Fallback: "None", Help: "Files, globs or URLs OpenCode reads beside AGENTS.md."},
 			// `autoupdate` is `true | false | "notify"` in OpenCode's own
 			// schema. A switch cannot hold the third value and its first
 			// toggle would destroy it, so PiCode does not offer the row
