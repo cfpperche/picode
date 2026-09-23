@@ -17,7 +17,7 @@ export const MORE_SECTIONS = [
   ["preferences", "Preferences", "Theme, notifications, backup"],
   ["connectors", "Connectors", "MCP servers and tools"],
   ["integrations", "Webhooks", "Signed event delivery"],
-  ["packages", "Packages", "Skills, extensions, updates"],
+  ["packages", "Packages", "Plugins, extensions, updates"],
   ["devices", "Devices", "Who is connected"],
   ["system", "System", "Version, host, paths"],
 ];
@@ -47,7 +47,8 @@ export function moreGroups(query) {
   if (query.trim()) {
     const cliRows = [
       ["pi-settings", "CLI settings", "The last agent's CLI configuration", "pi model thinking prompt"],
-      ["pi-packages", "Packages", "Skills, extensions and updates", "skills extensions updates"],
+      ["pi-packages", "Packages", "Plugins, extensions and updates", "plugins extensions updates"],
+      ["pi-skills", "Skills", "Agent Skills each CLI loads", "skills SKILL.md agent skills"],
       ["pi-providers", "Providers", "Accounts, keys and usage", "accounts keys usage login"],
       ["connectors", "Connectors", "MCP servers and tools", "MCP servers tools"],
     ].filter(([, title, , keys]) => matchesListSearch(query, title, keys)).map(([id, title, sub]) => [id, title, sub]);

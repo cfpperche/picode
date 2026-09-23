@@ -25,15 +25,9 @@ html, body {
   overflow: hidden;
   background: var(--bg-base);
 }
-/* Scrollbars: the standard properties live only where ::-webkit-scrollbar
-   is not understood — Chromium ≥ 121 ignores the pseudo-elements on any
-   box whose scrollbar-width or scrollbar-color is not `auto` (see the
-   desktop app.css for the full note). */
+/* Scrollbars: the look lives in @picode/shared/styles/scrollbars.css
+   (loaded before this sheet); only this app's sidebar tweak is here. */
 @supports not selector(::-webkit-scrollbar) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
-  }
   .side-section {
     scrollbar-color: transparent transparent;
     transition: scrollbar-color .18s ease;
@@ -42,16 +36,6 @@ html, body {
     scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
   }
 }
-*::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
-*::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-secondary) 40%, transparent);
-  border-radius: 99px;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
-}
-*::-webkit-scrollbar-button { width: 0; height: 0; display: none; }
 .side-section::-webkit-scrollbar-thumb {
   background: transparent;
   transition: background .18s ease;

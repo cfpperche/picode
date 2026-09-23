@@ -2,6 +2,7 @@ import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cl
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import { cliConnectorsHash } from "@picode/shared/domain/integrations.js";
+import { cliSkillsHash } from "@picode/shared/domain/cliSkills.js";
 import { cliLocation, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 // Hash routes. Preferences is PiCode-the-product. Native settings live under Agent CLIs (ADR-0101).
 // Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
@@ -236,6 +237,7 @@ export function go(name, agentId, extra = {}) {
   const cli = String(extra.cli || "").trim() || "pi";
   if (name === "settings") { location.hash = cliSettingsHash(cli, ctx); return; }
   if (name === "packages") { location.hash = cliPackagesHash(cli, ctx); return; }
+  if (name === "skills") { location.hash = cliSkillsHash(cli, { workspaceId: ctx.workspaceId }); return; }
   if (name === "mcps" || name === "connectors") { location.hash = cliConnectorsHash(cli, ctx); return; }
   if (name === "providers" && extra.cli) { location.hash = cliProvidersHash(cli); return; }
   if (typeof name === "string" && name.startsWith("preferences")) {

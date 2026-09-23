@@ -9132,6 +9132,23 @@
         ]
       }
     },
+    "/api/skills/report": {
+      "get": {
+        "operationId": "getApiSkillsReport",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
     "/api/snips": {
       "get": {
         "operationId": "getApiSnips",
@@ -12715,6 +12732,9 @@
     },
     {
       "name": "share"
+    },
+    {
+      "name": "skills"
     },
     {
       "name": "snips"
