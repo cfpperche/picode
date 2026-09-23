@@ -1899,6 +1899,97 @@
         ]
       }
     },
+    "/api/agy/login": {
+      "delete": {
+        "operationId": "deleteApiAgyLogin",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agy"
+        ]
+      },
+      "get": {
+        "operationId": "getApiAgyLogin",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agy"
+        ]
+      },
+      "post": {
+        "operationId": "postApiAgyLogin",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agy"
+        ]
+      }
+    },
+    "/api/agy/login/code": {
+      "post": {
+        "operationId": "postApiAgyLoginCode",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agy"
+        ]
+      }
+    },
     "/api/apps": {
       "get": {
         "operationId": "getApiApps",
@@ -12263,6 +12354,9 @@
     },
     {
       "name": "agents"
+    },
+    {
+      "name": "agy"
     },
     {
       "name": "apps"

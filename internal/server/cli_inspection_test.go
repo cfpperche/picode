@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -254,7 +255,7 @@ func TestCLIRestartPreparationFailureAndWorkspaceCleanup(t *testing.T) {
 	id := v["id"].(string)
 	session := tmux.ShellSessionName(id)
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), session) })
-	pid, _ := tmux.New().PanePID(context.Background(), session)
+	pid := panePIDSoon(t, session)
 	root := filepath.Join(data, "cli-launch", id)
 	if err := os.Rename(root, root+"-held"); err != nil {
 		t.Fatal(err)
@@ -263,7 +264,7 @@ func TestCLIRestartPreparationFailureAndWorkspaceCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	cliRequest(t, ts, "POST", "/api/terminals/"+id+"/launch/restart", map[string]any{"confirm": true}, 400)
-	if got, _ := tmux.New().PanePID(context.Background(), session); got != pid {
+	if got := panePIDSoon(t, session); got != pid {
 		t.Fatal("preparation failure killed the old process")
 	}
 	launch := cliRequest(t, ts, "GET", "/api/terminals/"+id+"/launch", nil, 200)
@@ -284,5 +285,24 @@ func TestCLIRestartPreparationFailureAndWorkspaceCleanup(t *testing.T) {
 	}
 	if _, err := os.Stat(project); err != nil {
 		t.Fatal("removed native project data")
+	}
+}
+
+// panePIDSoon reads a live pane's pid, retrying briefly. Both reads in the
+// restart test used to drop the error: under a loaded 4-shard gate a tmux
+// call that failed read as pid 0, and "0 != pid" was reported as a killed
+// process (2026-09-23). An answer that never comes is a failure of its own.
+func panePIDSoon(t *testing.T, session string) int {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		pid, err := tmux.New().PanePID(context.Background(), session)
+		if err == nil && pid > 0 {
+			return pid
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("pane pid of %s: %v (pid %d)", session, err, pid)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
