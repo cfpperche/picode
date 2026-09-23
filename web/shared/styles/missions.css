@@ -1,0 +1,54 @@
+.missions { --mission-gap: 16px; }
+.mission-toolbar, .mission-actions, .mission-meta { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.mission-toolbar { justify-content:space-between; margin-bottom:16px; }
+.missions input:not([type=checkbox]), .missions select, .missions .btn { height:var(--ctl-h); min-height:var(--ctl-h); box-sizing:border-box; }
+.missions input:not([type=checkbox]), .missions select, .missions textarea { color:var(--text-primary); background:var(--bg-base); border:1px solid var(--border-strong); border-radius:var(--radius-ctl); padding:8px 10px; font:inherit; max-width:100%; }
+.missions textarea { width:100%; box-sizing:border-box; resize:vertical; min-height:88px; }
+.mission-form { display:grid; gap:14px; }
+.mission-form label { display:grid; gap:6px; font-weight:500; }
+.mission-form label:has(input[type=checkbox]) { display:flex; gap:8px; align-items:flex-start; font-weight:400; }
+.mission-form .mission-check { align-items:flex-start; }
+.mission-list { list-style:none; margin:0; padding:0; }
+.mission-list li + li { border-top:1px solid var(--border); }
+.mission-row { display:flex; gap:16px; justify-content:space-between; align-items:center; padding:14px 4px; color:var(--text-primary); text-decoration:none; transition:background var(--motion-fast); }
+.mission-row:hover { background:var(--bg-hover); }
+.mission-row strong { display:block; margin-bottom:4px; }
+.mission-muted { color:var(--text-secondary); font-size:12px; }
+.mission-state { color:var(--text-secondary); white-space:nowrap; font-size:12px; }
+.mission-state[data-state=blocked], .mission-state[data-state=paused] { color:var(--warn); }
+.mission-state[data-state=in-review] { color:var(--accent); }
+.mission-state[data-state=completed] { color:var(--ok); }
+.mission-detail { display:grid; gap:24px; }
+.mission-detail h3 { margin:0 0 8px; font-size:14px; }
+.mission-detail p { margin:4px 0 12px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+.mission-section { border-top:1px solid var(--border); padding-top:18px; }
+.mission-primary { border-left:3px solid var(--accent); padding-left:14px; }
+.mission-notice { border:1px solid var(--border-strong); border-radius:var(--radius-ctl); padding:12px; margin:0 0 16px; }
+.mission-notice[role=alert] { border-color:var(--danger); }
+.mission-criteria { list-style:none; margin:0; padding:0; }
+.mission-criteria li { padding:12px 0; border-bottom:1px solid var(--border); }
+.mission-criteria code { font-size:11px; overflow-wrap:anywhere; }
+.mission-evidence { color:var(--text-secondary); white-space:pre-wrap; overflow-wrap:anywhere; margin-top:6px; font-size:12px; }
+.mission-history { list-style:none; padding:0; }
+.mission-history li { margin-bottom:12px; padding-left:12px; border-left:2px solid var(--border-strong); }
+.mission-history time { display:block; color:var(--text-secondary); font-size:11px; }
+.mission-packet { background:var(--bg-base); padding:12px; border:1px solid var(--border); border-radius:var(--radius-ctl); font:12px/1.6 var(--mono); white-space:pre-wrap; overflow-wrap:anywhere; max-height:320px; overflow:auto; }
+.mission-empty { padding:24px 0; color:var(--text-secondary); }
+.mission-loading { display:grid; gap:16px; padding:16px 0; }
+.mission-loading span { display:block; height:28px; border-radius:6px; background:var(--bg-hover); animation:mission-pulse 1.5s ease-in-out infinite; }
+.mission-loading span:nth-child(2) { width:70%; }
+.mission-loading span:nth-child(3) { width:85%; height:80px; }
+@keyframes mission-pulse { 50% { opacity:.4; } }
+@media(prefers-reduced-motion:reduce) { .mission-loading span { animation:none; } }
+@media(max-width:600px) { .mission-row { align-items:flex-start; gap:8px; } .mission-toolbar select { min-width:0; flex:1; width:auto; } .mission-actions .btn { flex-grow:1; } }
+
+.m-missions-body { padding:16px; overflow:auto; min-height:0; }
+.m-missions .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:7px 12px; border:1px solid var(--border-strong); border-radius:var(--radius-ctl); background:var(--bg-panel); color:var(--text-primary); font:inherit; text-decoration:none; }
+.m-missions .btn-primary { background:var(--accent); color:var(--bg-base); }
+.m-missions .btn:disabled { opacity:.6; }
+.m-missions a { overflow-wrap:anywhere; }
+
+.missions .btn { white-space:nowrap; }
+/* Match adjacent controls while retaining a larger touch target around buttons. */
+#m-app .m-missions .btn { min-height:var(--ctl-h); height:var(--ctl-h); position:relative; }
+#m-app .m-missions .btn::after { content:""; position:absolute; inset:-4px 0; }

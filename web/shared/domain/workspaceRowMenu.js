@@ -64,6 +64,7 @@ export function workspaceRowMenu(ws = {}, { canMoveUp = false, canMoveDown = fal
   const repo = !!(ws.git && (ws.git.branch || ws.git.worktree));
   const remote = ws.remote && ws.remote.url ? ws.remote : null;
   const inside = [
+    { id: "missions", label: "Missions" },
     { id: "communication", label: "Communication" },
     { id: "files", label: "Files" },
     ...(repo ? [{ id: "git-graph", label: "Git graph" }] : []),

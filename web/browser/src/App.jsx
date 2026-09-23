@@ -82,6 +82,7 @@ import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
+const Missions = lazy(() => import("./components/Missions.jsx"));
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
 // The Canvas surface is lazy for the reason ADR-0118 gives: a reader who
 // never opens the app should not carry it. It is a registry entry like any
@@ -1087,7 +1088,7 @@ export default function App({ shellChrome = false } = {}) {
     // A fork's lineage row lands just after its agent: the list carries
     // "fork of <name>" (forkedFrom), so refetch when that row arrives.
     if (ev.type === "session.handoff" && ev.data && ev.data.mode === "fork") { loadWorkspaces().catch(() => {}); return; }
-    if (!touches(ev, ["workspace", "agent", "terminal", "cli", "git"])) return;
+    if (!touches(ev, ["workspace", "agent", "terminal", "cli", "git", "mission"])) return;
     const next = applyFleet(fleetRef.current, ev);
     if (next === null) { loadWorkspaces().catch(() => {}); return; }
     if (next === fleetRef.current) return;
@@ -4421,6 +4422,7 @@ export default function App({ shellChrome = false } = {}) {
         <Snippets hidden={route !== "snippets"} />
         <Outcomes hidden={route !== "outcomes"} workspaces={workspaces} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
+        {route === "missions" ? <Suspense fallback={<p role="status">Loading missions…</p>}><Missions /></Suspense> : null}
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>
       <Inspector
@@ -4483,6 +4485,7 @@ export default function App({ shellChrome = false } = {}) {
             setCliPrincipalWs({ free: true }); // ADR-0184: a launch is an agent
             return;
           }
+          if (a.kind === "missions") { go("missions"); return; }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "skills" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets" || a.kind === "outcomes") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);

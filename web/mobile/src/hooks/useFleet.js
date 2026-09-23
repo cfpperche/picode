@@ -40,7 +40,7 @@ export function useFleet(ms) {
   useEffect(() => subscribeFeed((ev) => {
     // A fork's lineage row ("fork of <name>") lands just after its agent.
     if (ev.type === "session.handoff" && ev.data && ev.data.mode === "fork") { reload({ force: true }).catch(() => {}); return; }
-    if (!touches(ev, ["workspace", "agent", "terminal", "git"])) return;
+    if (!touches(ev, ["workspace", "agent", "terminal", "git", "mission"])) return;
     if (loader.current.pending) events.current.push(ev);
     const next = applyFleet(ref.current, ev);
     if (next === null) {

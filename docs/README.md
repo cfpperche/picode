@@ -11,7 +11,7 @@ Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS
 | [philosophy.md](philosophy.md) | Moat, values, the "door not cage" principle |
 | [benchmarks.md](benchmarks.md) | Engineering + UI/UX *bars* (enforced by skills) |
 | [benchmarks/](benchmarks/) | **Who we study**: Cursor, t3code, paseo, Herdr, Devin — dated notes |
-| [plans/missions.md](plans/missions.md) | Proposed persistent missions across agents and sessions; scope, boundaries and acceptance milestones |
+| [plans/missions.md](plans/missions.md) | Persistent missions across agents and sessions; approved scope, implementation evidence and future milestones |
 | [benchmark-cursor.md](benchmark-cursor.md) | Cursor product patterns + aesthetic/density north star |
 | [handoff.md](handoff.md) | **Project state right now** — start here (≤ 100 lines by hook) |
 | [handoff/](handoff/) | One short note per session, newest by filename; `make close-summary` says what to write |

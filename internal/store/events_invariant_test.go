@@ -25,6 +25,11 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		want []string
 	}
 	cases := []tc{
+		{"ApplyMission", func(s *Store) {
+			v, _ := missionFixture(t, s)
+			s.OnEvent = recorder(s)
+			missionChange(t, s, v, "report", func(m *MissionMutation) { m.Note = "Update" }, MissionObservation{})
+		}, []string{"mission.changed"}},
 		{"ApplyDelivery/register", func(s *Store) { s.OnEvent = recorder(s); deliveryFixture(t, s) }, []string{"delivery.changed"}},
 		{"ApplyDelivery/update", func(s *Store) {
 			d := deliveryFixture(t, s)

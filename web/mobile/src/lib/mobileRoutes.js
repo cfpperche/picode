@@ -1,3 +1,4 @@
+import { missionLocation } from "@picode/shared/domain/missions.js";
 import { cliProvidersLocation } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation } from "@picode/shared/domain/cliSettings.js";
@@ -53,6 +54,9 @@ function dec(s) {
 
 export function mobileRoute(hash) {
   const h = strip(hash);
+  const mission = missionLocation(h);
+  if (mission) return { screen: "missions", ...mission, section: "" };
+  if (h === "/more/missions") return { screen: "missions", id: "", workspace: "", section: "" };
   if (cliPackagesLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliSettingsLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliProvidersLocation(h)) return { screen: "more", id: "", section: "clis" };
@@ -121,6 +125,7 @@ export function mobileRoute(hash) {
 
 export function mobileHash(screen, id, section, view = "") {
   switch (screen) {
+    case "missions": return id ? "#/mission/" + encodeURIComponent(id) : "#/missions";
     case "inbox": return id ? "#/inbox/" + encodeURIComponent(id) : "#/inbox";
     case "work": return id ? "#/work/" + encodeURIComponent(id) : "#/work";
     case "agent": return workspaceHash(id, view);
@@ -144,6 +149,7 @@ export function tabOf(route) {
   if (!route) return "now";
   if (route.screen === "agent" || route.screen === "term" || route.screen === "work" || ["inspector", "files", "git"].includes(route.screen)) return "work";
   if (route.screen === "inbox") return "inbox";
+  if (route.screen === "missions") return "work";
   if (route.screen === "more" || route.screen === "app" || route.screen === "pin" || route.screen === "pinEdit" || route.screen === "snip" || route.screen === "snipEdit") return "more";
   return "now";
 }
@@ -156,6 +162,7 @@ export function tabOf(route) {
 // the fleet has not answered yet) keeps the legacy parent.
 export function parentHash(route, wsId) {
   if (!route) return "#/";
+  if (route.screen === "missions") return route.id || route.create ? "#/missions" : "#/work";
   if (route.screen === "app") return "#/more/apps";
   if (route.screen === "agent") {
     if (wsId) return "#/work/workspaces/" + encodeURIComponent(wsId);
