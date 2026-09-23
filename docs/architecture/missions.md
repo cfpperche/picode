@@ -69,11 +69,12 @@ original request payload, including its version, across form reloads.
 | Authority | Agent reports; owner assigns, transfers and accepts the result | Delivery author declares and requests review; owner authorizes integration; the declared provider or local runner performs it |
 | Idempotency | Mission `requestId` and version; agent writes also bind the assignment generation and native session | Delivery declaration retry key and version; queue request receipts replay an identical request |
 
-The current link goes one way: Mission evidence may cite an existing **Delivery
-ID** (`kind: "delivery"`) in the same repository and candidate revision.
-Delivery does not currently carry a Mission ID or derive its authority from a
-Mission. Linking evidence never transfers Delivery author authority, approves
-integration or places an entry in its queue. **Request review** also has two
+The link is stored in one direction and read in both: Mission evidence may cite
+an existing **Delivery ID** (`kind: "delivery"`) in the same repository and
+candidate revision, and the Delivery read derives the missions that cite a
+delivery, so a row can name the objective it serves. Nothing in Delivery derives
+authority from a Mission. Linking evidence never transfers Delivery author
+authority, approves integration or places an entry in its queue. **Request review** also has two
 meanings: in Missions it asks the owner to check the current criteria and
 evidence before owner acceptance; in Delivery it is the agent author's
 declaration that the artifact is ready for the owner to inspect (ADR-0171),

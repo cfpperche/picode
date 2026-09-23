@@ -190,8 +190,10 @@ The two axes stay separate: a mission is an objective with criteria, evidence an
 the owner's acceptance; a delivery is an artifact with a revision, receipts and
 its place in the merge queue. `review` means different things in each — in
 Missions it is the owner accepting a result, in Delivery a *review requested* is
-an agent's declaration that a human should look (ADR-0171). Missions' own
-vocabulary must not call its assignment receipt a "delivery".
+an agent's declaration that a human should look (ADR-0171). Missions states the
+same boundary in its own words (`docs/architecture/missions.md`, "Where Delivery
+begins"), including that its assignment receipt is a receipt and never a
+"delivery"; the rule stands for anything written later.
 
 ## Integration observation (ADR-0170, D1b)
 
