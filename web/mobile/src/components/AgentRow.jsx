@@ -42,8 +42,9 @@ export default function AgentRow({ agent, workspace, workingIds, checklist, busy
   const path = agent.workPath || (workspace && workspace.path) || "";
   const context = [model, path === workspace?.path ? "" : shortPath(path)].filter(Boolean).join(" · ");
   // A legacy interactive Pi pane has no bound terminal to restart; the
-  // row drops the item instead of offering a no-op.
-  const rows = agentRowMenu(agent, { clis, term }).filter((r) => r.id !== "restart" || agent.terminalId);
+  // row drops the item instead of offering a no-op. Fork agent… has no
+  // phone sheet yet (docs/handoff/open/agent-fork.md), so it stays desktop.
+  const rows = agentRowMenu(agent, { clis, term }).filter((r) => (r.id !== "restart" || agent.terminalId) && r.id !== "fork");
   return (
     <li className={"m-row m-agent-row is-" + status}>
       <button type="button" className="m-row-main" onClick={() => onOpen(agent)}>

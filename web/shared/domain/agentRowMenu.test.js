@@ -147,3 +147,19 @@ test("no pin, no Continue in… — the row stays flat", () => {
   assert.equal(rows.some((r) => r.id === "handoff"), false);
   assert.equal(rows.some((r) => r.sep), false);
 });
+
+// Fork agent… | pin | CLI forks natively (sessions.fork) | row
+//             | no  | —                                  | absent
+//             | yes | no                                 | absent
+//             | yes | yes                                | first, before Continue in…
+test("Fork agent… follows the pin and the CLI's native fork", () => {
+  const forking = CATALOG.map((c) => (c.id === "claude-code" ? { ...c, sessions: { ...c.sessions, fork: true } } : c));
+  const rows = agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: forking, term: PINNED });
+  const order = ids(rows);
+  assert.equal(order[0], "fork");
+  assert.equal(order[1], "handoff");
+  assert.equal(row(rows, "fork").label, "Fork agent…");
+  assert.ok(rows.findIndex((r) => r.sep) > order.indexOf("handoff"), "one divider after both");
+  assert.equal(ids(agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: CATALOG, term: PINNED })).includes("fork"), false, "no native fork, no row");
+  assert.equal(ids(agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: forking, term: STOPPED })).includes("fork"), false, "no pin, no row");
+});

@@ -155,6 +155,16 @@ export function terminalHandoffSourceCli(term) {
   return String((term && term.lastSession && term.lastSession.cli) || "").trim();
 }
 
+// terminalCanFork: the terminal's pinned conversation can be forked into a
+// new agent of the same CLI — the CLI advertises a command-line fork
+// (sessions.fork in GET /api/clis) and the pin names a session.
+export function terminalCanFork(term, clis) {
+  if (!sessionFromTerminal(term)) return false;
+  const sourceCli = terminalHandoffSourceCli(term);
+  const cli = (clis || []).find((c) => c && c.id === sourceCli);
+  return !!(cli && cli.sessions && cli.sessions.fork);
+}
+
 // terminalHandoffMenu is the Continue-in submenu for a terminal row or pane,
 // or null when the row cannot act (no pin, unread source, no targets).
 // Uninstalled targets stay listed with the reason in the label.
