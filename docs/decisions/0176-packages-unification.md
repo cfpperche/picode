@@ -1,6 +1,6 @@
 # ADR-0176: packages-unification
 
-- **Status**: proposed
+- **Status**: accepted (owner approved in session, 2026-09-22)
 - **Date**: 2026-09-21
 - **Boundary**: process and protocol — one package subsystem replaces two
   engines that are chosen by *which CLI* a row is; the HTTP surface becomes one
