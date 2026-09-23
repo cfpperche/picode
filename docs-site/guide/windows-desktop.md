@@ -194,5 +194,15 @@ name.
 **Config** — the WSL settings file (`.wslconfig`): memory, processors,
 swap, and the sparse-disk flag. Saving backs the file up to
 `.wslconfig.bak` first and leaves unknown settings untouched. Changes
-apply at the next full WSL restart — the window never restarts WSL for you;
-that action lives in Give back, where the cost is stated.
+apply at the next full WSL restart; after a save the tab offers **Restart
+WSL to apply**, which asks first and states the cost.
+
+**System** — memory and the WSL version. Memory shows the limit the WSL
+virtual machine runs with, how much of it Linux is using (and how much of
+that is cache it can drop), what Windows holds for it right now, swap, and
+Windows' own free RAM; a swap more than half used gets one line saying what
+to change. The WSL card shows the installed version and kernel and checks
+Microsoft's release page for a newer one; when there is one it offers
+**Update WSL**. **Restart WSL** and **Update WSL** stop all of WSL: every
+distro and every session inside it ends. Both first ask PiCode whether
+anyone is working and refuse while someone is mid-turn, then ask you once.

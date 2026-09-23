@@ -87,26 +87,10 @@ func runDiskCompact(distroFlag, userFlag, method string, yes, dryRun, force, asJ
 		return note("Nothing is held: the distro has already given back what it freed. Nothing to do.")
 	}
 
-	// The interlock. A server that cannot answer is a refusal, not a shrug:
-	// this is the one action here that ends other people's work.
-	url, urlErr := desktop.ServerURL(a.runner, a.distro, a.user)
-	if urlErr != nil && !force {
-		return refuse("PiCode is not answering, so I cannot check whether anyone is working — start it first, or use --force")
-	}
-	if urlErr == nil {
-		ready, busy, err := desktop.DeployReady(url)
-		if err != nil {
-			return abort("ask PiCode whether anyone is working: " + err.Error())
-		}
-		if !ready {
-			names := desktop.DescribeBusy(busy)
-			if !force {
-				return refuse("still working: " + names + " — finish first, or use --force")
-			}
-			if !asJSON {
-				fmt.Printf("  warn   still working, proceeding because of --force: %s\n", names)
-			}
-		}
+	if refusal, failure := idleInterlock(a, force, asJSON); refusal != "" {
+		return refuse(refusal)
+	} else if failure != "" {
+		return abort(failure)
 	}
 
 	if chosen == desktop.CompactOptimizeVHD && !isAdmin() {
@@ -191,4 +175,38 @@ func emitCompact(out compactOutcome) error {
 // step name with quotes or newlines from becoming a different object.
 func progressLine(step string) string {
 	return fmt.Sprintf("{\"progress\":%q}", step)
+}
+
+// unreachableRefusal is the one refusal that means "nobody can tell", as
+// opposed to "someone is working" — the Management window offers a
+// deliberate way past it for a restart, never past a busy answer.
+const unreachableRefusal = "PiCode is not answering, so I cannot check whether anyone is working — start it first, or use --force"
+
+// idleInterlock is the question every action that stops the distro asks
+// first — the same one `picode deploy` asks, because the same work ends. A
+// server that cannot answer is a refusal, not a shrug. It returns a refusal
+// (someone is working, or nobody can tell) or a failure (the question itself
+// failed); both empty means go.
+func idleInterlock(a app, force, asJSON bool) (refusal, failure string) {
+	url, urlErr := desktop.ServerURL(a.runner, a.distro, a.user)
+	if urlErr != nil && !force {
+		return unreachableRefusal, ""
+	}
+	if urlErr != nil {
+		return "", ""
+	}
+	ready, busy, err := desktop.DeployReady(url)
+	if err != nil {
+		return "", "ask PiCode whether anyone is working: " + err.Error()
+	}
+	if !ready {
+		names := desktop.DescribeBusy(busy)
+		if !force {
+			return "still working: " + names + " — finish first, or use --force", ""
+		}
+		if !asJSON {
+			fmt.Printf("  warn   still working, proceeding because of --force: %s\n", names)
+		}
+	}
+	return "", ""
 }

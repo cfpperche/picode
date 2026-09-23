@@ -12,6 +12,9 @@ use crate::{keepalive, status};
 
 static BOARD: OnceLock<Board> = OnceLock::new();
 
+/// Set while a WSL update runs (see `disk::wsl_update`).
+pub static KEEPALIVE_PAUSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn init(board: Board) {
     let _ = BOARD.set(board);
 }
@@ -115,6 +118,12 @@ impl Board {
     /// primary holder — it outlives this process — and the child spawn is
     /// the fallback for a machine where the task machinery fails.
     pub fn ensure_keepalive(&self) {
+        // Paused while `wsl --update` installs: relaunching wsl.exe every
+        // tick would race the installer (files in use, a VM booted on the
+        // old service mid-install). The next tick after it re-arms.
+        if KEEPALIVE_PAUSED.load(std::sync::atomic::Ordering::SeqCst) {
+            return;
+        }
         let mut inner = self.inner.lock().expect("board");
         let distro = inner.distro.clone();
         if let Some(distro) = distro.as_deref() {
