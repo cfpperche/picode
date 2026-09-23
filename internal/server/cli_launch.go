@@ -1179,6 +1179,16 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			}
 		}
 	}
+	// Claude Code's Console key travels by env, and only when the person
+	// chose it with Use (ADR-0187): the key outranks the subscription file.
+	if cli.ID == "claude-code" {
+		if c.Env == nil {
+			c.Env = map[string]string{}
+		}
+		for _, kv := range claudeCredentialEnv(deps, c.Env) {
+			c.Env[kv[0]] = kv[1]
+		}
+	}
 	root := filepath.Join(deps.DataDir, "cli-launch", v.TerminalID)
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, err

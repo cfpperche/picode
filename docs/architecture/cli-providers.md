@@ -70,7 +70,16 @@ an account where the row's `signin` says how — `browser` (PiCode's OAuth
 engine, polled like pi's) or `terminal` (the CLI's own login, handed to the
 pane's sign-in strip) — through `POST /api/credentials/signin`; and Custom
 provider where the roster's `custom.available` says the CLI keeps
-definitions. A provider with none of these is not offered. The other guests'
+definitions. A provider with none of these is not offered. Claude Code has a
+dialog of its own (`ClaudeCodeLoginDialog.jsx`, `add.kind: "claude-code"`,
+ADR-0187) shaped like its `/login`: a Claude subscription through the browser
+(PiCode's OAuth with Claude Code's client; the login is written into
+`~/.claude/.credentials.json` when no Claude Code terminal runs), an Anthropic
+Console key ("Save and use": the key becomes the login in use — the setting
+`credentials.claude-code.key`, its tail approved in `~/.claude.json`, and
+`ANTHROPIC_API_KEY` at launch, since a key outranks the subscription there),
+and "Sign in from a terminal" as the fallback. Use switches between them. The
+other guests'
 dialog still holds a provider `<select>`
 limited to that CLI's providers, the key field with the line that says the
 key stays on this machine, Save — and, for a provider the CLI signs into

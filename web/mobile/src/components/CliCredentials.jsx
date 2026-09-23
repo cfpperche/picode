@@ -3,6 +3,7 @@ import * as Dialog from "./MobileSheet.jsx";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import PageFrame from "./PageFrame.jsx";
 import AddProviderDialog from "./AddProviderDialog.jsx";
+import ClaudeCodeLoginDialog from "./ClaudeCodeLoginDialog.jsx";
 import CustomEndpointPage from "./CustomEndpointPage.jsx";
 import QuotaStrip from "./QuotaStrip.jsx";
 import TermSurface from "./TermSurface.jsx";
@@ -63,6 +64,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const [catalog, setCatalog] = useState(null);
   const [catalogError, setCatalogError] = useState("");
   const [addProviderOpen, setAddProviderOpen] = useState(false);
+  const [claudeOpen, setClaudeOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ provider: "", key: "" });
   const [formError, setFormError] = useState("");
@@ -182,7 +184,9 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // What the bar's primary opens, straight from the roster: pi adds a provider
   // through its own login, a guest adds a key to a provider it already reads.
   const addSpec = data && data.add ? data.add : null;
-  const addKind = addSpec && addSpec.kind === "provider" ? "provider" : addSpec ? "key" : "";
+  // "provider" is pi's Add flow, "claude-code" Claude Code's own sign-in
+  // dialog (ADR-0187), anything else the key form.
+  const addKind = addSpec ? (addSpec.kind === "provider" || addSpec.kind === "claude-code" ? addSpec.kind : "key") : "";
   const addLabel = (addSpec && addSpec.label) || (addKind === "provider" ? "Add provider" : "Add API key");
   // pi's models.json page: the one provider surface a guest CLI has no
   // equivalent for, linked rather than hidden behind a menu item (ADR-0169).
@@ -229,6 +233,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
 
   function openPrimary() {
     if (addKind === "provider") setAddProviderOpen(true);
+    else if (addKind === "claude-code") setClaudeOpen(true);
     else openAdd("");
   }
 
@@ -258,6 +263,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     // The route asked for the door the bar's primary opens; the roster is what
     // says which that is, and pi's catalog is what fills the provider list.
     if (addKind === "provider") { if (cli !== "pi" || catalog) setAddProviderOpen(true); return; }
+    if (addKind === "claude-code") { setClaudeOpen(true); return; }
     if (addKind === "key") openAdd("");
     // The route asked for the dialog; the roster is what fills its provider list.
   }, [add, !!data, unreadable, addKind, !!catalog]);
@@ -787,6 +793,16 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
 
       {/* pi's Add flow, for pi (its catalog, ADR-0169) and for the guests whose
           roster asks for it (omp): search, method, key or account, custom. */}
+      <ClaudeCodeLoginDialog
+        open={claudeOpen}
+        onClose={() => { setClaudeOpen(false); if (add && typeof location !== "undefined") location.hash = cliPaneHash(cli, "providers"); }}
+        onSaved={load}
+        onTerminalSignin={(res) => {
+          const launchError = res && res.terminal && res.terminal.launchError;
+          setSignin({ hint: (res && res.hint) || "", error: launchError ? String(launchError) : "", terminalId: (res && res.terminalId) || "", stamp: (res && res.stamp) || "" });
+        }}
+      />
+
       <AddProviderDialog
         open={addProviderOpen}
         catalog={catalog}

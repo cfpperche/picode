@@ -191,3 +191,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0184](0184-one-cli-door.md) | One door for agent CLIs — every user-facing CLI launch is an agent; `POST /api/clis/{cli}/terminals` removed; sign-in terminals internal and reaped; Make agent for a CLI in a PiCode shell | accepted, amends 0160 and 0143 |
 | [0185](0185-litellm-price-table.md) | Unpriced tokens are estimated from LiteLLM's price table | accepted |
 | [0186](0186-merge-queue-delegation.md) | Integration delegates to the project’s merge queue; the local runner is the fallback | accepted |
+| [0187](0187-claude-code-gui-login.md) | Claude Code signs in through PiCode's GUI: subscription by browser into its file, Console key injected as ANTHROPIC_API_KEY only when chosen with Use (it outranks the subscription) and pre-approved in ~/.claude.json; terminal /login is the fallback | accepted (owner, 2026-09-22), amends 0166, 0178 |
