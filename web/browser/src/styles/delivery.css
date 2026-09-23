@@ -100,3 +100,8 @@
 .delivery-tabs [aria-current="page"] { color: var(--accent); background: var(--bg-elevated); }
 .git-workspace-control, .git-view-tabs { display: flex; align-items: center; gap: 8px; }
 .delivery-tabs .btn { height: var(--ctl-h); }
+
+/* The mission link is a way out of this row, so it has to read as one: the
+   accent colour, and an underline when pointed at (ADR-0199's reverse link). */
+.delivery-meta a, .delivery-pairs a { color: var(--accent); text-decoration: none; }
+.delivery-meta a:hover, .delivery-pairs a:hover { text-decoration: underline; }

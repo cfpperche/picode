@@ -1,9 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { deliveryURL, observeDelivery } from "@picode/shared/client/delivery.js";
-import { deliveryRows, deliveryReason, integrationLabel, validationLabel, observationLabel, integrationExplanation, validationExplanation } from "@picode/shared/domain/delivery.js";
+import { deliveryRows, deliveryReason, integrationLabel, validationLabel, observationLabel, integrationExplanation, validationExplanation, missionsFor, missionLinks } from "@picode/shared/domain/delivery.js";
 import "../styles/mobile-delivery.css";
 
-export default function GitDelivery({ owner, hidden, onHistory, selection = "", onDetail }) {
+export default // The objective a change serves: the mission cites the delivery as evidence, so
+// this is the reverse of the link Missions stores (ADR-0199). Nothing here
+// implies integration authority — the mission's state is the mission's own.
+function objectiveLine(data, id, className) {
+  const links = missionLinks(missionsFor(data, id));
+  if (!links.length) return null;
+  return <p className={className}>Serves {links.map((l, i) => <span key={l.id}>{i ? " · " : ""}<a href={l.href}>{l.title}</a></span>)}</p>;
+}
+
+function objectivePairs(data, id) {
+  const links = missionLinks(missionsFor(data, id));
+  return <><dt>Objective</dt><dd>{links.length ? links.map((l, i) => <span key={l.id}>{i ? " · " : ""}<a href={l.href}>{l.title}</a>{l.label ? " (" + l.label + ")" : ""}</span>) : "No mission cites this change"}</dd></>;
+}
+
+function GitDelivery({ owner, hidden, onHistory, selection = "", onDetail }) {
   const root=useRef("");
   const [follow,setFollow]=useState(0);
   const [target,setTarget]=useState("");
@@ -32,7 +46,7 @@ export default function GitDelivery({ owner, hidden, onHistory, selection = "", 
     {data&&!data.targetOid?<div className="m-delivery-empty"><p>Choose the branch changes will join.</p><button className="btn" onClick={()=>document.querySelector('[aria-label="Delivery target"]')?.focus()}>Select target</button></div>:null}
     {data?.targetOid&&!data.complete?<div className="m-delivery-warning"><p>Some changes could not be checked.</p><ul>{data.issues.map(x=><li key={x}>{x}</li>)}</ul><button className="btn" onClick={()=>ref.current?.refresh()}>Retry</button></div>:null}
     {data?.targetOid&&!rows.length?<div className="m-delivery-empty"><p>{filter==="attention"?"No changes match this filter.":"No observed changes for this branch."}</p><button className="btn" onClick={()=>filter==="attention"?setFilter("all"):onHistory()}>{filter==="attention"?"Clear filter":"View history"}</button></div>:null}
-    {detail?<article className="m-delivery-detail"><button className="btn" onClick={()=>setSelected("")}>Back to deliveries</button><h3>{detail.title}</h3><p>{deliveryReason(detail)}</p><div className="m-delivery-summary"><div><strong>{integrationLabel[detail.integration]}</strong><span>{integrationExplanation(detail.integration)}</span></div><div><strong>{validationLabel[detail.validation]}</strong><span>{validationExplanation(detail.validation)}</span></div></div><dl><dt>Revision</dt><dd>{detail.revision}</dd><dt>Source</dt><dd>{detail.registered?"Registered by an agent":"Observed in Git"} · {detail.branch}</dd><dt>Associated agents</dt><dd>{detail.agents.join(", ")||"Association not recorded"}</dd></dl><h4>Recorded evidence</h4>{detail.evidence.length?detail.evidence.map(e=><p key={e.id}>{{scoped:"Relevant checks", "full-ci":"Full project checks",land:"Integration attempt"}[e.kind]}: {e.outcome}<br/><time>{e.at||"Finish not recorded"}</time><br/><code>{e.source}</code></p>):<p>{validationExplanation(detail.validation)}</p>}<button className="btn" onClick={()=>onHistory(detail.revision)}>Open history</button></article>:null}
-    {!detail?<ul className="m-delivery-list">{rows.map(c=><li key={c.id}><div><h3>{c.title}</h3><p className="m-delivery-meta">{c.branch} · {c.registered?"Registered delivery":"Observed branch"}</p><p>{deliveryReason(c)}</p><p className="m-delivery-meta">{c.agents.length?"Associated: "+c.agents.join(", "):"Agent association not recorded"}</p></div><div className="m-delivery-facts"><span>{integrationLabel[c.integration]}</span><span data-failed={c.validation==="failed"}>{validationLabel[c.validation]}</span><button className="btn" onClick={()=>setSelected(c.id)}>View details</button></div></li>)}</ul>:null}
+    {detail?<article className="m-delivery-detail"><button className="btn" onClick={()=>setSelected("")}>Back to deliveries</button><h3>{detail.title}</h3><p>{deliveryReason(detail)}</p><div className="m-delivery-summary"><div><strong>{integrationLabel[detail.integration]}</strong><span>{integrationExplanation(detail.integration)}</span></div><div><strong>{validationLabel[detail.validation]}</strong><span>{validationExplanation(detail.validation)}</span></div></div><dl>{objectivePairs(data,detail.id)}<dt>Revision</dt><dd>{detail.revision}</dd><dt>Source</dt><dd>{detail.registered?"Registered by an agent":"Observed in Git"} · {detail.branch}</dd><dt>Associated agents</dt><dd>{detail.agents.join(", ")||"Association not recorded"}</dd></dl><h4>Recorded evidence</h4>{detail.evidence.length?detail.evidence.map(e=><p key={e.id}>{{scoped:"Relevant checks", "full-ci":"Full project checks",land:"Integration attempt"}[e.kind]}: {e.outcome}<br/><time>{e.at||"Finish not recorded"}</time><br/><code>{e.source}</code></p>):<p>{validationExplanation(detail.validation)}</p>}<button className="btn" onClick={()=>onHistory(detail.revision)}>Open history</button></article>:null}
+    {!detail?<ul className="m-delivery-list">{rows.map(c=><li key={c.id}><div><h3>{c.title}</h3><p className="m-delivery-meta">{c.branch} · {c.registered?"Registered delivery":"Observed branch"}</p><p>{deliveryReason(c)}</p><p className="m-delivery-meta">{c.agents.length?"Associated: "+c.agents.join(", "):"Agent association not recorded"}</p>{objectiveLine(data,c.id,"m-delivery-meta")}</div><div className="m-delivery-facts"><span>{integrationLabel[c.integration]}</span><span data-failed={c.validation==="failed"}>{validationLabel[c.validation]}</span><button className="btn" onClick={()=>setSelected(c.id)}>View details</button></div></li>)}</ul>:null}
   </section>;
 }

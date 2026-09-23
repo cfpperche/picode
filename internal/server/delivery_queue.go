@@ -80,6 +80,10 @@ type deliveryQueueRead struct {
 	delivery.Snapshot
 	Queue       []store.QueueEntry        `json:"queue"`
 	Integration store.IntegrationSettings `json:"integration"`
+	// The other direction of the Mission link: delivery id → the objectives that
+	// cite it as evidence. Read-only, and absent when nothing cites anything.
+	Missions          map[string][]store.MissionLink `json:"missions,omitempty"`
+	MissionsTruncated bool                           `json:"missionsTruncated,omitempty"`
 }
 
 func queueLayer(deps Deps, kind, id, repo string, view delivery.Snapshot) (deliveryQueueRead, error) {
@@ -91,7 +95,11 @@ func queueLayer(deps Deps, kind, id, repo string, view delivery.Snapshot) (deliv
 	if err != nil {
 		return deliveryQueueRead{}, err
 	}
-	return deliveryQueueRead{Snapshot: view, Queue: entries, Integration: settings}, nil
+	missions, truncated, err := deps.Store.MissionsByDelivery(ownerWorkspaceID(deps, kind, id))
+	if err != nil {
+		return deliveryQueueRead{}, err
+	}
+	return deliveryQueueRead{Snapshot: view, Queue: entries, Integration: settings, Missions: missions, MissionsTruncated: truncated}, nil
 }
 
 // ownerDeliveryRepo resolves an owner (workspace, agent or terminal) to the

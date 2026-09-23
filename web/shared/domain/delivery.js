@@ -1,3 +1,4 @@
+import { MISSION_STATES, missionHash } from "./missions.js";
 export const integrationLabel = { integrated: "Integrated", "not-integrated": "Not integrated", "update-needed": "Update needed", unknown: "Integration unconfirmed" };
 export const validationLabel = { passed: "Checks passed", "scoped-passed": "Relevant checks passed", "scope-reusable": "Prior checks may be reused", "needs-recheck": "Needs recheck", failed: "Checks failed", unknown: "Checks not recorded" };
 export function deliveryReason(c) {
@@ -28,6 +29,25 @@ export function validationExplanation(state) {
   return "No check evidence was found for this revision.";
 }
 export function attention(c) { return c.integration !== "integrated" || c.validation === "failed" || c.validation === "unknown"; }
+// missionsFor: the objectives a change serves, from the read's `missions` map
+// (delivery id → links). The link is one-way — the mission cites the delivery as
+// evidence (ADR-0199) — so a change nobody cites says nothing rather than "none".
+export function missionsFor(data, id) {
+  const links = data && data.missions ? data.missions[id] : null;
+  return Array.isArray(links) ? links : [];
+}
+
+// missionLinks: what a Delivery row or detail shows for those objectives — the
+// title, the mission's own state label, and the route back to the mission.
+export function missionLinks(links = []) {
+  return (links || []).map((l) => ({
+    id: l.id,
+    title: l.title || l.id,
+    label: MISSION_STATES[l.state] || l.state || "",
+    href: missionHash(l.id),
+  }));
+}
+
 export function deliveryRows(rows = [], filter = "all") {
   const rank = c => c.validation === "failed" ? 0 : c.integration === "update-needed" || c.checkout === "dirty" ? 1 : c.integration === "integrated" ? 3 : 2;
   return rows.filter(c => filter !== "attention" || attention(c)).slice().sort((a,b) => rank(a)-rank(b) || a.title.localeCompare(b.title) || a.id.localeCompare(b.id));

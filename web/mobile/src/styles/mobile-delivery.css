@@ -25,3 +25,7 @@
 @media (prefers-reduced-motion: reduce) { .m-delivery * { animation: none !important; } }
 
 .m-delivery-actions { display: flex; gap: 8px; align-items: center; }
+
+/* Same rule as the browser's: a mission link looks like a link. */
+.m-delivery-meta a, .m-delivery-detail a { color: var(--accent); text-decoration: none; }
+.m-delivery-meta a:active, .m-delivery-detail a:active { text-decoration: underline; }

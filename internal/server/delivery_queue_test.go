@@ -469,3 +469,41 @@ func TestDeliveryQueueProviderModeIsNotRunHere(t *testing.T) {
 		t.Fatalf("main moved to %s under provider mode", got)
 	}
 }
+
+// The Delivery read carries the reverse Mission link (ADR-0199): the objectives
+// that cite a change, so a row can say which work it serves. The link is
+// read-only and carries no integration authority.
+func TestDeliveryReadCarriesTheMissionLink(t *testing.T) {
+	ts, st := newInboxServer(t)
+	repo := gitRepo(t)
+	ws, _, err := storeWorkspaceWithAgent(st, "queue", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := st.ApplyMission(store.MissionOwner, store.MissionMutation{
+		Action: "create", RequestID: "create", WorkspaceID: ws.ID, FilesReady: true,
+		Title: "Ship the queue", Objective: "Deliver the queue",
+		Criteria: []store.MissionCriterion{{ID: "c1", Text: "the queue runs"}},
+	}, store.MissionObservation{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ApplyMission(store.MissionOwner, store.MissionMutation{
+		Action: "evidence", RequestID: "e1", ID: m.ID, ExpectedVersion: m.Version,
+		Evidence: &store.MissionEvidence{CriterionID: "c1", Kind: "delivery", Value: "delivery_abc", Outcome: "pass"},
+	}, store.MissionObservation{}); err != nil {
+		t.Fatal(err)
+	}
+	code, out := queueRequest(t, ts, "GET", "/api/workspaces/"+ws.ID+"/delivery", "")
+	if code != 200 {
+		t.Fatalf("read = %d %v", code, out)
+	}
+	links, _ := out["missions"].(map[string]any)
+	got, _ := links["delivery_abc"].([]any)
+	if len(got) != 1 || got[0].(map[string]any)["title"] != "Ship the queue" || got[0].(map[string]any)["state"] == "" {
+		t.Fatalf("missions = %v", out["missions"])
+	}
+	if out["missionsTruncated"] == true {
+		t.Fatalf("truncated flag set on a small list: %v", out)
+	}
+}

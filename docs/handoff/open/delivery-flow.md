@@ -8,10 +8,11 @@ D0 surface contract: docs/plans/delivery-flow-design.md
 ## Next
 
 - ADR-0186's `mode` landed (declaration + runner refusal + provider order refusal + the settings surface).
-- **Cross-link with Missions** (blocked on the Missions agent's answer to the handoff prompt, 2026-09-23): the Delivery read derives the missions that cite a delivery as evidence, so the lane can say "serve M-…" — read-side only, no schema change. The vocabulary rule that travels with it: in Missions the assignment receipt is *receipt/handover*, never "delivery", while the evidence kind `delivery` and this subsystem keep the word; Delivery's *review requested* is an agent declaration (ADR-0171) and Missions' *review* is owner acceptance. The two axes stay separate — mission = objective/criteria/evidence/acceptance, delivery = artifact + integration — and no link transfers integration authority.
+- **Cross-link with Missions** landed 2026-09-23 (`feat/delivery-mission-link`): the read inverts the evidence link and a row/detail says which objective a change serves, with a route back to the mission. Missions' side (its own architecture file, the receipt vocabulary, the M5 boundary) is with the Missions agent.
 - **The provider path** (ADR-0186) — enqueue through the project's queue and observe position and ejection — needs a vendor fixture (`gh` on PATH or a sandbox), so it is the first slice that cannot reach an honest PASS without a real provider.
 - ADR-0182's store, doors and the local runner stay as they are; they are the `local` mode now.
 - Debts for the runner: declared commands run through `/bin/sh`, so Windows is untested; a run has no per-run budget beyond 30 minutes per command.
+- [ ] The mobile Delivery row's mission link is visually unverified: on 2026-09-23 the scratch's Git ▸ Delivery panel rendered only its header (before and after Refresh) at the mobile route `#/git/w/<id>`, so the desktop capture is the only visual evidence. The mobile list itself rendering in a scratch is worth its own look.
 
 ## Debts
 

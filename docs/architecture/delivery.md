@@ -172,6 +172,27 @@ the outcome is unknown; nothing is retried and no success is inferred. The
 owner's withdraw is the way out of that state (and of any running entry), which
 is what clears a repository whose operation died with the process.
 
+## The Mission link (ADR-0199)
+
+A mission cites a delivery as evidence — `kind: "delivery"`, the delivery id —
+and that is the only direction the reference exists in: the mission owns it, and
+**a link never transfers integration authority**. The Delivery surfaces read it
+backwards so a change can say which objective it serves: `MissionsByDelivery`
+inverts the evidence link per workspace (each mission named once, however many
+of its criteria point at the same change, paged to a bound above the store's own
+mission cap and reporting `truncated` instead of passing a short answer off as a
+complete one), the Delivery read carries the map as `missions`, and a row or a
+detail shows the mission's own title, its own state label and a route back to it.
+A change nobody cites says nothing — not "no mission" — because absence here is
+simply absence of a link.
+
+The two axes stay separate: a mission is an objective with criteria, evidence and
+the owner's acceptance; a delivery is an artifact with a revision, receipts and
+its place in the merge queue. `review` means different things in each — in
+Missions it is the owner accepting a result, in Delivery a *review requested* is
+an agent's declaration that a human should look (ADR-0171). Missions' own
+vocabulary must not call its assignment receipt a "delivery".
+
 ## Integration observation (ADR-0170, D1b)
 
 `internal/delivery` reads local refs, explicit target ancestry, checkout state and
