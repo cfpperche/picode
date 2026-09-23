@@ -90,3 +90,21 @@ test("shortPath keeps the file and its nearest folders", () => {
   assert.equal(shortPath("/home/goat/picode/.worktrees/agents-md-instructions/AGENTS.md"), "…/agents-md-instructions/AGENTS.md");
   assert.equal(shortPath("/a/" + "x".repeat(50) + ".md").startsWith("…/"), true);
 });
+
+import { lineDiff } from "./instructions.js";
+
+test("lineDiff: a line added on top keeps the rest as context", () => {
+  assert.deepEqual(lineDiff("Read AGENTS.md.\nmore\nand more\nend\n", "@AGENTS.md\n\nRead AGENTS.md.\nmore\nand more\nend\n"), [
+    { kind: "+", text: "@AGENTS.md" },
+    { kind: "+", text: "" },
+    { kind: " ", text: "Read AGENTS.md." },
+    { kind: " ", text: "more" },
+    { kind: "…", text: "2 unchanged lines" },
+  ]);
+});
+
+test("lineDiff: a replaced sentence, an appended line, a new empty file", () => {
+  assert.deepEqual(lineDiff("# T\n\nRead AGENTS.md.\n", "@AGENTS.md\n").map((l) => l.kind), ["-", "-", "-", "+"]);
+  assert.deepEqual(lineDiff("node_modules\n", "node_modules\nCLAUDE.local.md\n"), [{ kind: " ", text: "node_modules" }, { kind: "+", text: "CLAUDE.local.md" }]);
+  assert.deepEqual(lineDiff("", ""), []);
+});

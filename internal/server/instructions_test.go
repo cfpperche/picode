@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/store"
 )
 
 // The Instructions route reads a workspace's instruction files for every
@@ -75,6 +78,91 @@ func TestWorkspaceInstructions(t *testing.T) {
 		"/api/workspaces/" + wk.ID + "/instructions?root=/other": http.StatusConflict,
 	} {
 		if got := do(t, ts.Client(), mustGet(t, ts.URL+path)); got.StatusCode != want {
+			t.Errorf("%s = %d, want %d", path, got.StatusCode, want)
+		}
+	}
+}
+
+// A workspace's agents: a terminal pinned to a Claude Code session reports
+// the files that session's transcript shows it loaded; a terminal of a CLI
+// that keeps no such record, or with no pinned session, reports nothing.
+func TestObservedReads(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	proj := t.TempDir()
+	wk, err := st.AddWorkspace("App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transcript := filepath.Join(t.TempDir(), "s.jsonl")
+	body := `{"type":"user","message":{"content":"Contents of ` + filepath.Join(proj, "AGENTS.md") + ` (project instructions, checked into the codebase):"}}` + "\n"
+	if err := os.WriteFile(transcript, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	claude, _ := st.CreateTerminalIn(wk.ID, "claude", proj)
+	pi, _ := st.CreateTerminalIn(wk.ID, "pi", proj)
+	st.CreateTerminalIn(wk.ID, "plain", proj)
+	for id, cli := range map[string]string{claude.ID: "claude-code", pi.ID: "pi"} {
+		if err := st.SetTerminalLaunch(id, cli, clilaunch.Overrides{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.SetTerminalLastSession(claude.ID, store.TerminalLastSession{CLI: "claude-code", SessionID: "s", Path: transcript, UpdatedAt: "2026-09-23T10:00:00Z"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetTerminalLastSession(pi.ID, store.TerminalLastSession{CLI: "pi", SessionID: "p", Path: transcript}); err != nil {
+		t.Fatal(err)
+	}
+	got := observedReads(Deps{Store: st}, wk.ID, proj)
+	if len(got) != 1 || got[0].TerminalID != claude.ID || len(got[0].Files) != 1 || got[0].Files[0] != "AGENTS.md" {
+		t.Fatalf("observedReads = %+v", got)
+	}
+}
+
+// A fix through the API: GET shows it, POST with the hashes writes it, POST
+// with stale hashes is refused with the fresh change, a fix that no longer
+// applies is a 404, and nothing outside the workspace is reachable.
+func TestInstructionsFixRoutes(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	proj := t.TempDir()
+	for rel, body := range map[string]string{"AGENTS.md": "a\n", "CLAUDE.md": "Read AGENTS.md.\n"} {
+		if err := os.WriteFile(filepath.Join(proj, rel), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
+	var wk workspaceView
+	_ = json.NewDecoder(res.Body).Decode(&wk)
+	base := ts.URL + "/api/workspaces/" + wk.ID + "/instructions/fix"
+
+	got := do(t, ts.Client(), mustGet(t, base+"?id=bridge:CLAUDE.md"))
+	var fix struct {
+		Changes []struct{ Path, Hash, After string } `json:"changes"`
+	}
+	_ = json.NewDecoder(got.Body).Decode(&fix)
+	if got.StatusCode != http.StatusOK || len(fix.Changes) != 1 || fix.Changes[0].After != "@AGENTS.md\n" {
+		t.Fatalf("GET fix = %d %+v", got.StatusCode, fix)
+	}
+	stale := postJSON(t, ts, "/api/workspaces/"+wk.ID+"/instructions/fix", map[string]any{"id": "bridge:CLAUDE.md", "hashes": map[string]string{"CLAUDE.md": "nope"}})
+	if stale.StatusCode != http.StatusConflict {
+		t.Fatalf("stale apply = %d", stale.StatusCode)
+	}
+	ok := postJSON(t, ts, "/api/workspaces/"+wk.ID+"/instructions/fix", map[string]any{"id": "bridge:CLAUDE.md", "hashes": map[string]string{"CLAUDE.md": fix.Changes[0].Hash}})
+	if ok.StatusCode != http.StatusOK {
+		t.Fatalf("apply = %d", ok.StatusCode)
+	}
+	if b, _ := os.ReadFile(filepath.Join(proj, "CLAUDE.md")); string(b) != "@AGENTS.md\n" {
+		t.Fatalf("CLAUDE.md = %q", b)
+	}
+	for path, want := range map[string]int{
+		base + "?id=bridge:CLAUDE.md":            http.StatusNotFound,
+		base + "?id=personal:../CLAUDE.local.md": http.StatusBadRequest,
+		base + "?id=rewrite:AGENTS.md":           http.StatusNotFound,
+	} {
+		if got := do(t, ts.Client(), mustGet(t, path)); got.StatusCode != want {
 			t.Errorf("%s = %d, want %d", path, got.StatusCode, want)
 		}
 	}

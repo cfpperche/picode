@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import InstructionsFix from "./InstructionsFix.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { STATUS_LABEL, cellTitle, groupFiles, rowMatters, shortPath, sizeLabel, visibleClis } from "@picode/shared/domain/instructions.js";
 import "../styles/instructions.css";
@@ -15,6 +17,7 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
   const [showAll, setShowAll] = useState(false);
   const [picked, setPicked] = useState(null);
   const [overflow, setOverflow] = useState(false);
+  const [fixId, setFixId] = useState("");
   const scroller = useRef(null);
   const [state, setState] = useState({ data: null, busy: true, error: "" });
   const seq = useRef(0);
@@ -78,7 +81,21 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
                 Show every CLI and file
               </label>
             ) : null}
-            <button className="btn instr-refresh" disabled={state.busy} onClick={() => load()}>Refresh</button>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button type="button" className="btn instr-refresh">Add personal file</button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content className="um-popover" side="bottom" align="end" sideOffset={6} collisionPadding={12}>
+                  {[["CLAUDE.local.md", "Claude Code, Grok"], ["AGENTS.override.md", "Codex, Pi, Hermes"]].map(([name, who]) => (
+                    <DropdownMenu.Item key={name} className="um-item" onSelect={() => setFixId("personal:" + (start ? start + "/" : "") + name)}>
+                      {name} <span className="instr-muted">· read by {who}</span>
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+            <button className="btn" disabled={state.busy} onClick={() => load()}>Refresh</button>
           </div>
 
           {state.error ? (
@@ -104,8 +121,12 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
               {data.findings.map((f, i) => (
                 <li key={f.id + i}>
                   <span>{f.text}</span>
-                  {f.action && f.action.kind === "open" ? (
+                  {f.fix ? (
+                    <button className="btn btn-primary" onClick={() => setFixId(f.fix)}>Review change</button>
+                  ) : f.action && f.action.kind === "open" ? (
                     <button className="btn" onClick={() => onOpenFile && onOpenFile(f.action.path)}>{f.action.label}</button>
+                  ) : f.action && f.action.kind === "settings" ? (
+                    <a className="btn" href={f.action.url}>{f.action.label}</a>
                   ) : f.action && f.action.kind === "link" ? (
                     <a className="btn" href={f.action.url} target="_blank" rel="noreferrer">{f.action.label}</a>
                   ) : null}
@@ -165,6 +186,30 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
             </div>
           ) : null}
 
+          {data && data.agents && data.agents.length > 0 ? (
+            <section className="instr-agents" aria-label="What agents here read">
+              <h3>What agents here read</h3>
+              <ul>
+                {data.agents.map((a) => {
+                  const cli = data.clis.find((c) => c.id === a.cli);
+                  return (
+                    <li key={a.terminalId}>
+                      <span className="instr-agent-name">{a.name}</span>
+                      <span className="instr-muted"> · {cli ? cli.name : a.cli}, latest session</span>
+                      <span className="instr-agent-files">
+                        {a.files.length === 0 ? <span className="instr-muted">no instruction file</span> : a.files.map((f) => (
+                          f.startsWith("/") || f.startsWith("~")
+                            ? <span key={f} className="instr-file-text" title={f}>{shortPath(f)}</span>
+                            : <button key={f} className="instr-file" title={"Open " + f} onClick={() => onOpenFile && onOpenFile(f)}>{f}</button>
+                        ))}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+
           {pickedCell ? (
             <p className="instr-detail" role="status">
               <strong>{pickedCli.name} · {pickedFile.path}</strong> — {cellTitle(pickedCell)}
@@ -174,6 +219,12 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
           ) : null}
         </div>
       </div>
+      <InstructionsFix
+        workspaceId={workspace.id}
+        fixId={fixId}
+        onClose={() => setFixId("")}
+        onWritten={() => { setFixId(""); load(); }}
+      />
     </section>
   );
 }

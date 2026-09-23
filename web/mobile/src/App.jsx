@@ -37,6 +37,7 @@ import { agentState } from "./components/StateChip.jsx";
 import Now from "./screens/Now.jsx";
 const Inbox = lazy(() => import("./screens/Inbox.jsx"));
 const InboxItem = lazy(() => import("./screens/Inbox.jsx").then(module => ({ default: module.InboxItem })));
+const MissionsScreen = lazy(() => import("./screens/Missions.jsx"));
 const PinScreen = lazy(() => import("./screens/Pin.jsx"));
 const PinEdit = lazy(() => import("./screens/PinEdit.jsx"));
 const SnipScreen = lazy(() => import("./screens/Snippet.jsx"));
@@ -589,7 +590,7 @@ export default function MobileApp() {
   const tab = tabOf(route);
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
-  const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || ["inspector", "files", "git", "pin", "pinEdit"].includes(route.screen) || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
+  const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || ["missions", "inspector", "files", "git", "pin", "pinEdit"].includes(route.screen) || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
   // iOS standalone: the unreachable bottom strip continues the surface it
   // sits under — the tab bar's panel, or plain content when pushed.
   useEffect(() => { document.documentElement.dataset.pushed = pushed ? "1" : ""; }, [pushed]);
@@ -642,6 +643,8 @@ export default function MobileApp() {
         onRemoveTerminal={removeTerminal}
       />
     );
+  } else if (route.screen === "missions") {
+    body = <MissionsScreen onBack={() => goBack(route)} />;
   } else if (route.screen === "pin") {
     body = <PinScreen key={route.id} pinId={route.id} onBack={() => goBack(route)} onEdit={(id) => push("#/pins/" + encodeURIComponent(id) + "/edit")} />;
   } else if (route.screen === "pinEdit") {

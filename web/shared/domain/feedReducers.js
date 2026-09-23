@@ -92,6 +92,7 @@ function applyFleetRaw(state, ev) {
   const { workspaces = [], freeAgents = [], terminals = [] } = state || {};
   const d = ev && ev.data ? ev.data : {};
   switch (ev.type) {
+    case "mission.changed": return null;
     case "workspace.added": {
       if (!d.id || workspaces.some((w) => w.id === d.id)) return state;
       return { ...state, workspaces: [...workspaces, { ...d, agents: [], managedClis: [] }] };

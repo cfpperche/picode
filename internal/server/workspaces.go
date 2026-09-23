@@ -32,6 +32,7 @@ type workspaceView struct {
 }
 
 type agentView struct {
+	MissionID string `json:"missionId,omitempty"`
 	store.Agent
 	Running bool          `json:"running"`
 	Mode    string        `json:"mode"` // stopped | interactive | managed (ADR-0006)
@@ -107,7 +108,7 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 		// branch, via a worktree) than the workspace it belongs to, and the
 		// sidebar line is about the agent, not its container.
 		st, wt, dl := deps.liveState(a.ID)
-		views = append(views, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode),
+		views = append(views, agentView{MissionID: deps.Store.AgentMissionID(a.ID), Agent: a, Running: mode != modeStopped, Mode: string(mode),
 			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl, Terminal: deps.agentTerminalView(r, a), LegacyInteractive: a.TerminalID != nil && deps.agentSession(a.ID) == tmux.SessionName(a.ID)})
 	}
 	var first *agentView
@@ -252,6 +253,7 @@ func handleRemove(deps Deps) http.HandlerFunc {
 		preview := deps.previewCleanup(wk.Path, dying)
 		// Its agents end with it: each gets an unasked exit (ADR-0194).
 		exitIn := store.ExitInput{
+			Meter:          exitMeter(),
 			Origin:         exitOriginOf(req),
 			SessionsPurged: queryFlag(r, "sessions"),
 			WorkPurged:     queryFlag(r, "work") && preview.LastOccupant && preview.CanPurgeWork,

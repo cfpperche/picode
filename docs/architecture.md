@@ -175,6 +175,26 @@ runs through a shell that eats `$`. The scan's third stage measures the
 system caches; the Clean tab routes `system:` ids to `system-clean` and the
 rest to `picode clean`, never one call for both.
 
+`picode-desktop places / move / backup` relocate the disk file. `places`
+answers per drive (fixed, NTFS, room for the file's full length plus 5 GB; a
+same-drive move is a rename and needs none); `move` and `backup` recheck the
+drive, the folder (a move needs it absent or empty) and the WSL build (`--help`
+must list `--move` / `--format`) before the interlock, then disable the
+`PiCodeDistro` task (it restarts on failure and would boot the distro within a
+minute), stop the distro, copy with no deadline (killing `wsl.exe` would not
+stop the copy in the WSL service), start the distro and re-enable the task.
+While a flow needs the distro down it keeps `%LOCALAPPDATA%\PiCode\distro-hold.json`
+fresh (a 30 s heartbeat, stale after 2 min); the shell's keepalive and its
+server discovery — which runs `wsl.exe -d` — skip while it is fresh, whether
+the flow came from the window or a terminal. `wsl-update` holds the same way.
+
+Disk history (ADR-0203): every `disk` scan that read both halves writes
+the day's line to `%LOCALAPPDATA%\PiCode\disk-history.jsonl` (one line per
+local day, newest 400 kept); the shell's health loop runs one background
+scan when the newest line is older than 20 hours; `picode-desktop history`
+returns the lines and each cache's growth against the newest day at least
+seven days older.
+
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an
@@ -294,6 +314,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [Agent CLI memory (ADR-0163)](architecture/cli-memory.md) | `docs/architecture/cli-memory.md` |
 | [Agent instructions (AGENTS.md)](architecture/cli-instructions.md) | `docs/architecture/cli-instructions.md` |
 | [Packages (ADR-0102, ADR-0167, ADR-0176)](architecture/packages.md) | `docs/architecture/packages.md` |
+| [Skills (ADR-0196)](architecture/skills.md) | `docs/architecture/skills.md` |
 | [Native CLI providers (ADR-0103)](architecture/cli-providers.md) | `docs/architecture/cli-providers.md` |
 | [Credentials (ADR-0165)](architecture/credentials.md) | `docs/architecture/credentials.md` |
 | [CLI terminal launch settings (ADR-0069)](architecture/cli-terminal-launch.md) | `docs/architecture/cli-terminal-launch.md` |
@@ -312,6 +333,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [MCP (Model Context Protocol) support](architecture/mcp.md) | `docs/architecture/mcp.md` |
 | [Integrations (ADR-0075)](architecture/integrations.md) | `docs/architecture/integrations.md` |
 | [Computer tool (ADR-0148)](architecture/computer-tool.md) | `docs/architecture/computer-tool.md` |
+| [Missions (ADRs 0199–0200)](architecture/missions.md) | `docs/architecture/missions.md` |
 | [Delivery declarations (ADR-0171)](architecture/delivery.md) | `docs/architecture/delivery.md` |
 | [picode-mcp (ADR-0154)](architecture/picode-mcp.md) | `docs/architecture/picode-mcp.md` |
 | [Pins](architecture/pins.md) | `docs/architecture/pins.md` |

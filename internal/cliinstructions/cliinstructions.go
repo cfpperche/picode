@@ -80,7 +80,7 @@ type CLIInfo struct {
 
 // Action is the one thing a finding offers.
 type Action struct {
-	Kind  string `json:"kind"` // "open" (a workspace file) or "link" (a URL)
+	Kind  string `json:"kind"` // "open" (a workspace file), "settings" (a CLI's Settings pane) or "link" (a URL)
 	Label string `json:"label"`
 	Path  string `json:"path,omitempty"`
 	URL   string `json:"url,omitempty"`
@@ -93,6 +93,8 @@ type Finding struct {
 	File   string   `json:"file,omitempty"`
 	CLIs   []string `json:"clis,omitempty"`
 	Action *Action  `json:"action,omitempty"`
+	// Fix names a proposed edit (ADR-0204): GET …/instructions/fix?id= shows it.
+	Fix string `json:"fix,omitempty"`
 }
 
 // Report is the whole answer for one start folder.
@@ -105,6 +107,9 @@ type Report struct {
 	CLIs     []CLIInfo `json:"clis"`
 	Files    []*File   `json:"files"`
 	Findings []Finding `json:"findings"`
+	// Agents is what the workspace's agents actually read in their latest
+	// session, from their CLI's own record (observed.go). The server fills it.
+	Agents []Read `json:"agents"`
 }
 
 // Env is what a report reads. Zero values mean the real machine.

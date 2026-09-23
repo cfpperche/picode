@@ -186,8 +186,8 @@ func TestClaudeLocalTurnsAgentsOff(t *testing.T) {
 	home, root := repo(t, map[string]string{"AGENTS.md": "a\n", "CLAUDE.local.md": "mine\n"})
 	rep := resolve(t, Env{Home: home, Root: root})
 	check(t, rep, []want{{"AGENTS.md", "claude-code", StatusShadowed, "CLAUDE.local.md"}})
-	if has(rep, "claude-local") == nil {
-		t.Fatalf("claude-local missing: %+v", rep.Findings)
+	if f := has(rep, "claude-local"); f == nil || f.Action == nil || f.Action.Kind != "settings" || f.Action.URL != "#/clis/claude-code/settings" {
+		t.Fatalf("claude-local = %+v", f)
 	}
 }
 
@@ -269,7 +269,7 @@ func TestLimits(t *testing.T) {
 			t.Errorf("%s cut = %q, want it to mention %q", cli, c.Cut, fragment)
 		}
 	}
-	if f := has(rep, "limit"); f == nil || !strings.Contains(f.Text, "25,001 bytes") {
+	if f := has(rep, "limit"); f == nil || !strings.Contains(f.Text, "25,001 bytes") || f.Action == nil || f.Action.Kind != "settings" {
 		t.Fatalf("limit = %+v", f)
 	}
 }

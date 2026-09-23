@@ -41,13 +41,17 @@ func findings(s *scan, rep *Report) []Finding {
 		}
 		return &Action{Kind: "open", Label: "Open " + filepath.Base(f.abs), Path: f.Rel}
 	}
+	settings := func(cli string) *Action {
+		return &Action{Kind: "settings", Label: "Open " + name[cli] + " settings", URL: "#/clis/" + cli + "/settings"}
+	}
 	var out []Finding
-	add := func(id, text string, f *File, clis []string, a *Action) {
+	add := func(id, text string, f *File, clis []string, a *Action) *Finding {
 		fn := Finding{ID: id, Text: text, CLIs: clis, Action: a}
 		if f != nil {
 			fn.File = f.Path
 		}
 		out = append(out, fn)
+		return &out[len(out)-1]
 	}
 
 	// A CLAUDE.md or CLAUDE.local.md that keeps AGENTS.md from Claude Code.
@@ -65,9 +69,12 @@ func findings(s *scan, rep *Report) []Finding {
 			before := len(out)
 			switch {
 			case win.name == "CLAUDE.local.md":
-				add("claude-local", "CLAUDE.local.md turns AGENTS.md off for Claude Code. Setting Claude Code's Project instructions to “CLAUDE.md and AGENTS.md” keeps both.", win, []string{"claude-code"}, open(win))
+				add("claude-local", "CLAUDE.local.md turns AGENTS.md off for Claude Code. Setting Claude Code's Project instructions to “CLAUDE.md and AGENTS.md” keeps both.", win, []string{"claude-code"}, settings("claude-code"))
 			case strings.Contains(win.text, "AGENTS.md") && win.Imports == 0:
-				add("claude-pointer", win.Path+" sends Claude Code to AGENTS.md in words, so Claude Code does not load AGENTS.md. A line @AGENTS.md in "+filepath.Base(win.abs)+" makes it load.", win, []string{"claude-code"}, open(win))
+				fn := add("claude-pointer", win.Path+" sends Claude Code to AGENTS.md in words, so Claude Code does not load AGENTS.md. A line @AGENTS.md in "+filepath.Base(win.abs)+" makes it load.", win, []string{"claude-code"}, open(win))
+				if win.Rel != "" {
+					fn.Fix = "bridge:" + win.Rel
+				}
 			case win.sum == a.sum:
 				// The same text under both names: every CLI gets the same instructions.
 			default:
@@ -133,6 +140,16 @@ func findings(s *scan, rep *Report) []Finding {
 		}
 	}
 
+	// A personal file a commit would share.
+	if s.top != "" {
+		for _, f := range rep.Files {
+			if f.Scope == "project" && f.Rel != "" && !f.Ignored && personalFixNames[f.name] {
+				fn := add("personal-shared", f.Path+" is not in .gitignore, so a commit would share it.", f, nil, open(f))
+				fn.Fix = "personal:" + f.Rel
+			}
+		}
+	}
+
 	// Limits: a CLI that cuts the file, and Claude Code's 200-line guidance.
 	for _, f := range rep.Files {
 		var parts []string
@@ -152,7 +169,16 @@ func findings(s *scan, rep *Report) []Finding {
 			}
 		}
 		if len(parts) > 0 {
-			add("limit", f.Path+" is "+count(int(f.Bytes))+" bytes: "+strings.Join(parts, "; ")+".", f, clis, open(f))
+			// Hermes and Codex take their limit from a setting; the others only
+			// from a shorter file.
+			action := open(f)
+			for _, id := range clis {
+				if id == "hermes" || id == "codex" {
+					action = settings(id)
+					break
+				}
+			}
+			add("limit", f.Path+" is "+count(int(f.Bytes))+" bytes: "+strings.Join(parts, "; ")+".", f, clis, action)
 		}
 	}
 

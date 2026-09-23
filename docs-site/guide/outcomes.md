@@ -8,7 +8,8 @@ When you remove an agent, PiCode keeps a short record of how it went: the
 answer you give, how the agent was set up, and what PiCode saw while it ran.
 **Outcomes** lists those records, and the dashboard counts them.
 
-- **Where:** the user menu ▸ **Outcomes**, or `#/outcomes`. The home
+- **Where:** the user menu ▸ **Outcomes**, or `#/outcomes`; on the phone,
+  **More ▸ Outcomes**. The home
   dashboard has an **Agent outcomes** section for its date range.
 - **Not this:** not telemetry. Records stay in PiCode's data folder on this
   machine and are never sent anywhere.
@@ -50,6 +51,7 @@ setup and the numbers, but nothing can read the conversation afterwards.
 | Setup | CLI, provider and model, thinking, tools, checklist, packages, extra prompt, launch arguments. Environment variables are kept by **name only**, never their values |
 | What PiCode saw | How long the agent lived, how many turns it took, how often it asked for you, checklist progress |
 | Sessions | Where the sessions were, and whether the removal deleted them |
+| Cost | What those sessions cost, read before any deletion. A `~` marks a list-price estimate for turns the CLI recorded no price for. For Pi it covers every session of the agent; for other agents, their last session. Grok, Hermes Agent, OpenCode and Antigravity show **—**: PiCode cannot read their sessions as files |
 
 Turns count each time the agent went from waiting to working. Agents created
 before PiCode counted turns show **—** instead of a number.

@@ -115,7 +115,13 @@ login its one slot holds before replacing it. Antigravity
 under `script -qfec`, shows Google's page, passes the pasted code in within
 Antigravity's 60 seconds, and kills the process group once the token file
 holds a login; a login already there is filed and set aside, and put back
-on failure. The
+on failure. OpenCode
+(ADR-0201) signs in through its own `opencode serve`, which PiCode runs on
+localhost while the dialog needs it: `OpenCodeLoginDialog.jsx` walks
+provider (OpenCode's catalog) → method → prompts → key (`PUT /auth`) or page
+(an "auto" flow OpenCode finishes, or a pasted code), and what OpenCode
+stored is filed in the vault. With OpenCode, every CLI has its own GUI
+sign-in; the key form below remains for any CLI without one. The
 other guests'
 dialog still holds a provider `<select>`
 limited to that CLI's providers, the key field with the line that says the

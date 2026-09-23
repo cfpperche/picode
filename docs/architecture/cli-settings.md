@@ -243,7 +243,13 @@ are shared. Pi's reader (`pi.go`, ADR-0009 amendment) runs
 keys on `auth.json`, `models.json`, `models-store.json`, `settings.json`,
 `npm/package-lock.json` and the binary — measured: listing rewrites none of
 them, so unlike omp the credential store is an input. The catalog's own writes
-(`mutateAuth`, `writeModelsJSON`) also call `Forget("pi")`.
+(`mutateAuth`, `writeModelsJSON`) also call `Forget("pi")`. Pi's table states only yes/no
+for thinking, so `/api/cli-models?cli=pi` fills each row's `thinking` levels
+from `models-store.json` (`catalog.FillPiThinking`, the pickers' own rule) on a
+copy of the kept rows — Pi answers in omp's shape. Pi's model pickers still read
+`/api/catalog`: it composes sign-in, custom providers and llama.cpp models on the
+same kept list, and no other CLI has a picker in PiCode yet (measured
+2026-09-23), so moving them would rebuild that composition for no gain.
 
 ## Checks: what a CLI resolves here, and what is wrong with it (slice 4)
 
@@ -588,3 +594,13 @@ the sticky rule on a bad measurement — a probe that scrolled `window`, which
 this app never scrolls; the scroller is the CLI page element.) The phone sets
 the bar back to `static`: its shell scrolls a different element and the bar is
 a short hop from the top there.
+
+## A field kept to one layer (2026-09-23)
+
+`Field.Scopes` names the layers a row may be written in. Claude Code's
+Project instructions (`pluginConfigs.agents-md@builtin.options.instructionFiles`)
+is the first row to use it: Claude Code reads that option from user and
+managed settings and ignores it in project settings, so the row exists only
+on the Global layer. `TestEveryDeclaredFieldRoundTrips` writes and reads each
+field in the layers it allows, not in all of them. The Instructions group is
+described in [cli-instructions.md](cli-instructions.md).

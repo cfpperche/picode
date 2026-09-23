@@ -477,6 +477,12 @@
           "markdownDescription": "Enables the disk_report command without any pre-configured scope."
         },
         {
+          "description": "Enables the distro_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-distro-backup",
+          "markdownDescription": "Enables the distro_backup command without any pre-configured scope."
+        },
+        {
           "description": "Enables the distro_conf_read command without any pre-configured scope.",
           "type": "string",
           "const": "allow-distro-conf-read",
@@ -487,6 +493,18 @@
           "type": "string",
           "const": "allow-distro-conf-write",
           "markdownDescription": "Enables the distro_conf_write command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the distro_move command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-distro-move",
+          "markdownDescription": "Enables the distro_move command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the history_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-history-report",
+          "markdownDescription": "Enables the history_report command without any pre-configured scope."
         },
         {
           "description": "Enables the host_report command without any pre-configured scope.",
@@ -529,6 +547,12 @@
           "type": "string",
           "const": "allow-lab-reload",
           "markdownDescription": "Enables the lab_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the places_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-places-report",
+          "markdownDescription": "Enables the places_report command without any pre-configured scope."
         },
         {
           "description": "Enables the system_clean_apply command without any pre-configured scope.",
@@ -861,6 +885,12 @@
           "markdownDescription": "Denies the disk_report command without any pre-configured scope."
         },
         {
+          "description": "Denies the distro_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-distro-backup",
+          "markdownDescription": "Denies the distro_backup command without any pre-configured scope."
+        },
+        {
           "description": "Denies the distro_conf_read command without any pre-configured scope.",
           "type": "string",
           "const": "deny-distro-conf-read",
@@ -871,6 +901,18 @@
           "type": "string",
           "const": "deny-distro-conf-write",
           "markdownDescription": "Denies the distro_conf_write command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the distro_move command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-distro-move",
+          "markdownDescription": "Denies the distro_move command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the history_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-history-report",
+          "markdownDescription": "Denies the history_report command without any pre-configured scope."
         },
         {
           "description": "Denies the host_report command without any pre-configured scope.",
@@ -913,6 +955,12 @@
           "type": "string",
           "const": "deny-lab-reload",
           "markdownDescription": "Denies the lab_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the places_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-places-report",
+          "markdownDescription": "Denies the places_report command without any pre-configured scope."
         },
         {
           "description": "Denies the system_clean_apply command without any pre-configured scope.",

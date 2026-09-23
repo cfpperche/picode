@@ -5,8 +5,10 @@ import { matchesListSearch } from "./mobileListSearch.js";
 // Notifications are mobile-only; Providers/Packages stay search-only
 // because those routes live under Agent CLIs.
 export const MORE_SECTIONS = [
+  ["missions", "Missions", "Objectives, evidence and agent handoffs"],
   ["pins", "Pins", "Notes, files and reminders"],
   ["snippets", "Snippets", "Reusable prompts and commands"],
+  ["outcomes", "Outcomes", "How removed agents ended"],
   ["automations", "Automations", "Scheduled and triggered work"],
   ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"],
   ["apps", "Apps", "Docker and other tools"],
@@ -16,7 +18,7 @@ export const MORE_SECTIONS = [
   ["preferences", "Preferences", "Theme, notifications, backup"],
   ["connectors", "Connectors", "MCP servers and tools"],
   ["integrations", "Webhooks", "Signed event delivery"],
-  ["packages", "Packages", "Skills, extensions, updates"],
+  ["packages", "Packages", "Plugins, extensions, updates"],
   ["devices", "Devices", "Who is connected"],
   ["system", "System", "Version, host, paths"],
 ];
@@ -24,7 +26,7 @@ export const MORE_SECTIONS = [
 export const MORE_TITLES = { ...Object.fromEntries(MORE_SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
 
 export const MORE_GROUPS = [
-  ["Tools", ["pins", "snippets", "clis", "automations", "apps", "llama"]],
+  ["Tools", ["missions", "pins", "snippets", "outcomes", "clis", "automations", "apps", "llama"]],
   ["PiCode", ["preferences", "notifications", "devices", "system", "integrations"]],
 ];
 
@@ -46,7 +48,8 @@ export function moreGroups(query) {
   if (query.trim()) {
     const cliRows = [
       ["pi-settings", "CLI settings", "The last agent's CLI configuration", "pi model thinking prompt"],
-      ["pi-packages", "Packages", "Skills, extensions and updates", "skills extensions updates"],
+      ["pi-packages", "Packages", "Plugins, extensions and updates", "plugins extensions updates"],
+      ["pi-skills", "Skills", "Agent Skills each CLI loads", "skills SKILL.md agent skills"],
       ["pi-providers", "Providers", "Accounts, keys and usage", "accounts keys usage login"],
       ["connectors", "Connectors", "MCP servers and tools", "MCP servers tools"],
     ].filter(([, title, , keys]) => matchesListSearch(query, title, keys)).map(([id, title, sub]) => [id, title, sub]);

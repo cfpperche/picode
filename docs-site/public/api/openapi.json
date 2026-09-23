@@ -7180,6 +7180,134 @@
         ]
       }
     },
+    "/api/missions": {
+      "get": {
+        "operationId": "getApiMissions",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      },
+      "post": {
+        "operationId": "postApiMissions",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/tool": {
+      "post": {
+        "operationId": "postApiMissionsTool",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}": {
+      "get": {
+        "operationId": "getApiMissions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}/actions": {
+      "post": {
+        "operationId": "postApiMissionsActions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      }
+    },
     "/api/muse/login": {
       "delete": {
         "operationId": "deleteApiMuseLogin",
@@ -7311,6 +7439,114 @@
         },
         "tags": [
           "oauth"
+        ]
+      }
+    },
+    "/api/opencode/catalog": {
+      "get": {
+        "operationId": "getApiOpencodeCatalog",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
+        ]
+      }
+    },
+    "/api/opencode/credential": {
+      "delete": {
+        "operationId": "deleteApiOpencodeCredential",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
+        ]
+      },
+      "get": {
+        "operationId": "getApiOpencodeCredential",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
+        ]
+      },
+      "post": {
+        "operationId": "postApiOpencodeCredential",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
+        ]
+      }
+    },
+    "/api/opencode/credential/code": {
+      "post": {
+        "operationId": "postApiOpencodeCredentialCode",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "opencode"
         ]
       }
     },
@@ -9021,6 +9257,23 @@
         },
         "tags": [
           "share"
+        ]
+      }
+    },
+    "/api/skills/report": {
+      "get": {
+        "operationId": "getApiSkillsReport",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
         ]
       }
     },
@@ -11898,6 +12151,65 @@
         ]
       }
     },
+    "/api/workspaces/{id}/instructions/fix": {
+      "get": {
+        "operationId": "getApiWorkspacesInstructionsFix",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      },
+      "post": {
+        "operationId": "postApiWorkspacesInstructionsFix",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}/open": {
       "post": {
         "operationId": "postApiWorkspacesOpen",
@@ -12511,10 +12823,16 @@
       "name": "mcp"
     },
     {
+      "name": "missions"
+    },
+    {
       "name": "muse"
     },
     {
       "name": "oauth"
+    },
+    {
+      "name": "opencode"
     },
     {
       "name": "packages"
@@ -12545,6 +12863,9 @@
     },
     {
       "name": "share"
+    },
+    {
+      "name": "skills"
     },
     {
       "name": "snips"

@@ -306,10 +306,12 @@ asks for:
 | the repository has no worktree routine of its own | the agent already makes its own worktree (a repository whose `AGENTS.md` says so) |
 
 The worktree is created by a visible `git worktree add` in a terminal in
-that folder. When another agent is working in the repository, PiCode
-types the command without running it: the dialog closes, a message asks
-you to press **Enter** in that terminal, and the fork starts as soon as
-the worktree exists. Its branch is named after the fork.
+that folder, and its branch is named after the fork. It runs even while
+other agents work in the repository: a new worktree touches none of their
+files. If the command cannot run there (the terminal is busy with another
+program), it waits in a new terminal: the dialog closes, a message asks
+you to press **Enter** there, and the fork starts as soon as the worktree
+exists.
 
 ### Which CLIs fork
 

@@ -35,6 +35,7 @@ type Store struct {
 	OnEvent func(Event)
 
 	deliveryMu sync.Mutex // serialize delivery intent/retry transactions
+	missionMu  sync.Mutex // mission state, assignment reservations and receipts
 	pendMu     sync.Mutex
 	pending    map[*sql.Tx][]Event // events appended in an open tx, announced on commit
 }

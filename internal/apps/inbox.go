@@ -376,7 +376,7 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 			inTUI := h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID)
 			detail = append(detail, Block{Type: "form", Pane: "detail", Form: &Form{
 				ID:       "respond",
-				Submit:   "Send reply",
+				Submit:   inboxReplyLabel(it),
 				Terminal: inTUI || it.SourceKind == store.InboxFromTerminal,
 				Fields: []Field{{
 					Name: "reply", Method: "editor", Title: "Your reply",
@@ -466,6 +466,18 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 	returnPath := req.Path
 	if strings.HasPrefix(returnPath, "item/") && strings.TrimPrefix(returnPath, "item/") == id {
 		returnPath = ""
+	}
+	if req.Action == "respond" {
+		it, err := h.Store.GetInboxItem(id)
+		if err != nil {
+			return ActionResult{}, err
+		}
+		if it.SourceKind == store.InboxFromSystem && it.Reason == "mission" {
+			if err := RecordMissionAnswer(h.Store, id, req.Args["reply"]); err != nil {
+				return ActionResult{}, err
+			}
+			return a.backTo(h, returnPath, "Answer recorded in mission history — open the mission to continue")
+		}
 	}
 	switch req.Action {
 	case "done":
@@ -669,4 +681,34 @@ func sourceLabel(h Host, it store.InboxItem) string {
 		return "automation"
 	}
 	return "PiCode"
+}
+
+func inboxReplyLabel(it store.InboxItem) string {
+	if it.SourceKind == store.InboxFromSystem && it.Reason == "mission" {
+		return "Record decision"
+	}
+	return "Send reply"
+}
+
+// RecordMissionAnswer is shared by the Inbox app and HTTP reply route.
+func RecordMissionAnswer(s *store.Store, id, answer string) error {
+	it, err := s.GetInboxItem(id)
+	if err != nil {
+		return err
+	}
+	if it.SourceKind != store.InboxFromSystem || it.Reason != "mission" {
+		return fmt.Errorf("not a mission question")
+	}
+	if it.State == store.InboxDone {
+		if it.Response != nil && *it.Response == answer {
+			return nil
+		}
+		return fmt.Errorf("this question is already resolved")
+	}
+	v, err := s.GetMission(it.SourceID)
+	if err != nil {
+		return err
+	}
+	_, err = s.ApplyMission(store.MissionOwner, store.MissionMutation{Action: "inbox-answer", ID: v.ID, InboxID: id, RequestID: "inbox-answer:" + id, ExpectedVersion: v.Version, Note: answer}, store.MissionObservation{})
+	return err
 }

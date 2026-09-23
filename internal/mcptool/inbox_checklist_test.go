@@ -161,10 +161,10 @@ func TestAllFamiliesListTheirTools(t *testing.T) {
 	for _, tool := range s.Tools() {
 		names = append(names, tool.Name)
 	}
-	if strings.Join(names, ",") != "ask_human,browser,checklist,computer,delivery,notify_human" {
+	if strings.Join(names, ",") != "ask_human,browser,checklist,computer,delivery,mission,notify_human" {
 		t.Fatalf("tools = %v", names)
 	}
-	if strings.Join(FamilyNames(), ",") != "computer,browser,inbox,checklist,delivery" {
+	if strings.Join(FamilyNames(), ",") != "computer,browser,inbox,checklist,delivery,mission" {
 		t.Fatalf("families = %v", FamilyNames())
 	}
 }

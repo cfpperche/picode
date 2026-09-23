@@ -1,5 +1,6 @@
 import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
+import { cliSkillsHash } from "@picode/shared/domain/cliSkills.js";
 import { cliConnectorsLocation, cliConnectorsHash } from "@picode/shared/domain/integrations.js";
 import { lazy, useState } from "react";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
@@ -19,6 +20,7 @@ import { setShell } from "@picode/shared/client/shell.js";
 import { MORE_TITLES, moreGroups, moreActions, moreHasResults } from "../lib/moreMenuModel.js";
 import PinsList from "./PinsList.jsx";
 import SnippetsList from "./SnippetsList.jsx";
+import OutcomesList from "./OutcomesList.jsx";
 import "../styles/mobile-lists.css";
 
 // Mobile-owned settings, loaded only when their section opens.
@@ -44,7 +46,7 @@ export default function More({ fleetReady = true, section, apps, catalog, clis =
           <ul className="m-list m-menu m-group-list">
           {group.rows.map(([id, title, sub]) => (
             <li key={id} className="m-row">
-              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash(lastCli) : id === "pi-packages" ? cliPackagesHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "pi-settings" ? cliSettingsHash(lastCli, { agentId: last?.agent?.id || legacyAgentId }) : id === "connectors" ? cliConnectorsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "integrations" ? "#/integrations/webhooks" : "#/more/" + id}>
+              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash(lastCli) : id === "pi-packages" ? cliPackagesHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "pi-skills" ? cliSkillsHash(lastCli, { workspaceId: last?.workspace?.id }) : id === "pi-settings" ? cliSettingsHash(lastCli, { agentId: last?.agent?.id || legacyAgentId }) : id === "connectors" ? cliConnectorsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "integrations" ? "#/integrations/webhooks" : "#/more/" + id}>
                 <span className="m-row-text">
                   <span className="m-row-title">{title}</span>
                   <span className="m-row-sub">{sub}</span>
@@ -78,6 +80,7 @@ export default function More({ fleetReady = true, section, apps, catalog, clis =
         right={section === "pins" || section === "snippets" ? <button type="button" className="m-head-btn" aria-label={section === "pins" ? "New pin" : "New snippet"} onClick={() => { location.hash = section === "pins" ? "#/pins/new" : "#/snippets/new"; }}><IconPlus size={18} /></button> : null} />
       {section === "pins" ? <PinsList onOpen={(id) => { location.hash = "#/pins/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/pins/new"; }} /> : null}
       {section === "snippets" ? <SnippetsList onOpen={(id) => { location.hash = "#/snippets/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/snippets/new"; }} /> : null}
+      {section === "outcomes" ? <OutcomesList /> : null}
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
       {section === "clis" ? <AgentClis catalog={catalog} onCatalogChange={onCatalogChange} legacyContextReady={fleetReady} legacyPackageContext={{ workspaceId: workspace?.id || "", agentId: agent?.id || legacyAgentId || "" }} legacyAgentId={last?.agent?.id || legacyAgentId} onAgentConfig={onAgentConfig} /> : null}

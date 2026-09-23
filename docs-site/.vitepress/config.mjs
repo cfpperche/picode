@@ -58,6 +58,7 @@ export default defineConfig({
             items: [
               { text: "Agent CLIs", link: "/guide/agent-clis" },
               { text: "Packages", link: "/guide/packages" },
+              { text: "Skills", link: "/guide/skills" },
               {
                 text: "MCP",
                 link: "/guide/mcp",
@@ -78,6 +79,7 @@ export default defineConfig({
             items: [
               { text: "Dashboard", link: "/guide/dashboard" },
               { text: "Outcomes", link: "/guide/outcomes" },
+              { text: "Missions", link: "/guide/missions" },
               { text: "Canvas", link: "/guide/canvas" },
               { text: "Session messages", link: "/guide/communication" },
               { text: "Delivery requests", link: "/guide/delivery" },

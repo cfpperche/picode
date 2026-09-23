@@ -7,6 +7,8 @@
   through its own prompt channel)
 - **Amended**: ADR-0089 (the *user's* Send on an Agent CLI attach bar may
   paste a prompt into that TUI; Inspector Ask / type / run still must not)
+- **Amended**: ADR-0202 (the run door lets the exact `git worktree add -b`
+  command that creates a new worktree past the busy-repository interlock)
 - **Amends**: for the Inspector's Git actions only, the write refusals of
   ADR-0022 (graph is read-only), ADR-0032 (hunk stage/discard), ADR-0038
   (stage/discard/commit from the uncommitted row) and ADR-0073 (worktree

@@ -53,7 +53,7 @@
 .instr-matrix { width: 100%; border-collapse: collapse; }
 .instr-matrix th, .instr-matrix td { padding: 4px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
 /* A CLI's name may take two lines, so nine columns fit a normal card. */
-.instr-matrix thead th { color: var(--text-secondary); font-weight: 500; font-size: 12px; line-height: 1.25; white-space: normal; vertical-align: bottom; max-width: 64px; }
+.instr-matrix thead th { color: var(--text-secondary); font-weight: 500; font-size: 12px; line-height: 1.25; white-space: normal; vertical-align: bottom; }
 .instr-matrix tbody tr:last-child th, .instr-matrix tbody tr:last-child td { border-bottom: 0; }
 .instr-group th { padding-top: 14px; color: var(--text-secondary); font-size: 12px; font-weight: 500; }
 .instr-file-col { width: 1%; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
@@ -87,3 +87,21 @@
 /* A group's label stays readable when the columns scroll sideways. */
 .instr-group th span { position: sticky; left: 4px; }
 .instr-more { margin: 0 0 6px; font-size: 12px; }
+
+/* What each agent's latest session loaded, from its CLI's own record. */
+.instr-agents { margin: 16px 0 0; }
+.instr-agents h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.instr-agents ul { list-style: none; padding: 0; margin: 0; }
+.instr-agents li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.instr-agents li:last-child { border-bottom: 0; }
+.instr-agent-files { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+
+/* Reviewing a fix (ADR-0204): the exact change per file. */
+.instr-fix-dlg { max-width: 640px; }
+.instr-fix-file { margin: 12px 0 0; }
+.instr-fix-path { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; margin: 0 0 4px; }
+.instr-diff { margin: 0; padding: 8px 10px; max-height: 240px; overflow: auto; background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl); font-family: var(--mono); font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+.instr-diff .d-add { color: var(--ok); }
+.instr-diff .d-del { color: var(--danger); }
+.instr-diff .d-ctx { color: var(--text-secondary); }
+.instr-fix-note { margin: 8px 0 0; color: var(--warn); }

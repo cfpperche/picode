@@ -45,6 +45,18 @@ design and a workspace removal keeps its exits.
 Events: `agent_exit.recorded`, `agent_exit.updated` (label, undo),
 `agent_exit.deleted`.
 
+## Cost
+
+At removal, before any purge, the server prices the sessions the exit points
+at with `climetrics.MeterSessionFile` (the dashboard's rule: the CLI's own
+recorded cost, list price per ADR-0185 only for unpriced turns, kept apart as
+`estimated`). A Pi agent's own session folder counts whole (scope `agent`);
+any other CLI names only the session PiCode last saw (scope `last-session`).
+Pi, Claude Code, Codex, Omp and Muse keep sessions as files; for the other
+CLIs, or with no session known, `cost` is NULL — "not measured", shown as —,
+never $0.00. Column `cost` (migration 071, JSON). The summary adds `cost`,
+`estimated` and `costMeasured`.
+
 ## Turns
 
 `agents.turns` counts transitions into work, bumped by `Store.NoteAgentTurn`
@@ -55,6 +67,15 @@ from three edges:
 | Managed Pi | RPC `agent_start` | `internal/rpc/runtime.go` `pumpEvents` |
 | Pi TUI | the watcher's busy flip, not its first scan | `internal/server/tui_watch.go` |
 | Every other CLI | a `working` report after idle or no state; `working` after `needs-you` is the same turn resuming | `startsTurn` in `internal/server/term_state.go` |
+
+Both terminal report paths apply `startsTurn`: the plain one
+(`reportTermStateForRun`) and the native-session one
+(`recordNativeTerminalObservation` in `internal/server/native_session.go`),
+which writes the state itself and carries every report from an integrated
+CLI — Claude Code, Codex, Omp. Until 2026-09-23 only the plain path counted,
+so terminal agents recorded 0 turns and every removal skipped the question as
+`idle`; exits recorded before the fix keep that `ask_skip` and can still be
+answered from Outcomes.
 
 Rows born before migration 069 read `NULL` ("not measured", shown as —) and
 stay `NULL`; their worked times still move. `NoteAgentTurn` is listed in
@@ -89,9 +110,10 @@ width on the phone and in narrow windows.
 
 ## Known limits
 
-- Cost per agent is not recorded: climetrics measures per CLI and session
-  (ADR-0127). The session pointers let it be derived later while the files
-  exist.
+- Cost covers a CLI agent's last known session only, and nothing for CLIs
+  whose sessions live in a database (Grok, Hermes, OpenCode, Antigravity).
 - Asking only at removal leaves out good agents that are never removed.
-- The Outcomes page is desktop only; the phone asks the question but has no
-  catalog screen yet.
+- The phone's Outcomes (More ▸ Outcomes, `#/more/outcomes`,
+  `web/mobile/src/screens/OutcomesList.jsx`) lists records, answers later,
+  deletes and carries the switch; the numbers' breakdowns and the filters
+  stay on the desktop page.

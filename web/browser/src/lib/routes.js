@@ -2,11 +2,13 @@ import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cl
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import { cliConnectorsHash } from "@picode/shared/domain/integrations.js";
+import { cliSkillsHash } from "@picode/shared/domain/cliSkills.js";
 import { cliLocation, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 // Hash routes. Preferences is PiCode-the-product. Native settings live under Agent CLIs (ADR-0101).
 // Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
 // cliLocation in @picode/shared/domain/cliLaunch.js.
 export const ROUTES = {
+	missions: "/missions",
   workspace: "/",
   preferences: "/preferences",
   clis: "/clis",
@@ -29,6 +31,7 @@ export const ROUTES = {
 
 export function parseRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  if (/^\/(?:missions(?:\/new)?|mission\/[^/?]+)(?:\?|$)/.test(h)) return "missions";
   if (h === "/preferences/status" || h === "/clis" || h.startsWith("/clis/")) return "clis";
   if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";
   if (cliPackagesLocation(h)) return "clis";
@@ -236,6 +239,7 @@ export function go(name, agentId, extra = {}) {
   const cli = String(extra.cli || "").trim() || "pi";
   if (name === "settings") { location.hash = cliSettingsHash(cli, ctx); return; }
   if (name === "packages") { location.hash = cliPackagesHash(cli, ctx); return; }
+  if (name === "skills") { location.hash = cliSkillsHash(cli, { workspaceId: ctx.workspaceId }); return; }
   if (name === "mcps" || name === "connectors") { location.hash = cliConnectorsHash(cli, ctx); return; }
   if (name === "providers" && extra.cli) { location.hash = cliProvidersHash(cli); return; }
   if (typeof name === "string" && name.startsWith("preferences")) {
@@ -402,7 +406,7 @@ export function tabAppId(id) {
 // its role).
 export function isAgentTab(id) {
   const s = String(id || "");
-  return !!s && !isTermTab(s) && !isFileTab(s) && !isGitTab(s) && !isTreeTab(s) && !isAppTab(s) && !isWebTab(s);
+  return !!s && !isTermTab(s) && !isFileTab(s) && !isGitTab(s) && !isTreeTab(s) && !isAppTab(s) && !isWebTab(s) && !isInstructionsTab(s);
 }
 
 export function appHash(id, path = "") {

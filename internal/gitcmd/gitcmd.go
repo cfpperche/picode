@@ -676,3 +676,55 @@ func messageClause(a Args) string {
 	}
 	return " with a message you write from the changes."
 }
+
+// WorktreeCreate reports whether text is exactly the command
+// create-worktree-branch composes — `git worktree add -b <slug>
+// <root>/.worktrees/<slug> <ref>`, with nothing before, after or between —
+// and returns the repository root it names ("" for the relative form). The
+// run door lets this one command past the busy-repository interlock
+// (ADR-0202): it makes a new folder and a new branch and touches no file
+// another agent is working on. A root holding a quote character is never
+// recognized, so an escaped quote can never hide a second command.
+func WorktreeCreate(text string) (root string, ok bool) {
+	rest, found := strings.CutPrefix(text, "git worktree add -b ")
+	if !found {
+		return "", false
+	}
+	slugPart, rest, found := strings.Cut(rest, " ")
+	if !found || !validSlug(slugPart) {
+		return "", false
+	}
+	var path string
+	if strings.HasPrefix(rest, "'") {
+		end := strings.Index(rest[1:], "'")
+		if end < 0 {
+			return "", false
+		}
+		path, rest = rest[1:1+end], rest[2+end:]
+	} else {
+		path, rest, found = strings.Cut(rest, " ")
+		if !found {
+			return "", false
+		}
+		rest = " " + rest
+	}
+	ref, found := strings.CutPrefix(rest, " ")
+	if !found || !validRef(ref) || strings.ContainsAny(ref, " \t") {
+		return "", false
+	}
+	if strings.ContainsAny(path, "\x00\r\n") {
+		return "", false
+	}
+	suffix := ".worktrees/" + slugPart
+	switch {
+	case path == suffix:
+		return "", true
+	case strings.HasSuffix(path, "/"+suffix):
+		root = strings.TrimSuffix(path, "/"+suffix)
+		if root == "" || !strings.HasPrefix(root, "/") {
+			return "", false
+		}
+		return root, true
+	}
+	return "", false
+}

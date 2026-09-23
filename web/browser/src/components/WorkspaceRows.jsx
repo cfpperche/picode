@@ -175,6 +175,7 @@ export function AgentRow({
       case "start": return onRun && onRun(ag.id);
       case "stop":
       case "restart": return onLaunchAction && onLaunchAction(term, r.id, ag);
+      case "mission":
       case "settings":
       case "launch": location.hash = r.href; return;
       case "chat": return onChat && onChat(ag.id);

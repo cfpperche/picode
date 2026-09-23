@@ -46,11 +46,48 @@ paths, sizes and verdicts — never a file's text. The tab re-reads when it is
 shown and on Refresh: instruction files change outside PiCode's store, so no
 feed event covers them, and nothing polls.
 
+## What an agent actually read
+
+The matrix is a prediction from the declared rules. Three CLIs also write
+down what a session loaded, and `observed.go` reads that record for the
+session PiCode pinned on each of the workspace's terminals (ADR-0084,
+`TerminalLastSession.Path`):
+
+| CLI | Record |
+|---|---|
+| Claude Code | the transcript's `Contents of <path> (…instructions…)` entries, before the first answer (later lines are conversation and may quote any path) |
+| Codex | the rollout's `# AGENTS.md instructions for <folder>` |
+| Grok | `agents_md_files` in the session's `prompt_context.json` |
+
+The report carries them as `agents`; the tab lists them under "What agents
+here read". The other six CLIs keep no such record, so they get no line
+there rather than the prediction under another name.
+
+## Fixes, written only on confirmation (ADR-0204)
+
+A finding may carry a fix id. `internal/cliinstructions/fix.go` turns the
+id into the exact change, computed from the files on disk, and the tab shows
+it as a diff. `GET /api/workspaces/{id}/instructions/fix?id=` returns the
+change. `POST` writes it only when every file still has the hash the person
+saw; otherwise it answers 409 with the fresh change, shown in place. A fix
+that no longer applies answers 404.
+
+| Fix id | Offered by | Writes |
+|---|---|---|
+| `bridge:<CLAUDE.md>` | the prose-pointer finding | `@AGENTS.md` on top (or `@../AGENTS.md` from `.claude/`); a file that holds only the pointer sentence becomes the import line |
+| `personal:<file>` | the "not in .gitignore" finding; the tab's **Add personal file** menu | creates `CLAUDE.local.md` or `AGENTS.override.md` empty when missing (never overwrites), and adds its name to the `.gitignore` in the same folder |
+
+Writes are confined to the workspace. A symbolic link, or a folder that
+leads out of the workspace, is refused. Files are written atomically. Git is
+never run: the change waits in the Git tab.
+
 ## Where it shows
 
 | Place | What |
 |---|---|
 | Workspace `…` menu ▸ **Instructions** | the tab: findings, then the matrix of files × CLIs; a cell's reason below the table |
 | **New agent** dialog | one line for the picked CLI (`createLine`, `web/shared/domain/instructions.js`) |
+
+| CLI page ▸ **Settings** ▸ Instructions | the settings that change what a CLI reads: Claude Code's Project instructions mode (user layer only — Claude ignores it in project settings), Codex's `project_doc_fallback_filenames` and `project_doc_max_bytes`, Hermes's `context_file_max_chars`, OpenCode's `instructions`. Declared in `internal/clisettings/specs.go` like every other row; a finding whose fix is one of them links there |
 
 Desktop only for now; the phone app has no Instructions view yet.
