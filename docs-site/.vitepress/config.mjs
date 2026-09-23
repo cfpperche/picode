@@ -76,6 +76,7 @@ export default defineConfig({
             collapsed: false,
             items: [
               { text: "Dashboard", link: "/guide/dashboard" },
+              { text: "Outcomes", link: "/guide/outcomes" },
               { text: "Canvas", link: "/guide/canvas" },
               { text: "Session messages", link: "/guide/communication" },
               { text: "Delivery requests", link: "/guide/delivery" },

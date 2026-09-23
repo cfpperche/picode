@@ -18,6 +18,8 @@
    with: it owns the .cred-* geometry (ADR-0165), and no app stylesheet may
    out-rank it by load order. */
 @import "@picode/shared/styles/credentials.css";
+/* The removal dialog's question (ADR-0194), shared by both ConfirmDialogs. */
+@import "@picode/shared/styles/agent-exit.css";
 
 /* ADR-0161: only ancestors of a live native page clear their paint. The
    native chrome region keeps other content and floating layers interactive. */

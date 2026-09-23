@@ -24,6 +24,7 @@ export const ROUTES = {
   termset: "/termset",
   automations: "/automations",
   snippets: "/snippets",
+  outcomes: "/outcomes",
 };
 
 export function parseRoute(hash) {
@@ -44,6 +45,7 @@ export function parseRoute(hash) {
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
   if (h === "/automations" || h.startsWith("/automations/")) return "automations";
   if (h === "/snippets" || h.startsWith("/snippets/")) return "snippets";
+  if (h === "/outcomes") return "outcomes";
   // Legacy #/sessions* deep links render the Agent CLIs shell; AgentClis
   // redirects the hash to #/clis/<cli>/sessions* (ADR-0079).
   if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "clis";

@@ -51,6 +51,14 @@ decrypted, and the live one has to still be on disk. Pi's own files are
 restored atomically but leave nothing behind — debris in a directory another
 tool owns is not ours to write.
 
+## Agent exits
+
+Migration 069 adds `agent_exits` (ADR-0194) and three `agents` columns:
+`turns` (NULL for rows born before it: "not measured"), `first_worked_at`,
+`last_worked_at`. An exit has no foreign keys — the agent row is gone by
+design and a workspace removal keeps its exits. See
+[agent exits](agent-exits.md).
+
 ## Delivery declarations
 
 Migration 063 adds `delivery_intents` and `delivery_requests` for ADR-0171. The

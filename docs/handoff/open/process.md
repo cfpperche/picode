@@ -122,6 +122,12 @@
   before diagnosing. And `gh run watch … | tail` reports `tail`'s status, not
   the run's — redirect and read `$?`, or a green-looking `exit=0` will cover
   two real failures.
+- **`git stash` is shared across every session in a checkout.** A peek at the
+  list on 2026-09-23 found `stash@{0}` mine and `stash@{1}` another branch's
+  ("emitter checkpoint before managed-stop retest", `feat/browser-capture-emitter`)
+  — the same stack, one `stash clear` or a wrong-index `pop` away from deleting
+  someone else's work. Read the list before touching it, pop by index, and know
+  that a worktree's stash lives in the primary checkout's git dir.
 - Hook edits cannot be exercised from a worktree (it runs the root's hooks); a refused commit needs `git -c core.hooksPath=$PWD/.githooks commit`.
 - `make ci` failed once (2026-09-12) after Go packages ok, passed on the identical tree — cause unknown; `var/ci-last.log` keeps it diagnosable (retries hide it).
 - A branch that edited `docs/handoff.md` pre-ADR-0123 hits one `modify/delete` conflict: resolve with `git rm -f docs/handoff.md` (the hook refuses it staged, on purpose).

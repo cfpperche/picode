@@ -50,6 +50,7 @@ import Integrations from "./components/Integrations.jsx";
 import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Snippets from "./components/Snippets.jsx";
+import Outcomes from "./components/Outcomes.jsx";
 import SnipCaptureSheet from "./components/SnipCaptureSheet.jsx";
 import Palette from "./components/Palette.jsx";
 import SnipRunSheet from "./components/SnipRunSheet.jsx";
@@ -103,6 +104,7 @@ import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk
 import { writeAskMemory, mergeAskMemory } from "./lib/askMemory.js";
 import { readDraft, writeDraft, clearDraft } from "./lib/draft.js";
 import { askConfirm, fmtBytes } from "./lib/confirm.js";
+import { exitRequestBody } from "@picode/shared/domain/agentExit.js";
 import { stuckToBottom, pinToBottom } from "@picode/shared/domain/stickScroll.js";
 import { alertFromPi } from "@picode/shared/domain/piError.js";
 import { mergeAssistant } from "@picode/shared/domain/assistantMsg.js";
@@ -2854,19 +2856,24 @@ export default function App({ shellChrome = false } = {}) {
       const n = preview.terminals;
       message += ` This also removes ${n} terminal${n === 1 ? "" : "s"} and stops ${n === 1 ? "its" : "their"} tmux session${n === 1 ? "" : "s"}.`;
     }
+    // An agent preview says whether the dialog asks how it went (ADR-0194);
+    // a workspace preview has no exit block.
+    const exit = preview.exit || null;
     const choices = [];
     if (preview.lastOccupant && preview.sessions > 0) {
       const n = preview.sessions;
       choices.push({
         id: "sessions",
         label: `Also delete ${n} session${n === 1 ? "" : "s"} (${fmtBytes(preview.sessionBytes)}) for this folder`,
+        checkedHint: exit ? "A later review of how this agent went can only read the sessions you keep." : "",
       });
     }
     if (preview.canPurgeWork) {
       choices.push({ id: "work", label: "Also delete the work folder" });
     }
     for (const c of extraChoices || []) choices.push(c);
-    const ok = await askConfirm({ title, message, confirmLabel: "Remove", danger: true, choices });
+    const feedback = exit && exit.ask ? { taxonomy: exit.taxonomy } : null;
+    const ok = await askConfirm({ title, message, confirmLabel: "Remove", danger: true, choices, feedback });
     if (!ok) return null;
     const picked = ok === true ? {} : ok;
     const q = new URLSearchParams();
@@ -2877,7 +2884,7 @@ export default function App({ shellChrome = false } = {}) {
       for (const [k, v] of Object.entries(c.params || {})) q.set(k, v);
     }
     const qs = q.toString();
-    return { query: qs ? "?" + qs : "" };
+    return { query: qs ? "?" + qs : "", exit, feedback: picked.feedback || null };
   }
 
   async function renameAgent(ag, shown) {
@@ -2942,6 +2949,12 @@ export default function App({ shellChrome = false } = {}) {
           body: JSON.stringify(patch),
         });
       }
+      // The exit stays for the record and leaves every count (ADR-0194).
+      if (snap.exitId) {
+        api("/api/agent-exits/" + encodeURIComponent(snap.exitId) + "/undo", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: created.id }),
+        }).catch(() => { /* the agent is back either way */ });
+      }
       // The feed may not have delivered the brand-new row yet (and
       // refreshFleetFallback returns nothing when it is live), so undo
       // refetches and hands the fresh list to openTab itself.
@@ -2979,14 +2992,27 @@ export default function App({ shellChrome = false } = {}) {
       extraPrompt: ag.extraPrompt || "",
       packagesIsolated: !!ag.packagesIsolated,
       sessionsPurged: (choice.query || "").includes("sessions=1"),
+      exitId: "",
     };
+    // The answer rides the removal itself (ADR-0194): the exit is written
+    // in the same transaction as the delete, so nothing is left to send.
+    const fb = choice.feedback;
+    const body = exitRequestBody({ taxonomy: choice.exit && choice.exit.taxonomy, draft: fb && fb.draft, shown: !!(fb && fb.shown), origin: "desktop" });
     try {
-      await api("/api/agents/" + ag.id + choice.query, { method: "DELETE" });
+      const removed = await api("/api/agents/" + ag.id + choice.query, {
+        method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      undoSnapshot.exitId = (removed && removed.exit && removed.exit.id) || "";
     } catch (err) {
       // The server may have completed the delete before the response was
       // lost (a second click, a flaky moment): 404 means the agent is
       // gone — drop the row instead of scolding the operator twice.
       if (err && err.status !== 404) { toastError(err); return; }
+    }
+    if (fb && fb.stopAsking) {
+      api("/api/agent-exits/prefs", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ask: false }),
+      }).catch(toastError);
     }
     closeAgentShell(ag);
     setTabs((t) => t.filter((x) => x !== ag.id));
@@ -3034,7 +3060,11 @@ export default function App({ shellChrome = false } = {}) {
     });
     if (!choice) return;
     try {
-      await api("/api/workspaces/" + ws.id + choice.query, { method: "DELETE" });
+      // Its agents end with it and each gets an exit (ADR-0194); the body
+      // only says which face removed them.
+      await api("/api/workspaces/" + ws.id + choice.query, {
+        method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ exit: { origin: "desktop" } }),
+      });
       const ids = (ws.agents || []).map((a) => a.id);
       if (ws.agent) ids.push(ws.agent.id);
       // The workspace's terminals died with it (ADR-0026): drop them from
@@ -4310,6 +4340,7 @@ export default function App({ shellChrome = false } = {}) {
         <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} clisLoaded={clisState === "ok"} />
         <Snippets hidden={route !== "snippets"} />
+        <Outcomes hidden={route !== "outcomes"} workspaces={workspaces} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>
@@ -4373,7 +4404,7 @@ export default function App({ shellChrome = false } = {}) {
             setCliPrincipalWs({ free: true }); // ADR-0184: a launch is an agent
             return;
           }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets" || a.kind === "outcomes") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
             const via = loc && loc.agent && loc.agent.mode === "interactive" ? "tui" : undefined;

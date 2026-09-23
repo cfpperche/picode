@@ -18,6 +18,7 @@ func StartTuiWatch(ctx context.Context, deps Deps, every time.Duration) {
 		return
 	}
 	prev := map[string]bool{}
+	primed := false
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
@@ -48,8 +49,14 @@ func StartTuiWatch(ctx context.Context, deps Deps, every time.Duration) {
 		}
 		for _, ch := range diffWorking(prev, cur) {
 			deps.Feed.Ephemeral("agent.tui", map[string]any{"agentId": ch.id, "working": ch.working, "interactive": ch.interactive})
+			// A turn is a flip into work (ADR-0194); the first scan only
+			// learns what was already running when the daemon started.
+			if primed && ch.working {
+				_ = deps.Store.NoteAgentTurn(ch.id)
+			}
 		}
 		prev = cur
+		primed = true
 	}
 }
 

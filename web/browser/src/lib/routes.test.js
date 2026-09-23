@@ -28,6 +28,7 @@ test("preferences and settings are distinct", () => {
   assert.deepEqual(pinRoute("#/pins/hello-abc"), { mode: "edit", id: "hello-abc" });
   assert.equal(parseRoute("#/snippets"), "snippets");
   assert.equal(parseRoute("#/snippets/new"), "snippets");
+  assert.equal(parseRoute("#/outcomes"), "outcomes");
   assert.equal(snippetRoute("#/snippets"), "");
   assert.equal(snippetRoute("#/snippets/new"), "new");
   assert.equal(snippetsHash("new"), "#/snippets/new");

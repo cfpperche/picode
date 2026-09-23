@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/rpc"
@@ -198,8 +199,18 @@ func TestCleanupPurgeOwnedWorkFolder(t *testing.T) {
 	}
 
 	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/agents/"+ag.ID+"?sessions=1&work=1", nil)
-	if del := do(t, ts.Client(), req); del.StatusCode != http.StatusNoContent {
+	del := do(t, ts.Client(), req)
+	if del.StatusCode != http.StatusOK {
 		t.Fatalf("delete = %d", del.StatusCode)
+	}
+	// ADR-0194: the removal answers with the exit it wrote, which records
+	// what the purge took before the files went.
+	var out struct {
+		Exit store.AgentExit `json:"exit"`
+	}
+	_ = json.NewDecoder(del.Body).Decode(&out)
+	if out.Exit.AgentID != ag.ID || !out.Exit.SessionsPurged || !out.Exit.WorkPurged || out.Exit.Config.WorkPath != work {
+		t.Fatalf("exit = %+v", out.Exit)
 	}
 	if _, err := os.Stat(work); !os.IsNotExist(err) {
 		t.Fatalf("work folder still there: %v", err)
@@ -223,8 +234,16 @@ func TestCleanupRefusesWorkOutsideOwnedRoot(t *testing.T) {
 		t.Fatalf("must not offer to delete %s: %+v", outside, preview)
 	}
 	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/agents/"+ag.ID+"?work=1", nil)
-	if del := do(t, ts.Client(), req); del.StatusCode != http.StatusNoContent {
+	del := do(t, ts.Client(), req)
+	if del.StatusCode != http.StatusOK {
 		t.Fatalf("delete = %d", del.StatusCode)
+	}
+	var out struct {
+		Exit store.AgentExit `json:"exit"`
+	}
+	_ = json.NewDecoder(del.Body).Decode(&out)
+	if out.Exit.WorkPurged {
+		t.Fatalf("a refused purge is not recorded as done: %+v", out.Exit)
 	}
 	if _, err := os.Stat(outside); err != nil {
 		t.Fatalf("outside folder deleted: %v", err)
@@ -276,7 +295,13 @@ func del(t *testing.T, ts *httptest.Server, path string) {
 	t.Helper()
 	req, _ := http.NewRequest(http.MethodDelete, ts.URL+path, nil)
 	res := do(t, ts.Client(), req)
-	if res.StatusCode != http.StatusNoContent {
+	// An agent removal answers with its exit record (ADR-0194); a
+	// workspace removal still answers 204.
+	want := http.StatusNoContent
+	if strings.HasPrefix(path, "/api/agents/") {
+		want = http.StatusOK
+	}
+	if res.StatusCode != want {
 		body, _ := io.ReadAll(res.Body)
 		t.Fatalf("DELETE %s = %d %s", path, res.StatusCode, body)
 	}

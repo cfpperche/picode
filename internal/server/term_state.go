@@ -228,7 +228,11 @@ func reportTermStateForRun(deps Deps, id, state, cli, runID, attention string, n
 			}
 		}
 	}
+	before, hadBefore := deps.TermStates.Get(id)
 	st, changed := deps.TermStates.SetForRun(id, state, cli, runID, attention, now)
+	if changed && startsTurn(before, hadBefore, st.State) {
+		noteTerminalTurn(deps, id)
+	}
 	if changed && deps.Feed != nil {
 		data := map[string]any{
 			"termId": id, "state": st.State, "cli": st.CLI, "at": st.At,
@@ -245,6 +249,27 @@ func reportTermStateForRun(deps Deps, id, state, cli, runID, attention string, n
 		syncManagedCLIInbox(deps, id, st.State)
 	}
 	return st
+}
+
+// startsTurn says whether a reported state begins a turn (ADR-0194): work
+// that follows idle or no state. Work after needs-you is the same turn
+// resuming once the person answered.
+func startsTurn(before TermState, had bool, next string) bool {
+	if next != TermWorking {
+		return false
+	}
+	return !had || (before.State != TermWorking && before.State != TermNeedsYou)
+}
+
+// noteTerminalTurn counts the turn on the agent bound to the terminal; a
+// plain shell has no agent and counts nothing.
+func noteTerminalTurn(deps Deps, termID string) {
+	if deps.Store == nil {
+		return
+	}
+	if a, err := deps.Store.AgentByTerminal(termID); err == nil {
+		_ = deps.Store.NoteAgentTurn(a.ID)
+	}
 }
 
 // terminalInterruptObserver is the PTY-input fallback for Escape/Ctrl+C.

@@ -275,6 +275,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [llama.cpp manager (ADR-0080)](architecture/llama-manager.md) | `docs/architecture/llama-manager.md` |
 | [Data & persistence (ADR-0005)](architecture/data-persistence.md) | `docs/architecture/data-persistence.md` |
 | [AgentManager](architecture/agent-manager.md) | `docs/architecture/agent-manager.md` |
+| [Agent exits and Outcomes (ADR-0194)](architecture/agent-exits.md) | `docs/architecture/agent-exits.md` |
 | [TerminalBridge](architecture/terminal-bridge.md) | `docs/architecture/terminal-bridge.md` |
 | [RPCBridge](architecture/rpc-bridge.md) | `docs/architecture/rpc-bridge.md` |
 | [Broker](architecture/broker.md) | `docs/architecture/broker.md` |

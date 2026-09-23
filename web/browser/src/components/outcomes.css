@@ -1,0 +1,73 @@
+/* Outcomes (ADR-0194): the catalog of removed agents. The numbers reuse the
+   dashboard's tiles and sections (.dash-kpi-row, .dashboard-section,
+   .spend-list); only the list and its toolbar are this page's own. */
+
+.outc-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.outc-ask { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
+.outc-err { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); }
+.outc-grid { margin: 0 0 16px; }
+
+.outc-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.outc-filters .set-select { max-width: 220px; }
+.outc-export { margin-left: auto; height: var(--ctl-h); display: inline-flex; align-items: center; }
+
+.outc-list { list-style: none; margin: 0; padding: 0; }
+.outc-row { border-top: 1px solid var(--border); }
+.outc-row:last-child { border-bottom: 1px solid var(--border); }
+.outc-row-head {
+  display: grid; align-items: center; gap: 10px; width: 100%;
+  grid-template-columns: 14px minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 0.9fr) 52px 48px 132px 64px;
+  min-height: 40px; padding: 6px 6px; box-sizing: border-box;
+  background: none; border: 0; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.outc-row-head:hover { background: var(--bg-hover); }
+.outc-row-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.outc-row.is-open .outc-row-head { background: var(--bg-hover); }
+.outc-name, .outc-cli, .outc-ws { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outc-name { font-weight: 550; }
+.outc-sub { color: var(--text-secondary); font-weight: 400; }
+.outc-ws { color: var(--text-secondary); }
+.outc-num { font-variant-numeric: tabular-nums; color: var(--text-secondary); text-align: right; }
+.outc-answer { min-width: 0; }
+/* The Outcome column sits right after a right-aligned number; without the
+   inset the gap was half the others'. Header and rows share the grid. */
+.outc-row-head > :nth-child(7) { padding-left: 12px; }
+.outc-noanswer { font-size: 12px; color: var(--text-secondary); }
+.outc-when { font-size: 12px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
+.outc-skel { padding: 14px 6px; }
+/* Column names over the rows: without them a turn count ran into the
+   answer beside it ("2 Didn't resolve"). */
+.outc-colhead {
+  min-height: 28px; cursor: default; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-secondary);
+}
+.outc-colhead:hover { background: none; }
+/* The primary ink at 70%: --text-secondary measured 2.7:1 on the light
+   ground, under the 3:1 an icon needs. */
+.outc-chev { width: 12px; height: 12px; color: var(--text-primary); opacity: .7; transition: transform var(--motion-fast) var(--ease-out); }
+.outc-row.is-open .outc-chev { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .outc-chev { transition: none; } }
+.outc-group + .outc-group { margin-top: 12px; }
+.outc-group-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-secondary); margin: 0 0 6px;
+}
+.outc-actions-end { justify-content: flex-end; }
+
+.outc-detail { padding: 6px 6px 14px; }
+.outc-facts { margin: 0; display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 6px 14px; font-size: 12.5px; }
+.outc-facts dt { color: var(--text-secondary); }
+.outc-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.outc-mono { font-family: var(--mono); font-size: 12px; }
+.outc-note { white-space: pre-wrap; }
+.outc-actions { display: flex; gap: 8px; margin-top: 12px; }
+.outc-edit { margin-top: 0; padding-top: 4px; border-top: 0; }
+.outc-empty { margin: 16px 0 0; font-size: 13px; color: var(--text-secondary); }
+.outc-more { display: flex; justify-content: center; margin-top: 12px; }
+
+@media (max-width: 900px) {
+  .outc-row-head { grid-template-columns: 14px minmax(0, 1fr) minmax(0, 1fr) 132px; }
+  .outc-ws, .outc-num, .outc-when, .outc-colhead > :nth-child(4) { display: none; }
+  .outc-facts { grid-template-columns: minmax(0, 1fr); }
+  .outc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

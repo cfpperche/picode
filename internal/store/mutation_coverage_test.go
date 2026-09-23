@@ -69,6 +69,12 @@ var silentMutators = map[string]string{
 	"ResolveAgentSessionID":    "binds a reserved id to the file that appeared; agent.updated carries what is visible",
 	"RecordAgentSessionPath":   "historizes a session file the agent now owns; agent.updated carries what is visible",
 	"SealPendingAgentSessions": "closes reservations when an agent stops; agent.updated carries what is visible",
+
+	// The turn counter (ADR-0194). Every turn already announces its edge
+	// through the ephemeral terminal.state / agent.state / agent.tui
+	// notices; a durable event per turn would flood the seven-day log
+	// with rows nothing renders. The count is read at removal.
+	"NoteAgentTurn": "counts one turn; the edge already rides the ephemeral state notices, and the count is read at removal",
 }
 
 var (

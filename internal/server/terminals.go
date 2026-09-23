@@ -349,6 +349,19 @@ func handleRenameTerminal(deps Deps) http.HandlerFunc {
 
 func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// The optional body is a removal's answer (ADR-0194) when the
+		// terminal is an agent's.
+		req, err := readExitRequest(w, r)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if req.Exit != nil {
+			if err := store.ValidateExitLabel(store.ExitLabel{Outcome: req.Exit.Outcome, Reasons: req.Exit.Reasons, Note: req.Exit.Note}); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
 		unlockAgent := boundAgentLock(deps, r.PathValue("id"))
 		defer unlockAgent()
 		id := r.PathValue("id")
@@ -389,6 +402,10 @@ func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 		}
 		if err := cleanCLILaunches(deps.DataDir, id, ""); deps.DataDir != "" && err != nil {
 			writeErr(w, 500, err.Error())
+			return
+		}
+		if err := deps.endTerminalAgent(id, req); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		if err := deps.Store.DeleteTerminal(id); err != nil {

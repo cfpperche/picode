@@ -19,6 +19,7 @@ import { closeTerm } from "./lib/terms.js";
 import { mobileHash, toolHash, tabOf, readWorkSection, writeWorkSection } from "./lib/mobileRoutes.js";
 import { agentOwnerWs, termOwnerWs } from "./lib/workBack.js";
 import { askConfirm } from "./lib/confirm.js";
+import { exitRequestBody } from "@picode/shared/domain/agentExit.js";
 import { askPrompt } from "./lib/prompt.js";
 import { sessionFromTerminal, terminalHandoffSourceCli } from "@picode/shared/domain/sessionHandoff.js";
 import Reconnect from "./components/Reconnect.jsx";
@@ -355,8 +356,16 @@ export default function MobileApp() {
   }
 
   async function removeTerminal(t) {
-    const bound = flatAgents(workspaces, freeAgents).some(({ agent }) => agent.terminalId === t.id);
-    const ok = await askConfirm({ title: bound ? "Remove agent and terminal?" : "Remove terminal?", message: bound ? "This stops the terminal and removes its agent." : "This stops the terminal session.", confirmLabel: "Remove", danger: true });
+    // A terminal that is an agent's is the agent (ADR-0160): its removal is
+    // the agent's, with the same question (ADR-0194).
+    const owner = flatAgents(workspaces, freeAgents).find(({ agent }) => agent.terminalId === t.id);
+    if (owner) {
+      if (!(await removeAgent(owner.agent))) return;
+      if (route.screen === "term" && route.id === t.id) goBack(route, termOwnerWs(t));
+      if (route.screen === "agent" && current?.agent.id === owner.agent.id) goBack(route, agentOwnerWs(current));
+      return;
+    }
+    const ok = await askConfirm({ title: "Remove terminal?", message: "This stops the terminal session.", confirmLabel: "Remove", danger: true });
     if (!ok) return;
     setBusyId(t.id);
     try {
@@ -475,11 +484,25 @@ export default function MobileApp() {
   }
 
   async function removeAgent(agent) {
-    const ok = await askConfirm({ title: "Remove " + (agent.name || "agent") + "?", message: "The agent and its terminal are removed. The project folder is not deleted.", confirmLabel: "Remove", danger: true });
-    if (!ok) return;
+    // The preview says whether to ask how it went (ADR-0194); without it the
+    // removal still works and records that nothing was asked.
+    let exit = null;
+    try { exit = (await api("/api/agents/" + encodeURIComponent(agent.id) + "/cleanup")).exit || null; } catch { /* removal still allowed */ }
+    const feedback = exit && exit.ask ? { taxonomy: exit.taxonomy } : null;
+    const ok = await askConfirm({ title: "Remove " + (agent.name || "agent") + "?", message: "The agent and its terminal are removed. The project folder is not deleted.", confirmLabel: "Remove", danger: true, feedback });
+    if (!ok) return false;
+    const fb = ok === true ? null : ok.feedback;
+    const body = exitRequestBody({ taxonomy: exit && exit.taxonomy, draft: fb && fb.draft, shown: !!(fb && fb.shown), origin: "mobile" });
     setBusyId(agent.id);
     try {
-      await api("/api/agents/" + encodeURIComponent(agent.id), { method: "DELETE" });
+      await api("/api/agents/" + encodeURIComponent(agent.id), {
+        method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      if (fb && fb.stopAsking) {
+        api("/api/agent-exits/prefs", {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ask: false }),
+        }).catch(toastError);
+      }
       if (agent.terminalId) {
         // Deleting the agent only nulls its terminal_id: the bound
         // terminal — and the CLI process inside it — would survive as an
@@ -488,9 +511,11 @@ export default function MobileApp() {
         closeTerm("sh:" + agent.terminalId);
       }
       await reload({ force: true });
+      return true;
     } catch (e) {
       // As with desktop: a 404 just means the agent is already gone.
-      if (!e || e.status !== 404) toastError(e);
+      if (!e || e.status !== 404) { toastError(e); return false; }
+      return true;
     } finally { setBusyId(""); }
   }
 

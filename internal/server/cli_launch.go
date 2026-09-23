@@ -838,6 +838,11 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 				writeErr(w, 500, err.Error())
 				return
 			}
+			// Removing an agent's terminal ends the agent (ADR-0194).
+			if err := deps.endTerminalAgent(id, exitRequest{}); err != nil {
+				writeErr(w, 500, err.Error())
+				return
+			}
 			if err := deps.Store.DeleteTerminal(id); err != nil {
 				writeStoreErr(w, err)
 				return

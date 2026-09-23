@@ -268,6 +268,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerDeviceRoutes(mux, &deps)
 
 	registerWorkspaceRoutes(mux, deps)
+	registerAgentExitRoutes(mux, deps)
 	registerWorkspaceCloneRoutes(mux, deps)
 	registerGithubReposRoutes(mux, deps)
 	registerServerRoutes(mux, deps)

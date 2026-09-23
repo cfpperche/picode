@@ -172,6 +172,12 @@ func handleAdd(deps Deps) http.HandlerFunc {
 func handleRemove(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		// The optional body names the face that removed it (ADR-0194).
+		req, err := readExitRequest(w, r)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		unlockWorkspace := terminalLock(deps, "workspace:"+id)
 		defer unlockWorkspace()
 		if id == store.FreeWorkspaceID {
@@ -244,7 +250,13 @@ func handleRemove(deps Deps) http.HandlerFunc {
 			}
 		}
 		preview := deps.previewCleanup(wk.Path, dying)
-		removed, err := deps.Store.RemoveWorkspace(wk.ID)
+		// Its agents end with it: each gets an unasked exit (ADR-0194).
+		exitIn := store.ExitInput{
+			Origin:         exitOriginOf(req),
+			SessionsPurged: queryFlag(r, "sessions"),
+			WorkPurged:     queryFlag(r, "work") && preview.LastOccupant && preview.CanPurgeWork,
+		}
+		removed, _, err := deps.Store.RemoveWorkspaceWithExits(wk.ID, exitIn)
 		if err != nil || !removed {
 			writeErr(w, http.StatusInternalServerError, "remove failed")
 			return

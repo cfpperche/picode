@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useRef, useState } from "react";
-import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconClock, IconSparkles, IconCli, IconModel, IconFile, IconGlobe } from "./Icons.jsx";
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconClock, IconSparkles, IconCli, IconModel, IconFile, IconGlobe, IconCheck } from "./Icons.jsx";
 import { menuGroups, menuActions, menuHasResults } from "../lib/userMenuModel.js";
 import { DOCS_BASE } from "../lib/commandDocs.js";
 import InstallButton from "./InstallButton.jsx";
@@ -9,6 +9,7 @@ const SECTION_ICONS = {
   clis: IconCli,
   automations: IconClock,
   snippets: IconFile,
+  outcomes: IconCheck,
   providers: IconProvider,
   connectors: IconMcp,
   settings: IconSettings,

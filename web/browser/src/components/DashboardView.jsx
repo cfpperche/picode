@@ -22,6 +22,8 @@ import CoveragePanel from "./CoveragePanel.jsx";
 import LimitBars from "./LimitBars.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { IconReload } from "./Icons.jsx";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { choiceLabel, exitHeadline } from "@picode/shared/domain/agentExit.js";
 
 const REFRESH_MS = 60_000;
 const TICK_MS = 30_000;
@@ -114,6 +116,21 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
     setRange(next);
     writeDashboardRange(next);
   }
+
+  // Agent outcomes (ADR-0194): how the agents removed in this range ended.
+  // Its own small read, refetched on every exit event and with the range.
+  const [exits, setExits] = useState(null);
+  useEffect(() => {
+    let live = true;
+    const read = () => api("/api/agent-exits/summary?range=" + encodeURIComponent(range))
+      .then((rep) => { if (live) setExits(rep); })
+      .catch(() => { if (live) setExits((cur) => cur || { summary: null }); });
+    read();
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || String(ev.type || "").startsWith("agent_exit.")) read();
+    });
+    return () => { live = false; unsub(); };
+  }, [range]);
 
   // F3: the 30s "updated Xm" tick re-renders, but these derivations only
   // recompute when their inputs change — otherwise every tick re-maps
@@ -453,6 +470,10 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
               ) : <p className="dash-empty">No agent used the computer in this period.</p>}
             </div>
             <div className="dashboard-section">
+              <div className="dash-section-label">Agent outcomes</div>
+              <OutcomesFacts rep={exits} />
+            </div>
+            <div className="dashboard-section">
               <div className="dash-section-label">Limits</div>
               {firstLoad ? <Skel /> : (
                 <>
@@ -530,6 +551,35 @@ function money(v) {
 function fmtRate(v) {
   if (v == null || !(v > 0)) return EM;
   return money(v);
+}
+
+// How the agents removed in this range ended, from the person's answers at
+// removal (ADR-0194). The page behind it holds every record.
+function OutcomesFacts({ rep }) {
+  if (!rep) return <Skel />;
+  const sum = rep.summary;
+  if (!sum) return <p className="dash-empty">Couldn't load agent outcomes. <a className="btn-link" href="#/outcomes">Open Outcomes</a></p>;
+  if (!sum.total) return <p className="dash-empty">No agents removed in this period. <a className="btn-link" href="#/outcomes">Open Outcomes</a></p>;
+  const head = exitHeadline(sum);
+  const reasons = sum.reasons || [];
+  const top = reasons[0];
+  // A tie at the top names no single reason: listing order would pick one.
+  const tied = top ? reasons.filter((r) => r.count === top.count).length : 0;
+  return (
+    <>
+      <dl className="dash-facts">
+        <div><dt>Removed</dt><dd>{head.total}</dd></div>
+        <div><dt>Resolved</dt><dd>{head.resolvedShare}{head.attempts ? <span className="dash-fact-sub"> of {head.attempts} tasks</span> : null}</dd></div>
+        <div>
+          <dt>Most in the way</dt>
+          <dd className="dash-fact-text">
+            {!top ? EM : tied > 1 ? <>No single one<span className="dash-fact-sub">{tied} tied at {top.count}</span></> : <>{choiceLabel(rep.taxonomy && rep.taxonomy.reasons, top.id)}<span className="dash-fact-sub">{top.count} {top.count === 1 ? "time" : "times"}</span></>}
+          </dd>
+        </div>
+      </dl>
+      <p className="dash-note">From your answers when you removed them. <a className="btn-link" href="#/outcomes">Open Outcomes</a></p>
+    </>
+  );
 }
 
 function Skel() {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
@@ -24,6 +25,9 @@ type cleanupPreview struct {
 	CanPurgeWork bool   `json:"canPurgeWork"`
 	WorkPath     string `json:"workPath,omitempty"`
 	Terminals    int    `json:"terminals,omitempty"`
+	// Exit is filled only for agent previews (ADR-0194): whether the
+	// removal dialog asks how it went, and the words it shows.
+	Exit *exitPreview `json:"exit,omitempty"`
 
 	// dyingAgents is every agent id being removed (ADR-0040) — server-side
 	// only (unexported, encoding/json skips it), used by applyCleanup to
@@ -222,7 +226,9 @@ func handleAgentCleanup(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, deps.previewCleanup(cwd, map[string]bool{agent.ID: true}))
+		preview := deps.previewCleanup(cwd, map[string]bool{agent.ID: true})
+		preview.Exit = deps.exitPreviewFor(agent, time.Now())
+		writeJSON(w, http.StatusOK, preview)
 	}
 }
 
