@@ -7019,6 +7019,71 @@
         ]
       }
     },
+    "/api/muse/login": {
+      "delete": {
+        "operationId": "deleteApiMuseLogin",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "muse"
+        ]
+      },
+      "get": {
+        "operationId": "getApiMuseLogin",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "muse"
+        ]
+      },
+      "post": {
+        "operationId": "postApiMuseLogin",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "muse"
+        ]
+      }
+    },
     "/api/oauth/cancel": {
       "post": {
         "operationId": "postApiOauthCancel",
@@ -12254,6 +12319,9 @@
     },
     {
       "name": "mcp"
+    },
+    {
+      "name": "muse"
     },
     {
       "name": "oauth"

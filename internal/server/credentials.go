@@ -47,6 +47,9 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("PUT /api/claude-code/platform", handleClaudePlatformPut(deps))
 	mux.HandleFunc("POST /api/codex/login", handleCodexLoginStart(deps))
 	mux.HandleFunc("POST /api/grok/login", handleGrokLoginStart(deps))
+	mux.HandleFunc("POST /api/muse/login", handleMuseLoginStart(deps))
+	mux.HandleFunc("GET /api/muse/login", museLogin.status)
+	mux.HandleFunc("DELETE /api/muse/login", museLogin.stop)
 	mux.HandleFunc("POST /api/hermes/credential", handleHermesCredential(deps))
 	mux.HandleFunc("GET /api/hermes/credential", handleHermesLoginStatus)
 	mux.HandleFunc("DELETE /api/hermes/credential", handleHermesLoginCancel)
@@ -186,6 +189,10 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			// Grok signs in by running its own login (ADR-0192).
 			if spec.CLI == "grok" {
 				out["add"] = map[string]any{"kind": "grok", "label": "Add provider"}
+			}
+			// Muse signs in by running its own device-code login (ADR-0195).
+			if spec.CLI == "muse" {
+				out["add"] = map[string]any{"kind": "muse", "label": "Add provider"}
 			}
 			// Hermes adds to its own pool by `hermes auth add` (ADR-0193):
 			// pi's picker, fed by Hermes's roster, with Hermes's doors.
@@ -946,6 +953,11 @@ func handleCredentialActivate(deps Deps) http.HandlerFunc {
 			}
 			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "env": claudeKeyEnv})
 			return
+		}
+		// Muse keeps one credential: the login Use is about to replace is
+		// filed in the vault first, so it is never lost (ADR-0195).
+		if cli == "muse" && liveTerminalsFor(deps, cli) == 0 {
+			fileCLILogin("muse", provider)
 		}
 		if n := liveTerminalsFor(deps, cli); n > 0 {
 			writeErr(w, http.StatusConflict, fmt.Sprintf(
