@@ -8,6 +8,7 @@
 
 - [x] **`make ci` was red on `main` in `internal/server`** (2026-09-20) — root cause found and fixed on `feat/tmux-server-red`: with no `SHELL` in the daemon's environment, `defaultShell()` fell back to `/bin/sh` (dash) and `ensureShell` handed dash `--rcfile`, which it rejects (`Illegal option --`, status 2). The pane exited at once, a server with nothing else on it followed under `exit-empty`, `new-session` still answered 0, and the API reported `running:true` — which is why the failures read `no server running`, `mouse=""` and `catalog = 503` in four shards. The fix: bash fallback, `--rcfile` only for a shell that resolves to bash, and a liveness check that refuses a pane which never lived. The earlier note's two candidates were both wrong; the socket plumbing was innocent.
 - Agent CLIs Terminals ⋯ on the phone is still hand-built (Launch settings / Restart / Stop / Remove), not `termRowMenu`. Work rows use the shared menu (`surface: "phone"`) since 2026-09-19.
+- [ ] `TestRespawnPanePreservesSessionAndQuotesArgs` (`internal/tmux`) failed once in the merge gate on `main` at `e24d51f2` (2026-09-22): `quoted env = ""`. It passed 3/3 alone and the next full `make ci` on the same commit was green. Not diagnosed; the traps below suggest a shared fixture name or a read before the respawned pane's env is set.
 - Scrollbars: the web terminal draws none (a tmux client has no scrollback — `term-scrollbar.test.mjs`); a draggable bar means taking the tmux client off the alternate screen, a decision.
 
 ## Traps
