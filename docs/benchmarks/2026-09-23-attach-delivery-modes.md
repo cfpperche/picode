@@ -4,9 +4,9 @@
 - **Question**: can the attach composer (ADR-0089 prompt door) deliver a
   message **while the CLI is working** — the Prompt / Steer / Follow-up
   choice the managed Pi composer already offers — for every agent CLI?
-- **Status**: measured live for seven CLIs on 2026-09-23 (see
-  [Method](#method)); Codex (account at its usage limit) and Grok (the
-  probe was not signed in) remain desk-read.
+- **Status**: all nine CLIs measured live on 2026-09-23 (see
+  [Method](#method)); Grok's steer setting and Hermes's plain Enter
+  were deliberately not exercised.
 
 ## Today
 
@@ -36,8 +36,8 @@ input row reading empty before and after Enter.
 | OpenCode 1.18.32 | Enter `M` | none in the TUI `D` | cleared | the message joins the transcript with a ` QUEUED ` badge |
 | Muse 1.3.0 | Enter `M` | Alt+Enter `M` | cleared | `• Queued input` + `↳ <text>` rows; right-hand status `steering the running turn` / `queued for the next turn` |
 | Antigravity 1.2.9 | none known | Enter `M` | cleared; `Press up to edit queued messages` | `▸ <text>` above the input |
-| Codex 0.156.1 | Enter `D` (`steer` feature always on) | Tab `D` | `D`: cleared | `D`: `• Messages to be submitted after next tool call` / `• Queued follow-up inputs` + `↳` rows |
-| Grok 1.0.41 | Enter only if `ui.follow_up_behavior="steer"` `D` | Enter by default `D` | `D` | `D`: a prompt queue pane |
+| Codex 0.156.1 | Enter `M` (absorbed right after the running tool call) | Tab `M` | cleared | `• Queued follow-up inputs` + `↳ <text>` rows + `shift+← edit last queued message`; a steer shows as `› <text>` in the transcript (desk: `• Messages to be submitted after next tool call` while waiting) |
+| Grok 1.0.41 | only with `ui.follow_up_behavior="steer"` `D` (unset in the owner's config) | Enter `M` | cleared | `#1 <text>` above the input + `Queued · Enter to send now`; hint row `Enter:send now · Ctrl+;:queue`. **An Enter on the empty composer then cancels the turn and sends** |
 
 Not measured, on purpose: Hermes's plain Enter. The owner's
 `display.busy_input_mode` is `interrupt`, which cancels the running
@@ -46,14 +46,15 @@ model call (`↪ Redirected current turn`) — the door must never use it.
 ## What the matrix says
 
 1. **Plain Enter is not one mode.** It steers in Pi, Omp, OpenCode, Muse
-   (and Codex, desk); it steers-or-waits in Claude Code depending on
-   whether a tool runs; it follows up in Antigravity (and Grok by
-   default); in the owner's Hermes it interrupts. Dropping the `working`
+   and Codex; it steers-or-waits in Claude Code depending on whether a
+   tool runs; it follows up in Antigravity and Grok; in the owner's
+   Hermes it interrupts. Dropping the `working`
    gate and pressing Enter would do five different things.
 2. **Every mode is a per-CLI sequence.** Slash commands (Hermes
    `/steer` and `/queue`, Omp `/queue`) are the most robust: they do not
    depend on user keybindings or config. Keys come next (Pi and Muse
-   Alt+Enter, Codex Tab). Claude Code has no distinct follow-up;
+   Alt+Enter, Codex Tab). Grok's queue must never be followed by a bare
+   Enter (it means "cancel and send now"). Claude Code has no distinct follow-up;
    OpenCode no follow-up in the TUI; Antigravity no steer.
 3. **An empty input row no longer proves delivery.** Every measured CLI
    clears the row on a busy submit. The honest mid-turn receipt is
@@ -81,8 +82,8 @@ model call (`↪ Redirected current turn`) — the door must never use it.
 First slice (measured, deterministic): Pi (Enter / Alt+Enter), Omp
 (Enter / `/queue`), Hermes (`/steer` / `/queue`), Muse (Enter /
 Alt+Enter), Claude Code steer (Enter), OpenCode steer (Enter),
-Antigravity follow-up (Enter). Codex and Grok wait for a live
-measurement.
+Antigravity follow-up (Enter), Codex (Enter / Tab), Grok follow-up
+(Enter; steer only after PiCode reads `ui.follow_up_behavior`).
 
 ### Decision table (draft)
 
