@@ -19,6 +19,25 @@
   and the tmux tests now keep to their own socket and server, so that reason
   may be addressable; and trim the suite, which is 365 serial tests by design
   (they swap package-level probes, ADR-0086).
+  **Re-measured 2026-09-23** (`feat/ci-sharding`, branch not landed): a
+  dispatched run with the script's four shards came back red, but not for the
+  reason the decision was made for — macOS failed on two test defects of its
+  own (below) and ubuntu on `TestPreviewEventsStream`, seen once under shard
+  load and unattributed. So the verdict on sharding is *open*, not negative,
+  and the honest next step is the first candidate here — the heavy packages in
+  a CI job of their own — because it removes the ceiling question without
+  betting the gate on how four processes share a two-core runner.
+
+- [ ] **The macOS Go job is red on tests nobody runs.** Found 2026-09-23 by
+  dispatching CI on a branch (main's pushes classify macOS out for most diffs,
+  so these have been unseen): `TestLocateOMPRules` compares a path without
+  resolving `/private/var` (macOS's `/var` is a symlink, `omp_catalog_test.go`),
+  and `TestKillServerThroughAGuardedPath` dies with *"File name too long"*
+  binding its tmux socket under the runner's long `TMPDIR` — the same class the
+  2026-09-23 socket fix handled for PiCode's own sockets, still open in the
+  fixture (`binary_test.go`). Both are test defects, both small; until they are
+  fixed, any PR or dispatched run is red on macOS, and a macOS regression
+  cannot be told apart from this noise.
 
 - [x] **`TestStopIdleFencesConversationAndCommands` fails on the GitHub
   runners and nobody can say why.** Paid 2026-09-22 (`feat/ci-vendor-tests`) —
