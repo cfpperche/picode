@@ -162,9 +162,14 @@ HTTP API (Go 1.22 method patterns):
   cleanup preview (`GET /api/workspaces/{id}/cleanup`) counts the terminals
   so the dialog can warn.
 - `GET /api/workspaces/{id}/cleanup` / `GET /api/agents/{id}/cleanup` —
-  preview for the delete dialog (session count, last occupant, owned work folder).
+  preview for the delete dialog (session count, last occupant, owned work folder);
+  the agent preview adds `exit: {ask, skip, taxonomy}` (ADR-0194).
 - `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
   (work only if cwd is under `~/.picode/work/` and nobody else uses it).
+  Writes the agent's exit record in the same transaction and answers `200`
+  with `{exit}`; the optional JSON body carries the dialog's answer
+  (ADR-0194, [agent-exits](agent-exits.md)). A refused answer is a `400`
+  before anything stops.
 - `GET /api/clis/{cli}/sessions` — the per-CLI session index (ADR-0079
   phase 2): pi plus Claude Code, Codex, Grok, Hermes Agent and OpenCode, read-only from disk
   (`internal/clisession`), each row with size/age/messages and
