@@ -71,6 +71,22 @@ test("findLinks skips http when scanning paths and keeps tool-call paths", () =>
   assert.equal(hits.some((h) => String(h.raw).includes("/etc/passwd")), false);
 });
 
+test("printed URL boundaries exclude prose but keep balanced URL parentheses", () => {
+  const rows = [
+    ["(https://cfpperche.github.io/picode/guide/missions)", "https://cfpperche.github.io/picode/guide/missions"],
+    ["https://example.com/wiki/Foo_(bar)", "https://example.com/wiki/Foo_(bar)"],
+    ["https://example.com/a_(b)).", "https://example.com/a_(b)"],
+    ["https://example.com/a?q=1).", "https://example.com/a?q=1"],
+  ];
+  for (const [line, want] of rows) {
+    const links = findLinks(line, cwd);
+    assert.equal(links.length, 1, line);
+    assert.equal(links[0].raw, want, line);
+    assert.equal(links[0].href, want, line);
+    assert.equal(tokenAt(line, links[0].end + 1), null, line);
+  }
+});
+
 test("underCwd / relPath", () => {
   assert.equal(underCwd(cwd, cwd + "/web"), true);
   assert.equal(underCwd(cwd, "/etc/passwd"), false);

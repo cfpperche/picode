@@ -14,13 +14,16 @@ Git identity, revision, file digests, session identity and detected activity.
 | `cmd/picode/mission.go`, `internal/mcptool/mission.go` | One reporting contract over inherited launch identity |
 | `web/shared/domain/missions.js`, `client/useMissions.js` | Route/draft/action model and injected hook lifecycle, with no React dependency |
 | Browser and mobile Missions views | Independent presentation and navigation using shared contracts |
-| `internal/apps/inbox.go` | Record correlated mission answers through the store; no implicit terminal delivery |
+| `internal/apps/inbox.go` | Record correlated mission answers through the store; no implicit prompt send to a terminal |
 
 States are ready, in-progress, blocked, in-review, paused, completed and
-cancelled. The assignment independently records prepared, unconfirmed or
-acknowledged delivery and whether it still reserves the agent. Pause/cancel
-retain reservations. A stopped agent is opened/started through its existing
-surface; Missions does not introduce a launcher or background scheduler.
+cancelled. The assignment independently records a prompt receipt as prepared,
+unconfirmed or acknowledged, and whether it still reserves the agent. The wire
+field `assignment.delivery` names that receipt, not the Delivery feature. In
+Missions prose and UI, call it a *receipt* or *handover*; reserve **Delivery**
+for the artifact and integration feature. Pause/cancel retain reservations. A
+stopped agent is opened/started through its existing surface; Missions does not
+introduce a launcher or background scheduler.
 
 All mutations require `requestId`, and updates require `expectedVersion`.
 Agent writes also require assignment `generation` and a known matching native
@@ -56,16 +59,48 @@ references. Native transcripts, file contents and credentials are omitted.
 Evidence remains accessible through `show`. Browser retries retain the exact
 original request payload, including its version, across form reloads.
 
+## Where Delivery begins
+
+| Dimension | Mission | Delivery |
+|---|---|---|
+| Question | Did the owner-defined outcome meet its criteria? | What artifact and revision is being proposed for review or integration? |
+| Unit | Mission ID, assignment generation and evidence scope | Delivery ID, source revision and target; a separate queue entry for integration |
+| State | Ready, in progress, needs owner, in review, paused, completed or cancelled; prompt receipt is separate | Author's review request is intent; queue entries move through waiting, authorized, running and done/failed, or withdrawn |
+| Authority | Agent reports; owner assigns, transfers and accepts the result | Delivery author declares and requests review; owner authorizes integration; the declared provider or local runner performs it |
+| Idempotency | Mission `requestId` and version; agent writes also bind the assignment generation and native session | Delivery declaration retry key and version; queue request receipts replay an identical request |
+
+The current link goes one way: Mission evidence may cite an existing **Delivery
+ID** (`kind: "delivery"`) in the same repository and candidate revision.
+Delivery does not currently carry a Mission ID or derive its authority from a
+Mission. Linking evidence never transfers Delivery author authority, approves
+integration or places an entry in its queue. **Request review** also has two
+meanings: in Missions it asks the owner to check the current criteria and
+evidence before owner acceptance; in Delivery it is the agent author's
+declaration that the artifact is ready for the owner to inspect (ADR-0171),
+never an approval.
+
+ADR-0186 makes Delivery's integration queue the existing boundary for M5 to
+consider. A project declares `provider` or `local`; without a declared mode,
+nothing runs. The local mode uses the owner's declared runner and a
+fast-forward-only target move. Provider mode is intended to enqueue into the
+project's queue and observe its position and ejection, but that provider path
+is not implemented yet. A separate M5 integration executor would duplicate
+integration authority. If M5 includes integration, the owner must decide in a
+separate ADR whether that step consumes Delivery's declared queue/provider;
+stage scheduling remains a different question. Missions has no unattended
+execution today.
+
 ## Review and retention
 
 Evidence is a reporter's observation, a confined file reference (regular,
-at most 4 MiB, hashed through `os.Root`), or an existing Delivery ID in the
-same repository and candidate revision. A link never transfers Delivery author
-authority. Evidence capture in a Git repository requires a clean committed candidate.
+at most 4 MiB, hashed through `os.Root`), or an existing Delivery artifact ID
+in the same repository and candidate revision. A link never transfers Delivery
+author authority. Evidence capture in a Git repository requires a clean
+committed candidate.
 Initializing Git in a previously plain folder binds the new repository identity
 and invalidates evidence from the earlier scope. Every criterion needs
 current-scope passing evidence. Pending review
-checks scope, clean HEAD and current file/Delivery references again at accept.
+checks scope, clean HEAD and current file/Delivery ID references again at accept.
 Historical acceptance survives subsequent code changes; new work requires
 reopening. Requested changes invalidate the old evidence scope.
 
@@ -83,6 +118,6 @@ backup. Full snapshots and receipts increase storage with mission history.
 Workspace menus and the browser command palette open a compact list/detail
 flow. Mobile additionally exposes Missions under More. Cursor's artifact
 review informs criterion/evidence pairing; t3code's persistent result links
-inform Delivery references; Paseo's explicit workspace boundary informs the
+inform Delivery artifact references; Paseo's explicit workspace boundary informs the
 transfer preview. See the benchmark references in the approved plan. There
 is no new dashboard or shared presentation component between apps.
