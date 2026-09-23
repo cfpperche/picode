@@ -16,6 +16,225 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/agent-exits": {
+      "get": {
+        "operationId": "getApiAgent-exits",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      }
+    },
+    "/api/agent-exits/export": {
+      "get": {
+        "operationId": "getApiAgent-exitsExport",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      }
+    },
+    "/api/agent-exits/prefs": {
+      "get": {
+        "operationId": "getApiAgent-exitsPrefs",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      },
+      "put": {
+        "operationId": "putApiAgent-exitsPrefs",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      }
+    },
+    "/api/agent-exits/summary": {
+      "get": {
+        "operationId": "getApiAgent-exitsSummary",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      }
+    },
+    "/api/agent-exits/{id}": {
+      "delete": {
+        "operationId": "deleteApiAgent-exits",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      },
+      "get": {
+        "operationId": "getApiAgent-exits",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      },
+      "patch": {
+        "operationId": "patchApiAgent-exits",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      }
+    },
+    "/api/agent-exits/{id}/undo": {
+      "post": {
+        "operationId": "postApiAgent-exitsUndo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      }
+    },
     "/api/agents": {
       "get": {
         "operationId": "getApiAgents",
@@ -11847,6 +12066,9 @@
   "tags": [
     {
       "name": "agent"
+    },
+    {
+      "name": "agent-exits"
     },
     {
       "name": "agents"
