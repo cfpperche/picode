@@ -206,6 +206,20 @@ func SupportedThinking(reasoning bool, levelMap map[string]any) []string {
 	return out
 }
 
+// FillPiThinking returns Pi's rows with each model's thinking levels — the
+// same levels the catalog's pickers offer (SupportedThinking over
+// models-store.json) — so /api/cli-models answers for Pi in the shape it does
+// for omp. It copies: the rows may be a cached report shared by other reads.
+func FillPiThinking(models []climodels.Model) []climodels.Model {
+	store := loadThinkingMaps()
+	out := make([]climodels.Model, len(models))
+	for i, m := range models {
+		m.Thinking = SupportedThinking(m.Reasoning, store[m.Provider+"/"+m.ID])
+		out[i] = m
+	}
+	return out
+}
+
 func loadThinkingMaps() map[string]map[string]any {
 	out := map[string]map[string]any{}
 	home, err := os.UserHomeDir()
