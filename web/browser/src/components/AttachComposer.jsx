@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
 import { IconClip, IconFile, IconImage, IconSend, IconSketch, IconX } from "./Icons.jsx";
-import { planAttachFiles, readAttachFile, MAX_ATTACH } from "@picode/shared/domain/termPrompt.js";
+import { clipboardFiles, clipboardText, planAttachFiles, readAttachFile, MAX_ATTACH } from "@picode/shared/domain/termPrompt.js";
+import { shellInvoke, shellClipboardFiles } from "../lib/shellClipboard.js";
 import { fitAttachField, isAttachSendKey } from "@picode/shared/domain/attachText.js";
 import { sceneHasInk } from "@picode/shared/domain/composerImage.js";
 import { toast } from "../lib/toast.js";
@@ -122,6 +123,26 @@ export default function AttachComposer({
     if (canSend && onSubmit) onSubmit();
   }
 
+  // A pasted screenshot or file becomes an attachment, and any text that
+  // came with it stays text. Inside a terminal pane the pane's own capture
+  // handler takes the paste first (TermSurface), so this serves the places
+  // with no pane around the composer — the Fork agent… dialog. An empty
+  // paste in the desktop shell asks it for the files Explorer copied.
+  function onPaste(e) {
+    if (busy) return;
+    const files = clipboardFiles(e.clipboardData);
+    if (files.length) {
+      e.preventDefault();
+      addFiles(files);
+      const pasted = clipboardText(e.clipboardData);
+      if (pasted) setText((cur) => (cur.trim() ? cur.replace(/\s*$/, " ") + pasted : pasted));
+      return;
+    }
+    if (clipboardText(e.clipboardData) || !shellInvoke()) return;
+    e.preventDefault();
+    shellClipboardFiles().then((shelled) => { if (shelled && shelled.length) addFiles(shelled); });
+  }
+
   // Escape closes the composer. The folder picker owns the key while it is
   // open, so it closes first.
   function onKeyDown(e) {
@@ -131,7 +152,7 @@ export default function AttachComposer({
   }
 
   return (
-    <div className={className} onKeyDown={onKeyDown}>
+    <div className={className} onKeyDown={onKeyDown} onPaste={onPaste}>
       <WorkspaceAttach open={pick} agentId={agentId || undefined} termId={termId || undefined} onPick={addWorkspace} onClose={() => setPick(false)} />
       <div className="term-attach-head">
         {items.length ? (

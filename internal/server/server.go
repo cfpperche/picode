@@ -303,6 +303,7 @@ func registerAll(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/tui-working", handleTuiWorking(deps))
 	registerGitGraphRoutes(mux, deps)
 	registerGitStatusRoutes(mux, deps)
+	registerInstructionsRoutes(mux, deps)
 	registerWorkDiffRoutes(mux, deps)
 	registerPRRoutes(mux, deps)
 	registerGitRunRoutes(mux, deps)

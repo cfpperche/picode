@@ -279,3 +279,20 @@ test("boundWorkTab — the channel reads the selected tab's binding (ADR-0135)",
 test("delivery links keep owner identity separate from view",()=>{
  assert.deepEqual(gitRoute(gitHash("workspace","project","delivery")),{kind:"workspace",id:"project",view:"delivery"});
 });
+
+import { instructionsHash, instructionsRoute, instructionsTabId, isInstructionsTab, instructionsTabWorkspace } from "./routes.js";
+
+test("instructions: one tab per workspace, round-tripped through the hash", () => {
+  assert.equal(parseRoute("#/instructions/ws_1"), "workspace");
+  assert.equal(instructionsHash("ws 1"), "#/instructions/ws%201");
+  assert.equal(instructionsRoute("#/instructions/ws%201"), "ws 1");
+  assert.equal(instructionsRoute("#/instructions/"), null);
+  assert.equal(instructionsRoute("#/instructions/a/b"), null);
+  assert.equal(instructionsRoute("#/tree/w/ws_1"), null);
+  assert.equal(instructionsTabId("ws_1"), "i:ws_1");
+  assert.equal(instructionsTabId(""), "");
+  assert.equal(isInstructionsTab("i:ws_1"), true);
+  assert.equal(isInstructionsTab("d:/x"), false);
+  assert.equal(instructionsTabWorkspace("i:ws_1"), "ws_1");
+  assert.equal(instructionsTabWorkspace("g:x"), "");
+});

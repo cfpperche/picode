@@ -40,6 +40,7 @@ import FileSurface from "./components/FileSurface.jsx";
 import Inspector, { InspectorToggle, useInspectorLayout } from "./components/Inspector.jsx";
 import GitGraphSurface from "./components/GitGraphSurface.jsx";
 import FileTreeSurface from "./components/FileTreeSurface.jsx";
+import InstructionsSurface from "./components/InstructionsSurface.jsx";
 import Settings from "./components/Settings.jsx";
 import BrowserPage from "./components/BrowserPage.jsx";
 import ComputerPage from "./components/ComputerPage.jsx";
@@ -75,7 +76,7 @@ import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
 import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, instructionsTabId, isInstructionsTab, instructionsTabWorkspace } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
@@ -862,6 +863,7 @@ export default function App({ shellChrome = false } = {}) {
           if (isAppTab(id)) return appsOk ? appList.some((a) => a.id === tabAppId(id)) : true;
           if (isGitTab(id)) return ownerAlive(owners[id]);
           if (isTreeTab(id)) return ownerAlive(towners[id]);
+          if (isInstructionsTab(id)) return list.some((w) => w && w.id === instructionsTabWorkspace(id));
           if (isFileTab(id)) {
             const f = parseFileTab(id);
             if (!f) return false;
@@ -892,6 +894,7 @@ export default function App({ shellChrome = false } = {}) {
         const fromFile = parseRoute() === "workspace" ? fileRoute() : null;
         const fromGit = parseRoute() === "workspace" ? gitRoute() : null;
         const fromTree = parseRoute() === "workspace" ? treeRoute() : null;
+        const fromInstr = parseRoute() === "workspace" ? instructionsRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
         // The boot fetch outlives the redirect effect, so location.hash is
         // already canonical here; reading through it costs nothing and makes
@@ -900,6 +903,9 @@ export default function App({ shellChrome = false } = {}) {
         if (fromApp) {
           if (appList.some((a) => a.id === fromApp) || !appsOk) openTab(appTabId(fromApp));
           else { setGoneId(appTabId(fromApp)); setSelectedId(null); }
+        } else if (fromInstr) {
+          if (list.some((w) => w && w.id === fromInstr)) openInstructionsTab(fromInstr);
+          else { setGoneId(instructionsTabId(fromInstr)); setSelectedId(null); }
         } else if (fromTree) {
           if (ownerAlive(fromTree)) openTreeTab(fromTree.kind, fromTree.id);
           else { setGoneId(provisionalTreeId(fromTree.kind, fromTree.id)); setSelectedId(null); }
@@ -1200,6 +1206,18 @@ export default function App({ shellChrome = false } = {}) {
       }
       return;
     }
+    const fromInstr = instructionsRoute(hash);
+    if (fromInstr) {
+      if (workspaces.some((w) => w && w.id === fromInstr)) {
+        setGoneId((g) => (g ? "" : g));
+        if (selectedRef.current !== instructionsTabId(fromInstr)) openInstructionsTab(fromInstr);
+      } else {
+        const iid = instructionsTabId(fromInstr);
+        setGoneId((g) => (g === iid ? g : iid));
+        if (selectedRef.current) setSelectedId(null);
+      }
+      return;
+    }
     const fromTree = treeRoute(hash);
     if (fromTree) {
       const ok = ownerExists(fromTree, { workspaces, freeAgents, terminals });
@@ -1273,6 +1291,8 @@ export default function App({ shellChrome = false } = {}) {
         ? gitHash(gitOwner.kind, gitOwner.id, gitOwner.view)
         : treeOwner
           ? treeHash(treeOwner.kind, treeOwner.id)
+          : isInstructionsTab(selectedId)
+            ? instructionsHash(instructionsTabWorkspace(selectedId))
           : file
             ? fileHash(file.kind, file.id, file.path)
             : workspaceHash(selectedId);
@@ -1317,7 +1337,7 @@ export default function App({ shellChrome = false } = {}) {
       setTabs((t) => (t.includes(id) ? t : [...t, id]));
       return;
     }
-    if (isGitTab(id) || isTreeTab(id) || isAppTab(id)) {
+    if (isGitTab(id) || isTreeTab(id) || isAppTab(id) || isInstructionsTab(id)) {
       setGoneId("");
       setSelectedId(id);
       setTabs((t) => (t.includes(id) ? t : [...t, id]));
@@ -1519,7 +1539,7 @@ export default function App({ shellChrome = false } = {}) {
     }
   }
 
-  async function typeIntoTerminal(owner, root, command, { run = false, quiet = false } = {}) {
+  async function typeIntoTerminal(owner, root, command, { run = false, quiet = false, prepareNote = true } = {}) {
     if (!owner || !command) return;
     const post = (tid, resource, body) => api("/api/terminals/" + encodeURIComponent(tid) + "/" + resource, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -1527,21 +1547,24 @@ export default function App({ shellChrome = false } = {}) {
     // Stage 2 (ADR-0078): with the run preference on, the server presses
     // Enter only when its interlock finds nobody else writing the repository;
     // a busy answer becomes a prepared command plus a note saying why.
+    // The outcome is returned — "ran", or "prepared" when the command waits
+    // for Enter — so a caller watching for its effect can say which.
     const deliver = async (tid) => {
       if (run) {
         try {
           await post(tid, "run", { text: command, root });
-          return;
+          return "ran";
         } catch (err) {
           // Only the target terminal's own refusals ("This terminal moved
           // to…", "This terminal is running…") send the command elsewhere;
           // a busy repository is prepared right here, with the reason.
           const msg = (err && err.message) || "";
           if (/^(This terminal (moved to|is running)|This is an Agent CLI)/i.test(msg)) throw err;
-          toast.info(runFallbackNote(humanizeError(msg)));
+          if (prepareNote) toast.info(runFallbackNote(humanizeError(msg)));
         }
       }
       await post(tid, "type", { text: command, root });
+      return "prepared";
     };
     const create = async () => {
       const loc = owner.kind === "agent" ? locate(workspaces, freeAgents, owner.id) : null;
@@ -1567,19 +1590,16 @@ export default function App({ shellChrome = false } = {}) {
         const idle = terminals.find((t) => terminalIsIdleShellAt(t, root, agentTerms));
         if (idle) tid = idle.id;
       }
-      if (!tid) {
-        await deliver(await create());
-        return;
-      }
+      if (!tid) return await deliver(await create());
       await openTermTab(tid);
       try {
-        await deliver(tid);
+        return await deliver(tid);
       } catch (err) {
         // The chosen terminal moved away, holds a foreground program or
         // turned out to be an Agent CLI: a fresh terminal in the folder
         // takes the command instead.
         if (!/^(This terminal (moved to|is running)|This is an Agent CLI)/i.test((err && err.message) || "")) throw err;
-        await deliver(await create());
+        return await deliver(await create());
       }
     } catch (err) {
       // A caller that announces the outcome (the graph's pending banner)
@@ -1743,6 +1763,17 @@ export default function App({ shellChrome = false } = {}) {
       writeTreeOwners(next);
       return next;
     });
+    setGoneId("");
+    setSelectedId(id);
+    setTabs((t) => (t.includes(id) ? t : [...t, id]));
+  }
+
+  // Instructions (docs/architecture/cli-instructions.md): one tab per
+  // workspace, keyed by the workspace's own id — nothing to resolve first.
+  function openInstructionsTab(wsId) {
+    setDashboardPinned(false);
+    if (!wsId) return;
+    const id = instructionsTabId(wsId);
     setGoneId("");
     setSelectedId(id);
     setTabs((t) => (t.includes(id) ? t : [...t, id]));
@@ -3797,6 +3828,7 @@ export default function App({ shellChrome = false } = {}) {
         onReorder={reorderSidebar}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
+        onInstructions={openInstructionsTab}
         onOpenDashboard={openDashboard}
         onOpenClis={() => { go("clis"); setNavigationOpen(false); }}
         apps={apps}
@@ -3851,7 +3883,7 @@ export default function App({ shellChrome = false } = {}) {
             <div className="empty-card">
               {missing ? (
                 <>
-                  <h2>{isAppTab(goneId) ? "That app is gone." : isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) || (isGitTab(goneId) && goneId.startsWith("g:@t:")) || (isTreeTab(goneId) && goneId.startsWith("d:@t:")) ? "That terminal is gone." : (isTreeTab(goneId) && goneId.startsWith("d:@w:")) || (isGitTab(goneId) && goneId.startsWith("g:@w:")) ? "That workspace is gone." : "That agent is gone."}</h2>
+                  <h2>{isAppTab(goneId) ? "That app is gone." : isInstructionsTab(goneId) ? "That workspace is gone." : isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) || (isGitTab(goneId) && goneId.startsWith("g:@t:")) || (isTreeTab(goneId) && goneId.startsWith("d:@t:")) ? "That terminal is gone." : (isTreeTab(goneId) && goneId.startsWith("d:@w:")) || (isGitTab(goneId) && goneId.startsWith("g:@w:")) ? "That workspace is gone." : "That agent is gone."}</h2>
                   {hasData ? (
                     <p>Pick another from the sidebar.</p>
                   ) : (
@@ -3978,6 +4010,18 @@ export default function App({ shellChrome = false } = {}) {
               />
             );
           })}
+          {tabs.filter(isInstructionsTab).map((id) => {
+            const ws = workspaces.find((w) => w && w.id === instructionsTabWorkspace(id));
+            if (!ws) return null;
+            return (
+              <InstructionsSurface
+                key={id}
+                workspace={ws}
+                hidden={selectedId !== id}
+                onOpenFile={(p) => openFileTab("workspace", ws.id, p)}
+              />
+            );
+          })}
           {tabs.filter(isAppTab).map((id) => {
             const appId = tabAppId(id);
             const manifest = apps.find((a) => a.id === appId) || null;
@@ -4062,7 +4106,7 @@ export default function App({ shellChrome = false } = {}) {
             );
           })}
           <ChatSurface
-            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
+            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isInstructionsTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
             stopped={stopped}
             items={items}
             earlierRemaining={earlierRemaining}
@@ -4290,7 +4334,7 @@ export default function App({ shellChrome = false } = {}) {
                   tabId={"w:" + agentPanes[selectedId]}
                   boundSession={selectedId}
                   active={true}
-                  hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId) || onPane}
+                  hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isInstructionsTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId) || onPane}
                   expanded={!!paneMax[selectedId]}
                   asks={permissionAsks.filter((a) => a.tab === agentPanes[selectedId])}
                   onAnswerAsk={answerPermission}
@@ -4497,9 +4541,17 @@ export default function App({ shellChrome = false } = {}) {
         open={!!forkSource}
         agent={forkSource ? forkSource.agent : null}
         cliName={forkSource ? forkSource.cliName : ""}
-        deliverGit={(command, root) => typeIntoTerminal({ kind: "agent", id: forkSource.agent.id }, root, command, { run: true, quiet: true })}
+        deliverGit={(command, root) => typeIntoTerminal({ kind: "agent", id: forkSource.agent.id }, root, command, { run: true, quiet: true, prepareNote: false })}
         onClose={() => setForkSource(null)}
         onDone={onForkAgentDone}
+        onBackground={(name) => {
+          // Another agent is writing the repository, so the worktree command
+          // waits for the person's Enter (ADR-0078). The git terminal is the
+          // open tab; the dialog steps aside so the key can reach it.
+          setForkSource(null);
+          toast.info("Press Enter in the git terminal to create the worktree. " + (name || "The fork") + " starts when it appears.");
+        }}
+        onBackgroundError={(e) => toastError(e)}
       />
 
       <GitActionDialog
