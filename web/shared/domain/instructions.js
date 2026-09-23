@@ -92,3 +92,26 @@ function joinNames(names) {
   if (names.length <= 1) return names.join("");
   return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
 }
+
+// lineDiff is the change a fix makes, as lines marked " ", "-" or "+".
+// Fixes are small (a line added on top, a sentence replaced, a line appended,
+// a new file), so the common head and tail are kept as context — at most
+// `context` lines each side — and the middle is what changes.
+export function lineDiff(before = "", after = "", context = 2) {
+  const split = (t) => (t === "" ? [] : t.replace(/\n$/, "").split("\n"));
+  const a = split(before);
+  const b = split(after);
+  let head = 0;
+  while (head < a.length && head < b.length && a[head] === b[head]) head++;
+  let tail = 0;
+  while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
+  const out = [];
+  if (head > context) out.push({ kind: "…", text: head - context + " unchanged line" + (head - context === 1 ? "" : "s") });
+  for (const t of a.slice(Math.max(0, head - context), head)) out.push({ kind: " ", text: t });
+  for (const t of a.slice(head, a.length - tail)) out.push({ kind: "-", text: t });
+  for (const t of b.slice(head, b.length - tail)) out.push({ kind: "+", text: t });
+  const kept = a.slice(a.length - tail);
+  for (const t of kept.slice(0, context)) out.push({ kind: " ", text: t });
+  if (kept.length > context) out.push({ kind: "…", text: kept.length - context + " unchanged line" + (kept.length - context === 1 ? "" : "s") });
+  return out;
+}

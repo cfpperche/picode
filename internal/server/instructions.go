@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -18,6 +19,66 @@ import (
 // carries paths, sizes and verdicts, never a file's text.
 func registerInstructionsRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/workspaces/{id}/instructions", handleWorkspaceInstructions(deps))
+	mux.HandleFunc("GET /api/workspaces/{id}/instructions/fix", handleInstructionsFixGet(deps))
+	mux.HandleFunc("POST /api/workspaces/{id}/instructions/fix", handleInstructionsFixApply(deps))
+}
+
+// The two halves of a fix (ADR-0204): GET shows the exact change, computed
+// from the files on disk; POST writes it only if every file still has the
+// hash the person saw, and otherwise answers 409 with the fresh change. No
+// git command runs: the edit shows up as an unstaged change.
+func handleInstructionsFixGet(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
+		if !ok {
+			return
+		}
+		fix, err := cliinstructions.ProposeFix(cwd, r.URL.Query().Get("id"))
+		if writeFixErr(w, err) {
+			return
+		}
+		writeJSON(w, http.StatusOK, fix)
+	}
+}
+
+func handleInstructionsFixApply(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
+		if !ok {
+			return
+		}
+		var body struct {
+			ID     string            `json:"id"`
+			Hashes map[string]string `json:"hashes"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&body); err != nil || body.ID == "" {
+			writeErr(w, http.StatusBadRequest, "Name the fix to apply.")
+			return
+		}
+		fix, err := cliinstructions.ApplyFix(cwd, body.ID, body.Hashes)
+		if errors.Is(err, cliinstructions.ErrDrift) {
+			writeJSON(w, http.StatusConflict, map[string]any{"error": "These files changed since this change was shown.", "fix": fix})
+			return
+		}
+		if writeFixErr(w, err) {
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "fix": fix})
+	}
+}
+
+func writeFixErr(w http.ResponseWriter, err error) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, cliinstructions.ErrNoFix):
+		writeErr(w, http.StatusNotFound, "This fix no longer applies.")
+	case errors.Is(err, os.ErrPermission):
+		writeErr(w, http.StatusBadRequest, "That file is outside this workspace.")
+	default:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+	}
+	return true
 }
 
 func handleWorkspaceInstructions(deps Deps) http.HandlerFunc {

@@ -1,6 +1,6 @@
 # ADR-0204: The Instructions tab proposes instruction-file fixes and writes them only on confirmation
 
-- **Status**: proposed
+- **Status**: accepted (owner, 2026-09-23)
 - **Date**: 2026-09-23
 - **Boundary**: persistence — PiCode authors content in the user's repository (a line in `CLAUDE.md`, a new personal file, a `.gitignore` entry), where until now it wrote only text a person typed in the editor
 

@@ -63,6 +63,24 @@ The report carries them as `agents`; the tab lists them under "What agents
 here read". The other six CLIs keep no such record, so they get no line
 there rather than the prediction under another name.
 
+## Fixes, written only on confirmation (ADR-0204)
+
+A finding may carry a fix id. `internal/cliinstructions/fix.go` turns the
+id into the exact change, computed from the files on disk, and the tab shows
+it as a diff. `GET /api/workspaces/{id}/instructions/fix?id=` returns the
+change. `POST` writes it only when every file still has the hash the person
+saw; otherwise it answers 409 with the fresh change, shown in place. A fix
+that no longer applies answers 404.
+
+| Fix id | Offered by | Writes |
+|---|---|---|
+| `bridge:<CLAUDE.md>` | the prose-pointer finding | `@AGENTS.md` on top (or `@../AGENTS.md` from `.claude/`); a file that holds only the pointer sentence becomes the import line |
+| `personal:<file>` | the "not in .gitignore" finding; the tab's **Add personal file** menu | creates `CLAUDE.local.md` or `AGENTS.override.md` empty when missing (never overwrites), and adds its name to the `.gitignore` in the same folder |
+
+Writes are confined to the workspace. A symbolic link, or a folder that
+leads out of the workspace, is refused. Files are written atomically. Git is
+never run: the change waits in the Git tab.
+
 ## Where it shows
 
 | Place | What |
