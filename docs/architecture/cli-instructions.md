@@ -46,6 +46,23 @@ paths, sizes and verdicts — never a file's text. The tab re-reads when it is
 shown and on Refresh: instruction files change outside PiCode's store, so no
 feed event covers them, and nothing polls.
 
+## What an agent actually read
+
+The matrix is a prediction from the declared rules. Three CLIs also write
+down what a session loaded, and `observed.go` reads that record for the
+session PiCode pinned on each of the workspace's terminals (ADR-0084,
+`TerminalLastSession.Path`):
+
+| CLI | Record |
+|---|---|
+| Claude Code | the transcript's `Contents of <path> (…instructions…)` entries, before the first answer (later lines are conversation and may quote any path) |
+| Codex | the rollout's `# AGENTS.md instructions for <folder>` |
+| Grok | `agents_md_files` in the session's `prompt_context.json` |
+
+The report carries them as `agents`; the tab lists them under "What agents
+here read". The other six CLIs keep no such record, so they get no line
+there rather than the prediction under another name.
+
 ## Where it shows
 
 | Place | What |

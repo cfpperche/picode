@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/store"
 )
 
 // The Instructions route reads a workspace's instruction files for every
@@ -77,5 +80,44 @@ func TestWorkspaceInstructions(t *testing.T) {
 		if got := do(t, ts.Client(), mustGet(t, ts.URL+path)); got.StatusCode != want {
 			t.Errorf("%s = %d, want %d", path, got.StatusCode, want)
 		}
+	}
+}
+
+// A workspace's agents: a terminal pinned to a Claude Code session reports
+// the files that session's transcript shows it loaded; a terminal of a CLI
+// that keeps no such record, or with no pinned session, reports nothing.
+func TestObservedReads(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	proj := t.TempDir()
+	wk, err := st.AddWorkspace("App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transcript := filepath.Join(t.TempDir(), "s.jsonl")
+	body := `{"type":"user","message":{"content":"Contents of ` + filepath.Join(proj, "AGENTS.md") + ` (project instructions, checked into the codebase):"}}` + "\n"
+	if err := os.WriteFile(transcript, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	claude, _ := st.CreateTerminalIn(wk.ID, "claude", proj)
+	pi, _ := st.CreateTerminalIn(wk.ID, "pi", proj)
+	st.CreateTerminalIn(wk.ID, "plain", proj)
+	for id, cli := range map[string]string{claude.ID: "claude-code", pi.ID: "pi"} {
+		if err := st.SetTerminalLaunch(id, cli, clilaunch.Overrides{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.SetTerminalLastSession(claude.ID, store.TerminalLastSession{CLI: "claude-code", SessionID: "s", Path: transcript, UpdatedAt: "2026-09-23T10:00:00Z"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetTerminalLastSession(pi.ID, store.TerminalLastSession{CLI: "pi", SessionID: "p", Path: transcript}); err != nil {
+		t.Fatal(err)
+	}
+	got := observedReads(Deps{Store: st}, wk.ID, proj)
+	if len(got) != 1 || got[0].TerminalID != claude.ID || len(got[0].Files) != 1 || got[0].Files[0] != "AGENTS.md" {
+		t.Fatalf("observedReads = %+v", got)
 	}
 }

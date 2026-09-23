@@ -55,8 +55,42 @@ func handleWorkspaceInstructions(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		rep.Agents = observedReads(deps, r.PathValue("id"), cwd)
 		writeJSON(w, http.StatusOK, rep)
 	}
+}
+
+// observedReads lists, for each terminal of the workspace whose pinned
+// session (ADR-0084) belongs to a CLI that records its instruction files,
+// the files that session loaded. A terminal with no pinned session, or a
+// record that cannot be read, is left out rather than guessed.
+func observedReads(deps Deps, wsID, root string) []cliinstructions.Read {
+	out := []cliinstructions.Read{}
+	terms, err := deps.Store.ListTerminals()
+	if err != nil {
+		return out
+	}
+	home, _ := os.UserHomeDir()
+	for _, t := range terms {
+		if t.WorkspaceID != wsID {
+			continue
+		}
+		launch, err := deps.Store.TerminalLaunch(t.ID)
+		if err != nil || launch == nil || launch.LastSession == nil || !cliinstructions.Records(launch.LastSession.CLI) {
+			continue
+		}
+		ls := launch.LastSession
+		files, ok := cliinstructions.ObservedFiles(ls.CLI, ls.SessionID, ls.Path)
+		if !ok {
+			continue
+		}
+		shown := make([]string, 0, len(files))
+		for _, f := range files {
+			shown = append(shown, cliinstructions.Display(root, home, f))
+		}
+		out = append(out, cliinstructions.Read{TerminalID: t.ID, Name: t.Name, CLI: ls.CLI, UpdatedAt: ls.UpdatedAt, Files: shown})
+	}
+	return out
 }
 
 // installedCLIs answers the way the Agent CLIs page does: the catalog row's
