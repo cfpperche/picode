@@ -561,13 +561,21 @@ function OutcomesFacts({ rep }) {
   if (!sum) return <p className="dash-empty">Couldn't load agent outcomes. <a className="btn-link" href="#/outcomes">Open Outcomes</a></p>;
   if (!sum.total) return <p className="dash-empty">No agents removed in this period. <a className="btn-link" href="#/outcomes">Open Outcomes</a></p>;
   const head = exitHeadline(sum);
-  const top = sum.reasons && sum.reasons[0];
+  const reasons = sum.reasons || [];
+  const top = reasons[0];
+  // A tie at the top names no single reason: listing order would pick one.
+  const tied = top ? reasons.filter((r) => r.count === top.count).length : 0;
   return (
     <>
       <dl className="dash-facts">
         <div><dt>Removed</dt><dd>{head.total}</dd></div>
         <div><dt>Resolved</dt><dd>{head.resolvedShare}{head.answered ? <span className="dash-fact-sub"> of {head.answered} answered</span> : null}</dd></div>
-        <div><dt>Most in the way</dt><dd className="dash-fact-text">{top ? choiceLabel(rep.taxonomy && rep.taxonomy.reasons, top.id) : EM}</dd></div>
+        <div>
+          <dt>Most in the way</dt>
+          <dd className="dash-fact-text">
+            {!top ? EM : tied > 1 ? <>No single one<span className="dash-fact-sub"> — {tied} tied at {top.count}</span></> : <>{choiceLabel(rep.taxonomy && rep.taxonomy.reasons, top.id)}<span className="dash-fact-sub"> — {top.count}×</span></>}
+          </dd>
+        </div>
       </dl>
       <p className="dash-note">From your answers when you removed them. <a className="btn-link" href="#/outcomes">Open Outcomes</a></p>
     </>

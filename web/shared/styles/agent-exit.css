@@ -3,8 +3,10 @@
    drifts the day one side changes (a marker-cut block once deleted 190
    mobile-only lines, and only a 390px capture noticed). */
 
-/* Four outcome chips fit one row at 480px; the plain confirm keeps 400. */
-.dlg.dlg-exit { width: min(480px, calc(100vw - 32px)); }
+/* Four outcome chips fit one row at 480px; the plain confirm keeps 400. A
+   bottom sheet (the phone, a narrow desktop window) keeps its own full width:
+   this rule loads after the apps' sheets and would otherwise win the tie. */
+.dlg.dlg-exit:not(.dlg-sheet) { width: min(480px, calc(100vw - 32px)); }
 
 .exit-ask { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .exit-ask-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
