@@ -57,6 +57,7 @@ import SnipRunSheet from "./components/SnipRunSheet.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
 import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
 import ForkAgentDialog from "./components/ForkAgentDialog.jsx";
+import { terminalIsIdleShellAt } from "@picode/shared/domain/terminalCli.js";
 import { sessionFromTerminal, terminalHandoffSourceCli, handoffTargets } from "@picode/shared/domain/sessionHandoff.js";
 import FocusEdges, { FocusLeave } from "./components/FocusEdges.jsx";
 import { focusAvailable } from "@picode/shared/domain/focusMode.js";
@@ -1536,7 +1537,7 @@ export default function App({ shellChrome = false } = {}) {
           // to…", "This terminal is running…") send the command elsewhere;
           // a busy repository is prepared right here, with the reason.
           const msg = (err && err.message) || "";
-          if (/^This terminal (moved to|is running)/i.test(msg)) throw err;
+          if (/^(This terminal (moved to|is running)|This is an Agent CLI)/i.test(msg)) throw err;
           toast.info(runFallbackNote(humanizeError(msg)));
         }
       }
@@ -1562,7 +1563,8 @@ export default function App({ shellChrome = false } = {}) {
         // Reuse a plain, idle shell already sitting in that folder; never a
         // terminal hosting a CLI (Claude Code, Codex…) whose TUI would eat
         // the keystrokes, and never one that is working.
-        const idle = terminals.find((t) => t && t.cwd === root && !t.tui && !t.cli && !t.state);
+        const agentTerms = new Set([...workspaces.flatMap((w) => w.agents || []), ...freeAgents].map((a) => a && a.terminalId).filter(Boolean));
+        const idle = terminals.find((t) => terminalIsIdleShellAt(t, root, agentTerms));
         if (idle) tid = idle.id;
       }
       if (!tid) {
@@ -1573,9 +1575,10 @@ export default function App({ shellChrome = false } = {}) {
       try {
         await deliver(tid);
       } catch (err) {
-        // The chosen terminal moved away or holds a foreground program:
-        // a fresh terminal in the folder takes the command instead.
-        if (!/^This terminal (moved to|is running)/i.test((err && err.message) || "")) throw err;
+        // The chosen terminal moved away, holds a foreground program or
+        // turned out to be an Agent CLI: a fresh terminal in the folder
+        // takes the command instead.
+        if (!/^(This terminal (moved to|is running)|This is an Agent CLI)/i.test((err && err.message) || "")) throw err;
         await deliver(await create());
       }
     } catch (err) {
