@@ -38,17 +38,16 @@
   the bridge marks `resolved` when its first `get_state` returns (success or
   not) and the test waits for that — no retry, the single assertion stays.
 
-- [ ] **Nothing stops the next server test from depending on a CLI installed on
-  the machine.** Two did — `TestPackageOpenCodeRemoveIsPiCodeOwnWrite` needed
-  `opencode`, `TestOmpSigninUnknownProviderStaysTerminal` needed `omp` — and
-  both passed locally (this machine has all nine CLIs) while failing on every
-  runner, *after* the 0.5.0 tag was pushed. Both are hermetic now (`stubVendor`,
-  2026-09-22, `feat/ci-vendor-tests`), but the guard is discipline alone: the
-  drivers locate a CLI with `exec.LookPath`, so any test that reaches a read or
-  a launch path without a stub passes here and fails there. Candidate: run
-  `internal/server` (and any package that touches `clipkgs`) under a PATH with
-  no agent CLI — in `ci-scoped` or as a CI job — so the failure lands in scope
-  rather than in the next push to `main`.
+- [x] **Nothing stops the next server test from depending on a CLI installed on
+  the machine.** Paid 2026-09-23 (`feat/hermetic-gate`): `ci-scoped`'s Go stage
+  now runs the scoped packages with `PATH=<toolchain>:/usr/bin:/bin` — no agent
+  CLI exists there, so a test that reaches a vendor-locating path without
+  stubbing fails at the gate instead of on a runner. Three did on 2026-09-22
+  (`opencode`, `omp`, `pi`; the third landed an hour after the first two were
+  fixed) and main went red for hours over tests this PATH catches in one run.
+  The whole suite was measured under it before adopting it: one failure, which
+  was not a CLI dependency at all — see the terminal-creation race fixed in the
+  same branch.
 
 - [x] **Should `/pair` be guarded-and-exempt instead of unguarded?** Today
   `guarded()` covers `/api/`, `/ws/` and `/mcp/communication` only, so the
