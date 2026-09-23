@@ -48,6 +48,10 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/codex/login", handleCodexLoginStart(deps))
 	mux.HandleFunc("POST /api/grok/login", handleGrokLoginStart(deps))
 	mux.HandleFunc("POST /api/muse/login", handleMuseLoginStart(deps))
+	mux.HandleFunc("POST /api/agy/login", handleAgyLoginStart(deps))
+	mux.HandleFunc("GET /api/agy/login", handleAgyLoginStatus)
+	mux.HandleFunc("DELETE /api/agy/login", handleAgyLoginCancel)
+	mux.HandleFunc("POST /api/agy/login/code", handleAgyLoginCode)
 	mux.HandleFunc("GET /api/muse/login", museLogin.status)
 	mux.HandleFunc("DELETE /api/muse/login", museLogin.stop)
 	mux.HandleFunc("POST /api/hermes/credential", handleHermesCredential(deps))
@@ -193,6 +197,10 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			// Muse signs in by running its own device-code login (ADR-0195).
 			if spec.CLI == "muse" {
 				out["add"] = map[string]any{"kind": "muse", "label": "Add provider"}
+			}
+			// Antigravity signs in with a pasted Google code (ADR-0197).
+			if spec.CLI == "agy" {
+				out["add"] = map[string]any{"kind": "agy", "label": "Add provider"}
 			}
 			// Hermes adds to its own pool by `hermes auth add` (ADR-0193):
 			// pi's picker, fed by Hermes's roster, with Hermes's doors.
