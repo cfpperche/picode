@@ -2,6 +2,8 @@
 
 Open items left by feat/cli-ws-name (2026-09-23).
 
+## Debts
+
 - [ ] Mobile panes share the renamed components but were verified only in the
   desktop DOM; capture a phone-width screenshot of Omp Settings and Packages
   bound to a workspace.
