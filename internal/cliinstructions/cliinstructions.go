@@ -105,6 +105,9 @@ type Report struct {
 	CLIs     []CLIInfo `json:"clis"`
 	Files    []*File   `json:"files"`
 	Findings []Finding `json:"findings"`
+	// Agents is what the workspace's agents actually read in their latest
+	// session, from their CLI's own record (observed.go). The server fills it.
+	Agents []Read `json:"agents"`
 }
 
 // Env is what a report reads. Zero values mean the real machine.

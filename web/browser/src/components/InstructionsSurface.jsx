@@ -167,6 +167,30 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
             </div>
           ) : null}
 
+          {data && data.agents && data.agents.length > 0 ? (
+            <section className="instr-agents" aria-label="What agents here read">
+              <h3>What agents here read</h3>
+              <ul>
+                {data.agents.map((a) => {
+                  const cli = data.clis.find((c) => c.id === a.cli);
+                  return (
+                    <li key={a.terminalId}>
+                      <span className="instr-agent-name">{a.name}</span>
+                      <span className="instr-muted"> · {cli ? cli.name : a.cli}, latest session</span>
+                      <span className="instr-agent-files">
+                        {a.files.length === 0 ? <span className="instr-muted">no instruction file</span> : a.files.map((f) => (
+                          f.startsWith("/") || f.startsWith("~")
+                            ? <span key={f} className="instr-file-text" title={f}>{shortPath(f)}</span>
+                            : <button key={f} className="instr-file" title={"Open " + f} onClick={() => onOpenFile && onOpenFile(f)}>{f}</button>
+                        ))}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+
           {pickedCell ? (
             <p className="instr-detail" role="status">
               <strong>{pickedCli.name} · {pickedFile.path}</strong> — {cellTitle(pickedCell)}

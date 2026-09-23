@@ -87,3 +87,11 @@
 /* A group's label stays readable when the columns scroll sideways. */
 .instr-group th span { position: sticky; left: 4px; }
 .instr-more { margin: 0 0 6px; font-size: 12px; }
+
+/* What each agent's latest session loaded, from its CLI's own record. */
+.instr-agents { margin: 16px 0 0; }
+.instr-agents h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.instr-agents ul { list-style: none; padding: 0; margin: 0; }
+.instr-agents li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.instr-agents li:last-child { border-bottom: 0; }
+.instr-agent-files { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
