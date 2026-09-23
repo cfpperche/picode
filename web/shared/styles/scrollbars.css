@@ -1,0 +1,28 @@
+/* Scrollbars — one source for every PiCode surface (browser, desktop,
+   mobile, the desktop Management window): VS Code / Cursor / Linear
+   compact bars. Chromium and Safari draw the 8px ::-webkit-scrollbar rules
+   below; Firefox tints its standard thin bar with the standard properties.
+   The two must never mix: Chromium ≥ 121 ignores the pseudo-elements on any
+   box whose scrollbar-width or scrollbar-color is not `auto` and paints its
+   standard thin bar with Windows arrow buttons instead (that is what put
+   arrows under the editor tabs, 2026-09-06). So every standard property
+   lives inside the @supports block, and nothing else sets scrollbar-color;
+   `scrollbar-width: none` is the one exception that works the same
+   everywhere. Surface-specific tweaks (the sidebar's fade-in thumb) stay in
+   the surface's own sheet, loaded after this one. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+  }
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-secondary) 40%, transparent);
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+}
+*::-webkit-scrollbar-button { width: 0; height: 0; display: none; }

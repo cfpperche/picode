@@ -206,4 +206,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0201](0201-opencode-gui-login.md) | OpenCode signs in from the GUI through its own `opencode serve` API: its 223-provider catalog, its plugin login methods and prompts, keys by PUT /auth, OAuth auto or by pasted code | accepted (owner direction, 2026-09-23) |
 | [0202](0202-worktree-create-past-interlock.md) | Creating a worktree runs past the busy-repository interlock | accepted |
 | [0203](0203-disk-history.md) | disk-history | accepted |
+| [0204](0204-instruction-file-writes.md) | The Instructions tab proposes instruction-file fixes and writes them only on confirmation | accepted |
 | [0205](0205-agent-history-from-exits.md) | A removed agent stays restorable while its transcript is on disk: the history is the exits a locator still finds; restore creates the agent from the exit and resumes the session (any workspace, same folder); forget hides, deletes only Pi files; amends ADR-0194 | accepted (owner direction, 2026-09-23) |

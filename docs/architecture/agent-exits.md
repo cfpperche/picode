@@ -69,6 +69,15 @@ from three edges:
 | Pi TUI | the watcher's busy flip, not its first scan | `internal/server/tui_watch.go` |
 | Every other CLI | a `working` report after idle or no state; `working` after `needs-you` is the same turn resuming | `startsTurn` in `internal/server/term_state.go` |
 
+Both terminal report paths apply `startsTurn`: the plain one
+(`reportTermStateForRun`) and the native-session one
+(`recordNativeTerminalObservation` in `internal/server/native_session.go`),
+which writes the state itself and carries every report from an integrated
+CLI — Claude Code, Codex, Omp. Until 2026-09-23 only the plain path counted,
+so terminal agents recorded 0 turns and every removal skipped the question as
+`idle`; exits recorded before the fix keep that `ask_skip` and can still be
+answered from Outcomes.
+
 Rows born before migration 069 read `NULL` ("not measured", shown as —) and
 stay `NULL`; their worked times still move. `NoteAgentTurn` is listed in
 `silentMutators`: the edge already rides the ephemeral notices.

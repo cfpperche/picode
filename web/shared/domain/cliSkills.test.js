@@ -1,0 +1,86 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  alsoLoadedLine, cliSkillsHash, cliSkillsQuery, skillOrigin, skillStatus, skillsEmptyLine,
+  skillsReportPath, skillsSummary, supportsCliSkills, tokensLabel, trustLine, visibleSkills,
+} from "./cliSkills.js";
+import { cliLocation, cliPanes } from "./cliLaunch.js";
+
+const row = (over = {}) => ({ name: "pdf", description: "PDF tools", scope: "machine", root: "~/.agents/skills", status: "loaded", tokens: 12, ...over });
+
+test("the address round-trips through cliLocation", () => {
+  assert.equal(cliSkillsHash("codex"), "#/clis/codex/skills");
+  assert.equal(cliSkillsHash("codex", { workspaceId: "w1", scope: "workspace" }), "#/clis/codex/skills?workspaceId=w1&scope=workspace");
+  assert.equal(cliSkillsHash("codex", { scope: "all" }), "#/clis/codex/skills");
+  const loc = cliLocation("#/clis/codex/skills?workspaceId=w1&scope=machine");
+  assert.equal(loc.pane, "skills");
+  assert.equal(loc.workspaceId, "w1");
+  assert.equal(loc.scope, "machine");
+  assert.equal(cliLocation("#/clis/codex/skills?scope=bogus").invalid, true);
+  assert.equal(cliLocation("#/clis/codex/skills/extra").invalid, true);
+  assert.deepEqual(cliSkillsQuery(new URLSearchParams("")), { workspaceId: "", scope: "all", invalid: false });
+});
+
+test("every CLI carries the Skills tab after Packages", () => {
+  const panes = cliPanes({ id: "muse", integrationCapable: false, launchable: true, sessions: { list: true } });
+  assert.equal(panes[panes.indexOf("packages") + 1], "skills");
+  for (const cli of ["pi", "omp", "claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy"]) assert.ok(supportsCliSkills(cli), cli);
+  assert.equal(supportsCliSkills("nope"), false);
+});
+
+test("the report path names the CLI and the workspace", () => {
+  assert.equal(skillsReportPath("grok"), "/api/skills/report?cli=grok");
+  assert.equal(skillsReportPath("grok", "w9"), "/api/skills/report?cli=grok&workspace=w9");
+});
+
+test("each status reads in words, with the reason where there is one", () => {
+  assert.equal(skillStatus(row(), "codex").label, "Loaded");
+  assert.match(skillStatus(row({ status: "shadowed", shadowedBy: ".agents/skills" }), "muse").detail, /\.agents\/skills wins/);
+  assert.match(skillStatus(row({ status: "needs-trust" }), "pi").detail, /Pi skips/);
+  assert.match(skillStatus(row({ status: "if-trusted" }), "hermes").detail, /trusted in Hermes/);
+  assert.equal(skillStatus(row({ status: "invalid", problems: ["no description"] }), "pi").detail, "no description");
+});
+
+test("origin names the installer's source, or says the folder was added by hand", () => {
+  assert.equal(skillOrigin(row()).label, "Added by hand");
+  const o = skillOrigin(row({ provenance: { installer: "skills", lock: "skills-lock.json", source: "anthropics/skills", modified: true } }));
+  assert.equal(o.label, "anthropics/skills");
+  assert.ok(o.modified);
+  assert.match(o.title, /changed since it was installed/);
+  assert.match(skillOrigin(row({ provenance: { installer: "hermes", lock: "~/.hermes/skills/.hub/lock.json", source: "" } })).label, /Hermes hub/);
+});
+
+test("filters keep the scope and the text, loaded first", () => {
+  const rows = [
+    row({ name: "zeta", status: "shadowed", root: "~/.claude/skills" }),
+    row({ name: "zeta" }),
+    row({ name: "alpha", scope: "workspace", root: ".agents/skills", status: "if-trusted" }),
+    row({ name: "beta", description: "deploys to prod" }),
+  ];
+  assert.deepEqual(visibleSkills(rows).map((r) => r.name + ":" + r.status), ["beta:loaded", "zeta:loaded", "alpha:if-trusted", "zeta:shadowed"]);
+  assert.deepEqual(visibleSkills(rows, { scope: "workspace" }).map((r) => r.name), ["alpha"]);
+  assert.deepEqual(visibleSkills(rows, { text: "PROD" }).map((r) => r.name), ["beta"]);
+  assert.deepEqual(skillsSummary(rows), { total: 4, loaded: 3, shadowed: 1, tokens: 24 });
+});
+
+test("small words for cost and sharing", () => {
+  assert.equal(tokensLabel(0), "");
+  assert.equal(tokensLabel(42), "~42 tokens");
+  assert.equal(tokensLabel(1520), "~1.5k tokens");
+  assert.equal(alsoLoadedLine(row({ alsoLoadedBy: ["pi", "claude-code"] })), "Also read by Pi, Claude Code");
+  assert.equal(alsoLoadedLine(row()), "");
+});
+
+test("the trust line appears only when workspace skills wait on trust", () => {
+  const report = { trust: { needed: true, command: "hermes skills trust", note: "Hermes loads this workspace's skills after hermes skills trust." } };
+  assert.equal(trustLine(report, [row()]), null);
+  const t = trustLine(report, [row({ scope: "workspace", status: "if-trusted" })]);
+  assert.equal(t.command, "hermes skills trust");
+  assert.equal(t.known, false);
+  assert.equal(trustLine({ trust: { needed: false } }, [row({ scope: "workspace", status: "if-trusted" })]), null);
+});
+
+test("an empty pane says why in one line", () => {
+  assert.match(skillsEmptyLine("codex"), /on this machine\.$/);
+  assert.match(skillsEmptyLine("codex", { hasWorkspace: true, workspaceName: "picode" }), /in picode/);
+});

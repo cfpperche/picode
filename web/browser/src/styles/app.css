@@ -22,21 +22,11 @@ html, body {
   height: 100vh; max-height: 100vh;
   overflow: hidden;
 }
-/* Scrollbars: two engines, one look — VS Code / Cursor / Linear compact
-   bars. Chromium and Safari draw the 8px ::-webkit-scrollbar rules below;
-   Firefox tints its standard thin bar with the standard properties. The
-   two must never mix: Chromium ≥ 121 ignores the pseudo-elements on any
-   box whose scrollbar-width or scrollbar-color is not `auto` and paints
-   its standard thin bar with Windows arrow buttons instead (that is what
-   put arrows under the editor tabs, 2026-09-06). So every standard
-   property lives inside this block, and nothing else in the app sets
-   scrollbar-color; `scrollbar-width: none` is the one exception that
-   works the same everywhere. */
+/* Scrollbars: the look for every surface lives in
+   @picode/shared/styles/scrollbars.css (loaded before this sheet), with the
+   note on why the standard properties stay inside @supports. Only this
+   app's own tweaks are here. */
 @supports not selector(::-webkit-scrollbar) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
-  }
   .side-scroll {
     scrollbar-color: transparent transparent;
     transition: scrollbar-color .18s ease;
@@ -48,16 +38,6 @@ html, body {
     .conversation.with-rail { scrollbar-width: thin; }
   }
 }
-*::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
-*::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-secondary) 40%, transparent);
-  border-radius: 99px;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
-}
-*::-webkit-scrollbar-button { width: 0; height: 0; display: none; }
 /* Sidebar scrollbar hides until the sidebar is hovered or focused —
    the rail stays invisible at rest (Linear/VS Code). The gutter stays
    reserved, so the reveal is a pure thumb fade with no reflow. Firefox's

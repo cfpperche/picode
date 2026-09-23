@@ -95,3 +95,13 @@
 .instr-agents li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .instr-agents li:last-child { border-bottom: 0; }
 .instr-agent-files { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+
+/* Reviewing a fix (ADR-0204): the exact change per file. */
+.instr-fix-dlg { max-width: 640px; }
+.instr-fix-file { margin: 12px 0 0; }
+.instr-fix-path { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; margin: 0 0 4px; }
+.instr-diff { margin: 0; padding: 8px 10px; max-height: 240px; overflow: auto; background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl); font-family: var(--mono); font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+.instr-diff .d-add { color: var(--ok); }
+.instr-diff .d-del { color: var(--danger); }
+.instr-diff .d-ctx { color: var(--text-secondary); }
+.instr-fix-note { margin: 8px 0 0; color: var(--warn); }

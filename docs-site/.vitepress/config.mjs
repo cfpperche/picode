@@ -58,6 +58,7 @@ export default defineConfig({
             items: [
               { text: "Agent CLIs", link: "/guide/agent-clis" },
               { text: "Packages", link: "/guide/packages" },
+              { text: "Skills", link: "/guide/skills" },
               {
                 text: "MCP",
                 link: "/guide/mcp",

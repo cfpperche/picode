@@ -16,7 +16,7 @@ export const MENU_SECTIONS = [
   ["llama", "llama.cpp", "Models and server connection"],
   ["connectors", "Connectors", "MCP servers and tools"],
   ["integrations", "Webhooks", "Signed event delivery"],
-  ["packages", "Packages", "Skills, extensions, updates"],
+  ["packages", "Packages", "Plugins, extensions, updates"],
   ["preferences", "Preferences", "Theme, notifications, backup"],
   ["browser", "Browser", "Work browser and site access"],
   ["computer", "Computer", "Agents using this computer"],
@@ -54,7 +54,8 @@ export function menuGroups(query) {
   if (query.trim()) {
     const cliRows = [
       ["settings", "CLI settings", "The selected agent's CLI configuration", "pi model thinking prompt"],
-      ["packages", "Packages", "Skills, extensions and updates", "skills extensions updates"],
+      ["packages", "Packages", "Plugins, extensions and updates", "plugins extensions updates"],
+      ["skills", "Skills", "Agent Skills each CLI loads", "skills SKILL.md agent skills"],
       ["providers", "Providers", "Accounts, keys and usage", "accounts keys usage login"],
       ["connectors", "Connectors", "MCP servers and tools", "MCP servers tools"],
     ].filter(([, title, , keys]) => matchesListSearch(query, title, keys)).map(([id, title, sub]) => [id, title, sub]);
