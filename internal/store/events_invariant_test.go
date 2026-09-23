@@ -280,6 +280,14 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, []string{"agent_exit.updated"}},
+		{"ForgetAgentExit", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			ex, _ := s.RemoveAgentWithExit(a.ID, ExitInput{})
+			s.OnEvent = recorder(s)
+			if _, err := s.ForgetAgentExit(ex.ID); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"agent_exit.updated"}},
 		{"DeleteAgentExit", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
 			ex, _ := s.RemoveAgentWithExit(a.ID, ExitInput{})
