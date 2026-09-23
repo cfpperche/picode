@@ -10,18 +10,26 @@ export default function LlamaService({ onConnect }) {
  const [state,setState]=useState(null),[error,setError]=useState(""),[config,setConfig]=useState(defaults);
  const [version,setVersion]=useState("b10809"),[pending,setPending]=useState(""),[files,setFiles]=useState([]),[selected,setSelected]=useState([]);
  const initialized=useRef(false), locked=useRef(false);
+ // readError is the service read's own (a successful read clears it); error
+ // stays an action's. One read at a time, with one rerun queued: an install
+ // saves its progress about four times a second, and each save is an event.
+ const [readError,setReadError]=useState(""), reading=useRef(false), readAgain=useRef(false);
  const actionLabel=action=>action==="update"&&state?.current?.version===version?"Reinstall":labels[action];
  async function refresh(){
+  if(reading.current){readAgain.current=true;return;}
+  reading.current=true;
   try {
    const [next,cache]=await Promise.all([api("/api/llama/service"),api("/api/llama/service/cache")]);
    setState(current=>!current || next.revision>=current.revision?next:current);setFiles(cache.files||[]);
    setSelected(current=>current.filter(name=>(cache.files||[]).some(f=>f.name===name&&f.eligible)));
    if(!initialized.current){setConfig(next.created?next.config:defaults);initialized.current=true;}
-  } catch(e){setError(e.message||"Could not check the local service.");}
+   setReadError("");
+  } catch(e){setReadError(e.message||"Could not check the local service.");}
+  finally{reading.current=false;if(readAgain.current){readAgain.current=false;refresh();}}
  }
  useEffect(()=>{
   refresh();
-  return subscribeFeed(event=>{if(["llama.service","feed.open","feed.reset"].includes(event.type))refresh();if(event.type==="feed.down")setError("Live updates paused. Refresh to check the service.");});
+  return subscribeFeed(event=>{if(["llama.service","feed.open","feed.reset"].includes(event.type))refresh();if(event.type==="feed.down")setReadError("Live updates paused. Refresh to check the service.");});
  },[]);
  async function save(e){
   e.preventDefault();if(locked.current)return;
@@ -54,10 +62,11 @@ export default function LlamaService({ onConnect }) {
   }catch(e){setError(e.message);}
   finally{locked.current=false;setPending("");}
  }
- if(!state&&!error)return <div className="llama-skeleton" aria-label="Loading local service"><div/><div/><div/></div>;
+ if(!state&&!error&&!readError)return <div className="llama-skeleton" aria-label="Loading local service"><div/><div/><div/></div>;
  return <section className="llama-owned" aria-label="Local service">
   <div className="llama-toolbar"><h3>Local service</h3><button className="btn btn-ghost btn-sm" onClick={()=>{setError("");refresh();}}>Refresh service</button></div>
   {error?<p role="alert">{error}</p>:null}
+  {readError&&readError!==error?<p role="status">{readError}</p>:null}
   {!state?null:!state.supported?<div className="llama-empty"><p>Local services require Linux or WSL on x64 or ARM64.</p><a className="btn btn-primary btn-sm" href="#/llama/server">Configure external server</a></div>:<>
    <p className="settings-desc">On {state.host} · {state.created?(state.running?"Running":"Stopped"):"Not configured"}</p>
    {!state.created?<p>Create a separate CPU service managed by PiCode.</p>:<p className="settings-desc">Address: {state.url} · {state.current?.version||"Not installed"}</p>}

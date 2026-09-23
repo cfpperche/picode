@@ -67,6 +67,7 @@ export function workspaceRowMenu(ws = {}, { canMoveUp = false, canMoveDown = fal
     { id: "communication", label: "Communication" },
     { id: "files", label: "Files" },
     ...(repo ? [{ id: "git-graph", label: "Git graph" }] : []),
+    { id: "instructions", label: "Instructions" },
   ];
   const request = remote && repo ? requestRow(ws, remote, pr) : null;
   const copy = ws.winPath

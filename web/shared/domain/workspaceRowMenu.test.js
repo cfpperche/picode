@@ -22,16 +22,16 @@ const ON_FEATURE = { id: "w4", path: "/home/x/app", git: { branch: "feat/x" }, r
 // | GitLab / Bitbucket, other br.  | yes    | yes    | Create merge/pull request    |
 // | other host                     | yes    | yes    | —                            |
 test("a plain folder can be shown and copied, and has no web page", () => {
-  assert.deepEqual(ids(workspaceRowMenu(FOLDER)), ["communication", "files", "|", "reveal", "copy-path", "|", "settings", "|", "remove"]);
+  assert.deepEqual(ids(workspaceRowMenu(FOLDER)), ["communication", "files", "instructions", "|", "reveal", "copy-path", "|", "settings", "|", "remove"]);
 });
 
 test("a repository without a web remote adds only its git graph", () => {
-  assert.deepEqual(ids(workspaceRowMenu(LOCAL)), ["communication", "files", "git-graph", "|", "reveal", "copy-path", "|", "settings", "|", "remove"]);
+  assert.deepEqual(ids(workspaceRowMenu(LOCAL)), ["communication", "files", "git-graph", "instructions", "|", "reveal", "copy-path", "|", "settings", "|", "remove"]);
 });
 
 test("the default branch opens the repository and proposes nothing", () => {
   const rows = workspaceRowMenu(ON_MAIN);
-  assert.deepEqual(ids(rows), ["communication", "files", "git-graph", "|", "reveal", "remote", "copy-path", "|", "settings", "|", "remove"]);
+  assert.deepEqual(ids(rows), ["communication", "files", "git-graph", "instructions", "|", "reveal", "remote", "copy-path", "|", "settings", "|", "remove"]);
   assert.equal(row(rows, "remote").label, "Open on GitHub");
   assert.equal(row(rows, "remote").url, "https://github.com/o/r");
   assert.equal(wantsPullRequest(ON_MAIN), false);
@@ -82,7 +82,7 @@ test("under WSL the file manager is Explorer and the path comes in both forms", 
 
 test("order moves sit above Remove, only the moves that exist", () => {
   assert.deepEqual(ids(workspaceRowMenu(FOLDER, { canMoveUp: true, canMoveDown: true })),
-    ["communication", "files", "|", "reveal", "copy-path", "|", "settings", "|", "move-up", "move-down", "|", "remove"]);
+    ["communication", "files", "instructions", "|", "reveal", "copy-path", "|", "settings", "|", "move-up", "move-down", "|", "remove"]);
   assert.deepEqual(ids(workspaceRowMenu(FOLDER, { canMoveDown: true })).slice(-4), ["|", "move-down", "|", "remove"]);
   assert.equal(workspaceRowMenu(FOLDER).at(-1).danger, true);
 });

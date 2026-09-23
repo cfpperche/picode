@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -266,5 +267,50 @@ func TestCatalogLlamaListensForJobsAndTheService(t *testing.T) {
 	fd.Publish(store.Event{Type: "llama.service", Data: []byte(`{"revision":2}`)})
 	if !stale() {
 		t.Fatal("a service change must forget")
+	}
+}
+
+// The pane's check is bounded by its own budget, and a server that did not
+// answer is not asked for its capabilities (that added 3 s to every check).
+func TestLlamaPaneCheckIsBounded(t *testing.T) {
+	var mu sync.Mutex
+	var paths []string
+	hang := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths = append(paths, r.URL.Path)
+		mu.Unlock()
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer hang.Close()
+	f := newCatalogLlamaFixture(t)
+	f.point(hang.URL)
+	prev := paneLlamaFor
+	paneLlamaFor = 150 * time.Millisecond
+	t.Cleanup(func() { paneLlamaFor = prev })
+
+	start := time.Now()
+	rec := httptest.NewRecorder()
+	handleLlamaList(rec, httptest.NewRequest("GET", "/api/llama", nil))
+	if took := time.Since(start); took > 2*time.Second {
+		t.Fatalf("the check took %v", took)
+	}
+	var body struct {
+		OK         bool              `json:"ok"`
+		Endpoint   string            `json:"endpoint"`
+		Connection map[string]string `json:"connection"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.OK || body.Connection["code"] != "timeout" || body.Endpoint != hang.URL {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(paths) != 1 {
+		t.Fatalf("asked %v; a failed check must not go on to ask for capabilities", paths)
 	}
 }

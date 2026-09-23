@@ -42,9 +42,13 @@ the binary. `GET /api/catalog` composes that list with what only Pi's files say
 (sign-in, custom providers, thinking levels, usage counts) and no longer runs
 `pi --list-models` on every call; `?fresh=1` asks again. Point 1 stands — the
 source is still whatever Pi reports; only how often it is asked changed. The
-same measurement found the 2 s a catalog read used to cost was its llama.cpp
-probe, not Pi; that answer — a failure included — is now served from memory
-and refreshed in the background once it is 30 s old.
+catalog's llama.cpp probe (2 s timeout) is now also served from memory — a
+failure included — and refreshed in the background once it is 30 s old, so a
+configured server that does not answer cannot stall every catalog read.
+*Correction, same day:* the 2 s first attributed to that probe were measured
+on scratch instances launched from an agent session, where a closed 127.0.0.1
+port hangs instead of refusing; the owner's daemon was measured afterwards at
+0.43 s for a cold catalog read — the refusal is immediate there.
 
 ## Consequences
 

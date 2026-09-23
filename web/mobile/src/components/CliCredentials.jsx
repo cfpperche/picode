@@ -7,6 +7,7 @@ import ClaudeCodeLoginDialog from "./ClaudeCodeLoginDialog.jsx";
 import CodexLoginDialog from "./CodexLoginDialog.jsx";
 import GrokLoginDialog from "./GrokLoginDialog.jsx";
 import MuseLoginDialog from "./MuseLoginDialog.jsx";
+import AgyLoginDialog from "./AgyLoginDialog.jsx";
 import CustomEndpointPage from "./CustomEndpointPage.jsx";
 import QuotaStrip from "./QuotaStrip.jsx";
 import TermSurface from "./TermSurface.jsx";
@@ -79,6 +80,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const [codexEdit, setCodexEdit] = useState(null);
   const [grokOpen, setGrokOpen] = useState(false);
   const [museOpen, setMuseOpen] = useState(false);
+  const [agyOpen, setAgyOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ provider: "", key: "" });
   const [formError, setFormError] = useState("");
@@ -205,7 +207,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const addSpec = data && data.add ? data.add : null;
   // "provider" is pi's Add flow, "claude-code" Claude Code's own sign-in
   // dialog (ADR-0187), anything else the key form.
-  const addKind = addSpec ? (["provider", "claude-code", "codex", "grok", "muse"].includes(addSpec.kind) ? addSpec.kind : "key") : "";
+  const addKind = addSpec ? (["provider", "claude-code", "codex", "grok", "muse", "agy"].includes(addSpec.kind) ? addSpec.kind : "key") : "";
   const addLabel = (addSpec && addSpec.label) || (addKind === "provider" ? "Add provider" : "Add API key");
   // pi's models.json page: the one provider surface a guest CLI has no
   // equivalent for, linked rather than hidden behind a menu item (ADR-0169).
@@ -256,6 +258,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     else if (addKind === "codex") setCodexOpen(true);
     else if (addKind === "grok") setGrokOpen(true);
     else if (addKind === "muse") setMuseOpen(true);
+    else if (addKind === "agy") setAgyOpen(true);
     else openAdd("");
   }
 
@@ -289,6 +292,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     if (addKind === "codex") { setCodexOpen(true); return; }
     if (addKind === "grok") { setGrokOpen(true); return; }
     if (addKind === "muse") { setMuseOpen(true); return; }
+    if (addKind === "agy") { setAgyOpen(true); return; }
     if (addKind === "key") openAdd("");
     // The route asked for the dialog; the roster is what fills its provider list.
   }, [add, !!data, unreadable, addKind, !!catalog]);
@@ -860,6 +864,12 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
 
       {/* pi's Add flow, for pi (its catalog, ADR-0169) and for the guests whose
           roster asks for it (omp): search, method, key or account, custom. */}
+      <AgyLoginDialog
+        open={agyOpen}
+        onClose={() => { setAgyOpen(false); if (add && typeof location !== "undefined") location.hash = cliPaneHash(cli, "providers"); }}
+        onSaved={load}
+      />
+
       <MuseLoginDialog
         open={museOpen}
         onClose={() => { setMuseOpen(false); if (add && typeof location !== "undefined") location.hash = cliPaneHash(cli, "providers"); }}

@@ -6,7 +6,7 @@
 // @picode/shared/domain/inspector.js — the mobile Inspector screen shares it.
 import { locate, displayAgentName } from "@picode/shared/domain/tree.js";
 import { repoLine, shortPath, termLine } from "@picode/shared/domain/repoLine.js";
-import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, isTreeTab, isAppTab } from "./routes.js";
+import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, isTreeTab, isAppTab, isInstructionsTab, instructionsTabWorkspace } from "./routes.js";
 
 export const INSPECTOR_MIN = 260;
 export const INSPECTOR_MAX = 560;
@@ -53,6 +53,7 @@ function ownerOf(id, ctx) {
     const o = (ctx.treeOwners || {})[id];
     return o ? { kind: o.kind, id: o.id } : undefined;
   }
+  if (isInstructionsTab(id)) return { kind: "workspace", id: instructionsTabWorkspace(id) };
   if (isAppTab(id)) {
     const o = (ctx.appSubjects || {})[id];
     return o && o.id ? { kind: o.kind, id: o.id } : undefined;

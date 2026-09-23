@@ -6,6 +6,7 @@
 .llama-status button { margin-left:auto; }
 .llama-dot { width:8px; height:8px; border-radius:50%; background:var(--text-secondary); flex-shrink:0; }
 .llama-dot.ready { background:var(--ok); }
+.llama-dot.down { background:var(--warn); }
 .llama-dot.checking { animation:llama-pulse 1s ease-in-out infinite alternate; }
 .llama-form { max-width:600px; display:grid; gap:12px; }
 .llama-form label { display:grid; gap:8px; }
@@ -80,3 +81,12 @@
 .llama-owned select { padding:0 12px; border:1px solid var(--border-strong); border-radius:var(--radius-ctl); background:var(--bg-base); color:var(--text-primary); }
 .llama-owned .llama-owned-check input { width:16px; height:16px; }
 .llama-nav { flex-wrap:wrap; }
+/* The repo being read, beside its name while Hugging Face answers. */
+.llama-pick-pending { margin-left: auto; color: var(--text-secondary); font-size: 12px; }
+/* A quant row is a grid — name, size, Download in its own right-hand column —
+   and its guidance takes the full width below; as flex it squeezed the name to
+   nothing and then left the buttons at two different x (2026-09-23 review). */
+.prov-row.llama-quant { display: grid; grid-template-columns: minmax(7em, auto) minmax(0, 1fr) auto; align-items: center; column-gap: 12px; }
+.prov-row.llama-quant .prov-auth { min-width: 0; overflow-wrap: anywhere; }
+.prov-row.llama-quant .btn { justify-self: end; }
+.prov-row.llama-quant .llama-guidance { grid-column: 1 / -1; }

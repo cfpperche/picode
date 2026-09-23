@@ -7,8 +7,9 @@ per call; `?fresh=1` from Providers "Try again". The catalog's llama.cpp probe i
 in the background after 30 s. ADR-0009 amended (the approved text, plus two sentences on the llama.cpp finding).
 Measured (pi 0.87.1, copy of the owner's home): the list depends on auth.json, models.json, models-store.json,
 settings.json (packages), npm/package-lock.json and the binary; listing rewrites none; `enabledModels` (global or
-project) does not change it; the command takes 0.2–0.5 s. The 2 s per catalog read was the llama.cpp probe: the
-owner's configured server 127.0.0.1:8080 accepts and never answers.
+project) does not change it; the command takes 0.2–0.5 s. The 2 s per catalog read on the scratch was the llama.cpp
+probe (nothing on 127.0.0.1:8080). *Corrected later the same day:* only processes launched from the agent session
+see that port hang; the owner's daemon read a cold catalog in 0.43 s.
 Verified: `make ci-scoped` PASS; scratch: catalog 2.0 s on the first read after start, then 8 ms, still 8 ms past
 the 30 s bound; a sign-in through PiCode shows at the next read; usage summary 8 ms.
 Not changed: pickers still read `/api/catalog` (moving them to `/api/cli-models` is the next step); the Models pane
