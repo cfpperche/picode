@@ -122,7 +122,16 @@ paths}`. The source's launch overrides carry over with the fork recipe as
 the arguments (resume's rule). Attachments are staged in the fork's folder
 (`.picode/drop/`, as the attach bar does) and named in the task as `@path`;
 the task is one launch argument, so line breaks become spaces. The row lands
-in `session_handoffs` with `mode = "fork"`.
+in `session_handoffs` with `mode = "fork"`, its manifest naming the source
+agent (`sourceAgentId`, `sourceAgentName`). The agent lists
+(`GET /api/workspaces`, `GET /api/agents`) carry `forkedFrom {agentId,
+name, gone}` from those rows — the source's current name while it exists,
+the fork-time name once removed. The desktop row gives it a line of its
+own under the title block ("fork of <name>", the checklist line's inset —
+beside the status chip the subtitle has ~100px); the phone's Work list
+appends it to the CLI line. Both refetch when a
+`session.handoff` event with mode `fork` arrives, since the row lands just
+after the agent.
 
 The dialog's task field is the terminal's attach composer
 (`AttachComposer.jsx`, shared with `TermAttachBar`). **New worktree** is the

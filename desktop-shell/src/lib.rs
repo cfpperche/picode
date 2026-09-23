@@ -99,7 +99,10 @@ pub fn parse_owned(raw: &str) -> BTreeMap<(String, String), String> {
             section = t[1..t.len() - 1].trim().to_string();
             continue;
         }
-        if section.is_empty() {
+        // Only WSL's own sections: a `memory=` under a section WSL never
+        // reads is not the setting, and the editor would not edit it
+        // either — reading it would show a value no save can change.
+        if section.is_empty() || !in_owned_section(&section) {
             continue;
         }
         if let Some((k, v)) = t.split_once('=') {
@@ -125,6 +128,29 @@ pub fn edit(raw: &str, edits: &[(&str, &str, Option<&str>)]) -> String {
     let mut out: Vec<String> = Vec::new();
     let mut section = String::new();
     let mut seen: BTreeMap<(String, String), ()> = BTreeMap::new();
+    // Each edit lands in one section: the one the docs give the key when
+    // the file has it there, else the WSL section the file already has it
+    // in, else the documented one (appended). Copies in any other section
+    // are left exactly as they are — which copy WSL honours is WSL's
+    // business, and a save must never flip it by deleting one.
+    let present = parse_owned(raw);
+    let target = |key: &str| -> String {
+        let documented = OWNED
+            .iter()
+            .find(|(_, k, _)| k.eq_ignore_ascii_case(key))
+            .map(|(s, _, _)| s.to_string())
+            .unwrap_or_default();
+        let mut found: Option<String> = None;
+        for (sec, k) in present.keys() {
+            if k.eq_ignore_ascii_case(key) {
+                if sec.eq_ignore_ascii_case(&documented) {
+                    return sec.clone();
+                }
+                found.get_or_insert_with(|| sec.clone());
+            }
+        }
+        found.unwrap_or(documented)
+    };
     let mut ends: Vec<(String, String, String)> = Vec::new(); // section, key, value to append
 
     for line in raw.lines() {
@@ -135,7 +161,10 @@ pub fn edit(raw: &str, edits: &[(&str, &str, Option<&str>)]) -> String {
         }
         if in_owned_section(&section) {
             if let Some((k, _)) = split_kv(t) {
-                if let Some(edit) = edits.iter().find(|(_, ek, _)| ek.eq_ignore_ascii_case(k)) {
+                if let Some(edit) = edits
+                    .iter()
+                    .find(|(_, ek, _)| ek.eq_ignore_ascii_case(k) && target(ek).eq_ignore_ascii_case(&section))
+                {
                     seen.insert((edit.0.to_string(), edit.1.to_string()), ());
                     match edit.2 {
                         Some(v) => {
@@ -153,8 +182,9 @@ pub fn edit(raw: &str, edits: &[(&str, &str, Option<&str>)]) -> String {
         if seen.contains_key(&(s.to_string(), k.to_string())) || k.is_empty() {
             continue;
         }
-        if v.is_some() {
-            ends.push((s.to_string(), k.to_string(), v.unwrap().to_string()));
+        if let Some(v) = v {
+            let _ = s; // the page's section is advisory; target() decides
+            ends.push((target(k), k.to_string(), v.to_string()));
         }
     }
     // Append the keys their sections never had, right after each section's
@@ -169,7 +199,9 @@ pub fn edit(raw: &str, edits: &[(&str, &str, Option<&str>)]) -> String {
         let keys: Vec<&(String, String, String)> =
             ends.iter().filter(|(es, _, _)| es == s).collect();
         match result_lines.iter().position(|l| {
-            l.trim().starts_with('[') && l.trim()[1..l.trim().len() - 1].trim() == s.as_str()
+            l.trim().starts_with('[')
+                && l.trim().ends_with(']')
+                && l.trim()[1..l.trim().len() - 1].trim().eq_ignore_ascii_case(s)
         }) {
             Some(start) => {
                 let mut at = start + 1;
@@ -371,5 +403,42 @@ mod tests {
         assert!(validate_value("wsl2", "networkingMode", "bridged").is_err());
         assert!(validate_value("experimental", "autoMemoryReclaim", "dropCache").is_ok());
         assert!(validate_value("wsl2", "not-a-key", "1").is_err());
+    }
+
+    #[test]
+    fn a_key_outside_wsl_sections_is_not_the_setting() {
+        let m = parse_owned("[custom]\nmemory=1GB\n[wsl2]\nswap=0\n");
+        assert!(m.get(&("custom".into(), "memory".into())).is_none());
+        assert_eq!(m.get(&("wsl2".into(), "swap".into())).map(String::as_str), Some("0"));
+        // The edit agrees: [custom] stays the person's, the setting lands in [wsl2].
+        let out = edit("[custom]\nmemory=1GB\n[wsl2]\nswap=0\n", &[("wsl2", "memory", Some("8GB"))]);
+        assert!(out.contains("[custom]\nmemory=1GB"));
+        assert!(out.contains("[wsl2]\nswap=0\nmemory=8GB"));
+    }
+
+    #[test]
+    fn a_key_in_both_wsl_sections_is_edited_where_documented_only() {
+        // autoMemoryReclaim is documented under [experimental].
+        let raw = "[experimental]\nautoMemoryReclaim=dropCache\n[wsl2]\nautoMemoryReclaim=gradual\n";
+        let out = edit(raw, &[("wsl2", "autoMemoryReclaim", Some("disabled"))]);
+        assert!(out.contains("[experimental]\nautoMemoryReclaim=disabled"), "{out}");
+        assert!(out.contains("[wsl2]\nautoMemoryReclaim=gradual"), "the other copy was touched: {out}");
+        // Re-saving the value already there changes nothing at all.
+        let same = edit(raw, &[("experimental", "autoMemoryReclaim", Some("dropCache"))]);
+        assert_eq!(same, raw);
+    }
+
+    #[test]
+    fn a_key_only_in_the_other_section_is_edited_in_place() {
+        let raw = "[wsl2]\nsparseVhd=true\n";
+        let out = edit(raw, &[("experimental", "sparseVhd", Some("false"))]);
+        assert_eq!(out, "[wsl2]\nsparseVhd=false\n");
+    }
+
+    #[test]
+    fn a_capitalised_section_is_the_same_section() {
+        let out = edit("[WSL2]\nswap=0\n", &[("wsl2", "memory", Some("8GB"))]);
+        assert_eq!(out.matches("[").count(), 1, "{out}");
+        assert!(out.contains("memory=8GB"));
     }
 }

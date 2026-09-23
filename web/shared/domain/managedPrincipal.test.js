@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { catalogForPrincipal, catalogForAgent, agentIsPi } from "./managedPrincipal.js";
+import { catalogForPrincipal, catalogForAgent, agentIsPi, agentSubtitleWithFork, forkLine } from "./managedPrincipal.js";
 import { managedPrincipalSchema, parseForm } from "../contracts/schemas.js";
 
 test("catalogForPrincipal keeps installed launchable CLIs", () => {
@@ -53,4 +53,13 @@ test("managedPrincipalSchema accepts a catalog id and an optional name", () => {
   const missing = parseForm(managedPrincipalSchema, { cli: "", name: "" });
   assert.equal(missing.ok, false);
   assert.match(missing.error, /CLI/);
+});
+
+test("a fork's row names where it came from", () => {
+  assert.equal(forkLine({ cli: "claude-code" }), "");
+  assert.equal(forkLine({ cli: "claude-code", forkedFrom: { agentId: "a", name: "calc" } }), "fork of calc");
+  assert.equal(forkLine({ cli: "claude-code", forkedFrom: { agentId: "a", name: "calc", gone: true } }), "fork of calc (removed)");
+  assert.equal(forkLine({ forkedFrom: { agentId: "a", name: "  " } }), "");
+  assert.equal(agentSubtitleWithFork({ cli: "claude-code", forkedFrom: { agentId: "a", name: "calc" } }), "Claude Code · fork of calc");
+  assert.equal(agentSubtitleWithFork({ cli: "codex" }), "Codex");
 });

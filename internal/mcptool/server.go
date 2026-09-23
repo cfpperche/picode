@@ -65,7 +65,7 @@ type Family struct {
 
 // Families is the catalog, in the order `picode mcp` lists them.
 func Families() []Family {
-	return []Family{computerFamily, browserFamily, inboxFamily, checklistFamily, deliveryFamily}
+	return []Family{computerFamily, browserFamily, inboxFamily, checklistFamily, deliveryFamily, missionFamily}
 }
 
 // FamilyFor finds a family by name.

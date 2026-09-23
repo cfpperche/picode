@@ -288,6 +288,7 @@ func registerAll(mux Registrar, deps Deps) {
 
 	registerWorkspaceRoutes(mux, deps)
 	registerAgentExitRoutes(mux, deps)
+	registerAgentHistoryRoutes(mux, deps)
 	registerWorkspaceCloneRoutes(mux, deps)
 	registerGithubReposRoutes(mux, deps)
 	registerServerRoutes(mux, deps)
@@ -300,6 +301,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerRolesState(mux, deps)
 	registerChecklistRoutes(mux, deps)
 	registerDeliveryRoutes(mux, deps)
+	registerMissionRoutes(mux, deps)
 	registerDeliveryObservationRoutes(mux, deps)
 	registerDeliveryQueueRoutes(mux, deps)
 	registerAgentFileRoutes(mux, deps)

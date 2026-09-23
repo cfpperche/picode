@@ -12,7 +12,7 @@ import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
 import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMenu.js";
-import { agentSubtitle } from "@picode/shared/domain/managedPrincipal.js";
+import { agentSubtitle, forkLine } from "@picode/shared/domain/managedPrincipal.js";
 import { termRowMenu } from "../lib/termRowMenu.js";
 
 export function RowMenu({ label, children, onOpenChange, onCloseAutoFocus, triggerRef }) {
@@ -175,6 +175,7 @@ export function AgentRow({
       case "start": return onRun && onRun(ag.id);
       case "stop":
       case "restart": return onLaunchAction && onLaunchAction(term, r.id, ag);
+      case "mission":
       case "settings":
       case "launch": location.hash = r.href; return;
       case "chat": return onChat && onChat(ag.id);
@@ -274,6 +275,13 @@ export function AgentRow({
           </RowMenu>
         ) : null}
       </div>
+      {/* Its own line, as wide as the folder line: beside the status chip
+          the subtitle has ~100px and cut "fork of <name>" to one word. */}
+      {forkLine(ag) ? (
+        <span className="ws-fork-line" title={"Forked from " + ag.forkedFrom.name + (ag.forkedFrom.gone ? ", which was removed" : "")}>
+          <IconFork size={11} /><span>{forkLine(ag)}</span>
+        </span>
+      ) : null}
       <ChecklistDisclosure id={ag.id} check={check} />
       <ContextLine line={repo} ownerKind="agent" ownerId={ag.id} ownerLabel={label} onFileTree={onFileTree} onGitGraph={onGitGraph} />
       {meta && stamp ? <span className="ws-meta" title={absTime(stamp)}>{relTime(stamp)}</span> : null}

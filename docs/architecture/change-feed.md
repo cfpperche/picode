@@ -73,3 +73,7 @@ expiry housekeeping, Web Push delivery marks, the extension's actuation
 batches (ADR-0053/0054 — the panel polls for its own batch, so the feed has
 no subscriber for it) and the ADR-0039 session-identity bookkeeping, whose
 visible change is carried by `agent.updated`.
+
+`mission.changed` identifies the mission, workspace and committed version.
+Mission views refetch on this event and feed reconnect/reset. Mission history
+and action receipts have independent retention; see [missions](missions.md).

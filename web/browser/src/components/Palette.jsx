@@ -64,8 +64,10 @@ function buildActions(workspaces, apps, focusable, snips, agentId) {
     { id: "packages", label: "Packages", group: "app", kind: "packages" },
     { id: "devices", label: "Devices", group: "app", kind: "devices" },
     { id: "automations", label: "Automations", group: "app", kind: "automations" },
+    { id: "missions", label: "Missions", group: "app", kind: "missions" },
     { id: "snippets", label: "Snippets", group: "app", kind: "snippets" },
     { id: "outcomes", label: "Outcomes", group: "app", kind: "outcomes" },
+    { id: "history", label: "Agent history", group: "app", kind: "history" },
   ];
   if (agentId) {
     for (const s of (snips || []).slice(0, 10)) {

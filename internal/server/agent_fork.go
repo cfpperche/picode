@@ -154,7 +154,7 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 	row := store.SessionHandoff{
 		SourceCLI: cli.ID, SourceID: sourceID, SourcePath: ls.Path,
 		TargetCLI: cli.ID, TargetID: fork.ID,
-		Mode: "fork", Window: "all", Manifest: json.RawMessage("{}"),
+		Mode: "fork", Window: "all", Manifest: forkManifest(agent),
 		TerminalID: *forked.TerminalID, AgentID: forked.ID,
 	}
 	if saved, err := deps.Store.AddSessionHandoff(row); err == nil {
@@ -185,4 +185,55 @@ func forkPrompt(message string, paths []string) (string, error) {
 		return "", errors.New("The task is too long to start a fork with. Shorten it, or attach the details as a file.")
 	}
 	return out, nil
+}
+
+// forkManifest names the source agent on a fork's lineage row: the session
+// ids say which conversation was copied, this says whose, so the sidebar
+// can show "fork of <name>" even after the source agent is gone.
+func forkManifest(source store.Agent) json.RawMessage {
+	raw, err := json.Marshal(map[string]string{"sourceAgentId": source.ID, "sourceAgentName": source.Name})
+	if err != nil {
+		return json.RawMessage("{}")
+	}
+	return raw
+}
+
+// forkOrigin is what an agent row shows about the agent it was forked from:
+// the current name while that agent exists, the name it had at fork time
+// (and Gone) once it was removed.
+type forkOrigin struct {
+	AgentID string `json:"agentId"`
+	Name    string `json:"name"`
+	Gone    bool   `json:"gone,omitempty"`
+}
+
+// forkOrigins maps each forked agent to its source, read from the lineage
+// rows (session_handoffs, mode "fork"). Newest row wins for an agent; the
+// read is best effort — a store error leaves the sidebar without the line.
+func forkOrigins(deps Deps) map[string]*forkOrigin {
+	rows, err := deps.Store.SessionHandoffs(1000)
+	if err != nil {
+		return nil
+	}
+	out := map[string]*forkOrigin{}
+	for _, h := range rows {
+		if h.Mode != "fork" || h.AgentID == "" || out[h.AgentID] != nil {
+			continue
+		}
+		var m struct {
+			SourceAgentID   string `json:"sourceAgentId"`
+			SourceAgentName string `json:"sourceAgentName"`
+		}
+		if json.Unmarshal(h.Manifest, &m) != nil || m.SourceAgentID == "" {
+			continue
+		}
+		o := &forkOrigin{AgentID: m.SourceAgentID, Name: m.SourceAgentName}
+		if a, err := deps.Store.GetAgent(m.SourceAgentID); err == nil {
+			o.Name = a.Name
+		} else {
+			o.Gone = true
+		}
+		out[h.AgentID] = o
+	}
+	return out
 }

@@ -101,6 +101,8 @@ func dispatch(cmd string, args []string) bool {
 		runBrowserHost()
 	case cmd == "delivery":
 		runDelivery(args)
+	case cmd == "mission":
+		runMission(args)
 	case cmd == "messages":
 		runMessages(args)
 	case cmd == "inbox":
@@ -155,6 +157,7 @@ Usage:
   picode [flags]              start the server
   picode version              print the build identity (--version, -v)
   picode delivery             register changes and request review (JSON; no merge/deploy)
+  picode mission              follow an assigned mission and report evidence (JSON)
   picode messages             direct conversation messages (contacts, send, read, ack)
   picode inbox notify --title T [--body B] [--reason R]
                               file an FYI into the Inbox; prints the item id

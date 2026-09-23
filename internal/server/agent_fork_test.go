@@ -163,3 +163,45 @@ func TestForkAgentRefusals(t *testing.T) {
 		}
 	})
 }
+
+// The sidebar learns who a fork came from through the agent list: the
+// source's live name while it exists, its name at fork time once removed.
+func TestForkAgentListsItsOrigin(t *testing.T) {
+	srcID, _, _, deps, fork := forkSource(t, "codex", "cx-1")
+	res := fork(map[string]any{"name": "side quest", "prompt": "x"})
+	if res["status"] != "201" {
+		t.Fatalf("fork: %v", res)
+	}
+	body := res["body"].(map[string]any)
+	cleanupTerm(t, body)
+	forkID := body["agent"].(map[string]any)["id"].(string)
+
+	origin := func() map[string]any {
+		origins := forkOrigins(deps)
+		o := origins[forkID]
+		if o == nil {
+			return nil
+		}
+		return map[string]any{"agentId": o.AgentID, "name": o.Name, "gone": o.Gone}
+	}
+	if got := origin(); got == nil || got["agentId"] != srcID || got["name"] != "clis" || got["gone"] != false {
+		t.Fatalf("origin = %v", got)
+	}
+	if _, ok := forkOrigins(deps)[srcID]; ok {
+		t.Fatal("the source is not a fork of anything")
+	}
+	newName := "clis renamed"
+	if _, err := deps.Store.UpdateAgent(srcID, store.AgentPatch{Name: &newName}); err != nil {
+		t.Fatal(err)
+	}
+	if got := origin(); got["name"] != "clis renamed" {
+		t.Fatalf("renamed source = %v", got)
+	}
+	if err := deps.Store.DeleteAgent(srcID); err != nil {
+		t.Fatal(err)
+	}
+	// Gone: only the name recorded at fork time is left.
+	if got := origin(); got["name"] != "clis" || got["gone"] != true {
+		t.Fatalf("removed source = %v", got)
+	}
+}

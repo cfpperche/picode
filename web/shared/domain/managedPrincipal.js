@@ -31,6 +31,22 @@ export function agentSubtitle(agent) {
   return ((agent && agent.mode) || "stopped") === "interactive" ? "Interactive session" : "Pi agent";
 }
 
+// forkLine: "fork of <name>" for an agent started by Fork agent… (the
+// server's forkedFrom), "" otherwise. A removed source keeps the name it
+// had when it was forked, marked so the row does not point at nothing.
+export function forkLine(agent) {
+  const f = agent && agent.forkedFrom;
+  const name = String((f && f.name) || "").trim();
+  if (!name) return "";
+  return "fork of " + name + (f.gone ? " (removed)" : "");
+}
+
+// agentSubtitleWithFork: the row's second line — what runs it, then where
+// it came from when it is a fork.
+export function agentSubtitleWithFork(agent) {
+  return [agentSubtitle(agent), forkLine(agent)].filter(Boolean).join(" · ");
+}
+
 // Contact and participant lists label a peer owner by kind. A CLI agent
 // names its CLI (ADR-0160); Pi agents — and anything the caller already
 // narrows by kind — keep the "Pi agent" wording.

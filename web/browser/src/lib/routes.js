@@ -8,6 +8,7 @@ import { cliLocation, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 // Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
 // cliLocation in @picode/shared/domain/cliLaunch.js.
 export const ROUTES = {
+	missions: "/missions",
   workspace: "/",
   preferences: "/preferences",
   clis: "/clis",
@@ -26,10 +27,12 @@ export const ROUTES = {
   automations: "/automations",
   snippets: "/snippets",
   outcomes: "/outcomes",
+  history: "/history",
 };
 
 export function parseRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  if (/^\/(?:missions(?:\/new)?|mission\/[^/?]+)(?:\?|$)/.test(h)) return "missions";
   if (h === "/preferences/status" || h === "/clis" || h.startsWith("/clis/")) return "clis";
   if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";
   if (cliPackagesLocation(h)) return "clis";
@@ -47,6 +50,7 @@ export function parseRoute(hash) {
   if (h === "/automations" || h.startsWith("/automations/")) return "automations";
   if (h === "/snippets" || h.startsWith("/snippets/")) return "snippets";
   if (h === "/outcomes") return "outcomes";
+  if (h === "/history") return "history";
   // Legacy #/sessions* deep links render the Agent CLIs shell; AgentClis
   // redirects the hash to #/clis/<cli>/sessions* (ADR-0079).
   if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "clis";

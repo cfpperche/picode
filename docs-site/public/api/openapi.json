@@ -235,6 +235,93 @@
         ]
       }
     },
+    "/api/agent-history": {
+      "get": {
+        "operationId": "getApiAgent-history",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-history"
+        ]
+      }
+    },
+    "/api/agent-history/{id}/forget": {
+      "post": {
+        "operationId": "postApiAgent-historyForget",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-history"
+        ]
+      }
+    },
+    "/api/agent-history/{id}/restore": {
+      "post": {
+        "operationId": "postApiAgent-historyRestore",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-history"
+        ]
+      }
+    },
     "/api/agents": {
       "get": {
         "operationId": "getApiAgents",
@@ -7180,6 +7267,134 @@
         ]
       }
     },
+    "/api/missions": {
+      "get": {
+        "operationId": "getApiMissions",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      },
+      "post": {
+        "operationId": "postApiMissions",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/tool": {
+      "post": {
+        "operationId": "postApiMissionsTool",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}": {
+      "get": {
+        "operationId": "getApiMissions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}/actions": {
+      "post": {
+        "operationId": "postApiMissionsActions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "missions"
+        ]
+      }
+    },
     "/api/muse/login": {
       "delete": {
         "operationId": "deleteApiMuseLogin",
@@ -12691,6 +12906,9 @@
       "name": "agent-exits"
     },
     {
+      "name": "agent-history"
+    },
+    {
       "name": "agents"
     },
     {
@@ -12812,6 +13030,9 @@
     },
     {
       "name": "mcp"
+    },
+    {
+      "name": "missions"
     },
     {
       "name": "muse"

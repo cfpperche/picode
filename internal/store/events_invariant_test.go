@@ -25,6 +25,11 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		want []string
 	}
 	cases := []tc{
+		{"ApplyMission", func(s *Store) {
+			v, _ := missionFixture(t, s)
+			s.OnEvent = recorder(s)
+			missionChange(t, s, v, "report", func(m *MissionMutation) { m.Note = "Update" }, MissionObservation{})
+		}, []string{"mission.changed"}},
 		{"ApplyDelivery/register", func(s *Store) { s.OnEvent = recorder(s); deliveryFixture(t, s) }, []string{"delivery.changed"}},
 		{"ApplyDelivery/update", func(s *Store) {
 			d := deliveryFixture(t, s)
@@ -272,6 +277,14 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			ex, _ := s.RemoveAgentWithExit(a.ID, ExitInput{})
 			s.OnEvent = recorder(s)
 			if _, err := s.MarkAgentExitUndone(ex.ID, "back-1"); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"agent_exit.updated"}},
+		{"ForgetAgentExit", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			ex, _ := s.RemoveAgentWithExit(a.ID, ExitInput{})
+			s.OnEvent = recorder(s)
+			if _, err := s.ForgetAgentExit(ex.ID); err != nil {
 				t.Fatal(err)
 			}
 		}, []string{"agent_exit.updated"}},

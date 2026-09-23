@@ -99,7 +99,7 @@ func TestToolPathWidensLikeTheTerminal(t *testing.T) {
 			t.Setenv("HOME_LATE", filepath.Join(home, "late"))
 			hermetic(t, home, tc.shellBody)
 			want := tc.setup(t, home)
-			if got := toolPath("gofake", home); got != want {
+			if got := findTool("gofake", home); got != want {
 				t.Errorf("toolPath = %q, want %q", got, want)
 			}
 		})

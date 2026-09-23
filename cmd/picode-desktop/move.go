@@ -174,14 +174,7 @@ func runRelocate(distroFlag, userFlag, drive, folder string, backup, yes, unreac
 // relocateFlow is the part that stops the distro; its order is the promise,
 // pinned by a test. The distro starts again whatever failed.
 func relocateFlow(a app, long desktop.Runner, backup bool, folder, target string, say func(string), out *wslOutcome) {
-	// The keepalive task would boot the distro again within a minute of
-	// the stop. Off for the copy, back on (and running) whatever happened;
-	// a machine without the task answers an error here, which is fine.
-	_ = a.runner.Run(desktop.SchtasksExe, desktop.TaskArgs("/disable")...)
-	defer func() {
-		_ = a.runner.Run(desktop.SchtasksExe, desktop.TaskArgs("/enable")...)
-		_ = a.runner.Run(desktop.SchtasksExe, desktop.TaskArgs("/run")...)
-	}()
+	defer keepaliveTaskOff(a.runner)()
 
 	out.Stopped = true
 	say("stopping " + a.distro + " — every session inside ends")
@@ -222,4 +215,17 @@ func relocateFlow(a app, long desktop.Runner, backup bool, folder, target string
 		out.Error = "start " + a.distro + ": " + err.Error()
 	}
 	out.Done = out.Error == ""
+}
+
+// keepaliveTaskOff disables the PiCodeDistro task and returns the function
+// that re-enables and runs it. The task restarts on failure within a minute,
+// so any flow that stops the distro (move, backup, compact) turns it off for
+// the work and back on whatever happened; a machine without the task
+// answers an error, which is fine.
+func keepaliveTaskOff(r desktop.Runner) (restore func()) {
+	_ = r.Run(desktop.SchtasksExe, desktop.TaskArgs("/disable")...)
+	return func() {
+		_ = r.Run(desktop.SchtasksExe, desktop.TaskArgs("/enable")...)
+		_ = r.Run(desktop.SchtasksExe, desktop.TaskArgs("/run")...)
+	}
 }

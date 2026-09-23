@@ -1,5 +1,6 @@
 import {
   Activity,
+  History,
   ArrowDownToLine,
   ArrowUp,
   ArrowDown,
@@ -156,6 +157,7 @@ export const IconCanvas = lucide(Frame, 13);
 export const IconFlask = lucide(FlaskConical, 13);
 export const IconInbox = lucide(Inbox, 13);
 export const IconClock = lucide(Clock, 13);
+export const IconHistory = lucide(History, 16);
 export const IconTrash = lucide(Trash2, 13);
 export const IconFile = lucide(File, 13);
 export const IconMore = lucide(EllipsisVertical, 14);

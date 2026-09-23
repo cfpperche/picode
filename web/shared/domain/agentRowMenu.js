@@ -32,11 +32,13 @@ export function agentHandoffTerm(ag = {}) {
 }
 
 export function agentRowMenu(ag = {}, { clis, term } = {}) {
+  const mission = ag.missionId ? [{ id: "mission", label: "Open mission", href: "#/mission/" + encodeURIComponent(ag.missionId) }] : [];
   if (agentIsPi(ag)) {
     const running = ((ag && ag.mode) || "stopped") !== "stopped";
     const handoffTerm = agentHandoffTerm(ag);
     const handoff = handoffTerm ? terminalHandoffMenu(handoffTerm, clis) : null;
     return [
+      ...mission,
       ...(handoff ? [handoff, { sep: true }] : []),
       running
         ? { id: "restart", label: "Restart agent", title: "Restart this agent in its current mode." }
@@ -63,6 +65,7 @@ export function agentRowMenu(ag = {}, { clis, term } = {}) {
     : null;
   const conversation = [...(fork ? [fork] : []), ...(handoff ? [handoff] : [])];
   return [
+    ...mission,
     ...(conversation.length ? [...conversation, { sep: true }] : []),
     ...(running
       ? [
