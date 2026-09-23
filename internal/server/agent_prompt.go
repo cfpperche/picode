@@ -85,13 +85,18 @@ func handleAgentPrompt(deps Deps) http.HandlerFunc {
 			return
 		}
 		var req struct {
-			Kind    string        `json:"kind"`
-			Message string        `json:"message"`
-			Images  []promptImage `json:"images"`
-			Paths   []string      `json:"paths"`
+			Kind     string        `json:"kind"`
+			Message  string        `json:"message"`
+			Images   []promptImage `json:"images"`
+			Paths    []string      `json:"paths"`
+			Delivery string        `json:"delivery"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		if !validDelivery(req.Delivery) {
+			writeErr(w, http.StatusBadRequest, "delivery must be prompt, steer or follow_up")
 			return
 		}
 		mode := deps.runMode(r, id)
@@ -150,7 +155,7 @@ func handleAgentPrompt(deps Deps) http.HandlerFunc {
 				return
 			}
 			payload := buildPromptPaste(req.Message, rels)
-			status, body := deps.deliverToInteractiveAgent(r.Context(), agent, payload, tuiDeliverPrompt)
+			status, body := deps.deliverToInteractiveAgentAs(r.Context(), agent, payload, tuiDeliverPrompt, req.Delivery)
 			if status != http.StatusOK {
 				writeJSON(w, status, body)
 				return

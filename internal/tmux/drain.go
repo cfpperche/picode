@@ -222,6 +222,11 @@ func (m *Manager) PasteOnly(ctx context.Context, paneID, text string) error {
 	return m.legacyPane(func() error { return m.legacy.pasteOnly(ctx, paneID, text) }, err)
 }
 
+func (m *Manager) SendPaneKey(ctx context.Context, paneID, key string) error {
+	err := m.sendPaneKey(ctx, paneID, key)
+	return m.legacyPane(func() error { return m.legacy.sendPaneKey(ctx, paneID, key) }, err)
+}
+
 func (m *Manager) SubmitPane(ctx context.Context, paneID string) error {
 	err := m.submitPane(ctx, paneID)
 	return m.legacyPane(func() error { return m.legacy.submitPane(ctx, paneID) }, err)

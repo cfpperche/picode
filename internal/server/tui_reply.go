@@ -432,13 +432,17 @@ func (deps Deps) inboxSettle() deliverySettle {
 // durable JSONL row, reconciled in the background, remains the truth that
 // keeps the item done — silence reopens it.
 func (deps Deps) deliverViaReceiver(agentID, sessionPath string, task store.Task, baseline rpc.DeliveryBaseline, settle deliverySettle) error {
+	return deps.deliverViaReceiverAs(agentID, sessionPath, task, baseline, settle, "")
+}
+
+func (deps Deps) deliverViaReceiverAs(agentID, sessionPath string, task store.Task, baseline rpc.DeliveryBaseline, settle deliverySettle, deliverAs string) error {
 	nonce, err := newReplyNonce()
 	if err != nil {
 		return err
 	}
 	file, err := writeReplyFile(deps.DataDir, agentID, replyFile{
 		Nonce: nonce, SessionPath: sessionPath, Payload: task.Payload, CreatedAt: time.Now().UTC(),
-		PID: deps.Replies.receiverPID(agentID),
+		PID: deps.Replies.receiverPID(agentID), DeliverAs: deliverAs,
 	})
 	if err != nil {
 		return err
@@ -653,6 +657,10 @@ type replyFile struct {
 	// that said hello, not merely any pi that inherited the terminal id.
 	// Absent when the hello did not name one (an older receiver).
 	PID int `json:"pid,omitempty"`
+	// DeliverAs is the attach mode for pi.sendUserMessage (ADR-0206):
+	// "steer" or "followUp". Absent means followUp — every receiver before
+	// it, and every other sender, keeps that.
+	DeliverAs string `json:"deliverAs,omitempty"`
 }
 
 func replyDir(dataDir, agentID string) string {
