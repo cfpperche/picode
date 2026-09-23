@@ -118,6 +118,15 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 			return
 		}
 		id := r.PathValue("id")
+		if it, err := deps.Store.GetInboxItem(id); err == nil && it.SourceKind == store.InboxFromSystem && it.Reason == "mission" && req.Verb == store.VerbRespond {
+			if err := apps.RecordMissionAnswer(deps.Store, id, req.Text); err != nil {
+				missionError(w, err)
+				return
+			}
+			it, _ = deps.Store.GetInboxItem(id)
+			writeJSON(w, 200, it)
+			return
+		}
 		// A question filed by pi in an Agent CLI terminal (sourceKind
 		// "terminal", ADR-0089's amendment) is answered through that
 		// terminal's receiver — the task queue is an agent's. Ignore is the

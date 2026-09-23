@@ -1,8 +1,9 @@
 # Missions — persistent work across agents and sessions
 
-Status: **proposed for owner review**, 2026-09-23. This document plans a new
-feature; it neither implements it nor accepts its architectural decisions.
-Repository inventory: `4f2a44c16` on `main`. Recheck the touched subsystems
+Status: **M0–M3 approved and implemented**, 2026-09-23. The original scope
+and decision table remain below. Implementation and measured evidence are in
+[verification](missions-verification.md); M4/M5 remain future work.
+Original repository inventory: `4f2a44c16` on `main`. Recheck the touched subsystems
 before each implementation branch.
 
 ## 1. Product outcome
@@ -289,8 +290,9 @@ Any future reassignment of delivery authorship needs an explicit amendment.
 
 ## 7. Decision table and required coverage
 
-All rows are planned behavior, **not tested implementation**. M0 assigns each
-row to a milestone test. A milestone cannot claim a row passed on prose alone.
+The rows define the required behavior. Current tests, measured evidence and
+remaining limits are tracked in [verification](missions-verification.md).
+M4/M5 rows remain planned.
 
 | ID | Conditions | Required action | Gate |
 |---|---|---|---|

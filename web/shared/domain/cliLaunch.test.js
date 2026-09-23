@@ -190,7 +190,7 @@ test("launch tools ride the draft, the config and the overrides", () => {
 // delivery (ADR-0171) shipped. TestToolFamiliesMatchTheForm holds the Go
 // side of this list, in order.
 test("the PiCode tools form offers every family the daemon serves", () => {
-  assert.deepEqual(PICODE_TOOL_FAMILIES.map((f) => f.id), ["computer", "browser", "inbox", "checklist", "delivery"]);
+  assert.deepEqual(PICODE_TOOL_FAMILIES.map((f) => f.id), ["computer", "browser", "inbox", "checklist", "delivery", "mission"]);
   const ids = PICODE_TOOL_FAMILIES.map((f) => f.id);
   const parsed = parseForm(cliLaunchSchema, { ...launchDraft(defaultLaunchConfig(false)), tools: ids });
   assert.equal(parsed.ok, true);
