@@ -1424,6 +1424,30 @@
       }
     },
     "/api/agents/{id}/prompt": {
+      "get": {
+        "operationId": "getApiAgentsPrompt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agents"
+        ]
+      },
       "post": {
         "operationId": "postApiAgentsPrompt",
         "parameters": [
@@ -10671,6 +10695,30 @@
       }
     },
     "/api/terminals/{id}/prompt": {
+      "get": {
+        "operationId": "getApiTerminalsPrompt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      },
       "post": {
         "operationId": "postApiTerminalsPrompt",
         "parameters": [
