@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-places-report"
+description = "Enables the places_report command without any pre-configured scope."
+commands.allow = ["places_report"]
+
+[[permission]]
+identifier = "deny-places-report"
+description = "Denies the places_report command without any pre-configured scope."
+commands.deny = ["places_report"]
