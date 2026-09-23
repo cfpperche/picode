@@ -9,7 +9,7 @@
 #   web       → frontend tests + the embedded build
 #   packages  → frontend/package tests
 #   docs      → docs-check + public site + Vale
-#   metadata  → the fast gates only (fmt, vet, hooks)
+#   metadata  → the fast gates (fmt, vet, hooks) and the living-docs pass
 # Anything that shapes the gates themselves (go.mod, Makefile, hooks,
 # scripts/ci-scope.mjs) runs `make ci`. CI_SCOPE_BASE overrides the base ref.
 set -euo pipefail
@@ -106,8 +106,14 @@ if [ -n "$SCOPE_DOCS" ]; then
   make --no-print-directory ci-docs vale
   ran+=("docs")
 fi
-if [ -n "$SCOPE_METADATA" ] && [ ${#ran[@]} -eq 3 ]; then
-  ran+=("metadata")
+if [ -n "$SCOPE_METADATA" ] && [ -z "$SCOPE_DOCS" ]; then
+  # docs/ has no parity gate of its own, but the living-docs pass (ADR index,
+  # architecture index, relative links) reads only the tree and takes a
+  # second. Without it a broken link in a study closed green and failed
+  # `make ci` on main after the fast-forward (2026-09-23). The docs scope
+  # runs the same pass inside docs-check.
+  node scripts/docs-living.mjs
+  ran+=("living-docs")
 fi
 
 stamp

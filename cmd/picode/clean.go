@@ -260,10 +260,14 @@ func runHow(c hostfs.Consumer) error {
 		return fmt.Errorf("rm path %q is not one of %s's own paths", path, c.ID)
 	}
 	argv := strings.Fields(how)
-	if _, err := exec.LookPath(argv[0]); err != nil {
+	home, _ := os.UserHomeDir()
+	tool := toolPath(argv[0], home)
+	if tool == "" {
 		return fmt.Errorf("%s is not installed", argv[0])
 	}
-	out, err := exec.Command(argv[0], argv[1:]...).CombinedOutput()
+	cmd := exec.Command(tool, argv[1:]...)
+	cmd.Env = withToolDir(os.Environ(), tool)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s: %v: %s", c.How, err, strings.TrimSpace(string(out)))
 	}
