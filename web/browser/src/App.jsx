@@ -4,6 +4,7 @@ import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { OPEN_LINK_EVENT } from "./lib/externalLinks.js";
 import { installOpenUrlFeed } from "./lib/openUrlFeed.js";
+import { bootReads } from "./lib/bootReads.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
@@ -821,36 +822,31 @@ export default function App({ shellChrome = false } = {}) {
 
   useEffect(() => {
     (async () => {
-      // The CLI catalog starts with the boot, not after the Pi model catalog:
-      // System and the Automations banner read it (ADR-0179).
-      const clisBoot = api("/api/clis");
-      clisBoot.then(() => setClisState("ok"), () => setClisState("error"));
-      try {
-        const [sys, ver] = await Promise.all([api("/api/system"), api("/api/version")]);
+      // Every read starts now and only the fleet is awaited (bootReads.js):
+      // the Pi model catalog runs `pi --list-models` for seconds, and the
+      // sidebar used to wait for it on every cold load (ADR-0179).
+      const { fleet, side } = bootReads(api);
+      side.clis.then((c) => { setClis(c.clis || []); setClisState("ok"); }, () => setClisState("error"));
+      side.system.then(({ system: sys, version: ver }) => {
         setSystem(sys);
         setVersion(ver.version);
         setSemver(ver.semver || ver.version || "");
         setReleaseBuild(!!ver.release);
         setHost((sys.host && sys.host.name) || "local");
-      } catch { /* offline */ }
-      try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
+      }, () => { /* offline */ });
+      side.catalog.then(setCatalog, () => { /* pi missing */ });
       try {
-        const cliCatalog = await clisBoot;
-        setClis(cliCatalog.clis || []);
-      } catch { /* Continue in… stays hidden until this lands */ }
-      try {
-        const list = await loadWorkspaces();
-        let free = [];
-        try { free = await api("/api/agents?free=1"); } catch { free = []; }
-        let terms = [];
-        try { terms = (await api("/api/terminals")).terminals || []; } catch { terms = []; }
+        const got = await fleet;
+        const list = got.workspaces;
+        const free = got.freeAgents;
+        const terms = got.terminals;
+        setWorkspaces(list);
+        setFreeAgents(free);
+        setFleetLoaded(true);
         setTerminals(terms);
+        let appsOk = got.appsOk;
         let appList = [];
-        let appsOk = false;
-        try {
-          appList = normalizeManifests(await api("/api/apps"));
-          appsOk = true;
-        } catch { appList = []; }
+        try { if (appsOk) appList = normalizeManifests(got.apps); } catch { appsOk = false; }
         setApps(appList);
         setAppsLoaded(appsOk);
         const owners = readGitOwners();
@@ -927,7 +923,7 @@ export default function App({ shellChrome = false } = {}) {
       }
       setBootstrapped(true);
     })();
-  }, [loadWorkspaces]);
+  }, []);
 
   const whatsNewCurrent = semver || version;
   const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
