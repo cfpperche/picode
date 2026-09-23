@@ -173,6 +173,10 @@ func killFixture(t *testing.T, id string) {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
+		// Read before the kill; the tree it names is ended after it
+		// (reapPaneGroup: the launch root ignores SIGHUP, ADR-0085).
+		pid, _ := tmux.New().PanePID(ctx, name)
+		defer reapPaneGroup(pid, 5*time.Second)
 		for i := 0; i < 100; i++ {
 			_ = tmux.New().KillSession(ctx, name)
 			has, err := tmux.New().HasSession(ctx, name)

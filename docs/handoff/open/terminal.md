@@ -18,7 +18,7 @@
 
 - Tab strip backlog: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 - CLI pane-death (ADR-0085): an owned OpenCode QA stop left two processes after its pane closed; ADR-0084 pins nothing for terminals stopped before it.
-- `TestCLIAdapterPreviewMatchesExecution` failed once in a full worktree run with a live scratch server and passed alone (2026-09-13) — not diagnosed.
+- ~~`TestCLIAdapterPreviewMatchesExecution` failed once in a full worktree run with a live scratch server and passed alone (2026-09-13) — not diagnosed.~~ **Diagnosed and paid 2026-09-23** (`feat/fixture-kill-wait`): the launch root ignores SIGHUP (ADR-0085), so the fixture's tmux kill left the pane tree writing under the temp dir; cleanup now ends the pane's process group (see `docs/handoff/open/agent-clis-native.md`).
 - CLI launch fixtures: `waitCLIFile` only waits for the path to exist — a second launch into the same file needs the file removed (or a wait on its own argv).
 
 - tmux fixtures: a **fixed session name shared across concurrent test binaries** (the heavy package runs in four shards) was the cause of the 2026-09-13 flakes — `TestPaneRootSurvivesSIGHUP` and `TestPeerStopStubbornChildStaysPending` went red under concurrent closes. Process-unique fixture names, plus a ready-marker handshake so the pane's script has installed its traps before a stop signals it, are the fixes. If a tmux fixture reddens again, suspect a shared fixed name first.
