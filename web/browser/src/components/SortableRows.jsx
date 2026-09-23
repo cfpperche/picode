@@ -63,16 +63,20 @@ function swallowFollowingClick(event) {
   target.addEventListener("click", stop, true);
 }
 
-export function SortableList({ ids, onReorder, grid = false, children }) {
+export function SortableList({ ids, onReorder, onDragActive, grid = false, children }) {
   const sensorList = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [activeId, setActiveId] = useState(null);
   const quiet = reducedMotion();
   const modifiers = grid ? [] : [restrictToVerticalAxis];
+  function settled() {
+    setActiveId(null);
+    if (onDragActive) onDragActive("");
+  }
   function endDrag(event) {
     swallowFollowingClick(event);
     document.body.classList.remove("is-row-dragging");
+    settled();
     const active = String(event.active.id);
-    setActiveId(null);
     const next = reorderIds(ids, active, event.over ? String(event.over.id) : "");
     if (next !== ids && onReorder) onReorder(next, active);
   }
@@ -88,10 +92,11 @@ export function SortableList({ ids, onReorder, grid = false, children }) {
       onDragStart={(event) => {
         setActiveId(String(event.active.id));
         document.body.classList.add("is-row-dragging");
+        if (onDragActive) onDragActive(String(event.active.id));
       }}
       onDragCancel={(event) => {
         document.body.classList.remove("is-row-dragging");
-        setActiveId(null);
+        settled();
         swallowFollowingClick(event);
       }}
       onDragEnd={endDrag}

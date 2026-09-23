@@ -96,6 +96,22 @@ export default function Sidebar({
     try { return JSON.parse(localStorage.getItem(WORKING_FIRST_KEY) || "{}"); }
     catch { return {}; }
   });
+  // The workspace id whose header is pressed or dragged, "" otherwise. Two
+  // gesture-scoped consequences hang off it: that folder renders collapsed
+  // (a tall expanded slot is an invisible well and drags badly), and sticky
+  // headers stand down for the whole list until release. It is set on the
+  // header's pointerdown — BEFORE dnd-kit measures anything — so the drag
+  // runs over the already-collapsed layout and no neighbour's rect goes
+  // stale mid-gesture. A plain click collapses the folder anyway, so the
+  // temporary state always agrees with the toggle the click will land on.
+  // The SortableList callback keeps it in sync once dnd-kit takes over;
+  // window pointerup clears it when no drag started.
+  const [dragWsId, setDragWsId] = useState("");
+  useEffect(() => {
+    const up = () => setDragWsId("");
+    window.addEventListener("pointerup", up);
+    return () => window.removeEventListener("pointerup", up);
+  }, []);
 
   function onSizerDown(e) {
     e.preventDefault();
@@ -123,7 +139,7 @@ export default function Sidebar({
     return <ProviderFaces agents={agents} terms={terms} />;
   }
 
-  function isOpen(id) { return openWs[id] !== false; }
+  function isOpen(id) { return openWs[id] !== false && id !== dragWsId; }
   function toggleWs(id) {
     setOpenWs((s) => {
       const n = { ...s, [id]: !isOpen(id) };
@@ -294,8 +310,8 @@ export default function Sidebar({
         {sidebarBody(fleetLoaded, workspaces.length) === "skeleton" ? <SideSkeleton /> : sidebarBody(fleetLoaded, workspaces.length) === "empty" ? (
           <p className="side-empty pins-empty">No workspaces yet. <button type="button" className="side-empty-act" onClick={() => onNew()}>Add workspace</button></p>
         ) : (
-        <SortableList ids={workspaces.map((w) => w.id)} onReorder={(ids, activeId) => commitOrder("workspaces", null, workspaces.map((w) => w.id), ids, activeId, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace")}>
-        <ul id="ws-list" className="ws-list">
+        <SortableList ids={workspaces.map((w) => w.id)} onDragActive={setDragWsId} onReorder={(ids, activeId) => commitOrder("workspaces", null, workspaces.map((w) => w.id), ids, activeId, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace")}>
+        <ul id="ws-list" className={"ws-list" + (dragWsId ? " is-ws-dragging" : "")}>
           {workspaces.map((ws) => {
             const wsAgents = agentsOf(ws);
             const wsTerms = workspaceTerminals(terminals, ws.id).filter((t) => !ownedTerminalIds.has(t.id));
@@ -315,7 +331,7 @@ export default function Sidebar({
               <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
                 <span className="tree-icon"><WsFavicon ws={ws} /></span>
-                <span className="ws-group-name" title={ws.path} onPointerDown={drag.onPointerDown}>{ws.name}</span>
+                <span className="ws-group-name" title={ws.path} onPointerDown={(e) => { if (e.button === 0) setDragWsId(ws.id); drag.onPointerDown(e); }}>{ws.name}</span>
                 <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(wsAgents, wsTerms) : null}</span>
                 {/* Two controls, not five: one creates, one holds the rest
                     (VS Code caps a row at three; the child rows already read
