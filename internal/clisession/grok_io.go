@@ -244,6 +244,13 @@ func grokUnwrapQuery(text string) string {
 	return s
 }
 
+// ForkArgs: `grok --resume <id> --fork-session --session-id <new> <prompt>`
+// — grok --help 1.0.41: --session-id with --resume is valid only together
+// with --fork-session, where it names the fork.
+func (GrokSource) ForkArgs(src Ref, prompt, newID string) Fork {
+	return idFork([]string{"--resume", src.ID, "--fork-session"}, prompt, newID)
+}
+
 // PromptArgs: `grok --session-id <uuid> <prompt>` — verified flags (grok
 // --help, 1.0.13); the prompt is positional.
 func (GrokSource) PromptArgs(prompt, sessionID string) []string {

@@ -12,12 +12,14 @@
 // Continue in… (ADR-0088): a pinned conversation — pi's own session pin,
 // or the CLI agent's bound-terminal pin — can continue in another CLI. The
 // submenu rides first, separated off; with no pin the row stays flat.
+// Fork agent… rides beside it when the CLI forks natively: a new agent of
+// the same CLI on a copy of the conversation (cli-session-handoff.md).
 //
 // Icons are the renderer's business, so this module stays importable by
 // the node test runner.
 
 import { agentIsPi } from "./managedPrincipal.js";
-import { terminalHandoffMenu } from "./sessionHandoff.js";
+import { terminalCanFork, terminalHandoffMenu } from "./sessionHandoff.js";
 import { terminalStatus } from "./terminalCli.js";
 
 // agentHandoffTerm is the shim the renderer and this menu hand the handoff
@@ -56,8 +58,12 @@ export function agentRowMenu(ag = {}, { clis, term } = {}) {
   // A conversation pinned on the bound terminal can continue in another
   // CLI (ADR-0088) — the same submenu the terminal row offers.
   const handoff = term ? terminalHandoffMenu(term, clis) : null;
+  const fork = term && terminalCanFork(term, clis)
+    ? { id: "fork", label: "Fork agent…", title: "Start a new agent on a copy of this conversation, with a task of its own." }
+    : null;
+  const conversation = [...(fork ? [fork] : []), ...(handoff ? [handoff] : [])];
   return [
-    ...(handoff ? [handoff, { sep: true }] : []),
+    ...(conversation.length ? [...conversation, { sep: true }] : []),
     ...(running
       ? [
           { id: "restart", label: "Restart agent", title: "Stop and relaunch this agent." },

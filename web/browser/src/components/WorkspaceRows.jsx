@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconGit, IconMode, IconMoveDown, IconMoveUp, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconFork, IconGit, IconMode, IconMoveDown, IconMoveUp, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
@@ -53,6 +53,7 @@ const TERM_ROW_MENU_ICONS = {
   rename: <IconPencil size={13} />,
   launch: <IconSettings size={14} />,
   settings: <IconMode size={14} />,
+  fork: <IconFork size={13} />,
   handoff: <IconChat size={13} />,
   start: <IconPlay size={12} />,
   restart: <IconReload size={13} />,
@@ -153,7 +154,7 @@ export function AgentRow({
   onFileTree, onGitGraph,
   actions = true, meta = false,
   onRenameAgent, onRun, onRemoveAgent, onRemove, onChat, onTerm, termView,
-  clis, terms, onLaunchAction, onContinueTerm,
+  clis, terms, onLaunchAction, onContinueTerm, onForkAgent,
   drag, onMoveUp, onMoveDown,
 }) {
   const mode = ag.mode || "stopped";
@@ -178,6 +179,7 @@ export function AgentRow({
       case "launch": location.hash = r.href; return;
       case "chat": return onChat && onChat(ag.id);
       case "term": return onTerm && onTerm(ag.id);
+      case "fork": return onForkAgent && onForkAgent(ag, term);
       case "rename": return onRenameAgent && onRenameAgent(ag, label);
       case "remove": return onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws);
       default: return undefined;

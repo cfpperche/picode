@@ -582,6 +582,12 @@ body {
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-ctl, 6px);
 }
 .dlg-handoff .dlg-actions { margin-top: 16px; }
+/* Fork agent… (ForkAgentDialog): name, where, then the attach composer as
+   the task. The composer keeps its terminal-bar layout; inside a dialog it
+   follows the app theme, not the terminal's (.term-attach only). */
+.fork-field, .fork-task { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.fork-field > span, .fork-task-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
+.fork-field .dlg-input { margin-top: 0; }
 @media (min-width: 720px) {
   .handoff-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
 }
@@ -2512,14 +2518,15 @@ img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: 
 }
 .term-find .icon-btn:disabled { opacity: .45; cursor: default; }
 .term-find .icon-btn:disabled:hover { background: none; color: var(--text-secondary); }
-.term-attach {
+.term-attach,
+.attach-composer {
   flex: none;
-  margin-top: 8px;
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-panel);
 }
+.term-attach { margin-top: 8px; }
 .term-attach-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .term-attach-head .term-attach-empty, .term-attach-head .term-attach-chips { flex: 1; min-width: 0; }
 .term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }

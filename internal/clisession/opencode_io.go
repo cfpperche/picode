@@ -239,6 +239,17 @@ func opencodeTime(raw string) time.Time {
 	return parseTime(s)
 }
 
+// ForkArgs: `opencode --session <id> --fork --prompt <text>` — opencode
+// --help 1.18 ("fork the session when continuing"). The copy's id is the
+// CLI's to choose.
+func (OpenCodeSource) ForkArgs(src Ref, prompt, _ string) Fork {
+	args := []string{"--session", src.ID, "--fork"}
+	if prompt != "" {
+		args = append(args, "--prompt", prompt)
+	}
+	return Fork{Args: args}
+}
+
 // PromptArgs: `opencode --prompt <text>` — verified flags (opencode
 // --help, 1.18.29). A new conversation cannot be given an id up front
 // (`--session` continues an existing one), so sessionID is ignored and

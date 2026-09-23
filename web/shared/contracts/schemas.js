@@ -104,6 +104,13 @@ export const sessionHandoffSchema = z.object({
   tools: z.enum(["native", "text"]),
 });
 
+// Fork agent…: a name for the new agent and where it works. The task is
+// free text (empty opens the copy waiting); the server bounds its length.
+export const forkAgentSchema = z.object({
+  name: required("Name").max(80, "Use up to 80 characters for the name."),
+  where: z.enum(["worktree", "same"], { message: "Choose where the fork works." }),
+});
+
 const modelPick = z.object({
   provider: required("Provider"),
   model: required("Model"),
