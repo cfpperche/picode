@@ -29,6 +29,7 @@ func registerLlama(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/llama/jobs", handleLlamaJobs(deps))
 	mux.HandleFunc("POST /api/llama/jobs/{id}/cancel", handleLlamaJobAction(deps, true))
 	mux.HandleFunc("POST /api/llama/jobs/{id}/reconcile", handleLlamaJobAction(deps, false))
+	mux.HandleFunc("POST /api/llama/jobs/{id}/abandon", handleLlamaJobVerb(deps, "abandon"))
 }
 
 func llamaClient() (*llama.Client, error) {
@@ -119,7 +120,8 @@ func handleLlamaHFInfo(w http.ResponseWriter, r *http.Request) {
 // that does not answer (a machine off the network, a firewall that drops)
 // made every /api/catalog, and so every model picker, wait those 2 s. Seen on
 // 2026-09-23 on scratch instances started from an agent session, where a
-// closed 127.0.0.1 port hangs; the owner's daemon gets an immediate refusal. The answer — a failure included — is kept per server and key and served
+// closed 127.0.0.1 port hangs; the owner's daemon gets an immediate refusal.
+// The answer — a failure included — is kept per server and key and served
 // at once; once stale it is refreshed in the background, so only a read with
 // no answer for the current setting waits, and concurrent ones share that one
 // probe.
@@ -185,7 +187,10 @@ func catalogLlamaModels(fresh bool) ([]llama.Model, error) {
 		return models, err
 	}
 	if fresh {
-		catalogLlama.gen++ // a probe already in flight predates this ask
+		// A probe already in flight predates this ask: it will store stale,
+		// and this read gets a probe of its own rather than that older answer.
+		catalogLlama.gen++
+		delete(catalogLlama.flight, key)
 	}
 	p := startCatalogLlamaLocked(key, url, secret)
 	catalogLlama.Unlock()
@@ -208,7 +213,9 @@ func startCatalogLlamaLocked(key, url, secret string) *catalogLlamaProbe {
 	go func() {
 		p.models, p.err = listCatalogLlama(url, secret)
 		catalogLlama.Lock()
-		delete(catalogLlama.flight, key)
+		if catalogLlama.flight[key] == p {
+			delete(catalogLlama.flight, key)
+		}
 		storeCatalogLlamaLocked(key, gen, p.models, p.err)
 		catalogLlama.Unlock()
 		close(p.done)
@@ -345,6 +352,17 @@ func handleLlamaJobs(deps Deps) http.HandlerFunc {
 	}
 }
 func handleLlamaJobAction(deps Deps, cancel bool) http.HandlerFunc {
+	action := "reconcile"
+	if cancel {
+		action = "cancel"
+	}
+	return handleLlamaJobVerb(deps, action)
+}
+
+// handleLlamaJobVerb runs one owner action on a model job: cancel, reconcile
+// (Check result) or abandon (ADR-0083 amendment: stop following an unknown
+// job without touching the server).
+func handleLlamaJobVerb(deps Deps, action string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if deps.LlamaJobs == nil {
 			writeErr(w, 503, "Model operations are unavailable.")
@@ -352,9 +370,12 @@ func handleLlamaJobAction(deps Deps, cancel bool) http.HandlerFunc {
 		}
 		var j store.LlamaJob
 		var err error
-		if cancel {
+		switch action {
+		case "cancel":
 			j, err = deps.LlamaJobs.Cancel(r.PathValue("id"))
-		} else {
+		case "abandon":
+			j, err = deps.LlamaJobs.Abandon(r.PathValue("id"))
+		default:
 			j, err = deps.LlamaJobs.Reconcile(r.PathValue("id"))
 		}
 		if err != nil {

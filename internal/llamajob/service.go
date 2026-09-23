@@ -4,6 +4,7 @@ package llamajob
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -26,6 +27,9 @@ type Service struct {
 	interval, timeLimit time.Duration
 	closed              bool
 	completed           func(store.LlamaJob)
+	// stoppedFn reports an endpoint of PiCode's own llama.cpp service that is
+	// not running (SetStopped).
+	stoppedFn func(endpoint string) bool
 }
 
 func identity(endpoint, key string) string {
@@ -135,9 +139,73 @@ func (s *Service) Reconcile(id string) (store.LlamaJob, error) {
 		return j, err
 	}
 	if j.State == "unknown" {
+		if s.stopped(j.Endpoint) {
+			return s.interrupt(j.ID)
+		}
 		s.launch(j.ID, false, nil)
 	}
 	return j, nil
+}
+
+// Abandon ends an unknown job on the owner's word (ADR-0083 amendment,
+// 2026-09-23): the job stops holding its model and its endpoint slot, and
+// PiCode does not touch the server. Only an unknown job — one PiCode cannot
+// resolve — can be abandoned; a worker still following it exits at its next
+// read, since the job is no longer active.
+func (s *Service) Abandon(id string) (store.LlamaJob, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	j, err := s.store.LlamaJob(id)
+	if err != nil {
+		return j, err
+	}
+	if j.State != "unknown" {
+		return j, store.ErrLlamaConflict
+	}
+	j.State = "abandoned"
+	j.Message = "Abandoned by you. PiCode stopped following it and did not touch the server."
+	return s.store.UpdateLlamaJob(j)
+}
+
+// SetStopped tells the service how to recognize an endpoint whose server is
+// PiCode's own and is not running (llamaservice); nil means none is.
+func (s *Service) SetStopped(fn func(endpoint string) bool) {
+	s.mu.Lock()
+	s.stoppedFn = fn
+	s.mu.Unlock()
+}
+
+func (s *Service) stopped(endpoint string) bool {
+	s.mu.Lock()
+	fn := s.stoppedFn
+	s.mu.Unlock()
+	return fn != nil && fn(endpoint)
+}
+
+// InterruptStopped ends every active job on an endpoint whose server is
+// PiCode's own and is not running (ADR-0083/0090 amendments): nothing can be in flight on
+// a server that is not running, and waiting for it to answer is what kept such
+// jobs unknown forever while blocking the start that would answer them.
+func (s *Service) InterruptStopped() error {
+	jobs, err := s.store.LlamaJobs()
+	if err != nil {
+		return err
+	}
+	for _, j := range jobs {
+		if j.Active() && s.stopped(j.Endpoint) {
+			if _, err := s.interrupt(j.ID); err != nil && !errors.Is(err, store.ErrLlamaConflict) {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) interrupt(id string) (store.LlamaJob, error) {
+	return s.update(id, func(j *store.LlamaJob) {
+		j.State = "interrupted"
+		j.Message = "PiCode's local llama.cpp service is not running, so nothing is in flight. Start it and try again."
+	})
 }
 
 func (s *Service) launch(id string, dispatch bool, c *llama.Client) {
@@ -348,6 +416,11 @@ func (s *Service) run(id string, dispatch bool, c *llama.Client) {
 			} else if !dispatch && j.Operation == "load" && m.Status == "unloaded" {
 				s.finish(id, "interrupted", "Loading was interrupted. The model is not loaded.")
 				return
+			} else if !dispatch && j.Operation == "unload" && (m.Status == "loaded" || m.Status == "sleeping") {
+				// The mirror of the load rule (ADR-0083 amendment): after a
+				// restart, a model still loaded means the unload did not happen.
+				s.finish(id, "interrupted", "Unloading was interrupted. The model is still loaded.", m.Status)
+				return
 			} else if m.Status == "failed" {
 				s.finish(id, "failed", "The server reported that the model operation failed.", m.Status)
 				return
@@ -404,6 +477,10 @@ func (s *Service) run(id string, dispatch bool, c *llama.Client) {
 					return
 				}
 			}
+		} else if s.stopped(j.Endpoint) {
+			// PiCode's own server there is not running: nothing is in flight.
+			_, _ = s.interrupt(id)
+			return
 		} else if j.State != "unknown" {
 			s.finish(id, "unknown", "Connection lost. Checking the result without repeating the operation.")
 		}
