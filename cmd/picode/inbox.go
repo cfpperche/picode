@@ -308,7 +308,7 @@ func inboxPollAnswer(urlFlag, id string) (answered *string, gone bool) {
 	if err != nil {
 		return nil, false
 	}
-	status, body, err := d.Get(context.Background(), "/api/inbox/"+id)
+	status, body, err := d.Get(context.Background(), "/api/inbox/"+id+"?wait=1")
 	if err != nil {
 		return nil, false
 	}

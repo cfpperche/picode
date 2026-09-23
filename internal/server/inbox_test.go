@@ -220,8 +220,14 @@ func TestInboxRespondInteractiveAgent(t *testing.T) {
 	if res.StatusCode != http.StatusConflict {
 		t.Fatalf("interactive agent = %d %v", res.StatusCode, body)
 	}
+	// The route takes the Inbox app's door (agent_answer.go): a Pi agent in
+	// its terminal gets ADR-0060's delivery, which refuses a question that
+	// names no session — and the item stays open for another try.
+	if msg, _ := body["error"].(string); !strings.Contains(msg, "identified safely") {
+		t.Fatalf("refusal = %v", body)
+	}
 	after, _ := st.GetInboxItem(id)
-	if after.State == store.InboxDone || !strings.Contains(after.Body, "interactive terminal") {
+	if after.State == store.InboxDone {
 		t.Fatalf("item after refusal = %+v", after)
 	}
 	if tasks, _ := st.ListTasks(ag.ID, 10); len(tasks) != 0 {

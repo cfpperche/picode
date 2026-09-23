@@ -87,7 +87,27 @@ own goroutine, sends `notifications/progress` with the client's
 `notifications/cancelled`. Only at the deadline or on a cancel does it
 name the item so the model can call `ask_human` again with `item`. On the daemon, `Deps.AnswerTerminalQuestion` is the one rule for both the
 inbox route and the Inbox app: a terminal running pi gets the reply
-delivered; any other terminal has the answer recorded on the item. `checklist` publishes under the terminal (or agent)
+delivered; any other terminal has the answer recorded on the item.
+
+Since ADR-0184 every CLI launch is an agent, so most questions arrive
+agent-sourced, and `Deps.AnswerAgentQuestion` (`internal/server/agent_answer.go`)
+is the matching rule for those — again one rule for the route and the app,
+first match wins:
+
+| Condition when the human answers | Door |
+|---|---|
+| An asker polled the item with `?wait=1` in the last 30 s (`ask_human`, `picode inbox ask --wait`) | Recorded on the item; the poller returns it. Nothing is typed, so a waiting agent never hears the answer twice |
+| Pi, or Omp whose question carries a session and whose terminal is running | ADR-0060: the receiver (Omp loads Pi's receiver with `-e`), else a verified paste; the JSONL row is the proof |
+| Pi not in a terminal | The durable `follow_up` queue |
+| Any other CLI (or Omp without a session), terminal running | Recorded, then typed into the TUI with a bracketed paste and a verified Enter |
+| Any other CLI, not running — or the paste did not land | Recorded, and a note on the item says the agent was not told |
+
+An MCP ask cannot name its conversation, so `POST /api/inbox` stamps an
+agent's question with the session its receiver last reported; delivery
+still checks the path (`resolveReplySession`, which also accepts
+`omp-sessions/<agent>`). Before 2026-09-22 the agent path assumed Pi, and every
+reply to a non-Pi agent's `ask_human` failed with "could not be identified
+safely". `checklist` publishes under the terminal (or agent)
 exactly as pi-checklist does; pi's mutation gate and reminder have no MCP
 equivalent and are not pretended.
 

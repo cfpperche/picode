@@ -63,10 +63,13 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 	case "omp":
 		// omp is a Pi fork: the same extension API, measured live (the
 		// session events fire and PICODE_TERM_ID survives). The extension
-		// self-guards on TUI mode, so headless -p runs report nothing.
-		p.Summary = "Activity extension via -e (omp shares pi's extension API)"
-		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not maintenance subcommands, protocol modes, help/version)", Args: []string{"-e", ompTerminalStateExtensionFile(dir)}})
-		p.Files = append(p.Files, wrapperPath(dir, "omp"), ompTerminalStateExtensionFile(dir))
+		// self-guards on TUI mode, so headless -p runs report nothing. Pi's
+		// Inbox reply receiver (ADR-0060) rides along on the same API, so an
+		// Omp agent's answers arrive as its own turn with the JSONL row as
+		// proof, like Pi's; it acts only on files addressed to its pid.
+		p.Summary = "Activity and Inbox-receiver extensions via -e (omp shares pi's extension API)"
+		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not maintenance subcommands, protocol modes, help/version)", Args: []string{"-e", ompTerminalStateExtensionFile(dir), "-e", piReplyExtensionFile(dir)}})
+		p.Files = append(p.Files, wrapperPath(dir, "omp"), ompTerminalStateExtensionFile(dir), piReplyExtensionFile(dir))
 	}
 	return p
 }

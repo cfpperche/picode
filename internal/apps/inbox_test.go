@@ -841,3 +841,50 @@ func TestInboxCliAgentItemOpensTheAgentTerminal(t *testing.T) {
 		t.Fatalf("unbound CLI agent accepted open-terminal")
 	}
 }
+
+// A host that routes agent answers owns every agent-sourced reply: the app
+// hands it the item and shows the toast naming the door it took; Ignore
+// still closes the item locally and never reaches it.
+func TestInboxAnswerAgentQuestionHook(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	ctx := context.Background()
+	ws, _ := h.Store.AddWorkspace("wsx", t.TempDir())
+	ag, _ := h.Store.AddAgentWithCLI(ws.ID, "claude-code", "cc", "")
+	var calls []string
+	h.AnswerAgentQuestion = func(itemID, verb, text string) (string, error) {
+		calls = append(calls, itemID+":"+verb+":"+text)
+		if _, err := h.Store.RespondInboxItem(itemID, verb, text); err != nil {
+			return "", err
+		}
+		return "Answer sent — the agent was waiting for it.", nil
+	}
+	h.DeliverReply = func(string, string, string) (string, error) {
+		t.Fatal("DeliverReply must not run when the host routes agent answers")
+		return "", nil
+	}
+	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q", Body: "?"})
+	res, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q.ID, Args: map[string]string{"reply": "aprovado"}})
+	if err != nil || res.Toast != "Answer sent — the agent was waiting for it." {
+		t.Fatalf("respond = %+v, %v", res, err)
+	}
+	if len(calls) != 1 || calls[0] != q.ID+":respond:aprovado" {
+		t.Fatalf("calls = %v", calls)
+	}
+
+	q2 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q2", Body: "?"})
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "ignore", Path: "item/" + q2.ID}); err != nil {
+		t.Fatalf("ignore: %v", err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("ignore reached the answer hook: %v", calls)
+	}
+
+	h.AnswerAgentQuestion = func(string, string, string) (string, error) {
+		return "", fmt.Errorf("agent no longer exists: gone")
+	}
+	q3 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q3", Body: "?"})
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "x"}}); err == nil || !strings.Contains(err.Error(), "the agent no longer exists") {
+		t.Fatalf("gone agent = %v", err)
+	}
+}
