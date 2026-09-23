@@ -19,6 +19,7 @@ mod overlayqa;
 mod external;
 mod annotate;
 mod board;
+mod daemon_acl;
 mod browserlab;
 mod capture;
 mod clean;
@@ -169,7 +170,7 @@ fn main() {
             // the whole app on Windows (frozen captions, blank page).
             browserlab::init(app);
             computerlab::init(app);
-            let main_win = build_main_window(app.handle(), main_target())?;
+            let main_win = build_main_window(app.handle(), main_target(app.handle()))?;
             if hidden {
                 let _ = main_win.hide();
             }
@@ -281,6 +282,9 @@ fn poll_loop() {
         if url.is_none() {
             match discover_server() {
                 Some((distro, found)) => {
+                    // Before any window loads from it: a daemon off the
+                    // default port needs its origin in the ACL.
+                    daemon_acl::grant(board.app(), &found);
                     board.note_distro(&distro);
                     board.ensure_keepalive();
                     url = Some(found.to_string());
@@ -419,6 +423,7 @@ fn open_management_window(app: &tauri::AppHandle) {
         let url = discover_server()
             .map(|(_, u)| u)
             .unwrap_or_else(|| tauri::Url::parse("https://localhost:8445/").expect("static origin"));
+        daemon_acl::grant(&app, &url);
         let handle = app.clone();
         let posted = app.run_on_main_thread(move || {
             LOOKING.store(false, std::sync::atomic::Ordering::SeqCst);
@@ -463,7 +468,7 @@ fn await_desktop_ready(base: &str) {
 
 /// What the main window loads: the daemon's /desktop/ when it answers,
 /// the bundled offline page until then.
-fn main_target() -> WebviewUrl {
+fn main_target(app: &tauri::AppHandle) -> WebviewUrl {
     // The address the health loop already answers on, when there is one: a
     // rebuild from the tray then costs no wsl.exe on the event thread.
     // Before the first answer (setup) the address is looked up.
@@ -476,6 +481,7 @@ fn main_target() -> WebviewUrl {
             // name until 2026-09-23 ("Ubuntu/desktop/" never answers), so
             // every main-window build waited out the full 30 s and the
             // restart-404 guard never guarded anything.
+            daemon_acl::grant(app, &u);
             let base = u.origin().ascii_serialization();
             await_desktop_ready(&base);
             u.set_path("/desktop/");
@@ -581,7 +587,7 @@ fn show_main(app: &tauri::AppHandle) {
     }
     match app.get_window("main") {
         Some(win) => show(&win),
-        None => match build_main_window(app, main_target()) {
+        None => match build_main_window(app, main_target(app)) {
             Ok(win) => show(&win),
             Err(e) => {
                 eprintln!("open: cannot rebuild the main window ({e})");
