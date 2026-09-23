@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { containerIds, moveId, movePhrase, optimisticFleet, reorderIds, sameIds } from "./sidebarOrder.js";
+import { containerIds, moveId, movePhrase, optimisticFleet, reorderIds, sameIds, sortIdsBy } from "./sidebarOrder.js";
 
 test("moveId steps one place and refuses the ends", () => {
   assert.deepEqual(moveId(["a", "b", "c"], "b", -1), ["b", "a", "c"]);
@@ -23,6 +23,19 @@ test("movePhrase names the neighbour", () => {
   assert.equal(movePhrase(["a", "b"], ["b", "a"], "b", label), "Moved B to the top");
   assert.equal(movePhrase(["a", "b"], ["b", "a"], "a", label), "Moved A below B");
   assert.equal(movePhrase(["a"], ["a"], "a", label), "");
+});
+
+// "Sort agents by name" (ADR-0173): case-insensitive, numeric, and a no-op
+// keeps the stored order — the same ids written nothing and emitted nothing.
+test("sortIdsBy orders by display key and keeps ties in place", () => {
+  assert.deepEqual(sortIdsBy(["c", "a", "b"], (id) => id), ["a", "b", "c"]);
+  assert.deepEqual(sortIdsBy(["a10", "A2", "a1"], (id) => id), ["a1", "A2", "a10"]);
+  assert.deepEqual(sortIdsBy(["x", "b", "a"], () => ""), ["x", "b", "a"]);
+  const ids = ["c", "a", "b"];
+  assert.deepEqual(sortIdsBy(ids, (id) => id), ["a", "b", "c"]);
+  assert.deepEqual(ids, ["c", "a", "b"], "input stays untouched");
+  assert.deepEqual(sortIdsBy([], (id) => id), []);
+  assert.deepEqual(sortIdsBy(undefined, (id) => id), []);
 });
 
 test("optimisticFleet appends the permutation and ignores a no-op", () => {

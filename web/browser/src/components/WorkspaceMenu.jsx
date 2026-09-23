@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
 import { workspaceRowMenu, wantsPullRequest } from "@picode/shared/domain/workspaceRowMenu.js";
-import { IconChevronRight, IconCommunication, IconCopy, IconExternal, IconFolder, IconFolderOpen, IconGit, IconInstructions, IconMoveDown, IconMoveUp, IconPullRequest, IconSettings, IconX } from "./Icons.jsx";
+import { IconCheck, IconChevronRight, IconCommunication, IconCopy, IconExternal, IconFolder, IconFolderOpen, IconGit, IconInstructions, IconMoveDown, IconMoveUp, IconPullRequest, IconSettings, IconSort, IconX } from "./Icons.jsx";
 import { RowMenu, RowMenuItem, RowMenuSep } from "./WorkspaceRows.jsx";
 import WorkspaceSettings from "./WorkspaceSettings.jsx";
 import { OPEN_WORKSPACE_SETTINGS } from "./LandingWork.jsx";
@@ -21,6 +21,7 @@ const ICONS = {
   settings: <IconSettings size={13} />,
   "move-up": <IconMoveUp size={13} />,
   "move-down": <IconMoveDown size={13} />,
+  "sort-agents": <IconSort size={13} />,
   remove: <IconX size={13} />,
 };
 
@@ -49,7 +50,7 @@ async function copyText(value) {
 // component renders them and asks for the pull request when it opens, so a
 // closed menu never costs a gh call. The last answer stays on screen while a
 // reopen asks again (the server caches it for a minute anyway).
-export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onFileTree, onGitGraph, onInstructions, onRemove }) {
+export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onSortAgents, workingFirst, onToggleWorkingFirst, onFileTree, onGitGraph, onInstructions, onRemove }) {
   const branch = (ws.git && ws.git.branch) || "";
   const [pr, setPr] = useState({ branch: null, page: undefined });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -105,6 +106,8 @@ export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onFileTree, on
       case "settings": toSettings.current = true; setSettingsOpen(true); break;
       case "move-up": onMoveUp && onMoveUp(); break;
       case "move-down": onMoveDown && onMoveDown(); break;
+      case "sort-agents": onSortAgents && onSortAgents(); break;
+      case "working-first": onToggleWorkingFirst && onToggleWorkingFirst(); break;
       case "remove": onRemove(ws); break;
       default:
     }
@@ -113,6 +116,8 @@ export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onFileTree, on
   const rows = workspaceRowMenu(ws, {
     canMoveUp: !!onMoveUp,
     canMoveDown: !!onMoveDown,
+    canSortAgents: !!onSortAgents,
+    workingFirst: !!workingFirst,
     pr: pr.branch === branch ? pr.page : undefined,
   });
 
@@ -142,6 +147,16 @@ export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onFileTree, on
           <DropdownMenu.Item key={r.id} className="ws-row-menu-item" disabled>
             {ICONS[r.id]} {r.label}
           </DropdownMenu.Item>
+        );
+        // A checked row is a view toggle, not an action: the menu stays open
+        // so the rows reordering behind it are the feedback (Inspector's
+        // run-mode item reads the same way).
+        if (r.checked !== undefined) return (
+          <DropdownMenu.CheckboxItem key={r.id} className="ws-row-menu-item" title={r.title} checked={r.checked}
+            onSelect={(e) => { e.preventDefault(); onToggleWorkingFirst && onToggleWorkingFirst(); }}>
+            <span className="ws-menu-tick" aria-hidden="true"><DropdownMenu.ItemIndicator><IconCheck size={12} /></DropdownMenu.ItemIndicator></span>
+            {r.label}
+          </DropdownMenu.CheckboxItem>
         );
         return (
           <RowMenuItem key={r.id} title={r.title} danger={r.danger} onSelect={() => select(r)}>

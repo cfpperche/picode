@@ -35,6 +35,21 @@ export function reorderIds(ids, activeId, overId) {
   return next;
 }
 
+// Sort one container's ids by a display key — the "Sort agents by name"
+// action. Pure: the result still goes through the same reorder path as a
+// drop (ADR-0173), so every client converges on one stored order and the
+// next drag lands where it is dropped. Comparison is case-insensitive and
+// numeric ("agent 2" before "agent 10"); equal or missing keys keep the
+// stored position, so a sort that changes nothing writes nothing.
+export function sortIdsBy(ids, keyOf) {
+  const list = ids || [];
+  const rank = new Map(list.map((id, i) => [id, i]));
+  const key = (id) => String(keyOf(id) ?? "");
+  return [...list].sort((a, b) =>
+    key(a).localeCompare(key(b), undefined, { sensitivity: "base", numeric: true }) || rank.get(a) - rank.get(b)
+  );
+}
+
 export function movePhrase(before, after, id, label) {
   const i = (after || []).indexOf(id);
   if (i < 0 || sameIds(before, after)) return "";
