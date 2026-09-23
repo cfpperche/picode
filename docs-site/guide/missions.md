@@ -9,7 +9,7 @@ and evidence when work moves between agents or sessions. You choose who is
 responsible and whether to accept the result. You can create and review a
 Mission without Pi or a paid model.
 
-- **Where:** open a workspace's **… → Missions**, or search for **Missions**
+- **Where:** open **… → Missions** for a workspace, or search for **Missions**
   in the browser command palette. On a phone, use the workspace menu or
   **More → Missions**.
 - **Before sending:** create or choose an agent in that workspace, then open
@@ -72,14 +72,14 @@ not prove it is working.
 | **Ready for review** | Review was requested for the current evidence scope and candidate revision. | Check the criteria and evidence, then accept or request changes. |
 | **Paused** | Further Mission sends are blocked; an assigned agent may still be running. | Stop the agent if needed, then resume or release it. |
 | **Completed** | You accepted a reviewed result. Responsibility was released and the acceptance stays in history. | Archive it, or reopen it for new work. |
-| **Cancelled** | Further Mission sends are blocked. Existing responsibility is retained until released. | Stop and release the agent, then archive or reopen if needed. |
+| `Cancelled` | Further Mission sends are blocked. Existing responsibility is retained until released. | Stop and release the agent, then archive or reopen if needed. |
 
 ## Read the Missions screen
 
 | Control or section | What it does |
 |---|---|
 | **Filter by workspace** | Limits the list to one workspace; **All workspaces** shows the whole list. |
-| **Include archived** | Shows completed or cancelled Missions you archived. Archiving does not delete history. |
+| **Include archived** | Shows completed or canceled Missions you archived. Archiving does not delete history. |
 | **Create mission** | Opens the Mission form. **Cancel** in that form closes it without saving. |
 | **Load more** | Adds the next page of Missions when the list has more than 100. |
 | **Back** / **All missions** | Returns to the previous view / opens the list filtered to this Mission's workspace. |
@@ -95,7 +95,7 @@ not prove it is working.
 
 Only actions valid for the current status and responsibility appear. Opening
 an action shows its form; **Back** in the form leaves the Mission unchanged.
-The checkboxes for target readiness, prepared files, receipt, or a stopped
+The confirmation boxes for target readiness, prepared files, receipt, or a stopped
 source are statements you must verify yourself. They are cleared on a form
 reload.
 
@@ -104,7 +104,7 @@ reload.
 | **Edit objective** | Available without a reserved agent. Changes the title, objective, criteria, context, or next action; starts a new evidence scope and returns the Mission to **Ready**. Review the latest saved objective before applying a recovered draft after a conflict. |
 | **Assign agent** | Reserves one available agent in the Mission's workspace after you confirm it is ready and has no unrelated draft. The Mission stays **Ready** until receipt is acknowledged. |
 | **Send mission** | Submits the prepared packet once to a supported, started agent. The receipt becomes **unconfirmed** before submission; inspect the agent if the outcome is uncertain. |
-| **Confirm receipt** | Records your confirmation that the assigned agent received the packet. It changes the Mission to **In progress** and names you as the confirmer. Use it only after checking the agent. |
+| **Confirm receipt** | Records your confirmation that the assigned agent received the packet. It changes the Mission to **In progress** and names you as the person who confirmed it. Use it only after checking the agent. |
 | **Add update** | Saves a checkpoint in the Mission and optionally changes **Next action**. It does not send a new prompt to the agent. |
 | **Record decision** | Saves your answer in **Context and decisions** and clears a blocker. An agent reads the updated Mission; the answer is not pasted into its terminal automatically. |
 | **Add evidence** | Attaches a reported pass or fail to one criterion. Choose an observation/test result, a file path, or a Delivery ID; see [Evidence and review](#evidence-and-review). Adding evidence during review returns the Mission to **In progress** for another review. |
@@ -115,9 +115,9 @@ reload.
 | **Pause mission** | Blocks further Mission sends and requests interruption for managed Pi. For other CLIs, stop work in the agent's normal terminal. Responsibility remains assigned until released. |
 | **Resume mission** | Returns a paused Mission to **Ready**, or to **In progress** if its reserved assignment was already acknowledged. It does not start an agent or replay a prompt. |
 | **Cancel mission** | Cancels future Mission sends and preserves files and history. Stop the executor separately; release its responsibility before archiving or reopening. |
-| **Release agent** | Requires confirmation that the executor and its children stopped writing. Frees that agent for another Mission. A nonterminal Mission returns to **Ready** for a new assignment. |
-| **Reopen mission** | Starts new work from a completed or cancelled Mission after any reservation is released. Its history remains, while the current status becomes **Ready**. |
-| **Archive mission** / **Restore from archive** | Hides a completed or cancelled Mission from the default list, or shows it there again. The executor must be released first; history is retained. |
+| **Release agent** | Requires confirmation that the executor and its children stopped writing. Frees that agent for another Mission. An active Mission returns to **Ready** for a new assignment. |
+| **Reopen mission** | Starts new work from a completed or canceled Mission after any reservation is released. Its history remains, while the current status becomes **Ready**. |
+| **Archive mission** / **Restore from archive** | Hides a completed or canceled Mission from the default list, or shows it there again. The executor must be released first; history is retained. |
 | **Restore workspace** | Reconnects a Mission to an existing workspace after releasing the executor. The repository must match the original one; for a plain folder, confirm the required files are prepared. Review must be requested again. |
 
 ## Evidence and review
