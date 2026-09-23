@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"os/exec"
 	"syscall"
 )
@@ -14,6 +15,13 @@ const createNoWindow = 0x08000000
 
 func newCmd(name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNoWindow}
+	return cmd
+}
+
+// newCmdContext is newCmd with a deadline: the context kills the child.
+func newCmdContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNoWindow}
 	return cmd
 }

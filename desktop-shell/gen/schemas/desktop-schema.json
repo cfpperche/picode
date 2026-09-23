@@ -477,6 +477,12 @@
           "markdownDescription": "Enables the disk_report command without any pre-configured scope."
         },
         {
+          "description": "Enables the host_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-host-report",
+          "markdownDescription": "Enables the host_report command without any pre-configured scope."
+        },
+        {
           "description": "Enables the lab_back command without any pre-configured scope.",
           "type": "string",
           "const": "allow-lab-back",
@@ -511,6 +517,18 @@
           "type": "string",
           "const": "allow-lab-reload",
           "markdownDescription": "Enables the lab_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the wsl_restart command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-wsl-restart",
+          "markdownDescription": "Enables the wsl_restart command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the wsl_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-wsl-update",
+          "markdownDescription": "Enables the wsl_update command without any pre-configured scope."
         },
         {
           "description": "Enables the wslconfig_read command without any pre-configured scope.",
@@ -825,6 +843,12 @@
           "markdownDescription": "Denies the disk_report command without any pre-configured scope."
         },
         {
+          "description": "Denies the host_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-host-report",
+          "markdownDescription": "Denies the host_report command without any pre-configured scope."
+        },
+        {
           "description": "Denies the lab_back command without any pre-configured scope.",
           "type": "string",
           "const": "deny-lab-back",
@@ -859,6 +883,18 @@
           "type": "string",
           "const": "deny-lab-reload",
           "markdownDescription": "Denies the lab_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the wsl_restart command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-wsl-restart",
+          "markdownDescription": "Denies the wsl_restart command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the wsl_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-wsl-update",
+          "markdownDescription": "Denies the wsl_update command without any pre-configured scope."
         },
         {
           "description": "Denies the wslconfig_read command without any pre-configured scope.",
