@@ -44,7 +44,7 @@ func TestKillServerThroughAGuardedPath(t *testing.T) {
 	writeScript(t, guard, "#!/bin/sh\n# PiCode intercept — tmux guard (ADR-0138).\necho 'picode tmux guard: refused.' >&2\nexit 1\n")
 	t.Setenv("PATH", guard+string(os.PathListSeparator)+filepath.Dir(real))
 	t.Setenv("TMUX", "")
-	sock := filepath.Join(t.TempDir(), "tmux.sock")
+	sock := socketPath(t, "tmux.sock")
 	m := NewWithSocket(sock)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -68,7 +68,7 @@ func TestKillServerRefusesTheInstanceSocket(t *testing.T) {
 	if err := refuseUserServer(filepath.Join(home, ".picode", "tmux.sock")); err == nil {
 		t.Fatal("the production instance's socket was not refused")
 	}
-	if err := refuseUserServer(filepath.Join(t.TempDir(), "tmux.sock")); err != nil {
+	if err := refuseUserServer(socketPath(t, "tmux.sock")); err != nil {
 		t.Fatalf("a private socket was refused: %v", err)
 	}
 }

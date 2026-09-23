@@ -147,11 +147,31 @@ func TestLocateOMPRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", filepath.Join(root, "bin"))
-	if got := locateOMPRules(); got != rules {
+	// The kernel's spelling is the resolved one: on macOS the fixture is under
+	// /var/folders/… while locateOMPRules answers /private/var/…, one directory
+	// with two names (the same aliasing internal/tmux's samePath documents).
+	if got := locateOMPRules(); !sameFile(got, rules) {
 		t.Fatalf("locateOMPRules = %q, want %q", got, rules)
 	}
 	t.Setenv("PATH", t.TempDir())
 	if got := locateOMPRules(); got != "" {
 		t.Fatalf("no omp on PATH: %q, want empty", got)
 	}
+}
+
+// sameFile compares two paths the way the kernel sees them, not the way the
+// fixture wrote them: on macOS /var is a symlink to /private/var, so the
+// fixture's own temp path and the path a reader resolves out of PATH are one
+// directory under two spellings. Fall back to a literal compare when either
+// side cannot be resolved (it does not exist, or a path is empty).
+func sameFile(a, b string) bool {
+	ra, err := filepath.EvalSymlinks(a)
+	if err != nil {
+		return a == b
+	}
+	rb, err := filepath.EvalSymlinks(b)
+	if err != nil {
+		return a == b
+	}
+	return ra == rb
 }
