@@ -53,6 +53,7 @@ func main() {
 	yes := fs.Bool("yes", false, "with disk-compact: stop the distro and compact without asking again; with install: install the runtime on an adopted distro without asking")
 	dryRun := fs.Bool("dry-run", false, "with disk-compact: print the plan, stop nothing")
 	force := fs.Bool("force", false, "with disk-compact: proceed even when someone is mid-turn")
+	unreachable := fs.Bool("if-unreachable", false, "with wsl-restart / wsl-update: proceed when PiCode does not answer (never when it says someone is working)")
 	method := fs.String("method", "", "with disk-compact: sparse (default) | optimize-vhd")
 	apply := fs.String("apply", "", "with clean: comma-separated cache ids to prune")
 	listOnly := fs.Bool("list", false, "with clean: measure and print the prunable caches")
@@ -70,6 +71,12 @@ func main() {
 		exit(runDisk(*distro, *user, *asJSON, *stream))
 	case cmd == "disk-compact":
 		exit(runDiskCompact(*distro, *user, *method, *yes, *dryRun, *force, *asJSON))
+	case cmd == "host":
+		exit(runHost(*distro, *user))
+	case cmd == "wsl-restart":
+		exit(runWSLRestart(*distro, *user, false, *yes, *force, *unreachable, *asJSON))
+	case cmd == "wsl-update":
+		exit(runWSLRestart(*distro, *user, true, *yes, *force, *unreachable, *asJSON))
 	case cmd == "clean":
 		exit(runClean(*distro, *user, *apply, *listOnly, *yes))
 	case cmd == "startup-check":
@@ -150,6 +157,9 @@ Usage:
   picode-desktop doctor          report what setup would change, touch nothing
   picode-desktop disk            report both halves of the disk: Windows' file and the distro's use
   picode-desktop disk-compact    give the held space back: stop the distro, convert the file, start it again
+  picode-desktop host            memory (Windows and the WSL VM) and WSL versions, as JSON
+  picode-desktop wsl-restart     stop all of WSL and start the distro again (applies .wslconfig); --yes
+  picode-desktop wsl-update      wsl --update, then restart as above; --yes
   picode-desktop startup-check   inspect Windows startup without starting WSL
   picode-desktop startup-repair  repair the existing task, without restarting anything
     --retarget-shell  move the task to the shell resident (ADR-0142) as well

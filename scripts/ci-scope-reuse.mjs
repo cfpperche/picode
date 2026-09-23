@@ -79,7 +79,9 @@ export function coveredRoots({ paths = [], packages = [], full = false } = {}) {
   }
   if (scope.docs) {
     // docs-check re-generates OpenAPI (`go run ./cmd/picode-openapi`) and runs
-    // scripts/ as child processes; `docs/` itself feeds no gate (ADR-0124).
+    // scripts/ as child processes. `docs/` feeds only the living-docs pass,
+    // which `make close` runs every time, so it stays out of the covered
+    // roots (ADR-0124): a note landing on main never re-runs anyone's tests.
     roots.add("docs-site/");
     roots.add("styles/");
     roots.add("scripts/");

@@ -21,7 +21,7 @@ type SessionHandoff struct {
 	TargetCLI  string          `json:"targetCli"`
 	TargetID   string          `json:"targetId,omitempty"`
 	TargetPath string          `json:"targetPath,omitempty"`
-	Mode       string          `json:"mode"`   // native | brief
+	Mode       string          `json:"mode"`   // native | brief | fork
 	Window     string          `json:"window"` // recent | all
 	Tools      string          `json:"tools,omitempty"`
 	Manifest   json.RawMessage `json:"manifest"`
@@ -54,9 +54,9 @@ func (s *Store) AddSessionHandoff(h SessionHandoff) (SessionHandoff, error) {
 		return h, fmt.Errorf("store: handoff needs a source cli, a source id and a target cli")
 	}
 	switch h.Mode {
-	case "native", "brief":
+	case "native", "brief", "fork":
 	default:
-		return h, fmt.Errorf("store: handoff mode must be native or brief")
+		return h, fmt.Errorf("store: handoff mode must be native, brief or fork")
 	}
 	switch h.Window {
 	case "recent", "all":

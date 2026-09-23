@@ -30,6 +30,7 @@ import {
   Folder,
   FolderOpen,
   GitPullRequest,
+  GitFork,
   Link2,
   Lock,
   Maximize,
@@ -144,6 +145,7 @@ export const IconFolders = lucide(Folders, 13);
 export const IconInstructions = lucide(ScrollText, 13);
 export const IconFolderOpen = lucide(FolderOpen, 13);
 export const IconPullRequest = lucide(GitPullRequest, 13);
+export const IconFork = lucide(GitFork, 13);
 export const IconMoveUp = lucide(ArrowUp, 13);
 export const IconMoveDown = lucide(ArrowDown, 13);
 export const IconGrid = lucide(LayoutGrid, 13);

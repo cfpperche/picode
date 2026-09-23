@@ -57,6 +57,8 @@ import Palette from "./components/Palette.jsx";
 import SnipRunSheet from "./components/SnipRunSheet.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
 import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
+import ForkAgentDialog from "./components/ForkAgentDialog.jsx";
+import { terminalIsIdleShellAt } from "@picode/shared/domain/terminalCli.js";
 import { sessionFromTerminal, terminalHandoffSourceCli, handoffTargets } from "@picode/shared/domain/sessionHandoff.js";
 import FocusEdges, { FocusLeave } from "./components/FocusEdges.jsx";
 import { focusAvailable } from "@picode/shared/domain/focusMode.js";
@@ -350,6 +352,7 @@ export default function App({ shellChrome = false } = {}) {
   const clisRef = useRef([]);
   clisRef.current = clis;
   const [termHandoff, setTermHandoff] = useState(null);
+  const [forkSource, setForkSource] = useState(null);
   const terminalsRef = useRef([]);
   terminalsRef.current = terminals;
   const [termAttach, setTermAttach] = useState(null); // {id, token, text, files}: the message bar this terminal opened
@@ -1554,7 +1557,7 @@ export default function App({ shellChrome = false } = {}) {
           // to…", "This terminal is running…") send the command elsewhere;
           // a busy repository is prepared right here, with the reason.
           const msg = (err && err.message) || "";
-          if (/^This terminal (moved to|is running)/i.test(msg)) throw err;
+          if (/^(This terminal (moved to|is running)|This is an Agent CLI)/i.test(msg)) throw err;
           toast.info(runFallbackNote(humanizeError(msg)));
         }
       }
@@ -1580,7 +1583,8 @@ export default function App({ shellChrome = false } = {}) {
         // Reuse a plain, idle shell already sitting in that folder; never a
         // terminal hosting a CLI (Claude Code, Codex…) whose TUI would eat
         // the keystrokes, and never one that is working.
-        const idle = terminals.find((t) => t && t.cwd === root && !t.tui && !t.cli && !t.state);
+        const agentTerms = new Set([...workspaces.flatMap((w) => w.agents || []), ...freeAgents].map((a) => a && a.terminalId).filter(Boolean));
+        const idle = terminals.find((t) => terminalIsIdleShellAt(t, root, agentTerms));
         if (idle) tid = idle.id;
       }
       if (!tid) {
@@ -1591,9 +1595,10 @@ export default function App({ shellChrome = false } = {}) {
       try {
         await deliver(tid);
       } catch (err) {
-        // The chosen terminal moved away or holds a foreground program:
-        // a fresh terminal in the folder takes the command instead.
-        if (!/^This terminal (moved to|is running)/i.test((err && err.message) || "")) throw err;
+        // The chosen terminal moved away, holds a foreground program or
+        // turned out to be an Agent CLI: a fresh terminal in the folder
+        // takes the command instead.
+        if (!/^(This terminal (moved to|is running)|This is an Agent CLI)/i.test((err && err.message) || "")) throw err;
         await deliver(await create());
       }
     } catch (err) {
@@ -2639,6 +2644,32 @@ export default function App({ shellChrome = false } = {}) {
       sourceName: (source && source.name) || sourceCli,
       target,
     });
+  }
+
+  // Fork agent…: the dialog runs the flow; App lends it the git door so a
+  // new worktree is made by a visible command (ADR-0096), and opens the
+  // fork's terminal when it starts.
+  function openForkAgent(ag, term) {
+    const cliId = (term && term.lastSession && term.lastSession.cli) || ag.cli;
+    const cli = clis.find((c) => c.id === cliId);
+    setForkSource({ agent: ag, cliName: (cli && cli.name) || cliId });
+  }
+
+  function onForkAgentDone(res) {
+    const forked = res && res.agent;
+    const next = res && res.terminal;
+    setForkSource(null);
+    loadWorkspaces();
+    if (next && next.launchError) {
+      // The agent exists (ADR-0184); its stopped terminal says why and offers Start.
+      toastError(new Error(next.launchError));
+    } else if (forked) {
+      toast.ok((forked.name || "The fork") + " is starting on a copy of the conversation.");
+    }
+    if (next && next.id) {
+      openTermTab(next.id);
+      location.hash = termHash(next.id);
+    }
   }
 
   function onTermHandoffDone(res, target) {
@@ -3791,6 +3822,7 @@ export default function App({ shellChrome = false } = {}) {
         onRemoveTerm={removeTerminal}
         onLaunchAction={launchTerminalAction}
         onContinueTerm={openTermHandoff}
+        onForkAgent={openForkAgent}
         clis={clis}
         onRenameTerm={renameTerminal}
         onReorder={reorderSidebar}
@@ -4503,6 +4535,15 @@ export default function App({ shellChrome = false } = {}) {
         target={termHandoff ? termHandoff.target : null}
         onClose={() => setTermHandoff(null)}
         onDone={onTermHandoffDone}
+      />
+
+      <ForkAgentDialog
+        open={!!forkSource}
+        agent={forkSource ? forkSource.agent : null}
+        cliName={forkSource ? forkSource.cliName : ""}
+        deliverGit={(command, root) => typeIntoTerminal({ kind: "agent", id: forkSource.agent.id }, root, command, { run: true, quiet: true })}
+        onClose={() => setForkSource(null)}
+        onDone={onForkAgentDone}
       />
 
       <GitActionDialog

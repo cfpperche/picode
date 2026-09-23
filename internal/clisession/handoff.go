@@ -56,6 +56,27 @@ type Prompter interface {
 	PromptArgs(prompt, sessionID string) []string
 }
 
+// Forker composes the launch arguments that open a copy of an existing
+// session of the same CLI with the vendor's own fork (Fork agent…): the
+// source stays as it is, the copy carries the whole conversation and
+// starts on prompt when one is given (none leaves it waiting). newID
+// pre-assigns the copy's id where the CLI allows it. Each form is the
+// CLI's own, verified on its installed version: a fork never goes through
+// a translated session.
+type Forker interface {
+	ForkArgs(src Ref, prompt, newID string) Fork
+}
+
+// Fork is one composed fork launch. ID and ResumeArgs are set only when
+// the CLI took the pre-assigned id: the copy is known before it starts, so
+// the new terminal can pin it at once. Otherwise both are empty and the
+// terminal's pinned session resolves the copy on its first turn.
+type Fork struct {
+	Args       []string
+	ID         string
+	ResumeArgs []string
+}
+
 // WriteRequest parameterizes one native write.
 type WriteRequest struct {
 	Cwd string
@@ -90,6 +111,7 @@ type Capabilities struct {
 	Read   bool `json:"read"`
 	Write  bool `json:"write"`
 	Prompt bool `json:"prompt"`
+	Fork   bool `json:"fork"`
 	Agent  bool `json:"agent"`
 }
 
@@ -102,7 +124,8 @@ func CapabilitiesOf(cli string) Capabilities {
 	_, read := src.(Reader)
 	_, write := src.(Writer)
 	_, prompt := src.(Prompter)
-	return Capabilities{List: true, Read: read, Write: write, Prompt: prompt}
+	_, fork := src.(Forker)
+	return Capabilities{List: true, Read: read, Write: write, Prompt: prompt, Fork: fork}
 }
 
 // ReaderFor, WriterFor and PrompterFor are the typed lookups the server uses.
@@ -131,6 +154,34 @@ func PrompterFor(cli string) (Prompter, bool) {
 	}
 	p, ok := src.(Prompter)
 	return p, ok
+}
+
+func ForkerFor(cli string) (Forker, bool) {
+	src, ok := Get(cli)
+	if !ok {
+		return nil, false
+	}
+	f, ok := src.(Forker)
+	return f, ok
+}
+
+// idFork is the shape Claude Code and Grok share: resume the source with
+// the fork flag, name the copy with --session-id, and resume it later with
+// --resume <id> like any of their sessions.
+func idFork(args []string, prompt, newID string) Fork {
+	if newID == "" {
+		return Fork{Args: withPrompt(args, prompt)}
+	}
+	args = append(args, "--session-id", newID)
+	return Fork{Args: withPrompt(args, prompt), ID: newID, ResumeArgs: []string{"--resume", newID}}
+}
+
+// withPrompt appends prompt as the last argument when there is one.
+func withPrompt(args []string, prompt string) []string {
+	if prompt == "" {
+		return args
+	}
+	return append(args, prompt)
 }
 
 var (

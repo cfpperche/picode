@@ -329,6 +329,20 @@ var specs = map[string]spec{
 		// happens to sit in.
 		return one("git worktree add %s %s", worktreePath(a, n), t)
 	}},
+	// create-worktree-branch is the same sibling checkout on a new branch
+	// named for it (Fork agent…): a fork's work gets a branch of its own
+	// from the commit the source stands on, never a detached checkout.
+	"create-worktree-branch": {TierA, []string{"target", "name"}, func(a Args) string { return "create a worktree on a new branch from " + short(a.Target) }, func(a Args) (string, error) {
+		n, err := slug(a)
+		if err != nil {
+			return "", err
+		}
+		t, err := target(a)
+		if err != nil {
+			return "", err
+		}
+		return one("git worktree add -b %s %s %s", n, worktreePath(a, n), t)
+	}},
 	"prune-worktrees": {TierA, nil, func(Args) string { return "prune stale worktrees" }, func(Args) (string, error) {
 		return "git worktree prune", nil
 	}},

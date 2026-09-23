@@ -239,6 +239,57 @@ pub fn disk_compact(app: tauri::AppHandle, run: Option<String>) -> Result<Compac
     serde_json::from_value(v).map_err(|e| format!("compact outcome JSON: {e}"))
 }
 
+/// Memory from both sides and the WSL versions (System tab). Read-only.
+#[tauri::command(async)]
+pub fn host_report() -> Result<serde_json::Value, String> {
+    let text = run_cli(&["host"])?;
+    let start = text.find('{').ok_or_else(|| format!("no JSON in the tool output: {text}"))?;
+    serde_json::from_str(text[start..].trim_end()).map_err(|e| format!("host report JSON: {e}"))
+}
+
+/// Stops all of WSL and starts the distro again — what applies a
+/// .wslconfig change. Interlock first; steps stream as `mgmt-progress`
+/// (op "restart"); the outcome carries `stopped` once sessions ended.
+///
+/// `if_unreachable` is the page's recovery door when PiCode does not
+/// answer: the tool then proceeds without the interlock, and still refuses
+/// when PiCode answers that someone is working.
+#[tauri::command(async)]
+pub fn wsl_restart(
+    app: tauri::AppHandle,
+    run: Option<String>,
+    if_unreachable: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    let mut args = vec!["wsl-restart", "--yes", "--json"];
+    if if_unreachable.unwrap_or(false) {
+        args.push("--if-unreachable");
+    }
+    stream_cli(&app, "restart", &run.unwrap_or_default(), &args)
+}
+
+/// `wsl --update`, then the same restart (op "update"). The keepalive is
+/// paused for the run so it does not relaunch wsl.exe under the installer.
+#[tauri::command(async)]
+pub fn wsl_update(
+    app: tauri::AppHandle,
+    run: Option<String>,
+    if_unreachable: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    struct Resume;
+    impl Drop for Resume {
+        fn drop(&mut self) {
+            crate::board::KEEPALIVE_PAUSED.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    crate::board::KEEPALIVE_PAUSED.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _resume = Resume;
+    let mut args = vec!["wsl-update", "--yes", "--json"];
+    if if_unreachable.unwrap_or(false) {
+        args.push("--if-unreachable");
+    }
+    stream_cli(&app, "update", &run.unwrap_or_default(), &args)
+}
+
 /// The plan without stopping anything — what the window shows before asking.
 #[tauri::command(async)]
 pub fn disk_compact_dry_run() -> Result<CompactOutcome, String> {

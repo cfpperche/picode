@@ -50,7 +50,11 @@ export default function LlamaPanel({ onRefresh }) {
   const refreshing = useRef(false);
   const jobsRefreshing = useRef(false);
   const active = jobs.filter(j => ["queued", "running", "unknown"].includes(j.state));
-  const modelBusy = id => active.some(j => j.endpoint === url && (j.model === id || j.replaceOthers));
+  // The saved server, normalized by the server — never the Server tab's
+  // unsaved text, which a job's endpoint would not match (2026-09-23 review).
+  const [endpoint, setEndpoint] = useState("");
+  const modelBusy = id => active.some(j => j.endpoint === endpoint && (j.model === id || j.replaceOthers));
+  const again = useRef(false);
 
   async function refreshJobs() {
     if (jobsRefreshing.current) return;
@@ -67,21 +71,30 @@ export default function LlamaPanel({ onRefresh }) {
   const [hits, setHits] = useState([]);
   const [info, setInfo] = useState(null);
 
-  async function refresh() {
-    if (refreshing.current) return;
+  // One check at a time. A job's end that lands during an older check queues
+  // a rerun (queue), so the model's new state is read; mount, focus and a feed
+  // reopen are dropped instead — queued, they doubled the first check.
+  async function refresh(queue = false) {
+    if (refreshing.current) { if (queue === true) again.current = true; return; }
     refreshing.current = true;
     setChecking(true);
     try {
       const res = await api("/api/llama");
       if (!initialized.current) { setUrl(res.url || "http://127.0.0.1:8080"); initialized.current = true; }
+      setEndpoint(res.endpoint || "");
       setOk(!!res.ok);
       setConnection(res.connection || { code: res.ok ? "ready" : "unreachable", message: res.ok ? "Connected" : "Cannot reach the server from PiCode." });
       setModels(res.models || []);
       setCapabilities(res.capabilities || {});
-    } catch {
+    } catch (ex) {
+      // PiCode itself refused (an unreadable saved address, for one): say so,
+      // since "try again" would only fail the same way.
       setOk(false);
-      setConnection({ code: "unreachable", message: "Cannot check the connection. Try again." });
-    } finally { setChecking(false); refreshing.current = false; }
+      setConnection({ code: "error", message: ex && ex.message ? "Cannot check the connection: " + ex.message : "Cannot check the connection. Try again." });
+    } finally {
+      setChecking(false); refreshing.current = false;
+      if (again.current) { again.current = false; refresh(); }
+    }
   }
 
   useEffect(() => {
@@ -92,7 +105,7 @@ export default function LlamaPanel({ onRefresh }) {
         if (j?.id) {
           setJobs(current => mergeLlamaJob(current, j));
           setModels(current => current.map(m => m.id === j.model && j.observed ? { ...m, status: j.observed } : m));
-          if (!["queued", "running", "unknown"].includes(j.state)) { refresh(); onRefresh?.(); }
+          if (!["queued", "running", "unknown"].includes(j.state)) { refresh(true); onRefresh?.(); }
         } else refreshJobs();
       }
       if (["feed.open", "feed.reset"].includes(event.type)) { refreshJobs(); refresh(); }
@@ -114,10 +127,12 @@ export default function LlamaPanel({ onRefresh }) {
         body: JSON.stringify(parsed.value),
       });
       setKey(""); initialized.current = false;
-      await refresh();
-      if (onRefresh) await onRefresh();
-    } catch (ex) { setFormError(ex.message || "Could not save the connection."); }
-    finally { setSaving(false); }
+      setSaving(false);
+      // The save is done; the check that follows says whether the server
+      // answers, on its own line — never as a Save that seems to hang.
+      refresh();
+      if (onRefresh) onRefresh();
+    } catch (ex) { setFormError(ex.message || "Could not save the connection."); setSaving(false); }
   }
 
   async function submit(operationName, payload, requestKey = crypto.randomUUID()) {
@@ -193,19 +208,27 @@ export default function LlamaPanel({ onRefresh }) {
     finally { setSearching(false); }
   }
 
+  // The last repo picked wins: an earlier, slower answer is dropped, and the
+  // list shows which one is being read (Hugging Face can take seconds).
+  const picking = useRef("");
+  const [pendingRepo, setPendingRepo] = useState("");
   async function pickRepo(id) {
+    picking.current = id;
+    setPendingRepo(id);
     try {
       const inf = await api("/api/llama/hf/info?id=" + encodeURIComponent(id));
+      if (picking.current !== id) return;
       if (inf.gated) {
         const yes = await askConfirm({
           title: inf.id,
           message: "Gated repo. llama-server needs HF_TOKEN. Continue?",
           confirmLabel: "Continue",
         });
-        if (!yes) return;
+        if (!yes || picking.current !== id) return;
       }
       setInfo(inf);
-    } catch (ex) { toastError(ex); }
+    } catch (ex) { if (picking.current === id) toastError(ex); }
+    finally { if (picking.current === id) setPendingRepo(""); }
   }
 
   async function startDownload(quant) {
@@ -232,7 +255,7 @@ export default function LlamaPanel({ onRefresh }) {
         <a className={section === "service" ? "active" : ""} href="#/llama/service" aria-current={section === "service" ? "page" : undefined}>Local service</a>
       </nav>
       {section !== "service" ? <div className="llama-status" role="status">
-        <div className="llama-state"><span className={"llama-dot " + (checking ? "checking" : ok ? "ready" : "")}></span>
+        <div className="llama-state"><span className={"llama-dot " + (checking ? "checking" : ok ? "ready" : endpoint ? "down" : "")}></span>
         <span>{checking ? "Checking connection…" : connection.message}</span></div>
         <button type="button" className="btn btn-ghost btn-sm" disabled={checking || saving || !!busy} onClick={refresh}>Test connection</button>
       </div> : null}
@@ -251,14 +274,14 @@ export default function LlamaPanel({ onRefresh }) {
           <label><span>API key <span className="settings-desc">(optional)</span></span><input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="Blank keeps saved key" autoComplete="new-password" /></label>
           {formError ? <p role="alert">{formError}</p> : null}
           <div className="llama-actions" data-align-row>
-            <button type="submit" className="btn btn-primary btn-sm" disabled={saving || checking || !!busy}>{saving ? "Saving…" : "Save connection"}</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving || !!busy}>{saving ? "Saving…" : "Save connection"}</button>
             <a className="btn btn-ghost btn-sm" href={DOCS_BASE + "/guide/llama"} target="_blank" rel="noreferrer"><IconDocs /> Setup guide</a>
           </div>
         </form>
       ) : checking && !initialized.current ? (
         <div className="llama-skeleton" aria-label="Loading models"><div /><div /><div /></div>
       ) : !ok ? (
-        <div className="llama-empty"><p>Connect a llama.cpp server to manage models.</p><a className="btn btn-primary btn-sm" href="#/llama/server">Configure server</a></div>
+        <div className="llama-empty"><p>{endpoint && connection.code !== "error" ? "Models can be managed once the server answers." : "Connect a llama.cpp server to manage models."}</p><a className="btn btn-primary btn-sm" href="#/llama/server">{endpoint ? "Check server" : "Configure server"}</a></div>
       ) : (
         <>
           <div className="llama-toolbar"><h3>Your models</h3><button type="button" className="btn btn-primary btn-sm" disabled={!!busy} onClick={() => { setDl(true); setHits([]); setInfo(null); setSearched(false); }}>Download model</button></div>
@@ -301,7 +324,7 @@ export default function LlamaPanel({ onRefresh }) {
                 ) : (
                   <ul className="prov-list">
                     {info.quantizations.map((z) => (
-                      <li key={z.name} className="prov-row">
+                      <li key={z.name} className="prov-row llama-quant">
                         <span className="prov-id">{z.name}</span>
                         <span className="prov-auth">{bytes(z.size)}{z.estimatedMemory ? " · ~" + bytes(z.estimatedMemory) + " memory" : ""}</span>
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => startDownload(z.name)}>Download</button>
@@ -322,8 +345,9 @@ export default function LlamaPanel({ onRefresh }) {
               <Command loop className="prov-pick" shouldFilter={false}>
                 <Command.List className="prov-pick-list">
                   {hits.map((h) => (
-                    <Command.Item key={h.id} value={h.id} className="cockpit-opt" onSelect={() => pickRepo(h.id)}>
+                    <Command.Item key={h.id} value={h.id} className="cockpit-opt" onSelect={() => pickRepo(h.id)} aria-busy={pendingRepo === h.id || undefined}>
                       <span>{h.id}</span>
+                      {pendingRepo === h.id ? <small className="llama-pick-pending">Reading…</small> : null}
                     </Command.Item>
                   ))}
                 </Command.List>

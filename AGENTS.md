@@ -150,8 +150,10 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
 ```bash
 make ci-scoped     # while iterating: the gates this diff can break
 make close         # at the end: scoped gates (or the green run they can
-                   # reuse), regenerated OpenAPI, the rendered board,
-                   # fast-forward check, and the closing summary
+                   # reuse), the living-docs pass (ADR index, architecture
+                   # index, relative links), regenerated OpenAPI, the
+                   # rendered board, fast-forward check, and the closing
+                   # summary
 ```
 
 Write `docs/changelog.d/<branch-slug>.md` and

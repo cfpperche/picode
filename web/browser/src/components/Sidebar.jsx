@@ -53,7 +53,7 @@ export default function Sidebar({
   workingIds,
   waitingId,
   checklists,
-  terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onLaunchAction, onContinueTerm, clis,
+  terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onLaunchAction, onContinueTerm, onForkAgent, clis,
   onReorder,
   onGitGraph,
   onFileTree,
@@ -151,7 +151,7 @@ export default function Sidebar({
         onRun={onRun} onStop={onStop}
         onRemoveAgent={onRemoveAgent} onRemove={onRemove}
         onChat={onChat} onTerm={onTerm} termView={termView}
-        clis={clis} terms={terminals} onLaunchAction={onLaunchAction} onContinueTerm={onContinueTerm}
+        clis={clis} terms={terminals} onLaunchAction={onLaunchAction} onContinueTerm={onContinueTerm} onForkAgent={onForkAgent}
       />
       )}
       </SortableRow>

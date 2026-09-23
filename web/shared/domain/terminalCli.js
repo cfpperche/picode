@@ -137,6 +137,20 @@ export function terminalDisplayCli(term) {
   return normalizeTerminalCli(term && term.cli) || normalizeTerminalCli(term && term.launchCli);
 }
 
+// terminalIsIdleShellAt: a plain shell, sitting in root, doing nothing —
+// the only kind of terminal a git command may be typed into (ADR-0096).
+// A terminal launched for a CLI carries launchCli even while its TUI is
+// idle and reports no runtime, so it never counts: its composer would eat
+// the keystrokes, and the server refuses it anyway ("This is an Agent CLI").
+// Every CLI launch is an agent (ADR-0184), so a terminal an agent owns is
+// never a plain shell either: agentTerms is that set of terminal ids, and it
+// holds even when a feed patch left the row without its live fields.
+export function terminalIsIdleShellAt(term, root, agentTerms) {
+  if (!term || !root || term.cwd !== root) return false;
+  if (agentTerms && agentTerms.has(term.id)) return false;
+  return !term.tui && !term.cli && !term.launchCli && !term.state;
+}
+
 export function terminalCliFaviconUrls(id) {
   return CLI_FAVICONS[normalizeTerminalCli(id)] || [];
 }

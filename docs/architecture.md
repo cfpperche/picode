@@ -155,6 +155,17 @@ carries `stopped` once the flow has terminated the distro, so a failure after
 that point is reported as one that ended the sessions. The page leads each known tool error with a plain line and
 the one action to take, and keeps the tool's own text beneath it.
 
+`picode-desktop host` is the System tab's read: Windows memory (the
+`vmmemWSL` process and CIM, one PowerShell call answered as JSON), the
+distro's `/proc/meminfo` (whose `MemTotal` is the VM's limit), `wsl
+--version` read by line position because its labels are translated, and the
+newest release tag from WSL's GitHub releases (bounded at 6 s, never fatal).
+`wsl-restart` and `wsl-update` are the two other actions that end every
+session: both ask the same readiness interlock as the compact
+(`idleInterlock`), stop all of WSL with `wsl --shutdown` (the update runs `wsl
+--update` first) and start the distro again whatever failed before; the shell
+re-arms its keepalive on its next health tick.
+
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an

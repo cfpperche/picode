@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/llama"
 	"github.com/cfpperche/picode/internal/llamajob"
 	"github.com/cfpperche/picode/internal/store"
@@ -55,75 +57,260 @@ func TestLlamaJobHTTP(t *testing.T) {
 	}
 }
 
-// The catalog's llama.cpp read is kept, a failure included, and a stale one
-// is served at once while it refreshes in the background: a server that
-// accepts and never answers cost every /api/catalog its 2 s timeout.
-func TestCatalogLlamaIsKept(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	writeAuth := func(url string) {
-		dir := filepath.Join(home, ".pi", "agent")
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			t.Fatal(err)
+// catalogLlamaFixture points the catalog at url (through a HOME auth.json)
+// and swaps the probe for one the test drives. It returns the probe count.
+type catalogLlamaFixture struct {
+	t     *testing.T
+	home  string
+	mu    sync.Mutex
+	calls map[string]int
+	// answer and gate are per URL: gate, when set, blocks that URL's probe
+	// until the test closes it.
+	answer map[string][]llama.Model
+	gate   map[string]chan struct{}
+}
+
+func newCatalogLlamaFixture(t *testing.T) *catalogLlamaFixture {
+	f := &catalogLlamaFixture{t: t, home: t.TempDir(), calls: map[string]int{}, answer: map[string][]llama.Model{}, gate: map[string]chan struct{}{}}
+	t.Setenv("HOME", f.home)
+	prev := listCatalogLlama
+	listCatalogLlama = func(url, _ string) ([]llama.Model, error) {
+		f.mu.Lock()
+		f.calls[url]++
+		g := f.gate[url]
+		f.mu.Unlock()
+		if g != nil {
+			<-g
 		}
-		body := `{"llama.cpp":{"type":"api_key","key":"k","env":{"LLAMA_BASE_URL":"` + url + `"}}}`
-		if err := os.WriteFile(filepath.Join(dir, "auth.json"), []byte(body), 0o600); err != nil {
-			t.Fatal(err)
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		if m, ok := f.answer[url]; ok {
+			return m, nil
 		}
+		return nil, errors.New("timeout")
 	}
 	reset := func() {
 		catalogLlama.Lock()
-		catalogLlama.key, catalogLlama.at, catalogLlama.refreshing = "", time.Time{}, false
+		catalogLlama.key, catalogLlama.at, catalogLlama.stale, catalogLlama.models, catalogLlama.err = "", time.Time{}, false, nil, nil
+		catalogLlama.flight = nil
 		catalogLlama.Unlock()
 	}
-	writeAuth("http://127.0.0.1:1")
-	var mu sync.Mutex
-	calls := 0
-	fail := true
-	prev := listCatalogLlama
-	listCatalogLlama = func() ([]llama.Model, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		calls++
-		if fail {
-			return nil, errors.New("timeout")
-		}
-		return []llama.Model{{ID: "qwen", Status: "loaded"}}, nil
-	}
-	t.Cleanup(func() { listCatalogLlama = prev; reset() })
 	reset()
-	count := func() int { mu.Lock(); defer mu.Unlock(); return calls }
+	t.Cleanup(func() { listCatalogLlama = prev; reset() })
+	return f
+}
 
+func (f *catalogLlamaFixture) point(url string) {
+	dir := filepath.Join(f.home, ".pi", "agent")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		f.t.Fatal(err)
+	}
+	body := `{"llama.cpp":{"type":"api_key","key":"k","env":{"LLAMA_BASE_URL":"` + url + `"}}}`
+	if err := os.WriteFile(filepath.Join(dir, "auth.json"), []byte(body), 0o600); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func (f *catalogLlamaFixture) count(url string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls[url]
+}
+
+func (f *catalogLlamaFixture) models() []string {
 	rep := catalog.Report{Providers: []catalog.Provider{{ID: "llama.cpp"}}}
-	attachLlamaModels(&rep)
-	attachLlamaModels(&rep)
-	if count() != 1 {
-		t.Fatalf("a failed read asked %d times, want 1", count())
+	attachLlamaModels(&rep, false)
+	var ids []string
+	for _, m := range rep.Providers[0].Models {
+		ids = append(ids, m.ID)
 	}
-	// A changed server is a different entry, asked at once, never the old answer.
-	mu.Lock()
-	fail = false
-	mu.Unlock()
-	writeAuth("http://127.0.0.1:2")
-	attachLlamaModels(&rep)
-	if count() != 2 || len(rep.Providers[0].Models) != 1 {
-		t.Fatalf("calls=%d models=%v after the URL changed", count(), rep.Providers[0].Models)
-	}
-	// A model operation ages the answer: the next read still answers at once
-	// (no wait) and refreshes in the background, once.
-	forgetCatalogLlama()
-	rep2 := catalog.Report{Providers: []catalog.Provider{{ID: "llama.cpp"}}}
-	attachLlamaModels(&rep2)
-	attachLlamaModels(&catalog.Report{})
-	if len(rep2.Providers[0].Models) != 1 {
-		t.Fatalf("a stale answer must still be served: %v", rep2.Providers[0].Models)
-	}
+	return ids
+}
+
+func waitFor(t *testing.T, what string, ok func() bool) {
+	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
-	for count() < 3 && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
+	for !ok() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(2 * time.Millisecond)
 	}
-	time.Sleep(20 * time.Millisecond)
-	if count() != 3 {
-		t.Fatalf("calls=%d, want exactly one background refresh", count())
+}
+
+const urlA, urlB = "http://127.0.0.1:1", "http://127.0.0.1:2"
+
+// A failure is kept like an answer: two reads, one probe.
+func TestCatalogLlamaKeepsAFailure(t *testing.T) {
+	f := newCatalogLlamaFixture(t)
+	f.point(urlA)
+	f.models()
+	f.models()
+	if f.count(urlA) != 1 {
+		t.Fatalf("probes = %d, want 1", f.count(urlA))
+	}
+}
+
+// Concurrent reads with nothing kept share one probe.
+func TestCatalogLlamaColdReadsShareOneProbe(t *testing.T) {
+	f := newCatalogLlamaFixture(t)
+	f.point(urlA)
+	f.answer[urlA] = []llama.Model{{ID: "qwen", Status: "loaded"}}
+	g := make(chan struct{})
+	f.gate[urlA] = g
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); f.models() }()
+	}
+	waitFor(t, "the first probe", func() bool { return f.count(urlA) == 1 })
+	close(g)
+	wg.Wait()
+	if f.count(urlA) != 1 {
+		t.Fatalf("probes = %d, want 1", f.count(urlA))
+	}
+}
+
+// A probe stores under the server it asked: A's late answer is never served
+// for B.
+func TestCatalogLlamaNeverFilesAUnderB(t *testing.T) {
+	f := newCatalogLlamaFixture(t)
+	f.answer[urlA] = []llama.Model{{ID: "model-on-A", Status: "loaded"}}
+	f.answer[urlB] = []llama.Model{{ID: "model-on-B", Status: "loaded"}}
+	f.point(urlA)
+	f.models() // kept: A
+	forgetCatalogLlama()
+	g := make(chan struct{})
+	f.mu.Lock()
+	f.gate[urlA] = g
+	f.mu.Unlock()
+	f.models() // stale: serves A, refreshes A in the background (blocked)
+	waitFor(t, "A's refresh", func() bool { return f.count(urlA) == 2 })
+	f.point(urlB) // the owner switches servers mid-probe
+	if got := f.models(); len(got) != 1 || got[0] != "model-on-B" {
+		t.Fatalf("after the switch = %v", got)
+	}
+	close(g) // A's old refresh lands now
+	waitFor(t, "A's refresh to land", func() bool {
+		catalogLlama.Lock()
+		defer catalogLlama.Unlock()
+		return len(catalogLlama.flight) == 0
+	})
+	if got := f.models(); len(got) != 1 || got[0] != "model-on-B" {
+		t.Fatalf("B served %v after A's late answer", got)
+	}
+}
+
+// A forget during a probe is not lost: the probe's older answer is kept
+// stale, so the next read asks again.
+func TestCatalogLlamaForgetDuringAProbe(t *testing.T) {
+	f := newCatalogLlamaFixture(t)
+	f.point(urlA)
+	f.answer[urlA] = []llama.Model{{ID: "old", Status: "loaded"}}
+	f.models()
+	forgetCatalogLlama()
+	g := make(chan struct{})
+	f.mu.Lock()
+	f.gate[urlA] = g
+	f.mu.Unlock()
+	f.models() // background refresh starts, blocked
+	waitFor(t, "the refresh", func() bool { return f.count(urlA) == 2 })
+	forgetCatalogLlama() // e.g. a load finished while it was in flight
+	f.mu.Lock()
+	f.answer[urlA] = []llama.Model{{ID: "new", Status: "loaded"}}
+	f.gate[urlA] = nil
+	f.mu.Unlock()
+	close(g)
+	waitFor(t, "the refresh to land", func() bool {
+		catalogLlama.Lock()
+		defer catalogLlama.Unlock()
+		return len(catalogLlama.flight) == 0
+	})
+	f.models() // stale again: must refresh
+	waitFor(t, "a second refresh", func() bool { return f.count(urlA) == 3 })
+	waitFor(t, "the new answer", func() bool { got := f.models(); return len(got) == 1 && got[0] == "new" })
+}
+
+// fresh waits for a new answer even when one is kept.
+func TestCatalogLlamaFreshAsksAgain(t *testing.T) {
+	f := newCatalogLlamaFixture(t)
+	f.point(urlA)
+	f.models()
+	f.mu.Lock()
+	f.answer[urlA] = []llama.Model{{ID: "started", Status: "loaded"}}
+	f.mu.Unlock()
+	rep := catalog.Report{Providers: []catalog.Provider{{ID: "llama.cpp"}}}
+	attachLlamaModels(&rep, true)
+	if f.count(urlA) != 2 || len(rep.Providers[0].Models) != 1 {
+		t.Fatalf("probes=%d models=%v", f.count(urlA), rep.Providers[0].Models)
+	}
+}
+
+// A model job's end and a service change forget; progress does not.
+func TestCatalogLlamaListensForJobsAndTheService(t *testing.T) {
+	f := newCatalogLlamaFixture(t)
+	f.point(urlA)
+	f.models()
+	fd := &feed.Feed{}
+	catalogLlamaListen(fd)
+	stale := func() bool { catalogLlama.Lock(); defer catalogLlama.Unlock(); return catalogLlama.stale }
+	fd.Publish(store.Event{Type: "llama.job", Data: []byte(`{"state":"running"}`)})
+	if stale() {
+		t.Fatal("a running job must not forget")
+	}
+	fd.Publish(store.Event{Type: "llama.job", Data: []byte(`{"state":"succeeded"}`)})
+	if !stale() {
+		t.Fatal("a finished job must forget")
+	}
+	f.models()
+	waitFor(t, "the refresh", func() bool { return !stale() })
+	fd.Publish(store.Event{Type: "llama.service", Data: []byte(`{"revision":2}`)})
+	if !stale() {
+		t.Fatal("a service change must forget")
+	}
+}
+
+// The pane's check is bounded by its own budget, and a server that did not
+// answer is not asked for its capabilities (that added 3 s to every check).
+func TestLlamaPaneCheckIsBounded(t *testing.T) {
+	var mu sync.Mutex
+	var paths []string
+	hang := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths = append(paths, r.URL.Path)
+		mu.Unlock()
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer hang.Close()
+	f := newCatalogLlamaFixture(t)
+	f.point(hang.URL)
+	prev := paneLlamaFor
+	paneLlamaFor = 150 * time.Millisecond
+	t.Cleanup(func() { paneLlamaFor = prev })
+
+	start := time.Now()
+	rec := httptest.NewRecorder()
+	handleLlamaList(rec, httptest.NewRequest("GET", "/api/llama", nil))
+	if took := time.Since(start); took > 2*time.Second {
+		t.Fatalf("the check took %v", took)
+	}
+	var body struct {
+		OK         bool              `json:"ok"`
+		Endpoint   string            `json:"endpoint"`
+		Connection map[string]string `json:"connection"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.OK || body.Connection["code"] != "timeout" || body.Endpoint != hang.URL {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(paths) != 1 {
+		t.Fatalf("asked %v; a failed check must not go on to ask for capabilities", paths)
 	}
 }

@@ -19,6 +19,10 @@ func TestAddSessionHandoffRoundTrip(t *testing.T) {
 	if _, err := s.AddSessionHandoff(SessionHandoff{SourceCLI: "claude-code", TargetCLI: "codex", Mode: "native", Window: "all"}); err == nil {
 		t.Fatal("missing source id accepted")
 	}
+	// A fork (Fork agent…) is a same-CLI row: the copy of a conversation.
+	if _, err := s.AddSessionHandoff(SessionHandoff{SourceCLI: "codex", SourceID: "cx-1", TargetCLI: "codex", Mode: "fork", Window: "all"}); err != nil {
+		t.Fatalf("fork mode refused: %v", err)
+	}
 	h, err := s.AddSessionHandoff(SessionHandoff{
 		SourceCLI: "claude-code", SourceID: "cc-1", SourcePath: "/h/.claude/projects/-p/cc-1.jsonl",
 		TargetCLI: "codex", TargetID: "cx-9", TargetPath: "/h/.codex/sessions/2026/09/06/rollout-x-cx-9.jsonl",
