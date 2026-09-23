@@ -89,7 +89,13 @@ choosing one clears the key and choosing either removes the platform. The
 same option offers an Anthropic-compatible gateway (ADR-0190): base URL,
 token and optional models in the same `env` block; a URL with no token is a
 proxy and stays untouched, and with a gateway in use no Console key is ever
-injected — Claude Code would send it to the gateway as `x-api-key`. The
+injected — Claude Code would send it to the gateway as `x-api-key`. Codex has
+its own dialog too (`CodexLoginDialog.jsx`, `add.kind: "codex"`, ADR-0191),
+shaped like its `/login` and run through Codex's own `codex app-server`
+(`POST`/`GET`/`DELETE /api/codex/login`): ChatGPT in the browser, a device
+code, an API key, Amazon Bedrock. Codex writes its own files; a ChatGPT or
+key login is then imported into the vault; a non-Bedrock login removes the
+`model_provider = "amazon-bedrock"` Codex leaves in `config.toml`. The
 other guests'
 dialog still holds a provider `<select>`
 limited to that CLI's providers, the key field with the line that says the

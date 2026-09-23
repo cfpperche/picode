@@ -4,6 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import PageFrame from "./PageFrame.jsx";
 import AddProviderDialog from "./AddProviderDialog.jsx";
 import ClaudeCodeLoginDialog from "./ClaudeCodeLoginDialog.jsx";
+import CodexLoginDialog from "./CodexLoginDialog.jsx";
 import CustomEndpointPage from "./CustomEndpointPage.jsx";
 import QuotaStrip from "./QuotaStrip.jsx";
 import TermSurface from "./TermSurface.jsx";
@@ -72,6 +73,8 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const [claudeOpen, setClaudeOpen] = useState(false);
   // The platform being edited, when the Claude Code dialog opens on it.
   const [claudeEdit, setClaudeEdit] = useState(null);
+  const [codexOpen, setCodexOpen] = useState(false);
+  const [codexEdit, setCodexEdit] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ provider: "", key: "" });
   const [formError, setFormError] = useState("");
@@ -196,7 +199,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const addSpec = data && data.add ? data.add : null;
   // "provider" is pi's Add flow, "claude-code" Claude Code's own sign-in
   // dialog (ADR-0187), anything else the key form.
-  const addKind = addSpec ? (addSpec.kind === "provider" || addSpec.kind === "claude-code" ? addSpec.kind : "key") : "";
+  const addKind = addSpec ? (["provider", "claude-code", "codex"].includes(addSpec.kind) ? addSpec.kind : "key") : "";
   const addLabel = (addSpec && addSpec.label) || (addKind === "provider" ? "Add provider" : "Add API key");
   // pi's models.json page: the one provider surface a guest CLI has no
   // equivalent for, linked rather than hidden behind a menu item (ADR-0169).
@@ -244,6 +247,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   function openPrimary() {
     if (addKind === "provider") setAddProviderOpen(true);
     else if (addKind === "claude-code") setClaudeOpen(true);
+    else if (addKind === "codex") setCodexOpen(true);
     else openAdd("");
   }
 
@@ -274,6 +278,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     // says which that is, and pi's catalog is what fills the provider list.
     if (addKind === "provider") { if (cli !== "pi" || catalog) setAddProviderOpen(true); return; }
     if (addKind === "claude-code") { setClaudeOpen(true); return; }
+    if (addKind === "codex") { setCodexOpen(true); return; }
     if (addKind === "key") openAdd("");
     // The route asked for the dialog; the roster is what fills its provider list.
   }, [add, !!data, unreadable, addKind, !!catalog]);
@@ -459,19 +464,21 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     }
   }
 
-  // Claude Code on a cloud platform (ADR-0189): stopping removes it from
-  // Claude Code's settings, secret included, and the subscription or the
-  // chosen key is what new terminals use again.
+  // A CLI on a cloud platform (Claude Code: ADR-0189; Codex: ADR-0191):
+  // stopping removes it from that CLI's own files, secret included.
   async function stopPlatform(platform) {
+    const codex = cli === "codex";
     const ok = await askConfirm({
       title: "Stop using " + platform.name,
-      message: "Removes " + platform.name + " from Claude Code's settings, with any key saved there. New terminals go back to your Claude subscription or Console key.",
+      message: codex
+        ? "Signs Codex out of " + platform.name + " and removes the key it saved. Sign in again with ChatGPT or an API key to keep using Codex."
+        : "Removes " + platform.name + " from Claude Code's settings, with any key saved there. New terminals go back to your Claude subscription or Console key.",
       confirmLabel: "Stop using",
       danger: true,
     });
     if (!ok) return;
-    await run("platform", () => api("/api/claude-code/platform", { method: "DELETE" }),
-      () => toast.ok("Claude Code no longer uses " + platform.name + "."));
+    await run("platform", () => api(codex ? "/api/codex/platform" : "/api/claude-code/platform", { method: "DELETE" }),
+      () => toast.ok(cliName + " no longer uses " + platform.name + "."));
   }
 
   // A custom provider's definition and its key are one row in the CLI's own
@@ -703,14 +710,16 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
         {data.platform ? (
           <div className="cred-native">
             <span className="cred-native-text">
-              {"Claude Code uses " + data.platform.name
+              {cliName + " uses " + data.platform.name
                 + (data.platform.region ? " · " + data.platform.region : "")
                 + (data.platform.project ? " · " + data.platform.project : "")
                 + (data.platform.resource ? " · " + data.platform.resource : "")
                 + (data.platform.baseUrl ? " · " + gatewayHost(data.platform.baseUrl) : "")
                 + (shown.length ? ", instead of the accounts below." : ".")}
             </span>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setClaudeEdit(data.platform); setClaudeOpen(true); }}>Edit</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
+              if (cli === "codex") { setCodexEdit(data.platform); setCodexOpen(true); } else { setClaudeEdit(data.platform); setClaudeOpen(true); }
+            }}>Edit</button>
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "platform"} onClick={() => stopPlatform(data.platform)}>
               {busy === "platform" ? "Stopping…" : "Stop using"}
             </button>
@@ -835,6 +844,17 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
 
       {/* pi's Add flow, for pi (its catalog, ADR-0169) and for the guests whose
           roster asks for it (omp): search, method, key or account, custom. */}
+      <CodexLoginDialog
+        open={codexOpen}
+        editPlatform={codexEdit}
+        onClose={() => { setCodexOpen(false); setCodexEdit(null); if (add && typeof location !== "undefined") location.hash = cliPaneHash(cli, "providers"); }}
+        onSaved={load}
+        onTerminalSignin={(res) => {
+          const launchError = res && res.terminal && res.terminal.launchError;
+          setSignin({ hint: (res && res.hint) || "", error: launchError ? String(launchError) : "", terminalId: (res && res.terminalId) || "", stamp: (res && res.stamp) || "" });
+        }}
+      />
+
       <ClaudeCodeLoginDialog
         open={claudeOpen}
         editPlatform={claudeEdit}

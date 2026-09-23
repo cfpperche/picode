@@ -45,6 +45,10 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/credentials/{provider}/{id}/activate", handleCredentialActivate(deps))
 	mux.HandleFunc("DELETE /api/credentials/{provider}/{id}", handleCredentialDelete(deps))
 	mux.HandleFunc("PUT /api/claude-code/platform", handleClaudePlatformPut(deps))
+	mux.HandleFunc("POST /api/codex/login", handleCodexLoginStart(deps))
+	mux.HandleFunc("GET /api/codex/login", handleCodexLoginStatus)
+	mux.HandleFunc("DELETE /api/codex/login", handleCodexLoginCancel)
+	mux.HandleFunc("DELETE /api/codex/platform", handleCodexPlatformDelete(deps))
 	mux.HandleFunc("DELETE /api/claude-code/platform", handleClaudePlatformDelete(deps))
 }
 
@@ -169,6 +173,10 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			if spec.CLI == "claude-code" {
 				out["add"] = map[string]any{"kind": "claude-code", "label": "Add provider"}
 			}
+			// Codex signs in through its own app-server (ADR-0191).
+			if spec.CLI == "codex" {
+				out["add"] = map[string]any{"kind": "codex", "label": "Add provider"}
+			}
 			// omp keeps provider definitions of its own in models.yml (the
 			// owner's amendment to ADR-0169): the same custom door pi has,
 			// with the definitions riding this roster as rows below.
@@ -189,6 +197,17 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			// what it is, never its secrets.
 			if view, ok := claudePlatformInUse(); ok {
 				out["platform"] = view
+			}
+		}
+		// Codex on Amazon Bedrock (ADR-0191): no vault row is what it runs on.
+		if spec.CLI == "codex" {
+			if view, ok := codexPlatformView(); ok {
+				out["platform"] = view
+				for i := range providers {
+					for j := range providers[i].Accounts {
+						providers[i].Accounts[j].Active = false
+					}
+				}
 			}
 		}
 		attachRowUsage(providers, time.Now())
@@ -935,6 +954,13 @@ func writeCLILogin(deps Deps, spec clicreds.Spec, decl *clicreds.Provider, provi
 		}
 		// …and so would a third-party platform (ADR-0189).
 		if err := clearClaudePlatform(); err != nil {
+			return "", "", http.StatusInternalServerError, err
+		}
+	}
+	// Codex keeps pointing at Bedrock after its auth.json changes mode
+	// (ADR-0191): a login chosen with Use ends Bedrock's turn.
+	if spec.CLI == "codex" {
+		if err := clearCodexBedrockProvider(); err != nil {
 			return "", "", http.StatusInternalServerError, err
 		}
 	}

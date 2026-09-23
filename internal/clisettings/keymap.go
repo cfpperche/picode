@@ -66,6 +66,10 @@ func (d Doc) Exists() bool { return d.exists }
 // <action>]`) names one element per level.
 func (d Doc) value(path []string) (any, bool) { return lookup(d.doc, path) }
 
+// Scalar reads one path's decoded value, for a caller that only compares it
+// (a string, a number, a bool); found=false when the file does not set it.
+func (d Doc) Scalar(path ...string) (any, bool) { return d.value(path) }
+
 // Strings reads one path as the list of strings the format can carry: a bare
 // string is one entry, a list of strings is the list, and a path that is not
 // there reports found=false. Any other shape is ErrShape — the caller names the
