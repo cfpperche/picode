@@ -4,9 +4,9 @@
 - **Question**: can the attach composer (ADR-0089 prompt door) deliver a
   message **while the CLI is working** — the Prompt / Steer / Follow-up
   choice the managed Pi composer already offers — for every agent CLI?
-- **Status**: desk study. Every row below was read from installed source,
-  binary strings, vendor docs or `--help`; **none was observed in a live
-  pane yet** (see [Live measurement](#live-measurement)).
+- **Status**: measured live for seven CLIs on 2026-09-23 (see
+  [Method](#method)); Codex (account at its usage limit) and Grok (the
+  probe was not signed in) remain desk-read.
 
 ## Today
 
@@ -20,48 +20,51 @@ input row reading empty before and after Enter.
 | Mode | Meaning |
 |---|---|
 | **Prompt** | Idle composer, starts a turn (today's door) |
-| **Steer** | Injected into the running turn at the next tool/step boundary |
+| **Steer** | Reaches the model inside the running turn, at the next tool/step boundary |
 | **Follow-up** | Held until the turn ends, then sent as the next turn |
-| **Interrupt + send** | Abort the turn, then send now |
 
-## Matrix (desk-read, unverified live)
+## Measured matrix
 
-| CLI | Steer | Follow-up | Interrupt + send | Config that changes plain Enter | Queue render (above the input) |
-|---|---|---|---|---|---|
-| Pi 0.87 | Enter | Alt+Enter (Ctrl+Q on Windows/WSL) | Esc restores queue to editor — no send | `~/.pi/agent/keybindings.json` | `Steering: …` / `Follow-up: …`, one truncated line each |
-| Omp 18.2 | Enter | Ctrl+Q, Ctrl+Enter, **`/queue <text>`**, `-> text` | Enter on empty editor with a queue | `keybindings.yml`, `interruptMode` | `Steering · N` / `After yield · N` + numbered lines |
-| Claude Code 2.1.280 | Enter (queued, absorbed after running tool calls) | Ctrl+X Enter (`chat:queueSubmit`; skips injection? unverified) | Ctrl+X Ctrl+S (`chat:sendNow`) | `~/.claude/keybindings.json` | gray queued list above the box |
-| Codex 0.156 | Enter (`steer` feature is always on) | Tab (`composer.queue`) | Esc sends pending steers | `[tui.keymap]` | `• Messages to be submitted after next tool call` / `• Queued follow-up inputs` + `↳` rows |
-| Grok 1.0.41 | Enter only if `ui.follow_up_behavior="steer"` | Enter (default `queue`) | Ctrl+Enter (terminal-dependent) | `ui.follow_up_behavior`, `combine_queued_prompts` | prompt queue pane (layout unknown) |
-| Hermes 0.21 | **`/steer <text>`** | **`/queue <text>`** | Enter in `interrupt` mode | `display.busy_input_mode` — **the owner's config is `interrupt`** | `⏩ Steered:` / `Queued for the next turn:` in scrollback |
-| OpenCode 1.18 | Enter (server loop picks it up at the next step) | none in the TUI (server v2 `delivery:"queue"` only) | Esc Esc, then send | none | ` QUEUED ` badge on the transcript message |
-| Muse 1.3 | Alt+Enter "queue or steer" (which one: unknown) | same key? | unknown | none found | `Queued (N) · delivered after this turn` |
-| Antigravity 1.2.9 | code paths exist (`sendMessageOrSteer`) | `queuedMessages` setting, values unknown | Esc cancels | `settings.json` `queuedMessages` | unknown |
+`M` = observed live; `D` = desk-read only (source, strings, docs).
+
+| CLI (version) | Steer | Follow-up | Input row after a busy submit | Queue render (read for the receipt) |
+|---|---|---|---|---|
+| Pi 0.87.1 | Enter `M` | Alt+Enter `M` (needs tmux `extended-keys on`, which PiCode sets) | cleared | `Steering: <text>` / `Follow-up: <text>` lines + `↳ Alt+Up to edit all queued messages`, above the editor |
+| Omp 18.2.11 | Enter `M` | `/queue <text>` `M` (also Ctrl+Q, Ctrl+Enter `D`) | cleared | `Steering - N` / `After yield - N` + `  1. <text>` rows + `` `- Alt+Up/Shift+Up to edit``; status `Queued message for when the agent yields` |
+| Claude Code 2.1.281 | Enter `M` — lands at the next tool boundary | none: Enter during pure text generation waits for the turn end `M`; Ctrl+X Enter behaved exactly like Enter `M` | cleared; dim `Press up to edit queued messages` | `❯ <text>` + `ctrl+x ctrl+s to send now` above the input while waiting; the same `❯ <text>` line stays in the transcript once absorbed |
+| Hermes 0.21.4 | `/steer <text>` `M` | `/queue <text>` `M` | cleared; hint row `msg=interrupt · /queue · /bg · /steer` | `⏩ Steer queued — arrives after the next tool call: <text>`; `/queue` itself runs at turn end (`⚙️ /queue …`, `Queued: <text>`) |
+| OpenCode 1.18.32 | Enter `M` | none in the TUI `D` | cleared | the message joins the transcript with a ` QUEUED ` badge |
+| Muse 1.3.0 | Enter `M` | Alt+Enter `M` | cleared | `• Queued input` + `↳ <text>` rows; right-hand status `steering the running turn` / `queued for the next turn` |
+| Antigravity 1.2.9 | none known | Enter `M` | cleared; `Press up to edit queued messages` | `▸ <text>` above the input |
+| Codex 0.156.1 | Enter `D` (`steer` feature always on) | Tab `D` | `D`: cleared | `D`: `• Messages to be submitted after next tool call` / `• Queued follow-up inputs` + `↳` rows |
+| Grok 1.0.41 | Enter only if `ui.follow_up_behavior="steer"` `D` | Enter by default `D` | `D` | `D`: a prompt queue pane |
+
+Not measured, on purpose: Hermes's plain Enter. The owner's
+`display.busy_input_mode` is `interrupt`, which cancels the running
+model call (`↪ Redirected current turn`) — the door must never use it.
 
 ## What the matrix says
 
-1. **Plain Enter is not one mode.** It steers in Pi, Omp, Codex and
-   OpenCode; it queues-then-absorbs in Claude Code; it follows up in
-   Grok by default; and in Hermes with the owner's config it
-   **interrupts the turn**. A door that just drops the `working` gate
-   and presses Enter would do four different things — and cut the
-   owner's Hermes turns.
-2. **Keys and slash commands are per-CLI adapters.** Where a CLI has a
-   slash command (Hermes `/steer`, `/queue`; Omp `/queue`) it is the
-   robust choice: independent of user keybindings and config. Keys come
-   next (Codex Tab, Claude Ctrl+X Enter); anything behind a user config
-   has to read that config first or be refused.
-3. **"Composer empty after Enter" no longer proves delivery.** Every CLI
-   clears the input on a busy submit. The mid-turn receipt has to read
-   the queue render above the input (or the scrollback line for Hermes)
-   and is honestly **`queued`**, not `verified`; the message only
-   reached the model when that row disappears.
+1. **Plain Enter is not one mode.** It steers in Pi, Omp, OpenCode, Muse
+   (and Codex, desk); it steers-or-waits in Claude Code depending on
+   whether a tool runs; it follows up in Antigravity (and Grok by
+   default); in the owner's Hermes it interrupts. Dropping the `working`
+   gate and pressing Enter would do five different things.
+2. **Every mode is a per-CLI sequence.** Slash commands (Hermes
+   `/steer` and `/queue`, Omp `/queue`) are the most robust: they do not
+   depend on user keybindings or config. Keys come next (Pi and Muse
+   Alt+Enter, Codex Tab). Claude Code has no distinct follow-up;
+   OpenCode no follow-up in the TUI; Antigravity no steer.
+3. **An empty input row no longer proves delivery.** Every measured CLI
+   clears the row on a busy submit. The honest mid-turn receipt is
+   **`queued`**, proven by the CLI's own queue render (column above);
+   the row disappears when the message reaches the model.
 4. **`needs-you` stays refused in every mode.** An approval dialog
    treats keys as choices.
-5. **Muse and Antigravity** have no input reader in PiCode today
-   (`doorReaderCLI`) and no known key map; they stay Prompt-only.
+5. Pi's Alt+Enter needs tmux `extended-keys on`; PiCode's sessions set
+   it (terminal-bridge), the probe server did not until told to.
 
-## Proposed shape (for the owner's decision)
+## Proposed shape (owner-approved direction, 2026-09-23)
 
 - The attach composer gets the managed composer's `KindChip`
   (Prompt / Steer / Follow-up), showing only the modes the CLI's
@@ -70,36 +73,39 @@ input row reading empty before and after Enter.
   "prompt"|"steer"|"follow_up"`; an undeclared mode answers 409
   `unsupported-mode`. Automations keep `prompt` (and the `working`
   refusal) until a separate call.
-- A per-CLI table (`internal/clikeys` or next to `doorReaderCLI`)
-  names the sequence per mode, plus the queue-row matcher for the
-  `queued` receipt.
-- This changes ADR-0089's and Fatia F's (ADR-0160) "never type into a
-  working CLI" rule — a process/security-model boundary, so an ADR.
+- A per-CLI table names the sequence per mode plus the queue-row
+  matcher for the `queued` receipt.
+- This changes ADR-0089's and Fatia F's (ADR-0160) refusal of a working
+  CLI — a process/security-model boundary, so an ADR.
+
+First slice (measured, deterministic): Pi (Enter / Alt+Enter), Omp
+(Enter / `/queue`), Hermes (`/steer` / `/queue`), Muse (Enter /
+Alt+Enter), Claude Code steer (Enter), OpenCode steer (Enter),
+Antigravity follow-up (Enter). Codex and Grok wait for a live
+measurement.
 
 ### Decision table (draft)
 
 | CLI state | Mode asked | Adapter declares it | Action |
 |---|---|---|---|
 | idle | prompt | — | today's verified door |
-| idle | steer / follow_up | — | deliver as prompt (all CLIs send immediately when idle) |
+| idle | steer / follow_up | — | deliver as prompt (every measured CLI sends at once when idle) |
 | working | prompt | — | 409 `working` (today) |
 | working | steer / follow_up | no | 409 `unsupported-mode` |
-| working | steer / follow_up | yes, config-dependent key, config unread/mismatched | 409 `unsupported-mode` |
-| working | steer / follow_up | yes | send sequence; receipt `queued` when the queue row appears, else `unconfirmed` |
+| working | steer / follow_up | yes, but depends on a user config PiCode has not read | 409 `unsupported-mode` |
+| working | steer / follow_up | yes | send the sequence; receipt `queued` when the queue render shows the text, else `unconfirmed` |
 | needs-you | any | — | 409 `needs-you` |
 | occupied draft | any | — | 409 `occupied` |
 
-## Live measurement
+## Method
 
-The desk read must be checked in a real pane before any adapter ships.
-Protocol per CLI, on an isolated tmux socket in a scratch folder:
-start a turn with a read-only tool call plus a long answer, send
-`BRAVO` mid-turn with each candidate key/command, capture-pane every
-second, and record (a) the input row after the key, (b) the queue
-render, (c) whether BRAVO landed in the same turn or the next.
-
-This session could not run it: the Claude Code auto-mode classifier
-refuses a session that drives other agent CLIs by itself (even with
-default permissions and a scratch folder). It needs the owner's
-permission rule for the probe, or the owner running the protocol from
-a PiCode terminal.
+Isolated tmux server (`-S /tmp/claude-1000/ap.sock`, `extended-keys
+on`), scratch git folder with a one-line `README.md`, each CLI with its
+installed defaults and the owner's own model/config. Turn: "read
+README.md three times, one call at a time, then write 1–30 and ALPHA".
+Four seconds in, a bracketed paste of "also write BRAVO at the very
+end" with the candidate key, then "reply only CHARLIE" with the
+follow-up candidate. Captured the pane at +0.5 s (render) and after the
+turn (order): BRAVO before the turn ends = steer; CHARLIE as a separate
+turn = follow-up. Claude Code was also probed during a tool-free
+streaming answer, where Enter waited for the turn end.
