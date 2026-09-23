@@ -136,12 +136,12 @@ func TestCLIsAdvertiseSessionCapabilities(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	res := cliRequest(t, ts, "GET", "/api/clis", nil, 200)
 	want := map[string]map[string]any{
-		"pi":          {"list": true, "read": true, "write": true, "prompt": true, "agent": true},
-		"claude-code": {"list": true, "read": true, "write": true, "prompt": true, "agent": false},
-		"codex":       {"list": true, "read": true, "write": true, "prompt": true, "agent": false},
-		"grok":        {"list": true, "read": true, "write": true, "prompt": true, "agent": false},
-		"hermes":      {"list": true, "read": true, "write": true, "prompt": false, "agent": false},
-		"opencode":    {"list": true, "read": true, "write": true, "prompt": true, "agent": false},
+		"pi":          {"list": true, "read": true, "write": true, "prompt": true, "fork": false, "agent": true},
+		"claude-code": {"list": true, "read": true, "write": true, "prompt": true, "fork": true, "agent": false},
+		"codex":       {"list": true, "read": true, "write": true, "prompt": true, "fork": true, "agent": false},
+		"grok":        {"list": true, "read": true, "write": true, "prompt": true, "fork": true, "agent": false},
+		"hermes":      {"list": true, "read": true, "write": true, "prompt": false, "fork": false, "agent": false},
+		"opencode":    {"list": true, "read": true, "write": true, "prompt": true, "fork": true, "agent": false},
 	}
 	seen := 0
 	for _, row := range res["clis"].([]any) {

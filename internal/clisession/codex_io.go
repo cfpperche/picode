@@ -189,6 +189,13 @@ func codexContext(text string) bool {
 
 var codexTag = regexp.MustCompile(`^<[a-z][a-z0-9_]*( [a-z_]+)?>`)
 
+// ForkArgs: `codex fork <id> <prompt>` — codex --help 0.156 (`fork
+// [SESSION_ID] [PROMPT]`). No flag names the copy, so its id resolves
+// through the terminal's pinned session.
+func (CodexSource) ForkArgs(src Ref, prompt, _ string) Fork {
+	return Fork{Args: withPrompt([]string{"fork", src.ID}, prompt)}
+}
+
 // PromptArgs: `codex <prompt>` — the prompt is positional (codex --help,
 // 0.153); Codex cannot pre-assign a session id, so sessionID is ignored
 // and lineage resolves later through the terminal's pinned session.

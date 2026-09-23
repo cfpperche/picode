@@ -56,6 +56,7 @@ import Palette from "./components/Palette.jsx";
 import SnipRunSheet from "./components/SnipRunSheet.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
 import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
+import ForkAgentDialog from "./components/ForkAgentDialog.jsx";
 import { sessionFromTerminal, terminalHandoffSourceCli, handoffTargets } from "@picode/shared/domain/sessionHandoff.js";
 import FocusEdges, { FocusLeave } from "./components/FocusEdges.jsx";
 import { focusAvailable } from "@picode/shared/domain/focusMode.js";
@@ -349,6 +350,7 @@ export default function App({ shellChrome = false } = {}) {
   const clisRef = useRef([]);
   clisRef.current = clis;
   const [termHandoff, setTermHandoff] = useState(null);
+  const [forkSource, setForkSource] = useState(null);
   const terminalsRef = useRef([]);
   terminalsRef.current = terminals;
   const [termAttach, setTermAttach] = useState(null); // {id, token, text, files}: the message bar this terminal opened
@@ -2610,6 +2612,32 @@ export default function App({ shellChrome = false } = {}) {
     });
   }
 
+  // Fork agent…: the dialog runs the flow; App lends it the git door so a
+  // new worktree is made by a visible command (ADR-0096), and opens the
+  // fork's terminal when it starts.
+  function openForkAgent(ag, term) {
+    const cliId = (term && term.lastSession && term.lastSession.cli) || ag.cli;
+    const cli = clis.find((c) => c.id === cliId);
+    setForkSource({ agent: ag, cliName: (cli && cli.name) || cliId });
+  }
+
+  function onForkAgentDone(res) {
+    const forked = res && res.agent;
+    const next = res && res.terminal;
+    setForkSource(null);
+    loadWorkspaces();
+    if (next && next.launchError) {
+      // The agent exists (ADR-0184); its stopped terminal says why and offers Start.
+      toastError(new Error(next.launchError));
+    } else if (forked) {
+      toast.ok((forked.name || "The fork") + " is starting on a copy of the conversation.");
+    }
+    if (next && next.id) {
+      openTermTab(next.id);
+      location.hash = termHash(next.id);
+    }
+  }
+
   function onTermHandoffDone(res, target) {
     setTermHandoff(null);
     const next = res && res.terminal;
@@ -3760,6 +3788,7 @@ export default function App({ shellChrome = false } = {}) {
         onRemoveTerm={removeTerminal}
         onLaunchAction={launchTerminalAction}
         onContinueTerm={openTermHandoff}
+        onForkAgent={openForkAgent}
         clis={clis}
         onRenameTerm={renameTerminal}
         onReorder={reorderSidebar}
@@ -4459,6 +4488,15 @@ export default function App({ shellChrome = false } = {}) {
         target={termHandoff ? termHandoff.target : null}
         onClose={() => setTermHandoff(null)}
         onDone={onTermHandoffDone}
+      />
+
+      <ForkAgentDialog
+        open={!!forkSource}
+        agent={forkSource ? forkSource.agent : null}
+        cliName={forkSource ? forkSource.cliName : ""}
+        deliverGit={(command, root) => typeIntoTerminal({ kind: "agent", id: forkSource.agent.id }, root, command, { run: true, quiet: true })}
+        onClose={() => setForkSource(null)}
+        onDone={onForkAgentDone}
       />
 
       <GitActionDialog

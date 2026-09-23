@@ -230,6 +230,13 @@ func claudeUserText(t *transcript.Timeline, compactPending *bool, meta, compactS
 	t.Events = append(t.Events, transcript.Event{Kind: transcript.KindMessage, Role: "user", Text: trimmed, Timestamp: ts, Group: g})
 }
 
+// ForkArgs: `claude --resume <id> --fork-session --session-id <new> <prompt>`
+// — verified live on 2.1.280 (2026-09-23): the copy answered from the
+// source's context under the pre-assigned id, and the source kept its own.
+func (ClaudeCodeSource) ForkArgs(src Ref, prompt, newID string) Fork {
+	return idFork([]string{"--resume", src.ID, "--fork-session"}, prompt, newID)
+}
+
 // PromptArgs: `claude --session-id <uuid> <prompt>` — verified flags, the
 // prompt is positional (claude --help, 2.1.263).
 func (ClaudeCodeSource) PromptArgs(prompt, sessionID string) []string {
