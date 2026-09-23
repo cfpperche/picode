@@ -133,13 +133,17 @@ install: build ## Copy bin/picode to ~/.local/bin and enable systemd --user
 # held file would deadlock), so make-driven and CLI-driven mutations can
 # never interleave either.
 MUTATION_LOCK := /tmp/picode-mutate.lock
+# flock -o: the lock stays with flock itself and no child inherits its file
+# descriptor. A deploy starts long-lived children (the docs fixture's tmux
+# server); one that outlived its deploy held the lock for hours (2026-09-22)
+# and every later deploy queued behind a process that was not a deploy.
 
 # Deploy is the owner's call (ADR-0105): a branch session never deploys; the
 # owner runs `make deploy` from the root whenever they want main live. The
 # ADR-0086 guard stays: `picode deploy` refuses while anyone is mid-turn
 # (exit 2); PICODE_DEPLOY_FORCE=1 overrides for a deliberate one-off.
 deploy: ## Rebuild UI+binary, refresh stale public captures, restart the service (owner's call; refuses while agents work)
-	PICODE_MUTATION_LOCK_HELD=1 flock -x $(MUTATION_LOCK) $(MAKE) --no-print-directory _deploy
+	PICODE_MUTATION_LOCK_HELD=1 flock -x -o $(MUTATION_LOCK) $(MAKE) --no-print-directory _deploy
 
 # Body of deploy, held under the lock: parallel sessions deploying between
 # one agent's gate and its restart have shipped the wrong tree (2026-09-05).
@@ -187,7 +191,7 @@ desktop-test: ## Host-test the shell's pure half (rustc only, no Windows toolcha
 # overlapping two deploys, and a lock that freed between build and swap would
 # hand a deploy exactly the mid-flight window that bricks the resident.
 desktop-restart: ## Build every exe (serialized with deploy), swap them, relaunch the resident — NEVER `&` from WSL (scripts/desktop-swap.sh)
-	flock -x $(MUTATION_LOCK) bash -c '$(MAKE) --no-print-directory desktop desktop-shell && ./scripts/desktop-swap.sh'
+	flock -x -o $(MUTATION_LOCK) bash -c '$(MAKE) --no-print-directory desktop desktop-shell && ./scripts/desktop-swap.sh'
 
 restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 

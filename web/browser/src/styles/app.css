@@ -204,6 +204,12 @@ body {
   color: var(--text-secondary);
 }
 .pins-empty { padding-left: 0; margin: 8px 0; }
+/* Before the boot has read the fleet: two quiet bars where the rows will
+   be, never the "No … yet" line a cold load used to flash. */
+.side-skel { display: flex; flex-direction: column; gap: 8px; padding: 10px 8px; }
+/* --bg-hover is nearly the sidebar's own ground: one step up so the bars read. */
+.side-skel .skel-line, .empty-skel .skel-line { background: var(--border-strong); }
+.empty-skel { display: flex; flex-direction: column; gap: 10px; width: 260px; max-width: 100%; }
 /* Shared flex helpers retained for compact sidebar surfaces outside the
    supervision-row markup below. */
 .ws-row1, .ws-row2 {
@@ -1540,8 +1546,8 @@ img.ws-face.term-cli-face {
 }
 .btn:hover { border-color: var(--border-strong); background: var(--bg-hover); }
 .btn-sm { font-size: 12.5px; padding: 0 10px; }
-.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
-.btn-primary:hover { filter: brightness(1.08); background: var(--accent); }
+.btn-primary { background: var(--accent-fill); color: var(--on-accent); border-color: var(--accent-fill); font-weight: 600; }
+.btn-primary:hover { filter: brightness(1.08); background: var(--accent-fill); }
 .btn:disabled, .btn:disabled:hover {
   opacity: 0.45; cursor: default; filter: none;
 }
@@ -2285,7 +2291,7 @@ img.ws-face.term-cli-face {
 .annot-strip .annot-send {
   flex: none; height: 28px; min-width: 0; padding: 0 14px;
   border: none; border-radius: 999px;
-  background: var(--accent); color: #fff;
+  background: var(--accent-fill); color: var(--on-accent);
   font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer;
 }
 .annot-strip .annot-send:disabled { opacity: 0.55; cursor: default; }
@@ -3914,14 +3920,14 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .icon-btn:hover { background: var(--bg-base); color: var(--text-primary); }
 .icon-btn-danger:hover { color: var(--danger); background: var(--bg-base); }
 .icon-btn-send {
-  background: var(--accent); color: #fff;
+  background: var(--accent-fill); color: var(--on-accent);
 }
 .icon-btn-send:hover, .icon-btn-send:focus-visible {
-  background: color-mix(in srgb, var(--accent) 78%, #000);
-  color: #fff; filter: none; outline-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-fill) 78%, #000);
+  color: var(--on-accent); filter: none; outline-color: var(--accent);
 }
 .icon-btn-send:disabled, .icon-btn-send:disabled:hover {
-  background: var(--accent); color: #fff;
+  background: var(--accent-fill); color: var(--on-accent);
   opacity: 0.38; cursor: default; filter: none;
 }
 .icon-btn-stop {

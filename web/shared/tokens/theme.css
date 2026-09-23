@@ -26,6 +26,12 @@
   --text-secondary: #9b9ba7;
   --accent: #7c8cf8;
   --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  /* A fill that carries white text (primary buttons, send, a pressed tool).
+     --accent above is light on purpose — it is text and borders on a dark
+     ground — and white on it was 3.02:1. #4f5dde: 5.3:1 under white, 4.7:1
+     with the hover's brightness(1.08), and 3.4:1 against --bg-panel. */
+  --accent-fill: #4f5dde;
+  --on-accent: #fff;
   --ok: #63d297;
   --warn: #e5c07b;
   --danger: #f7768e;
@@ -70,6 +76,9 @@
      the white-on-accent button that both use it. 5.4:1 on a panel. */
   --accent: #2a62d6;
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  /* Light already carries white at 5.5:1, so the fill is the accent itself. */
+  --accent-fill: var(--accent);
+  --on-accent: #fff;
   --ok: #2e7d32;
   --warn: #a16207;
   --danger: #cf3b54;

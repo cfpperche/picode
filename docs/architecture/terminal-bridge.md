@@ -213,6 +213,21 @@ shell (`${0%/*}`) — a guard that shells out to `dirname` under a minimal
 PATH found itself in its own bin dir and exec'd in an endless loop, caught
 by its own test suite on 2026-09-15.
 
+**PiCode's own tmux calls skip the guard.** `tmux.Binary()` resolves the
+first `tmux` on PATH that is not a PiCode intercept wrapper (`# PiCode
+intercept`), so Go code run from inside a PiCode terminal — the docs fixture,
+test harnesses — reaches the real binary. The guard gates what people and
+agents type; PiCode's own kills are gated by `refuseUserServer`: never the
+default socket, the user's socket directory, the `$TMUX` server, or the
+production instance's socket under `~/.picode`. Before this, a fixture started
+by a deploy from a PiCode terminal could not `kill-server` its private server,
+deleted its directory anyway, and left a socketless server that had inherited
+the deploy lock (2026-09-22, hours). The fixture now ends a previous run's
+server before reusing its port's directory and keeps the directory when a kill
+fails; `docs-shots` warns when a fixture's socket survives it; `make deploy`
+and `make desktop-restart` hold the lock with `flock -o`, so no child ever
+inherits it.
+
 | Command | Condition | Action |
 |---|---|---|
 | `kill-server`, `kill-window`, `kill-pane` | any | refuse, actionable copy |

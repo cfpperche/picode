@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -52,6 +53,13 @@ func main() {
 	// previous run's directory on this port is disposable: the port is
 	// exclusive and `make docs-shots` already kills whatever holds it.
 	dataDir = filepath.Join(os.TempDir(), "picode-docs-fixture-"+portSuffix(*addr))
+	// A previous run on this port may have left its private tmux server
+	// alive; end it before the directory goes, or unlinking its socket turns
+	// it into a server nothing can reach (2026-09-22: one such orphan held
+	// the deploy lock for hours).
+	if err := endPrivateServer(filepath.Join(dataDir, "tmux.sock")); err != nil {
+		log.Fatalf("fixture: %v", err)
+	}
 	if err := os.RemoveAll(dataDir); err != nil {
 		log.Fatal(err)
 	}
@@ -165,8 +173,27 @@ func main() {
 func shutdown(dir string, m *tmux.Manager) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = m.KillServer(ctx)
+	if err := m.KillServer(ctx); err != nil {
+		// Keep the directory: its socket is the only way left to that server.
+		log.Printf("fixture: could not end its tmux server (%v); keeping %s so it stays reachable", err, dir)
+		return
+	}
 	_ = os.RemoveAll(dir)
+}
+
+// endPrivateServer ends the tmux server on a fixture socket, if one answers.
+// No socket is nothing to do; a socket whose server cannot be ended is an
+// error, so the caller does not delete the only path to it.
+func endPrivateServer(sock string) error {
+	if _, err := os.Stat(sock); err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := tmux.NewWithSocket(sock).KillServer(ctx); err != nil {
+		return fmt.Errorf("a previous run's tmux server on %s is still alive and could not be ended: %w", sock, err)
+	}
+	return nil
 }
 
 // seed fills the store with a fixed, synthetic world. Names, states and

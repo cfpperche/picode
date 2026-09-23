@@ -125,7 +125,7 @@ func countSessionsOn(ctx context.Context, path string) (total, picoded int) {
 // runSocket runs one tmux command against an explicit socket path.
 func runSocket(ctx context.Context, path string, args ...string) (string, error) {
 	full := append([]string{"-S", path}, args...)
-	cmd := exec.CommandContext(ctx, "tmux", full...)
+	cmd := exec.CommandContext(ctx, Binary(), full...)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }

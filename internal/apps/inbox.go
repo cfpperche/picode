@@ -571,7 +571,10 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			}
 			return a.backTo(h, returnPath, toast)
 		}
-		if interactive && h.DeliverReply != nil && it.State != store.InboxDone &&
+		// Ignore sends nothing, so it never needs the terminal: routed here it
+		// met ADR-0060's session check and a non-Pi agent's item could not
+		// be closed at all (2026-09-22). It falls through to the local close.
+		if interactive && h.DeliverReply != nil && it.State != store.InboxDone && verb != store.VerbIgnore &&
 			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) {
 			if _, err := h.DeliverReply(id, verb, text); err != nil {
 				if strings.Contains(err.Error(), "agent no longer exists") {
