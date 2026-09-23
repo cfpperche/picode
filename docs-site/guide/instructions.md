@@ -12,9 +12,9 @@ CLI will read and what it leaves out.
 
 ## Open it
 
-Open a workspace's **…** menu in the sidebar and choose **Instructions**. The
-tab lists the instruction files it finds: in the workspace and its
-subfolders, in the folders above it, and your personal files (such as
+Open the **…** menu of a workspace in the sidebar and choose **Instructions**. The
+tab lists the instruction files it finds: in the workspace and the folders
+inside it, in the folders above it, and your personal files (such as
 `~/.claude/CLAUDE.md`). Each column is one CLI; each cell says what that CLI
 does with the file:
 
@@ -28,7 +28,7 @@ does with the file:
 | **Unknown** | PiCode cannot tell from here |
 
 Pick a cell to read the reason below the table. **Start in** answers for a
-session that starts in a subfolder, which matters in a repository with
+session that starts in a folder inside the workspace, which matters in a repository with
 nested `AGENTS.md` files. A file name opens it in the editor.
 
 ## Findings
