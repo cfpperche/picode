@@ -86,11 +86,11 @@ var catalog = []spec{
 				[2]string{"dontAsk", "Deny unless allowed"},
 				[2]string{"bypassPermissions", "Skip all prompts"},
 			), Danger: "bypassPermissions", DangerNote: "Runs without permission prompts. For containers or disposable VMs."},
-			{Key: "pluginConfigs.agents-md@builtin.options.instructionFiles", Label: "Project instructions", Kind: KindSelect, Group: groupInstructions, Scopes: []string{"user"}, Fallback: "CLAUDE.md, or AGENTS.md when there is none", Help: "Claude Code reads this from your own settings only.", Options: opts(
-				[2]string{"claude-md-or-agents-md", "CLAUDE.md, or AGENTS.md when there is none"},
+			{Key: "pluginConfigs.agents-md@builtin.options.instructionFiles", Label: "Project instructions", Kind: KindSelect, Group: groupInstructions, Scopes: []string{"user"}, Fallback: "CLAUDE.md or AGENTS.md", Help: "Default: CLAUDE.md, or AGENTS.md when there is none. Read from your own settings only.", Options: opts(
+				[2]string{"claude-md-or-agents-md", "CLAUDE.md or AGENTS.md"},
 				[2]string{"claude-md-and-agents-md", "CLAUDE.md and AGENTS.md"},
 				[2]string{"claude-md", "CLAUDE.md only"},
-				[2]string{"managed-only", "Organization's managed file only"},
+				[2]string{"managed-only", "Managed file only"},
 			)},
 			{Key: "autoMemoryEnabled", Label: "Auto memory", Kind: KindBool, Group: groupMemory, Fallback: "On", DefaultOn: true, Help: "Claude writes its own notes between sessions."},
 			{Key: "autoMemoryDirectory", Label: "Memory folder", Kind: KindText, Group: groupMemory, Fallback: "~/.claude/projects/<project>/memory", Help: "Where those notes are kept."},
