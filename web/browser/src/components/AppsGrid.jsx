@@ -132,7 +132,7 @@ function WebappDialog({ app, anotherAccount, onClose, onSaved, onOpen }) {
   );
 }
 
-export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsLoaded = false, nativeApps, onOpen, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, onClearWebappData, iconVersions = {}, onRetryWebapps, desktop }) {
+export default function AppsGrid({ apps, appsLoaded = true, webapps = [], webappsErr = "", webappsLoaded = false, nativeApps, onOpen, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, onClearWebappData, iconVersions = {}, onRetryWebapps, desktop }) {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState(null);
@@ -195,7 +195,9 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
   ];
   const tiles = visibleApps(catalog.map((t) => ({ id: t.key, name: t.name, tile: t })), q, order || []);
   const searching = !!q.trim();
-  const empty = webappsLoaded && tiles.length === 0;
+  // Both lists must have been read: the web apps can land before the boot's
+  // /api/apps, and "No apps yet." over four installed apps is a lie.
+  const empty = appsLoaded && webappsLoaded && tiles.length === 0;
   return (
     <div className="side-section">
       <div className="pins-head">
@@ -219,7 +221,8 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
           {webappsErr} <button type="button" className="side-empty-act" onClick={onRetryWebapps}>Retry</button>
         </p>
       ) : null}
-      {!webappsLoaded && !webappsErr && <p className="side-empty" role="status">Loading web apps…</p>}
+      {(!webappsLoaded || !appsLoaded) && !webappsErr && tiles.length === 0 && <p className="side-empty" role="status">Loading apps…</p>}
+      {!webappsLoaded && !webappsErr && tiles.length > 0 && <p className="side-empty" role="status">Loading web apps…</p>}
       {empty ? (
         <p className="side-empty pins-empty">
           {searching ? "No apps match." : "No apps yet."}{" "}

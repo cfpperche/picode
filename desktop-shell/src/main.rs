@@ -306,9 +306,11 @@ fn poll_loop() {
                     detail.push_str(" (restarted)");
                 }
                 board.set_health(true, &detail);
+                board.note_url(Some(base.clone()));
             }
             Err(_) => {
                 url = None;
+                board.note_url(None);
                 board.set_health(false, "not answering");
             }
         }
@@ -397,10 +399,46 @@ fn open_management_window(app: &tauri::AppHandle) {
         show(&win.as_ref().window());
         return;
     }
-    let mut url = discover_server()
-        .map(|(_, u)| u)
-        .unwrap_or_else(|| tauri::Url::parse("https://localhost:8445/").expect("static origin"));
+    // This runs on the tray's event thread. The health loop already knows
+    // where PiCode answers, so the usual open costs no wsl.exe at all; only
+    // before the first answer is the address looked up, and then on a
+    // thread of its own — a slow WSL must not freeze the tray (the lookup
+    // is hidden now, so a freeze would have nothing on screen to explain it).
+    if let Some(base) = board::get().and_then(|b| b.url()) {
+        if let Ok(url) = tauri::Url::parse(&base) {
+            build_management_window(app, url);
+            return;
+        }
+    }
+    static LOOKING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if LOOKING.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return; // a second click while the first lookup runs
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let url = discover_server()
+            .map(|(_, u)| u)
+            .unwrap_or_else(|| tauri::Url::parse("https://localhost:8445/").expect("static origin"));
+        let handle = app.clone();
+        let posted = app.run_on_main_thread(move || {
+            LOOKING.store(false, std::sync::atomic::Ordering::SeqCst);
+            if let Some(win) = handle.get_webview_window("management") {
+                show(&win.as_ref().window());
+                return;
+            }
+            build_management_window(&handle, url);
+        });
+        if posted.is_err() {
+            // The event loop is gone (shutting down); never leave the
+            // latch set, or the item would stay dead for the process.
+            LOOKING.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+    });
+}
+
+fn build_management_window(app: &tauri::AppHandle, mut url: tauri::Url) {
     url.set_path("/desktop/management.html");
+    url.set_query(None);
     let _ = tauri::WebviewWindowBuilder::new(app, "management", WebviewUrl::External(url))
         .title("PiCode — Management")
         .inner_size(980.0, 860.0)
@@ -426,12 +464,22 @@ fn await_desktop_ready(base: &str) {
 /// What the main window loads: the daemon's /desktop/ when it answers,
 /// the bundled offline page until then.
 fn main_target() -> WebviewUrl {
-    match discover_server().map(|(base, mut u)| {
-        u.set_path("/desktop/");
-        (base, u)
-    }) {
-        Some((base, u)) => {
+    // The address the health loop already answers on, when there is one: a
+    // rebuild from the tray then costs no wsl.exe on the event thread.
+    // Before the first answer (setup) the address is looked up.
+    let known = board::get()
+        .and_then(|b| b.url())
+        .and_then(|s| tauri::Url::parse(&s).ok());
+    match known.or_else(|| discover_server().map(|(_distro, u)| u)) {
+        Some(mut u) => {
+            // The gate probes the daemon's origin. It was handed the distro
+            // name until 2026-09-23 ("Ubuntu/desktop/" never answers), so
+            // every main-window build waited out the full 30 s and the
+            // restart-404 guard never guarded anything.
+            let base = u.origin().ascii_serialization();
             await_desktop_ready(&base);
+            u.set_path("/desktop/");
+            u.set_query(None);
             WebviewUrl::External(u)
         }
         None => WebviewUrl::App("offline.html".into()),

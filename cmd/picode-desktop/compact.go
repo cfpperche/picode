@@ -117,6 +117,10 @@ func runDiskCompact(distroFlag, userFlag, method string, yes, dryRun, force, asJ
 		return note("Re-run with --yes to stop " + a.distro + " and compact now.")
 	}
 
+	// From here on the distro is stopped first thing: any failure after
+	// this line has already ended every session inside it, and the outcome
+	// has to say so rather than read like a harmless refusal.
+	out.Stopped = true
 	res, err := desktop.Compact(a.runner, a.distro, a.user, chosen, facts.VHDXPath, facts.AllocatedBytes, func(s string) {
 		if asJSON {
 			// One progress object per line, so a subprocess consumer can
@@ -167,6 +171,9 @@ type compactOutcome struct {
 	// Error is a failure after the bookkeeping — the distro was restarted by
 	// the flow itself.
 	Error string `json:"error,omitempty"`
+	// Stopped says the flow reached the stop: the distro was terminated and
+	// its sessions ended, whether or not the rest succeeded.
+	Stopped bool `json:"stopped,omitempty"`
 
 	After    *int64 `json:"after,omitempty"`
 	Returned *int64 `json:"returned,omitempty"`

@@ -53,7 +53,7 @@ export default function Sidebar({
   workingIds,
   waitingId,
   checklists,
-  terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onLaunchAction, onContinueTerm, clis, onSessions,
+  terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onLaunchAction, onContinueTerm, clis,
   onReorder,
   onGitGraph,
   onFileTree,
@@ -210,7 +210,7 @@ export default function Sidebar({
       {tab === "pins" ? (
         <Pins />
       ) : tab === "apps" ? (
-        <AppsGrid apps={apps} nativeApps={nativeApps} onOpen={onOpenApp} webapps={webapps} webappsErr={webappsErr} webappsLoaded={webappsLoaded} onRetryWebapps={onRetryWebapps} onOpenWebapp={onOpenWebapp} onSavedWebapp={onSavedWebapp} onRemoveWebapp={onRemoveWebapp} onRefreshWebapp={onRefreshWebapp} onClearWebappData={onClearWebappData} desktop={desktop} />
+        <AppsGrid apps={apps} appsLoaded={fleetLoaded} nativeApps={nativeApps} onOpen={onOpenApp} webapps={webapps} webappsErr={webappsErr} webappsLoaded={webappsLoaded} onRetryWebapps={onRetryWebapps} onOpenWebapp={onOpenWebapp} onSavedWebapp={onSavedWebapp} onRemoveWebapp={onRemoveWebapp} onRefreshWebapp={onRefreshWebapp} onClearWebappData={onClearWebappData} desktop={desktop} />
       ) : tab === "terms" ? (
       <div className="side-section">
         <div className="pins-head">
@@ -286,12 +286,10 @@ export default function Sidebar({
                   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
                   <WorkspaceMenu
                     ws={ws}
-                    hasAgents={wsAgents.length > 0}
                     onMoveUp={wsIndex > 0 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, -1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
                     onMoveDown={wsIndex >= 0 && wsIndex < workspaces.length - 1 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, 1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
                     onFileTree={onFileTree}
                     onGitGraph={onGitGraph}
-                    onSessions={onSessions}
                     onRemove={onRemove}
                   />
                 </span>

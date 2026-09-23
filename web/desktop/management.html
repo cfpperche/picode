@@ -26,6 +26,7 @@
         --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
       }
       * { box-sizing: border-box; }
+      [hidden] { display: none !important; }
       body {
         font-family: var(--sans);
         margin: 0; padding: 1.25rem;
@@ -103,6 +104,7 @@
       .activity .what { font-weight: 500; }
       .activity .detail { color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .activity li.failed .detail { color: var(--danger); white-space: normal; }
+      .activity .tech, .why .tech, .err .tech { display: block; color: var(--text-secondary); font-size: 12px; margin-top: .15rem; white-space: pre-wrap; }
       .activity .dur { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
       .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -142,6 +144,7 @@
       .err { color: var(--danger); white-space: pre-wrap; }
       .ok { color: var(--ok); }
       .held { color: var(--warn); }
+      .v.none { color: var(--text-secondary); font-weight: 400; }
       .note { margin: 1rem 0 0; }
       .kind-redownload { color: var(--warn); }
       .kind-safe { color: var(--ok); }
@@ -260,6 +263,39 @@
         done: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.5l2.5 2.5L11 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
         failed: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M4 4l6 6M10 4l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
       };
+      // The tool's errors are written for a terminal. The page leads with
+      // what happened and the one thing to do, and keeps the tool's own
+      // words underneath for whoever needs them. Unknown errors pass
+      // through as they are — never a guess dressed as a diagnosis.
+      const PLAIN = [
+        [/picode disk printed no JSON|older than this program/i, 'PiCode inside the distro is older than the desktop app. Update PiCode, then scan again.'],
+        [/picode is not installed/i, 'PiCode is not installed inside the distro. Install it there, then scan again.'],
+        [/picode-desktop\.exe was not found/i, 'A file of PiCode Desktop is missing. Reinstall PiCode Desktop.'],
+        [/ask PiCode whether anyone is working/i, 'PiCode did not say whether anyone is working. Try again.'],
+        [/Optimize-VHD needs an administrator/i, 'Giving space back from here needs WSL 2.0 or newer. Update WSL, then try again.'],
+        [/ended without an outcome/i, 'The tool stopped before it finished. Scan again.'],
+        [/another Management job is still running/i, 'An earlier Management job is still running. Wait for it to finish, then try again.'],
+        [/lists no distributions|no WSL distribution named/i, 'WSL has no Linux distribution for PiCode. Install one, then scan again.'],
+        [/read WSL's registry|^fsutil queryrange|volume JSON|no JSON in "/i, 'Windows did not answer about the disk file. Scan again.'],
+      ];
+      function plain(err) {
+        const raw = String(err ?? '').replace(/^Error:\s*/, '');
+        const hit = PLAIN.find(([re]) => re.test(raw));
+        return hit ? { text: hit[1], tech: raw } : { text: raw, tech: '' };
+      }
+      // Renders an error into a node: the plain line, then the tool's text.
+      function putError(node, err) {
+        const p = plain(err);
+        node.textContent = p.text;
+        if (p.tech) {
+          const t = document.createElement('span');
+          t.className = 'tech';
+          t.textContent = p.tech;
+          node.appendChild(t);
+        }
+      }
+      const errorHTML = err => { const n = document.createElement('span'); putError(n, err); return n.innerHTML; };
+
       function setIcon(node, state) {
         node.className = 'ico ' + (state === 'running' ? 'spin' : state || '');
         node.innerHTML = ICON[state] || '';
@@ -321,8 +357,9 @@
             // and drop the ellipsis once the step is no longer running.
             const text = what.charAt(0).toUpperCase() + what.slice(1);
             r.what.textContent = state === 'running' ? text : text.replace(/…$/, '');
-            r.detail.textContent = detail || '';
-            r.detail.title = detail || '';
+            if (state === 'failed' && detail) putError(r.detail, detail);
+            else r.detail.textContent = detail || '';
+            r.detail.title = state === 'failed' ? '' : (detail || '');
             const live = [...rows.values()].some(x => x.state === 'running');
             if (live && !tick) tick = setInterval(paint, 100);
             if (!live && tick) { clearInterval(tick); tick = null; }
@@ -370,6 +407,8 @@
       function put(id, text) {
         const n = el(id);
         n.textContent = text;
+        // A dash is "not known": neutral, never the warn/ok colour of a value.
+        n.classList.toggle('none', text === '—');
         if (n.classList.contains('skel')) { n.classList.remove('skel'); n.classList.add('fresh'); }
       }
       function consumerSkeleton(tbody, rows, cols) {
@@ -389,7 +428,7 @@
         el(st.card).classList.toggle('failed', state === 'failed');
         const why = el(st.why);
         why.hidden = state !== 'failed';
-        why.textContent = state === 'failed' ? detail : '';
+        if (state === 'failed') putError(why, detail); else why.textContent = '';
       }
 
       function fillWindows(w, held) {
@@ -413,7 +452,7 @@
       function applyReport(rep) {
         lastReport = rep;
         const w = rep.windows, d = rep.distro;
-        if (w) { el('distro-title').textContent = 'Inside ' + w.distro; fillWindows(w, rep.held || 0); }
+        if (w) { el('distro-title').textContent = STAGE.distro.what = 'Inside ' + w.distro; fillWindows(w, rep.held || 0); }
         else { for (const id of W_IDS) put(id, '—'); }
         if (d) fillDistro(d);
         else { for (const id of L_IDS) put(id, '—'); el('consumers').hidden = true; }
@@ -475,7 +514,7 @@
         if (!p || p.op !== busy || (p.run && p.run !== currentRun)) return;
         if (p.op === 'scan') {
           if (p.stage === 'windows' && p.windows) {
-            el('distro-title').textContent = 'Inside ' + p.windows.distro;
+            el('distro-title').textContent = STAGE.distro.what = 'Inside ' + p.windows.distro;
             fillWindows(p.windows);
           }
           if (p.stage === 'distro' && p.distro) fillDistro(p.distro);
@@ -492,7 +531,15 @@
       // ---- give back held space --------------------------------------------
       function renderOutcome(o) {
         const out = el('outcome');
-        if (o.error)   { out.innerHTML = `<p class="err">Failed (the distro was restarted): ${esc(o.error)}</p>`; return; }
+        if (o.error) {
+          // After the stop the sessions are gone whatever failed next; say
+          // that first, and keep the tool's own words (no plain mapping —
+          // a disk-read diagnosis would hide that the conversion ran).
+          out.innerHTML = o.stopped
+            ? `<p class="err">The distro was stopped and its sessions ended, but giving space back did not finish. It is starting again.<span class="tech">${esc(o.error)}</span></p>`
+            : `<p class="err">Nothing was stopped. ${errorHTML(o.error)}</p>`;
+          return;
+        }
         if (o.refused) { out.innerHTML = `<p class="warn">Not run — ${esc(o.refused)}</p>`; return; }
         if (o.note && o.after == null) { out.innerHTML = `<p>${esc(o.note)}</p>`; return; }
         out.innerHTML =
@@ -513,7 +560,7 @@
           renderOutcome(o);
         } catch (e) {
           scanLog.finishRunning('failed', String(e));
-          el('outcome').innerHTML = `<p class="err">${esc(String(e))}</p>`;
+          el('outcome').innerHTML = `<p class="err">${errorHTML(e)}</p>`;
         }
         setBusy('');
         await scan();
@@ -538,7 +585,10 @@
             host.innerHTML = '<table class="clean-table"><thead><tr><th></th><th>Cache</th><th class="n">Size</th><th>Kind</th></tr></thead><tbody></tbody></table>';
             consumerSkeleton(host.querySelector('tbody'), 4, 4);
           } else if (lastReport) {
-            host.innerHTML = `<div class="empty"><span class="err">${esc(lastReport.distroError || 'The distro could not be measured.')}</span></div>`;
+            host.innerHTML = `<div class="empty"><span class="err">${lastReport.distroError ? errorHTML(lastReport.distroError) : 'The distro could not be measured.'}</span></div>`;
+          } else if (scanFailed) {
+            // Never a blank well: the scan that feeds this list failed.
+            host.innerHTML = '<div class="empty">The caches could not be measured — the scan failed. Use Scan again at the top.</div>';
           } else {
             host.innerHTML = '';
           }
@@ -596,7 +646,7 @@
           cleanSelection.clear();
         } catch (e) {
           cleanLog.finishRunning('failed', String(e));
-          el('clean-outcome').innerHTML = `<p class="err">${esc(String(e))}</p>`;
+          el('clean-outcome').innerHTML = `<p class="err">${errorHTML(e)}</p>`;
         }
         setBusy('');
         await scan(); // the disk numbers and the cache sizes move together

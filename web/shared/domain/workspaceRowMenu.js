@@ -3,7 +3,7 @@
 // and the node tests hold the sidebar to it.
 //
 // Five groups, most-used first and the dangerous one last:
-//   1. inside PiCode — Communication, Files, Git graph, Sessions
+//   1. inside PiCode — Communication, Files, Git graph
 //   2. out of PiCode — the folder in the owner's file manager (Explorer under
 //      WSL), the repository's web page, its pull request, and the path
 //   3. Settings… — the name and how delivered work lands (WorkspaceSettings)
@@ -60,16 +60,13 @@ function requestRow(ws, remote, pr) {
   return url ? { id: "pr", label: "Create " + noun, url, title: "Propose " + branch + " on " + remote.host + "." } : null;
 }
 
-export function workspaceRowMenu(ws = {}, { hasAgents = false, canMoveUp = false, canMoveDown = false, pr } = {}) {
+export function workspaceRowMenu(ws = {}, { canMoveUp = false, canMoveDown = false, pr } = {}) {
   const repo = !!(ws.git && (ws.git.branch || ws.git.worktree));
   const remote = ws.remote && ws.remote.url ? ws.remote : null;
   const inside = [
     { id: "communication", label: "Communication" },
     { id: "files", label: "Files" },
     ...(repo ? [{ id: "git-graph", label: "Git graph" }] : []),
-    // Sessions read through an agent — an empty workspace answers 409, so it
-    // does not offer the item (ADR-0027).
-    ...(hasAgents ? [{ id: "sessions", label: "Sessions" }] : []),
   ];
   const request = remote && repo ? requestRow(ws, remote, pr) : null;
   const copy = ws.winPath
