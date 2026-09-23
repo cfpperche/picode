@@ -254,8 +254,17 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.LlamaService != nil {
 		srv.RegisterOnShutdown(deps.LlamaService.Close)
 	}
+	// OpenCode's server runs only for its sign-in dialog (ADR-0201): it goes
+	// down with PiCode instead of outliving it.
+	srv.RegisterOnShutdown(StopSidecars)
 	return srv
 }
+
+// StopSidecars stops the helper processes PiCode starts for a dialog —
+// OpenCode's `opencode serve` (ADR-0201). The binary serves New's handler
+// from an http.Server of its own, so main registers this on that server:
+// hooks registered on New's server never run there.
+func StopSidecars() { ocServe.stop() }
 
 // registerAll wires every route the server serves onto any route
 // registrar. New passes a real *http.ServeMux; the OpenAPI generator

@@ -48,6 +48,11 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/codex/login", handleCodexLoginStart(deps))
 	mux.HandleFunc("POST /api/grok/login", handleGrokLoginStart(deps))
 	mux.HandleFunc("POST /api/muse/login", handleMuseLoginStart(deps))
+	mux.HandleFunc("GET /api/opencode/catalog", handleOpencodeCatalog)
+	mux.HandleFunc("POST /api/opencode/credential", handleOpencodeCredential(deps))
+	mux.HandleFunc("POST /api/opencode/credential/code", handleOpencodeCode)
+	mux.HandleFunc("GET /api/opencode/credential", handleOpencodeLoginStatus)
+	mux.HandleFunc("DELETE /api/opencode/credential", handleOpencodeLoginCancel)
 	mux.HandleFunc("POST /api/agy/login", handleAgyLoginStart(deps))
 	mux.HandleFunc("GET /api/agy/login", handleAgyLoginStatus)
 	mux.HandleFunc("DELETE /api/agy/login", handleAgyLoginCancel)
@@ -197,6 +202,10 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			// Muse signs in by running its own device-code login (ADR-0195).
 			if spec.CLI == "muse" {
 				out["add"] = map[string]any{"kind": "muse", "label": "Add provider"}
+			}
+			// OpenCode signs in through its own server (ADR-0201).
+			if spec.CLI == "opencode" {
+				out["add"] = map[string]any{"kind": "opencode", "label": "Add provider"}
 			}
 			// Antigravity signs in with a pasted Google code (ADR-0197).
 			if spec.CLI == "agy" {
