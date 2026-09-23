@@ -37,12 +37,13 @@ design and a workspace removal keeps its exits.
 | Who | `agent_id`, `agent_name`, `cli`, `workspace_id`, `workspace_name` |
 | Setup | `provider`, `model`; `config` JSON: thinking, op mode, checklist, packages, extra prompt, work path, `launch` (a CLI agent's `terminal_launches` record: args, path, tools, the applied snapshot, and **env names only** — an override can carry a key, so values never reach the exit) |
 | Observed | `created_at`, `removed_at`, `lifetime_s`, `turns`, `first_worked_at`, `last_worked_at`; `signals` JSON: last status, Inbox items and how many were blocking, checklist done/total |
-| Sessions | `sessions` JSON: the Pi session path or the CLI's last session id/path; `sessions_purged`, `work_purged` |
+| Sessions | `sessions` JSON: the Pi session path (or, for an agent that never bound one, the newest file in its private folder) or the CLI's last session id/path, and `cwd` — the folder its CLI ran in (ADR-0205); `sessions_purged`, `work_purged` |
 | Question | `origin` (desktop/mobile/api), `asked`, `ask_skip` (off/idle/brief/client/workspace) |
 | Answer | `outcome`, `reasons`, `note` (≤ 1,000 characters), `labeled_at`, `taxonomy` |
-| Undo | `undone_at`, `restored_agent_id` — undone exits leave every list and count; the export keeps them |
+| Undo | `undone_at`, `restored_agent_id` — set by Undo and by a restore from the history; undone exits leave every list and count; the export keeps them |
+| History | `forgotten_at` (migration 072) — taken out of the agent history; still in the catalog |
 
-Events: `agent_exit.recorded`, `agent_exit.updated` (label, undo),
+Events: `agent_exit.recorded`, `agent_exit.updated` (label, undo, restore, forget),
 `agent_exit.deleted`.
 
 ## Cost
@@ -99,6 +100,38 @@ width on the phone and in narrow windows.
 | `POST /api/agent-exits/{id}/undo` | links the exit to the agent an Undo brought back |
 | `GET`/`PUT /api/agent-exits/prefs` | the ask switch |
 
+## Agent history (ADR-0205)
+
+`#/history` (desktop; user menu ▸ Tools, and the palette) lists the removed
+agents that can come back. There is no table: `GET /api/agent-history` reads
+`Store.AgentHistoryCandidates` (not undone, not forgotten, points at a
+session) and keeps the exits a `clisession.Locator` still finds on disk —
+Pi by file, any other CLI by session id in `sessions.cwd`, then machine-wide
+(exits written before `cwd` was recorded). The locator memoizes one listing
+per CLI and folder for the request. An entry answers the session summary,
+the folder, and whether the folder and the workspace still exist.
+
+| Route | Does |
+|---|---|
+| `GET /api/agent-history` | `{entries: [{exit, session, folder, folderExists, workspaceExists, canDeleteFile}]}`, newest removal first, at most 500 exits read |
+| `POST /api/agent-history/{id}/restore` | `{workspaceId?, name?}` → 201 `{agent, terminalId, resume, envKeys}`; the refusals are ADR-0205's table (409 restored / `workspace_gone` / `folder_gone`, 410 transcript gone, the launch pre-flight) |
+| `POST /api/agent-history/{id}/forget` | `{deleteFile?}` → the exit with `forgottenAt`; `deleteFile` only for a Pi file under Pi's sessions root that no living agent is bound to |
+
+A restored Pi agent gets the exit's provider, model, thinking, tools,
+checklist, extra prompt and `sessionPath`. When the file sits in the old
+agent's private folder, every file there moves to the new id's folder
+(`adoptPiAgentDir`): the chat and its session list read that folder, so a
+file left under the old id resumed in Pi and showed nowhere (found in QA).
+The eight-second Undo still re-points `sessionPath` without moving, and has
+that gap. Any other CLI gets a terminal with
+the frozen launch (executable, PATH, tools, integration, removed env; env
+values were never kept — their names come back as `envKeys`) and the found
+session pinned as `terminal_launches.last_session`; the client then calls
+`launch/start` with `resume`, which applies the CLI's own resume arguments.
+The agent works in the folder the conversation ran in, whatever workspace it
+joins. Code: `internal/server/agent_history.go`, `internal/clisession/locate.go`,
+`web/browser/src/components/AgentHistory.jsx`.
+
 ## Known limits
 
 - Cost covers a CLI agent's last known session only, and nothing for CLIs
@@ -108,3 +141,5 @@ width on the phone and in narrow windows.
   `web/mobile/src/screens/OutcomesList.jsx`) lists records, answers later,
   deletes and carries the switch; the numbers' breakdowns and the filters
   stay on the desktop page.
+- The agent history has no phone screen yet, and a restore mints a new agent
+  id (automations, pins and Canvas edges on the old id stay broken).

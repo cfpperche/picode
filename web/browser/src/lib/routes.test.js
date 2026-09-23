@@ -29,6 +29,7 @@ test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/snippets"), "snippets");
   assert.equal(parseRoute("#/snippets/new"), "snippets");
   assert.equal(parseRoute("#/outcomes"), "outcomes");
+  assert.equal(parseRoute("#/history"), "history");
   assert.equal(snippetRoute("#/snippets"), "");
   assert.equal(snippetRoute("#/snippets/new"), "new");
   assert.equal(snippetsHash("new"), "#/snippets/new");

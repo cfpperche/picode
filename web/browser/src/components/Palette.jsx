@@ -66,6 +66,7 @@ function buildActions(workspaces, apps, focusable, snips, agentId) {
     { id: "automations", label: "Automations", group: "app", kind: "automations" },
     { id: "snippets", label: "Snippets", group: "app", kind: "snippets" },
     { id: "outcomes", label: "Outcomes", group: "app", kind: "outcomes" },
+    { id: "history", label: "Agent history", group: "app", kind: "history" },
   ];
   if (agentId) {
     for (const s of (snips || []).slice(0, 10)) {

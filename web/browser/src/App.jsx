@@ -52,6 +52,7 @@ import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Snippets from "./components/Snippets.jsx";
 import Outcomes from "./components/Outcomes.jsx";
+import AgentHistory from "./components/AgentHistory.jsx";
 import SnipCaptureSheet from "./components/SnipCaptureSheet.jsx";
 import Palette from "./components/Palette.jsx";
 import SnipRunSheet from "./components/SnipRunSheet.jsx";
@@ -4417,6 +4418,7 @@ export default function App({ shellChrome = false } = {}) {
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} clisLoaded={clisState === "ok"} />
         <Snippets hidden={route !== "snippets"} />
         <Outcomes hidden={route !== "outcomes"} workspaces={workspaces} />
+        <AgentHistory hidden={route !== "history"} workspaces={workspaces} onOpenAgent={(id) => { loadWorkspaces().then((list) => revealAgent(id, list)).catch(() => revealAgent(id)); }} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>
@@ -4480,7 +4482,7 @@ export default function App({ shellChrome = false } = {}) {
             setCliPrincipalWs({ free: true }); // ADR-0184: a launch is an agent
             return;
           }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets" || a.kind === "outcomes") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets" || a.kind === "outcomes" || a.kind === "history") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
             const via = loc && loc.agent && loc.agent.mode === "interactive" ? "tui" : undefined;

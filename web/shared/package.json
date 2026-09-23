@@ -31,6 +31,7 @@
     "./domain/agentTerminal.js": "./domain/agentTerminal.js",
     "./domain/agentRowMenu.js": "./domain/agentRowMenu.js",
     "./domain/agentExit.js": "./domain/agentExit.js",
+    "./domain/agentHistory.js": "./domain/agentHistory.js",
     "./domain/instructions.js": "./domain/instructions.js",
     "./domain/workspaceRowMenu.js": "./domain/workspaceRowMenu.js",
     "./domain/workspaceSettings.js": "./domain/workspaceSettings.js",

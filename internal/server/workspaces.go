@@ -252,10 +252,11 @@ func handleRemove(deps Deps) http.HandlerFunc {
 		preview := deps.previewCleanup(wk.Path, dying)
 		// Its agents end with it: each gets an unasked exit (ADR-0194).
 		exitIn := store.ExitInput{
-			Meter:          exitMeter(),
-			Origin:         exitOriginOf(req),
-			SessionsPurged: queryFlag(r, "sessions"),
-			WorkPurged:     queryFlag(r, "work") && preview.LastOccupant && preview.CanPurgeWork,
+			Meter:             exitMeter(),
+			PiSessionFallback: piSessionFallback,
+			Origin:            exitOriginOf(req),
+			SessionsPurged:    queryFlag(r, "sessions"),
+			WorkPurged:        queryFlag(r, "work") && preview.LastOccupant && preview.CanPurgeWork,
 		}
 		removed, _, err := deps.Store.RemoveWorkspaceWithExits(wk.ID, exitIn)
 		if err != nil || !removed {

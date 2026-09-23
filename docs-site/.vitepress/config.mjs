@@ -78,6 +78,7 @@ export default defineConfig({
             items: [
               { text: "Dashboard", link: "/guide/dashboard" },
               { text: "Outcomes", link: "/guide/outcomes" },
+              { text: "Agent history", link: "/guide/agent-history" },
               { text: "Canvas", link: "/guide/canvas" },
               { text: "Session messages", link: "/guide/communication" },
               { text: "Delivery requests", link: "/guide/delivery" },
