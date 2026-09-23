@@ -23,7 +23,9 @@ flows/states · cross-references (symbols, files, ADRs).
 | Wave | Files | OK | DRIFT | UNVERIFIABLE | Branch |
 |---|---|---|---|---|---|
 | 1 | routes, agent-manager, terminal-bridge, security-model | ~95 | 7 | 0 | landed |
-| 2 | cli-terminal-launch, cli-providers, cli-settings, cli-memory, cli-session-handoff, packages, mcp, integrations | ~70 | 5 | 0 | `feat/prose-audit-w2` |
+| 2 | cli-terminal-launch, cli-providers, cli-settings, cli-memory, cli-session-handoff, packages, mcp, integrations | ~70 | 5 | 0 | landed |
+| 3 | work-browser, computer-tool, chrome-extension, canvas, docker-app, docker-maintenance, tmux-app, file-preview | ~55 | 10 | 0 | landed |
+| 4 | 21 stable files (all) | ~60 | 0 | 0 | landed |
 
 ## Wave 2 — Agent CLIs stack
 
@@ -55,11 +57,4 @@ flows/states · cross-references (symbols, files, ADRs).
 - [x] tmux-app.md — clean: `StartTmuxServerWatch` at 15s
 ## Wave 4 — stable
 
-- [ ] automations.md · broker.md · change-feed.md · climetrics.md ·
-      compaction-policy.md · credentials.md · data-persistence.md ·
-      delivery.md · devservers.md · direct-session-communication.md ·
-      gateway.md · llama-manager.md · managed-principals.md · model-roles.md ·
-      notices.md · picode-mcp.md · pins.md · rpc-bridge.md · session-reader.md ·
-      snippets.md · tui-diff-panel.md · cli-providers.md leftovers
-
-(Per-file verdict lines are appended under each wave as waves land.)
+- [x] All 21 files (automations, broker, change-feed, climetrics, compaction-policy, credentials, data-persistence, delivery, devservers, direct-session-communication, gateway, llama-manager, managed-principals, model-roles, notices, picode-mcp, pins, rpc-bridge, session-reader, snippets, tui-diff-panel) — clean. Path sweep: zero missing across every backtick-cited path; ADR sweep: 74 cited, zero missing; numeric caps verified in code — pins (16 tags/40 runes/100 KB body/24 files/8 MB image/16 MB file/2 MB scene), automations (30 s watchdog, 2 h timeout), snips (snipDecodeLimit, 100 KB body), devservers (5 s poll); PI_ROLES_AGENT / PI_COMPACT_AGENT / picode-communication confirmed. Wave-4 prose made no claims the code contradicts, so no changelog fragment: nothing user-visible changed.
