@@ -10,7 +10,7 @@ Shipped (2649791b):
 Verified: tests (run as a Windows test exe via interop) show the re-aimed output parses as a tauri `CapabilityFile`, permissions and windows unchanged, bind host added. Adversarial review against tauri 2.11.5 source: no blockers; http-on-8445, bind host and retry-after-failure fixed.
 Blind spot: not run inside a restarted Windows shell against a daemon on a non-8445 port; on the default port the grant is skipped and behaviour is unchanged.
 visual-review: n/a
-Merge: fast-forward ready once `make close` is green.
+Merge: merged on `main` as a876efd9, `make ci` green.
 
 ## Next up
 
