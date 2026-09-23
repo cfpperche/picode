@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cellTitle, createLine, groupFiles, rowMatters, sizeLabel, visibleClis } from "./instructions.js";
+import { cellTitle, createLine, groupFiles, rowMatters, shortPath, sizeLabel, visibleClis } from "./instructions.js";
 
 const clis = [
   { id: "claude-code", name: "Claude Code", installed: true },
@@ -84,3 +84,9 @@ for (const c of lineCases) {
     assert.equal(createLine(report(c.files), c.cli), c.want);
   });
 }
+
+test("shortPath keeps the file and its nearest folders", () => {
+  assert.equal(shortPath("AGENTS.md"), "AGENTS.md");
+  assert.equal(shortPath("/home/goat/picode/.worktrees/agents-md-instructions/AGENTS.md"), "…/agents-md-instructions/AGENTS.md");
+  assert.equal(shortPath("/a/" + "x".repeat(50) + ".md").startsWith("…/"), true);
+});

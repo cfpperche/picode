@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
-import { STATUS_LABEL, cellTitle, groupFiles, rowMatters, sizeLabel, visibleClis } from "@picode/shared/domain/instructions.js";
+import { STATUS_LABEL, cellTitle, groupFiles, rowMatters, shortPath, sizeLabel, visibleClis } from "@picode/shared/domain/instructions.js";
 import "../styles/instructions.css";
 
 // Instructions: which instruction files each agent CLI reads for a session
@@ -35,6 +35,7 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
   const hiddenClis = data ? data.clis.length - clis.length : 0;
   const groups = data ? groupFiles(data.files).map((g) => ({ ...g, rows: g.files.filter((f) => showAll || rowMatters(f, clis)) })).filter((g) => g.rows.length) : [];
   const quietRows = data ? data.files.length - groups.reduce((n, g) => n + g.rows.length, 0) : 0;
+  const noProjectFile = data && !data.files.some((f) => f.scope === "project");
   const pickedFile = picked && data ? data.files.find((f) => f.path === picked.path) : null;
   const pickedCli = picked && data ? data.clis.find((c) => c.id === picked.cli) : null;
   const pickedCell = pickedFile && pickedCli ? pickedFile.cells[pickedCli.id] : null;
@@ -73,7 +74,7 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
             <div className="instr-skeleton" aria-label="Reading instruction files">{[1, 2, 3, 4].map((n) => <div key={n} />)}</div>
           ) : null}
 
-          {data && data.files.length === 0 ? (
+          {noProjectFile ? (
             <div className="mcp-empty">
               <p>No instruction files in this workspace.</p>
               <a className="btn" href="https://agents.md" target="_blank" rel="noreferrer">What is AGENTS.md?</a>
@@ -117,7 +118,7 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
                         <th scope="row" className="instr-file-col">
                           {f.rel ? (
                             <button className="instr-file" title={"Open " + f.path} onClick={() => onOpenFile && onOpenFile(f.rel)}>{f.path}</button>
-                          ) : <span className="instr-file-text" title={f.path}>{f.path}</span>}
+                          ) : <span className="instr-file-text" title={f.path}>{shortPath(f.path)}</span>}
                           {f.ignored ? <span className="instr-tag" title="Excluded by .gitignore">ignored</span> : null}
                         </th>
                         <td className="instr-num">{sizeLabel(f.bytes)}</td>

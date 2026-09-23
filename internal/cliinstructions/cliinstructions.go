@@ -273,9 +273,11 @@ func newScan(env Env) (*scan, error) {
 }
 
 func (s *scan) add(abs, scope string) {
-	if f := s.load(abs, scope); f != nil {
-		s.order = append(s.order, f)
+	f := s.load(abs, scope)
+	if f == nil || (scope == "above" && f.empty) {
+		return // an empty file above the workspace changes nothing for any CLI
 	}
+	s.order = append(s.order, f)
 }
 
 func (s *scan) load(abs, scope string) *File {

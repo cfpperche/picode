@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/cfpperche/picode/internal/cliinstructions"
-	"github.com/cfpperche/picode/internal/clipkgs"
+	"github.com/cfpperche/picode/internal/clilaunch"
 )
 
 // The Instructions tab (docs/architecture/cli-instructions.md): which
@@ -46,7 +46,7 @@ func handleWorkspaceInstructions(deps Deps) http.HandlerFunc {
 				return
 			}
 		}
-		rep, err := cliinstructions.Resolve(cliinstructions.Env{Root: cwd, Start: start, Installed: clipkgs.Installed})
+		rep, err := cliinstructions.Resolve(cliinstructions.Env{Root: cwd, Start: start, Installed: installedCLIs(deps)})
 		if errors.Is(err, os.ErrPermission) {
 			writeErr(w, http.StatusBadRequest, "Choose a folder inside this workspace.")
 			return
@@ -57,4 +57,21 @@ func handleWorkspaceInstructions(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, rep)
 	}
+}
+
+// installedCLIs answers the way the Agent CLIs page does: the catalog row's
+// executable, resolved through its launch settings (resolveCLIExecutable).
+// No retry here: a CLI missing mid-update shows as not installed for one read.
+func installedCLIs(deps Deps) func(string) bool {
+	have := map[string]bool{}
+	for _, cli := range clilaunch.Catalog() {
+		c, err := cliConfig(deps, cli.ID)
+		if err != nil {
+			continue
+		}
+		if _, err := resolveCLIExecutable(cli, c); err == nil {
+			have[cli.ID] = true
+		}
+	}
+	return func(id string) bool { return have[id] }
 }

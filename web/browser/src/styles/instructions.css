@@ -38,8 +38,9 @@
 
 .instr-scroll { overflow-x: auto; }
 .instr-matrix { width: 100%; border-collapse: collapse; }
-.instr-matrix th, .instr-matrix td { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-.instr-matrix thead th { color: var(--text-secondary); font-weight: 500; font-size: 12px; }
+.instr-matrix th, .instr-matrix td { padding: 4px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+/* A CLI's name may take two lines, so nine columns fit a normal card. */
+.instr-matrix thead th { color: var(--text-secondary); font-weight: 500; font-size: 12px; line-height: 1.25; white-space: normal; vertical-align: bottom; max-width: 76px; }
 .instr-matrix tbody tr:last-child th, .instr-matrix tbody tr:last-child td { border-bottom: 0; }
 .instr-group th { padding-top: 14px; color: var(--text-secondary); font-size: 12px; font-weight: 500; }
 .instr-file-col { width: 1%; }

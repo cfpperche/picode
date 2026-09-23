@@ -51,6 +51,16 @@ export function rowMatters(file, clis) {
   });
 }
 
+// shortPath keeps a long path's last folders, so a row outside the workspace
+// (an absolute path above it) does not push the columns off the card.
+export function shortPath(path = "", max = 36) {
+  if (path.length <= max) return path;
+  const parts = path.split("/");
+  let out = parts.pop();
+  while (parts.length && (parts[parts.length - 1] + "/" + out).length <= max - 2) out = parts.pop() + "/" + out;
+  return "…/" + out;
+}
+
 export function sizeLabel(bytes = 0) {
   if (bytes < 1024) return bytes + " B";
   const kb = bytes / 1024;
