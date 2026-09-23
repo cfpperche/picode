@@ -16,9 +16,11 @@ import (
 func TestKillIsolatedServerRefusesTheUsersSocketDir(t *testing.T) {
 	for _, tc := range []struct{ name, dir string }{
 		{"empty", ""},
-		{"the user's default", DefaultSocketDir()},
-		{"the default with a trailing slash", DefaultSocketDir() + "/"},
-		{"the default undone by ..", filepath.Join(DefaultSocketDir(), "..", filepath.Base(DefaultSocketDir()))},
+		// The user's directory is the one the process found at start-up:
+		// this suite runs under tmuxtest, whose TMUX_TMPDIR is private.
+		{"the user's default", userSocketDirAtStart},
+		{"the default with a trailing slash", userSocketDirAtStart + "/"},
+		{"the default undone by ..", filepath.Join(userSocketDirAtStart, "..", filepath.Base(userSocketDirAtStart))},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := KillIsolatedServer(context.Background(), tc.dir)
@@ -123,8 +125,8 @@ func TestKillServerRefusesTheUsersServer(t *testing.T) {
 		tmux string
 	}{
 		{"the default socket", New(), ""},
-		{"the user's default socket", NewWithSocket(filepath.Join(DefaultSocketDir(), "default")), ""},
-		{"another socket in the user's dir", NewWithSocket(filepath.Join(DefaultSocketDir(), "other")), ""},
+		{"the user's default socket", NewWithSocket(filepath.Join(userSocketDirAtStart, "default")), ""},
+		{"another socket in the user's dir", NewWithSocket(filepath.Join(userSocketDirAtStart, "other")), ""},
 		{"the server $TMUX names", NewWithSocket(attached), attached + ",123,0"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -191,5 +193,27 @@ func TestNewWithSocketReportsAnUnusablePath(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "error creating") && !strings.Contains(err.Error(), "error connecting") {
 		t.Fatalf("error should name tmux's complaint: %v", err)
+	}
+}
+
+// A directory the environment names is the user's unless this process marked
+// it as its own isolation: the mark is what lets tmuxtest end its private
+// server while TMUX_TMPDIR still points there, and nothing else gets that.
+func TestKillIsolatedServerHonoursOnlyMarkedEnvDirs(t *testing.T) {
+	unmarked := t.TempDir()
+	t.Setenv(SocketDirEnv, unmarked)
+	if err := KillIsolatedServer(context.Background(), unmarked); err == nil || !strings.Contains(err.Error(), "refusing") {
+		t.Fatalf("an unmarked env directory was not refused: %v", err)
+	}
+	marked := t.TempDir()
+	MarkIsolated(marked)
+	t.Setenv(SocketDirEnv, marked)
+	if err := KillIsolatedServer(context.Background(), marked); err != nil {
+		t.Fatalf("the marked isolation was refused: %v", err)
+	}
+	// The user's directory as found at start-up can never be marked.
+	MarkIsolated(filepath.Dir(userSocketDirAtStart))
+	if err := KillIsolatedServer(context.Background(), filepath.Dir(userSocketDirAtStart)); err == nil {
+		t.Fatal("the user's directory was allowed after a mark")
 	}
 }

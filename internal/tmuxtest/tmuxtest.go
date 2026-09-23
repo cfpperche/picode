@@ -47,6 +47,10 @@ func Main(m *testing.M) int {
 	}
 	_ = os.Unsetenv("TMUX")
 	_ = os.Unsetenv("TMUX_PANE")
+	// Marked before the env points at it: the kill on the way out must not
+	// read this private directory as the user's (it did, and every suite
+	// leaked its server — 2026-09-23).
+	tmux.MarkIsolated(dir)
 	_ = os.Setenv(tmux.SocketDirEnv, dir)
 
 	code := m.Run()

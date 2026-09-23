@@ -128,7 +128,21 @@ func refuseUserServer(socket string) error {
 		return errors.New("tmux: refusing kill-server on the default socket — that is the user's own server")
 	}
 	clean := filepath.Clean(socket)
-	if dir := filepath.Clean(DefaultSocketDir()); clean == dir || strings.HasPrefix(clean, dir+string(os.PathSeparator)) {
+	under := func(dir string) bool {
+		dir = filepath.Clean(dir)
+		return clean == dir || strings.HasPrefix(clean, dir+string(os.PathSeparator))
+	}
+	// The user's directory as the process found it, before any harness
+	// redirected TMUX_TMPDIR: always refused.
+	if under(userSocketDirAtStart) {
+		return fmt.Errorf("tmux: refusing kill-server in %s — that is the user's own socket directory", filepath.Clean(userSocketDirAtStart))
+	}
+	// The directory the environment names now, unless this process made it
+	// as its own isolation (MarkIsolated). tmuxtest points TMUX_TMPDIR at its
+	// private namespace and keeps it there on the way out, so without the mark
+	// every harness kill was refused as "the user's" and each suite leaked its
+	// server, with HUP-immune panes still in it (490 found 2026-09-23).
+	if dir := filepath.Clean(DefaultSocketDir()); under(dir) && !isMarkedIsolated(dir) {
 		return fmt.Errorf("tmux: refusing kill-server in %s — that is the user's own socket directory", dir)
 	}
 	// The production instance's own server lives in its data directory
@@ -143,6 +157,35 @@ func refuseUserServer(socket string) error {
 		return fmt.Errorf("tmux: refusing kill-server on %s ($TMUX) — that is the server this session is attached to", live)
 	}
 	return nil
+}
+
+// userSocketDirAtStart is the user's socket directory as this process found
+// it at start-up, before a test harness could redirect TMUX_TMPDIR.
+var userSocketDirAtStart = DefaultSocketDir()
+
+var (
+	isolatedMu   sync.Mutex
+	isolatedDirs = map[string]bool{}
+)
+
+// MarkIsolated records that dir (a TMUX_TMPDIR value) is a private namespace
+// this process created for itself, so KillIsolatedServer may end its server
+// even while the environment still points there. The user's directory as the
+// process found it can never be marked.
+func MarkIsolated(dir string) {
+	sock := filepath.Clean(filepath.Join(dir, "tmux-"+strconv.Itoa(os.Getuid())))
+	if sock == filepath.Clean(userSocketDirAtStart) {
+		return
+	}
+	isolatedMu.Lock()
+	isolatedDirs[sock] = true
+	isolatedMu.Unlock()
+}
+
+func isMarkedIsolated(socketDir string) bool {
+	isolatedMu.Lock()
+	defer isolatedMu.Unlock()
+	return isolatedDirs[filepath.Clean(socketDir)]
 }
 
 // socketFromTmuxEnv reads the socket path out of $TMUX, which tmux writes as
