@@ -45,6 +45,7 @@ export default function Notice({ n, id, prefs }) {
   const hasFoot = n.meta.length > 0 || n.actions.length > 0;
   const cls = ["notice", "notice-" + n.level, n.actor ? "has-head" : "no-head"];
   if (p.closeButton) cls.push("has-x");
+  if (hasFoot) cls.push("has-foot");
 
   return (
     <div className={cls.join(" ")} role="status" aria-live={n.level === "error" ? "assertive" : "polite"}>

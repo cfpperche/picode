@@ -42,6 +42,12 @@ const CLI_MARKS = Object.freeze({
 // card (vendor .ico/.png files are opaque white).
 const CLI_ICON_BASE = "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/";
 
+const PI_MARK = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 560"><g fill="#8a8a96">'
+  + '<path d="M420 280H280V140H0V0H420V280Z"/><path d="M560 560H420V280H560V560Z"/>'
+  + '<path d="M140 560H0V140H140V280H280V420H140V560Z"/></g></svg>',
+);
+
 const CLI_FAVICONS = Object.freeze({
   "claude-code": Object.freeze([
     CLI_ICON_BASE + "claude.svg",
@@ -91,8 +97,12 @@ const CLI_FAVICONS = Object.freeze({
     "https://omp.sh/favicon.svg",
     "https://omp.sh/favicon.ico",
   ]),
-  // pi has no lobehub mark; pi.dev serves a transparent SVG.
-  pi: Object.freeze(["https://pi.dev/favicon.svg"]),
+  // pi has no lobehub mark, and pi.dev's favicon colours itself from the OS
+  // scheme (prefers-color-scheme), not the app's theme: a light OS drew a
+  // near-black mark on the dark app, a dark OS a near-white block on the
+  // light one. The same three paths, inlined in one neutral ink that holds
+  // ≥3:1 on both grounds (#8a8a96: ~5.3:1 on #16161c, ~3.4:1 on #fff).
+  pi: Object.freeze([PI_MARK]),
 });
 
 export function normalizeTerminalCli(id) {

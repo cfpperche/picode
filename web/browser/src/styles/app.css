@@ -1557,7 +1557,7 @@ img.ws-face.term-cli-face {
    and Remove as the same grey button — the phone app has defined the base state
    all along (mobile styles/app.css), and two scoped desktop rules
    (.ask-confirm, .dlg-hist) had already re-stated it (visual review, 2026-09-21). */
-.btn-danger { border-color: var(--danger); color: var(--danger); }
+.btn-danger { border-color: var(--danger); color: var(--danger-ink); }
 .btn-danger:hover { border-color: var(--danger); color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .chip {
   font-family: var(--mono); font-size: 10.5px; color: var(--text-secondary);
@@ -3977,6 +3977,10 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 .dlg-input:focus { outline: none; border-color: var(--accent); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+/* A dialog's secondary button beside a bordered primary or danger one: the
+   plain --border on the elevated ground measured ~1.1:1 in dark, so the pair
+   read lopsided. */
+.dlg-actions .btn-ghost { border-color: color-mix(in srgb, var(--text-secondary) 35%, var(--bg-elevated)); }
 /* The create form's actions stay at the dialog's bottom edge. A tall custom
    endpoint form scrolled them out of reach (measured 2026-09-14: 152px of
    scroll to reach Add endpoint at a 520px viewport), and the dialog only grew
@@ -4250,6 +4254,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .notice-x:hover { background: var(--bg-hover); color: var(--text-primary); }
 /* A one-line notice has no header to align with: centre the control. */
 .notice.no-head .notice-x { top: 50%; transform: translateY(-50%); }
+/* With a foot (Undo, Open) the card is two rows: centring over both put the
+   x on the divider against the first action. It belongs to the text row. */
+.notice.no-head.has-foot .notice-x { top: 8px; transform: none; }
 .notice.has-x .notice-head,
 .notice.has-x .notice-body { padding-inline-end: 34px; }
 .sr-only {

@@ -71,3 +71,5 @@
   .outc-facts { grid-template-columns: minmax(0, 1fr); }
   .outc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* Same secondary border as the dialogs' (the editor's Cancel sits beside Save). */
+.outc-actions .btn-ghost:not(.btn-danger) { border-color: color-mix(in srgb, var(--text-secondary) 35%, var(--bg-elevated)); }
