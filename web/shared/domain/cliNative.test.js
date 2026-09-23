@@ -198,6 +198,10 @@ test("a bound pane names the workspace layer; an unbound one keeps the generic w
   // A driver's suffix survives: Claude Code's uncommitted checkout layer.
   assert.equal(namedScope("This workspace (local)", "Atlas"), "Atlas (local)");
   assert.equal(namedScope("Global", "Atlas"), "Global");
+  // A workspace name is free text (trimmed, length-capped, no charset rule):
+  // `$` sequences must land literally, never as replace patterns.
+  assert.equal(namedScope("This workspace", "$&"), "$&");
+  assert.equal(namedScope("This workspace (local)", "A$'B"), "A$'B (local)");
   // Provenance reads the name, because the row reads the renamed layer.
   const named = namedLayers([
     { scope: "project", label: "This workspace", values: { key: "set" } },

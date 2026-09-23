@@ -35,7 +35,11 @@ export function scopeToLayer(scope) {
 export function namedScope(label, workspaceName = "") {
   const name = String(workspaceName || "").trim();
   if (!name) return label;
-  return String(label || "").replace("This workspace", name);
+  // A replacer function, not a replacement string: String.replace interprets
+  // `$` sequences ($&, $', $`) in a string replacement, and a workspace name
+  // may legally hold them (trimmed, ≤120 chars, no charset rule) — the name
+  // must land literally, first occurrence only.
+  return String(label || "").replace("This workspace", () => name);
 }
 
 // Every layer label in one report, renamed in one pass: a pane feeds its
