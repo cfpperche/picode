@@ -1086,6 +1086,9 @@ export default function App({ shellChrome = false } = {}) {
       if (!ev.data || !ev.data.first) loadWorkspaces().catch(() => {});
       return;
     }
+    // A fork's lineage row lands just after its agent: the list carries
+    // "fork of <name>" (forkedFrom), so refetch when that row arrives.
+    if (ev.type === "session.handoff" && ev.data && ev.data.mode === "fork") { loadWorkspaces().catch(() => {}); return; }
     if (!touches(ev, ["workspace", "agent", "terminal", "cli", "git", "mission"])) return;
     const next = applyFleet(fleetRef.current, ev);
     if (next === null) { loadWorkspaces().catch(() => {}); return; }
