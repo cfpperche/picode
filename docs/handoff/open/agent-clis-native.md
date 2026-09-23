@@ -66,6 +66,15 @@
   next full run was green, so the cost is a red gate once in a while, not a wrong
   answer. Whoever owns the CLI inspection test owns the fix (wait for the writer,
   or give the observation dir its own lifetime).
+  **Again 2026-09-23**, in `TestCLITerminalCreationAnnouncesItsIdentityOnTheFeed`
+  (`…/data: directory not empty`, `make ci` after the agent-exits landing; green
+  on rerun). Measured cause: the launch script ignores SIGHUP by design
+  (ADR-0085), so `killFixture`'s tmux kill can leave the pane's process tree
+  alive, and it still writes under `data/` while the temp dir is removed. The
+  same day two pairs (`/bin/sh …/cli-launch/feed-fixture-*/run-*/launch.sh` and
+  its `bin/muse` wrapper) were still running ~17 h after their test. Fix: have
+  `killFixture` read the pane pid before the kill, SIGTERM the pane's process
+  group and wait for it to exit before the temp dir goes.
 - Native packages/providers/settings: real downloads, vendor OAuth, credential changes, device acceptance and a real process restart remain external.
 - Agent CLIs is not in `SURFACE_PROFILES`, so no docs-shots capture covers it.
 - A launch that failed inside tmux (session start refused after the row exists) keeps a covering test since Fatia 3a: the pre-flight still rejects the reachable failures first, and the dead-socket attempt persists without leaking a session.

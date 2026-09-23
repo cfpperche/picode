@@ -12,4 +12,4 @@ visual-review: PASS (second pass; overlayAudit ok on every dialog; card 5/5; sho
 Blind spot: a browser against one scratch instance at 1440, 700 and 390 px wide; not run inside the Windows desktop shell or on a real phone.
 Seen in review, pre-existing (not this branch): the removal toast's close button sits against Undo; the dark-theme Cancel border is nearly invisible; the Pi icon renders as a white square in dark mode; the phone's Remove text is about 4.3:1 on its light background.
 Not done / debts: option B next, C and D later, and five accepted debts (no phone Outcomes screen, no cost per agent, …) — all in `docs/handoff/open/agent-exits.md`, not repeated here.
-Merge: fast-forward ready.
+Merged by fast-forward (main 66efe90a). The first `make ci` on main failed once on the known TempDir flake (`TestCLITerminalCreationAnnouncesItsIdentityOnTheFeed`; diagnosis in `docs/handoff/open/agent-clis-native.md`); the rerun was green. Not deployed.
