@@ -16,7 +16,7 @@ Merge: fast-forward ready.
 
 ## Next up
 
-- Owner confirms live after deploy: answer an `ask_human` from Claude Code in the Inbox.
+- Owner confirms live after deploy: answer an `ask_human` from Claude Code in the Inbox. **Done 2026-09-22:** on 0.5.0+3ca56d4 a restarted Claude Code agent asked, the owner replied from the Inbox, and the answer came back as the `ask_human` result (waiting-asker row).
 
 ## Debts
 
