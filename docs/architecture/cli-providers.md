@@ -110,7 +110,12 @@ last in Hermes's pool. Muse
 (ADR-0195) runs `muse login` through the generic `deviceLogin` runner
 (`device_login.go`, `POST`/`GET`/`DELETE /api/muse/login`) and shows its
 page and code; a Meta key is applied with Use, and Use on Muse files the
-login its one slot holds before replacing it. The
+login its one slot holds before replacing it. Antigravity
+(ADR-0197) has no login command: PiCode runs `agy -p . --print-timeout 1s`
+under `script -qfec`, shows Google's page, passes the pasted code in within
+Antigravity's 60 seconds, and kills the process group once the token file
+holds a login; a login already there is filed and set aside, and put back
+on failure. The
 other guests'
 dialog still holds a provider `<select>`
 limited to that CLI's providers, the key field with the line that says the
