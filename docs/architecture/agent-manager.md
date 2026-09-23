@@ -370,6 +370,9 @@ HTTP API (Go 1.22 method patterns):
   foreground program), 409 `moved` / `foreground` / `closed` for the target
   terminal itself; otherwise `{"ran": true}`. Git runs in the user's shell,
   never in the service process; the interlock is advisory and momentary.
+  One command skips the `busy` check (ADR-0202): exactly `git worktree add
+  -b <slug> <root>/.worktrees/<slug> <ref>` (`gitcmd.WorktreeCreate`) for the
+  terminal's own repository — a new folder and branch touch no agent's files.
 
 ADR-0074 adds optional `?root=<canonical folder>` to browse, text (GET/PUT),
 blob, gitstatus, gitdiff, git/blob, pr and reveal. The resolved owner cwd remains
