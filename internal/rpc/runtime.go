@@ -514,6 +514,11 @@ func (ma *ManagedAgent) pumpEvents(ready chan<- struct{}) {
 			o := ma.observer
 			ma.mu.Unlock()
 			ma.announceState()
+			// A turn is a transition into work (ADR-0194); the count is
+			// read when a person removes the agent.
+			if ma.store != nil {
+				_ = ma.store.NoteAgentTurn(ma.AgentID)
+			}
 			if o != nil && o.OnStarted != nil {
 				o.OnStarted()
 			}

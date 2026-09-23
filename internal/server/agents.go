@@ -694,9 +694,24 @@ func patchNewAgent(deps Deps, agent store.Agent, provider, model, thinking strin
 	})
 }
 
+// handleDeleteAgent is a person's removal: it writes the agent's exit
+// record in the same transaction as the delete (ADR-0194) and answers with
+// it. The optional body carries the removal dialog's answer.
 func handleDeleteAgent(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		req, err := readExitRequest(w, r)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if req.Exit != nil {
+			// A refused answer must not stop or remove anything.
+			if err := store.ValidateExitLabel(store.ExitLabel{Outcome: req.Exit.Outcome, Reasons: req.Exit.Reasons, Note: req.Exit.Note}); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
 		unlock := terminalLock(deps, "agent:"+id)
 		defer unlock()
 		agent, err := deps.Store.GetAgent(id)
@@ -713,16 +728,19 @@ func handleDeleteAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		preview := deps.previewCleanup(cwd, map[string]bool{agent.ID: true})
+		purgeSessions, purgeWork := queryFlag(r, "sessions"), queryFlag(r, "work")
+		in := deps.exitInput(agent, req, purgeSessions, purgeWork && preview.LastOccupant && preview.CanPurgeWork, time.Now())
 		if err := deps.stopAgentLocked(r.Context(), id); err != nil {
 			writeErr(w, 500, err.Error())
 			return
 		}
-		if err := deps.Store.DeleteAgent(id); err != nil {
+		ex, err := deps.Store.RemoveAgentWithExit(id, in)
+		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		deps.applyCleanup(preview, queryFlag(r, "sessions"), queryFlag(r, "work"))
-		w.WriteHeader(http.StatusNoContent)
+		deps.applyCleanup(preview, purgeSessions, purgeWork)
+		writeJSON(w, http.StatusOK, map[string]any{"exit": ex})
 	}
 }
 

@@ -83,7 +83,7 @@ func TestPrincipalHTTPCreatesCLIAgent(t *testing.T) {
 
 	del, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/managed-clis/"+created.AgentID, nil)
 	gone := do(t, ts.Client(), del)
-	if gone.StatusCode != http.StatusNoContent {
+	if gone.StatusCode != http.StatusOK {
 		t.Fatalf("unbind = %d", gone.StatusCode)
 	}
 

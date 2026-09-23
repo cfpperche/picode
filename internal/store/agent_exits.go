@@ -144,6 +144,12 @@ func normalizeExitLabel(l ExitLabel) (ExitLabel, error) {
 	return out, nil
 }
 
+// ValidateExitLabel checks an answer before anything is stopped or removed.
+func ValidateExitLabel(l ExitLabel) error {
+	_, err := normalizeExitLabel(l)
+	return err
+}
+
 // ExitInput is what the removal adds to what the store reads itself.
 type ExitInput struct {
 	Origin         string
