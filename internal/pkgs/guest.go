@@ -420,7 +420,10 @@ func scopesForGuestContext(scopes []ScopeRow, q Query) []ScopeRow {
 			if strings.TrimSpace(q.WorkspaceName) == "" {
 				continue
 			}
-			s.Label = q.WorkspaceName
+			// Name the radio after the workspace, keeping any qualifier the
+			// declaration carries: Claude Code's local layer reads
+			// "<workspace> (local)", not a bare second "<workspace>".
+			s.Label = strings.Replace(s.Label, "This workspace", q.WorkspaceName, 1)
 		case Agent:
 			if strings.TrimSpace(q.AgentName) == "" {
 				continue

@@ -57,6 +57,7 @@ export default function Sidebar({
   onReorder,
   onGitGraph,
   onFileTree,
+  onInstructions,
   onOpenDashboard,
   onOpenClis,
   apps, nativeApps, onOpenApp, webapps, webappsErr, webappsLoaded, onRetryWebapps, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, onClearWebappData, desktop,
@@ -290,6 +291,7 @@ export default function Sidebar({
                     onMoveDown={wsIndex >= 0 && wsIndex < workspaces.length - 1 ? () => commitOrder("workspaces", null, workspaces.map((w) => w.id), moveId(workspaces.map((w) => w.id), ws.id, 1), ws.id, (id) => (workspaces.find((w) => w.id === id) || {}).name || "Workspace") : null}
                     onFileTree={onFileTree}
                     onGitGraph={onGitGraph}
+                    onInstructions={onInstructions}
                     onRemove={onRemove}
                   />
                 </span>

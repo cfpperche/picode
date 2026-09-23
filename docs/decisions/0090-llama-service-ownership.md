@@ -32,6 +32,17 @@ Windows and remote lifecycle remain unsupported until their own mechanisms are
 designed. Cache cleanup can remove only files owned by a PiCode profile that
 are not referenced by a model or active job; unknown ownership is preserved.
 
+## Amendment (2026-09-23): lifecycle reviews settle stopped jobs first
+
+Owner-approved with ADR-0083's amendment. The preview for start, restart,
+update, rollback and cleanup does not count `interrupted` or `abandoned` jobs,
+and before it reviews, model jobs on the owned endpoint are reconciled against
+whether the owned process is running: while it is not, they are interrupted.
+An unknown job there used to refuse every lifecycle action, including the start
+that could have answered it. At start the service also removes what an install
+killed mid-way leaves: its download temps, and an unrecorded `release-*` folder
+that is incomplete. A complete unrecorded installation is still preserved.
+
 ## Alternatives considered
 
 - Treating every configured URL as PiCode-owned risks stopping another user's

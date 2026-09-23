@@ -1,0 +1,89 @@
+/* Instructions — a workspace tab that draws the page frame every system
+   route draws (.settings-wrap + .settings-head + .settings-card, ADR-0103),
+   like Git ▸ Delivery. The view is the only vertical scroll container; the
+   matrix scrolls sideways inside the card when nine columns do not fit. */
+.instr-page { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; font-size: 13px; }
+
+/* One control row: the start folder and the toggle read left to right,
+   Refresh is the row's own action at its end (the .delivery-toolbar rhythm). */
+.instr-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
+.instr-toolbar label { display: flex; gap: 8px; align-items: center; height: var(--ctl-h); }
+.instr-toolbar select {
+  height: var(--ctl-h); max-width: 100%; padding: 0 8px;
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+}
+.instr-toolbar select:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.instr-toggle { color: var(--text-secondary); }
+.instr-refresh { height: var(--ctl-h); margin-left: auto; }
+
+.instr-warning { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
+.instr-warning p { margin: 0; color: var(--warn); }
+
+/* The skeleton is the table's own shape: a findings line, then rows. */
+.instr-skeleton div { height: 28px; margin: 8px 0; border-radius: var(--radius-ctl); background: var(--bg-hover); animation: instr-pulse 800ms ease-in-out infinite alternate; }
+.instr-skeleton div:first-child { height: 40px; margin-bottom: 16px; }
+@keyframes instr-pulse { from { opacity: 0.55; } to { opacity: 1; } }
+
+/* Findings: one line and one action each, divided rather than boxed. */
+.instr-findings { list-style: none; padding: 0; margin: 0 0 16px; }
+.instr-findings li {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 8px 0; border-bottom: 1px solid var(--border); animation: instr-enter 150ms ease-out;
+}
+.instr-findings li:first-child { padding-top: 0; }
+.instr-findings li span { line-height: 1.45; }
+.instr-findings .btn { flex: none; height: var(--ctl-h); white-space: nowrap; display: inline-flex; align-items: center; }
+@keyframes instr-enter { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+
+/* The table scrolls sideways inside the card when nine columns do not fit:
+   a visible thin scrollbar and a fade at the right edge say more columns
+   are there (visual review, 2026-09-23). */
+.instr-scroll {
+  overflow-x: auto; padding-bottom: 6px;
+  scrollbar-width: thin; scrollbar-color: var(--text-secondary) var(--bg-hover);
+  mask-image: linear-gradient(to right, #000 calc(100% - 64px), rgba(0, 0, 0, 0.15));
+}
+.instr-scroll.at-end { mask-image: none; }
+/* The app's overlay scrollbars hide until hover; this one stays drawn, thin. */
+.instr-scroll::-webkit-scrollbar { height: 6px; }
+.instr-scroll::-webkit-scrollbar-track { background: var(--bg-hover); border-radius: 3px; }
+.instr-scroll::-webkit-scrollbar-thumb { background: var(--text-secondary); border-radius: 3px; }
+
+.instr-matrix { width: 100%; border-collapse: collapse; }
+.instr-matrix th, .instr-matrix td { padding: 4px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+/* A CLI's name may take two lines, so nine columns fit a normal card. */
+.instr-matrix thead th { color: var(--text-secondary); font-weight: 500; font-size: 12px; line-height: 1.25; white-space: normal; vertical-align: bottom; max-width: 64px; }
+.instr-matrix tbody tr:last-child th, .instr-matrix tbody tr:last-child td { border-bottom: 0; }
+.instr-group th { padding-top: 14px; color: var(--text-secondary); font-size: 12px; font-weight: 500; }
+.instr-file-col { width: 1%; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.instr-num { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.instr-file, .instr-file-text { font-family: var(--mono); font-size: 12px; }
+.instr-file { background: none; border: 0; padding: 0; color: var(--text-primary); cursor: pointer; }
+.instr-file:hover { color: var(--accent); text-decoration: underline; }
+.instr-file:focus-visible, .instr-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.instr-tag { margin-left: 6px; padding: 0 5px; border: 1px solid var(--border); border-radius: 4px; color: var(--text-secondary); font-size: 11px; }
+.instr-muted { color: var(--text-secondary); font-weight: 400; }
+
+/* A cell is a button: the verdict in one word, its reason on pick. */
+.instr-cell {
+  display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 5px;
+  border: 1px solid transparent; border-radius: var(--radius-ctl); background: none;
+  color: var(--text-secondary); font-size: 12px; cursor: pointer;
+}
+.instr-cell:hover { background: var(--bg-hover); }
+.instr-cell.is-on { border-color: var(--accent); }
+.instr-cell.s-reads { color: var(--ok); }
+.instr-cell.s-on-demand { color: var(--text-primary); }
+.instr-cell.s-shadowed, .instr-cell.s-untrusted { color: var(--warn); }
+.instr-cell.s-unknown { color: var(--text-secondary); font-style: italic; }
+.instr-cut { padding: 0 4px; border-radius: 4px; background: var(--accent-soft); color: var(--warn); font-size: 10px; text-transform: uppercase; }
+
+.instr-detail { margin: 12px 0 0; line-height: 1.45; }
+
+/* The New agent dialog's line: what the picked CLI reads here. The line's
+   height is held while the answer loads, so the fields below never jump. */
+.create-instr { margin: 0; min-height: 18px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+/* A group's label stays readable when the columns scroll sideways. */
+.instr-group th span { position: sticky; left: 4px; }
+.instr-more { margin: 0 0 6px; font-size: 12px; }

@@ -117,6 +117,12 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   }, [selected, route.view, pane, cap.launch, panesKey]);
   useEffect(() => { setLaunchEditing(false); }, [selected?.id]);
   useEffect(() => { if (pane !== "launch") setLaunchEditing(false); }, [pane]);
+  // Every pane below names the workspace it is bound to (the Pi pane's rule):
+  // resolve the bound id once, so each layer switcher says the folder's name
+  // instead of the generic "This workspace".
+  const wsCtxId = route.workspaceId || setupCtx.workspaceId || "";
+  const wsCtxName = wsCtxId && data ? ((data.workspaces.find((w) => w.id === wsCtxId) || {}).name || "") : "";
+
   const selectedJob = data?.jobs?.find((j) => j.cli === selected?.id);
   const lifecycleBusy = !!busy || !!selectedJob && (selectedJob.state === "queued" || selectedJob.state === "running");
   const updateLine = selected ? updateCheckLine(selected) : null;
@@ -246,9 +252,9 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           customId={route.customId || ""}
           onCatalogChange={onCatalogChange}
         /> : null}
-        {pane === "models" ? <CliModels cli={route.id} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} /> : null}
-        {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} workspaceId={setupCtx.workspaceId} /> : null}
-        {pane === "memory" ? <CliMemory route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} /> : null}
+        {pane === "models" ? <CliModels cli={route.id} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
+        {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} workspaceId={setupCtx.workspaceId} workspaceName={wsCtxName} /> : null}
+        {pane === "memory" ? <CliMemory route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
         {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} /> : null}
         {pane === "connectors" ? <ConnectorsPane route={route} onReload={onReloadAgent} /> : null}
       </div>

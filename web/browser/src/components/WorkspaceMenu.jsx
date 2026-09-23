@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
 import { workspaceRowMenu, wantsPullRequest } from "@picode/shared/domain/workspaceRowMenu.js";
-import { IconChevronRight, IconCommunication, IconCopy, IconExternal, IconFolder, IconFolderOpen, IconGit, IconMoveDown, IconMoveUp, IconPullRequest, IconSettings, IconX } from "./Icons.jsx";
+import { IconChevronRight, IconCommunication, IconCopy, IconExternal, IconFolder, IconFolderOpen, IconGit, IconInstructions, IconMoveDown, IconMoveUp, IconPullRequest, IconSettings, IconX } from "./Icons.jsx";
 import { RowMenu, RowMenuItem, RowMenuSep } from "./WorkspaceRows.jsx";
 import WorkspaceSettings from "./WorkspaceSettings.jsx";
 import { OPEN_WORKSPACE_SETTINGS } from "./LandingWork.jsx";
@@ -12,6 +12,7 @@ const ICONS = {
   communication: <IconCommunication size={13} />,
   files: <IconFolder size={13} />,
   "git-graph": <IconGit size={13} />,
+  instructions: <IconInstructions size={13} />,
   reveal: <IconFolderOpen size={13} />,
   remote: <IconExternal size={13} />,
   pr: <IconPullRequest size={13} />,
@@ -47,7 +48,7 @@ async function copyText(value) {
 // component renders them and asks for the pull request when it opens, so a
 // closed menu never costs a gh call. The last answer stays on screen while a
 // reopen asks again (the server caches it for a minute anyway).
-export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onFileTree, onGitGraph, onRemove }) {
+export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onFileTree, onGitGraph, onInstructions, onRemove }) {
   const branch = (ws.git && ws.git.branch) || "";
   const [pr, setPr] = useState({ branch: null, page: undefined });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -96,6 +97,7 @@ export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onFileTree, on
       case "communication": location.hash = "#/clis/messages/" + encodeURIComponent("workspace:" + ws.id); break;
       case "files": onFileTree && onFileTree("workspace", ws.id, ws.name); break;
       case "git-graph": onGitGraph && onGitGraph("workspace", ws.id, ws.name); break;
+      case "instructions": onInstructions && onInstructions(ws.id); break;
       case "reveal": void reveal(); break;
       case "copy-path": void copy(r.value, "Path"); break;
       case "settings": toSettings.current = true; setSettingsOpen(true); break;

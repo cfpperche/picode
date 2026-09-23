@@ -166,6 +166,15 @@ session: both ask the same readiness interlock as the compact
 --update` first) and start the distro again whatever failed before; the shell
 re-arms its keepalive on its next health tick.
 
+Root inside the distro (ADR-0198) goes through `wsl.exe -u root --exec`
+and only through the closed list in `internal/desktop/root.go`: read and
+write `/etc/wsl.conf` (the write decodes one base64 argument into a temp
+file and renames it over the old one, keeping `.bak`), `du` over the system
+cache table, and each cache's own prune. `--exec` matters: the `--` form
+runs through a shell that eats `$`. The scan's third stage measures the
+system caches; the Clean tab routes `system:` ids to `system-clean` and the
+rest to `picode clean`, never one call for both.
+
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an
@@ -283,6 +292,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [File preview: HTML (ADR-0136)](architecture/file-preview.md) | `docs/architecture/file-preview.md` |
 | [Native CLI settings (ADR-0101, ADR-0163)](architecture/cli-settings.md) | `docs/architecture/cli-settings.md` |
 | [Agent CLI memory (ADR-0163)](architecture/cli-memory.md) | `docs/architecture/cli-memory.md` |
+| [Agent instructions (AGENTS.md)](architecture/cli-instructions.md) | `docs/architecture/cli-instructions.md` |
 | [Packages (ADR-0102, ADR-0167, ADR-0176)](architecture/packages.md) | `docs/architecture/packages.md` |
 | [Native CLI providers (ADR-0103)](architecture/cli-providers.md) | `docs/architecture/cli-providers.md` |
 | [Credentials (ADR-0165)](architecture/credentials.md) | `docs/architecture/credentials.md` |

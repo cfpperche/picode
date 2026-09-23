@@ -290,6 +290,49 @@ pub fn wsl_update(
     stream_cli(&app, "update", &run.unwrap_or_default(), &args)
 }
 
+/// The distro's /etc/wsl.conf, read as root (ADR-0198), with the key table
+/// the Distro tab renders from.
+#[tauri::command(async)]
+pub fn distro_conf_read() -> Result<serde_json::Value, String> {
+    let text = run_cli(&["wslconf"])?;
+    let start = text.find('{').ok_or_else(|| format!("no JSON in the tool output: {text}"))?;
+    serde_json::from_str(text[start..].trim_end()).map_err(|e| format!("wsl.conf JSON: {e}"))
+}
+
+/// Writes owned wsl.conf keys as root; the tool validates every edit
+/// against its table before anything runs.
+#[tauri::command(async)]
+pub fn distro_conf_write(edits: Vec<serde_json::Value>) -> Result<serde_json::Value, String> {
+    let json = serde_json::to_string(&edits).map_err(|e| e.to_string())?;
+    let text = run_cli(&["wslconf-write", "--yes", "--edits", &json])?;
+    let start = text.find('{').ok_or_else(|| format!("no JSON in the tool output: {text}"))?;
+    let v: serde_json::Value =
+        serde_json::from_str(text[start..].trim_end()).map_err(|e| format!("wsl.conf JSON: {e}"))?;
+    if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+        return Err(err.to_string());
+    }
+    Ok(v)
+}
+
+/// Prunes root-owned caches (ids from the scan's `system` list); steps
+/// stream as `mgmt-progress` op "clean", the same as the person's caches.
+#[tauri::command(async)]
+pub fn system_clean_apply(
+    app: tauri::AppHandle,
+    ids: Vec<String>,
+    run: Option<String>,
+) -> Result<serde_json::Value, String> {
+    if ids.is_empty() {
+        return Err("no caches selected".into());
+    }
+    let joined = ids.join(",");
+    let v = stream_cli(&app, "clean", &run.unwrap_or_default(), &["system-clean", "--apply", &joined, "--yes"])?;
+    if let Some(why) = v.get("refused").and_then(|r| r.as_str()) {
+        return Err(format!("not run — {why}"));
+    }
+    Ok(v)
+}
+
 /// The plan without stopping anything — what the window shows before asking.
 #[tauri::command(async)]
 pub fn disk_compact_dry_run() -> Result<CompactOutcome, String> {

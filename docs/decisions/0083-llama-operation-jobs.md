@@ -58,6 +58,19 @@ Builds other than b10809 can still run jobs but do not advertise cancellation
 as verified. External tools can change the router outside PiCode's locks.
 No service installation, ownership, restart or cache deletion is introduced.
 
+## Amendment (2026-09-23): abandoning, and jobs on a stopped owned service
+
+Owner-approved after an adversarial review found unknown jobs that could never
+resolve. An **unknown** job can be **abandoned** by the owner: a new terminal
+state, `abandoned`, recorded on the job with its time. It releases the model
+reservation and the endpoint slot, and PiCode never touches the server for it.
+A job on the endpoint of PiCode's own service becomes `interrupted` as soon as
+that service's process is not running (stopped, or the daemon restarted),
+because nothing can be in flight on a server that is not running. After a
+restart, an unload whose model is still loaded becomes `interrupted`, as a load
+already did. A download whose model is missing stays `unknown`, as before, and
+can now be abandoned.
+
 ## Alternatives considered
 
 - Keeping the HTTP request open loses durable identity and reconnect history.

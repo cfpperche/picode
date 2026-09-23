@@ -17,7 +17,7 @@ const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext }
 // the schema-driven editor (ADR-0163). The Keyboard pane is answered for every
 // CLI the registry knows (ADR-0174): the map editor where one has shipped, and
 // the CLI's own state plus one action where none has.
-export default function CliSettings({ hidden, route, catalog, onAgentConfig, pane = "settings", workspaceId = "" }) {
+export default function CliSettings({ hidden, route, catalog, onAgentConfig, pane = "settings", workspaceId = "", workspaceName = "" }) {
   const native = pane === "settings" && supportsNativeSettings(route.id);
   const supported = supportsCliSettings(route.id) || native;
   const body = () => {
@@ -43,7 +43,7 @@ export default function CliSettings({ hidden, route, catalog, onAgentConfig, pan
       return <div className="cli-notice" role="status"><span>{"Settings for " + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>;
     }
     if (hidden) return null;
-    if (native) return <CliNativeSettings key={route.id + ":" + route.layer} route={route} workspaceId={workspaceId} />;
+    if (native) return <CliNativeSettings key={route.id + ":" + route.layer} route={route} workspaceId={workspaceId} workspaceName={workspaceName} />;
     return <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} pane={pane} />;
   };
   return <section id="cli-settings-view" hidden={hidden}>{body()}</section>;

@@ -6651,6 +6651,41 @@
         ]
       }
     },
+    "/api/llama/jobs/{id}/abandon": {
+      "post": {
+        "operationId": "postApiLlamaJobsAbandon",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
     "/api/llama/jobs/{id}/cancel": {
       "post": {
         "operationId": "postApiLlamaJobsCancel",
@@ -11814,6 +11849,32 @@
     "/api/workspaces/{id}/gitstatus": {
       "get": {
         "operationId": "getApiWorkspacesGitstatus",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/api/workspaces/{id}/instructions": {
+      "get": {
+        "operationId": "getApiWorkspacesInstructions",
         "parameters": [
           {
             "in": "path",

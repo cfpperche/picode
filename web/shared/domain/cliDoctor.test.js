@@ -14,6 +14,13 @@ test("a value no file sets is not called a default", () => {
   assert.equal(sourceLabel(""), "Not in either file");
 });
 
+test("a bound pane names the workspace the value comes from", () => {
+  assert.equal(sourceLabel("project", "delivery"), "delivery");
+  // A blank or padded name is no name; the generic word stays.
+  assert.equal(sourceLabel("project", "  "), "This workspace");
+  assert.equal(sourceLabel("user", "delivery"), "Global");
+});
+
 test("values print on one line", () => {
   assert.equal(formatValue("yolo"), "yolo");
   assert.equal(formatValue(""), '""');

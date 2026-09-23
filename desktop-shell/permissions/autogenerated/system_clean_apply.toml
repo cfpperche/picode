@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-system-clean-apply"
+description = "Enables the system_clean_apply command without any pre-configured scope."
+commands.allow = ["system_clean_apply"]
+
+[[permission]]
+identifier = "deny-system-clean-apply"
+description = "Denies the system_clean_apply command without any pre-configured scope."
+commands.deny = ["system_clean_apply"]

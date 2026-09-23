@@ -7,6 +7,7 @@ import {
   catalogRowAction, refusalCommand, matchParts, groupInstalledRows, directMutation, laneMutation, anyLaneMutation, paneTabs, rowToggle, rowInspect, cliPackagesHash,
 } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
+import { namedScope } from "@picode/shared/domain/cliNative.js";
 import { pkgName } from "@picode/shared/domain/pkgName.js";
 import { paneContext } from "@picode/shared/domain/tree.js";
 import { setShell } from "@picode/shared/client/shell.js";
@@ -589,7 +590,7 @@ export default function Packages({ hidden, route, catalog, onPackageUpdates }) {
                     aria-checked={scope === entry.vendor || scope === entry.id}
                     title={entry.note || undefined}
                     onClick={() => { const next = entry.vendor || entry.id; if (scope !== next) goToScope(next); }}
-                  >{entry.label}</button>
+                  >{namedScope(entry.label, report.workspaceName)}</button>
                 ))}
               </div>
             </div>

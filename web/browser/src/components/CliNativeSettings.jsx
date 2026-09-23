@@ -5,7 +5,8 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import {
   coerce, dangerNote, defaultLayer, groupFields, layerToScope, rowState, scopeToLayer,
-  cyclePosition, isListField, isRoleField, joinSelector, listValue, roleAliases, selectorsInUse, splitSelector,
+  cyclePosition, isListField, isRoleField, joinSelector, listValue, namedLayers, namedScope,
+  roleAliases, selectorsInUse, splitSelector,
 } from "@picode/shared/domain/cliNative.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import SearchCombo from "./SearchCombo.jsx";
@@ -17,7 +18,7 @@ import { supportsCliDoctor } from "@picode/shared/domain/cliDoctor.js";
 // every row — the same language the Pi pane has used since 2026-09-12, drawn
 // from the schema the server declares instead of a hand-written form.
 
-export default function CliNativeSettings({ route, workspaceId = "" }) {
+export default function CliNativeSettings({ route, workspaceId = "", workspaceName = "" }) {
   const cli = route.id;
   // The model list is a subprocess in the CLI's own words, and the answer
   // depends on the workspace (measured 2026-09-22: 55 models in one folder,
@@ -79,7 +80,9 @@ export default function CliNativeSettings({ route, workspaceId = "" }) {
   // A workspace change makes the previous answer wrong, not stale.
   useEffect(() => { setModels({ state: "idle", rows: [], error: "" }); }, [cli, workspaceId]);
 
-  const layers = report?.layers || [];
+  // The pane names the workspace it is bound to (the Pi pane's rule): one
+  // rename here feeds the switcher, the checked radio and "From …" provenance.
+  const layers = namedLayers(report?.layers || [], workspaceName);
   const layer = defaultLayer(layers, route.layer);
   const scope = layerToScope(layer);
   const current = layers.find((l) => l.scope === scope) || layers[0];
@@ -140,7 +143,7 @@ export default function CliNativeSettings({ route, workspaceId = "" }) {
     <>
       {/* The checks read the folder, not a layer, so they sit above the
           layer switcher (slice 4). */}
-      {supportsCliDoctor(cli) ? <CliDoctor cli={cli} workspaceId={workspaceId} /> : null}
+      {supportsCliDoctor(cli) ? <CliDoctor cli={cli} workspaceId={workspaceId} workspaceName={workspaceName} /> : null}
       {layers.length > 1 ? (
         <div className="settings-layer">
           <span className="settings-layer-label">Edit</span>
@@ -261,7 +264,7 @@ export function AddRow({ label, hint, disabled, onAdd }) {
   );
 }
 
-export function Row({ field, state, cliLabel, busy, disabled, unreadable, filePath, cycle, levels, models, onLoadModels, picks, onSet, onReset, note = "" }) {
+export function Row({ field, state, cliLabel, busy, disabled, unreadable, filePath, cycle, levels, models, onLoadModels, picks, onSet, onReset, note = "", workspaceName = "" }) {
   const { value, setHere, from } = state;
   // A value this layer holds in a shape PiCode will not rewrite is named and
   // left alone: one line, one action, never a control that cannot save.
@@ -308,6 +311,7 @@ export function Row({ field, state, cliLabel, busy, disabled, unreadable, filePa
         <Control
           field={field} value={value} busy={busy} disabled={disabled} onSet={onSet}
           levels={levels} models={models} onLoadModels={onLoadModels} picks={picks}
+          workspaceName={workspaceName}
         />
         {setHere && !disabled ? (
           <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onReset}>Use inherited</button>
@@ -442,7 +446,7 @@ function BoolControl({ field, value, busy, disabled, onSet }) {
   );
 }
 
-function Control({ field, value, busy, disabled, onSet, levels, models, onLoadModels, picks }) {
+function Control({ field, value, busy, disabled, onSet, levels, models, onLoadModels, picks, workspaceName = "" }) {
   const [draft, setDraft] = useState(value === undefined ? "" : String(value));
   useEffect(() => { setDraft(value === undefined ? "" : String(value)); }, [value]);
 
@@ -466,7 +470,7 @@ function Control({ field, value, busy, disabled, onSet, levels, models, onLoadMo
       >
         <option value="" disabled>{field.fallback || "Not set"}</option>
         {(field.options || []).map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
+          <option key={option.value} value={option.value}>{namedScope(option.label, workspaceName)}</option>
         ))}
       </select>
     );
