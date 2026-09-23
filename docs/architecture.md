@@ -166,6 +166,15 @@ session: both ask the same readiness interlock as the compact
 --update` first) and start the distro again whatever failed before; the shell
 re-arms its keepalive on its next health tick.
 
+Root inside the distro (ADR-0198) goes through `wsl.exe -u root --exec`
+and only through the closed list in `internal/desktop/root.go`: read and
+write `/etc/wsl.conf` (the write decodes one base64 argument into a temp
+file and renames it over the old one, keeping `.bak`), `du` over the system
+cache table, and each cache's own prune. `--exec` matters: the `--` form
+runs through a shell that eats `$`. The scan's third stage measures the
+system caches; the Clean tab routes `system:` ids to `system-clean` and the
+rest to `picode clean`, never one call for both.
+
 The one action is `picode-desktop disk-compact`, and the Management window's
 Disk tab carries it as **Give back held space**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an

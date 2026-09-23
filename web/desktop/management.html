@@ -149,11 +149,18 @@
       .kind-redownload { color: var(--warn); }
       .kind-safe { color: var(--ok); }
       .clean-table td:first-child { width: 2rem; }
+      .clean-table tr.group td { padding-top: .9rem; font-weight: 600; border-top: 0; }
+      .clean-table tr.group .hint { font-weight: 400; }
       input[type="checkbox"] { accent-color: var(--accent); }
       .actions { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; }
       .empty { color: var(--text-secondary); padding: .75rem 0; display: flex; align-items: center; gap: .75rem; }
       .field { display: flex; align-items: center; gap: .75rem; padding: .45rem 0; }
-      .field label { width: 11rem; color: var(--text-secondary); }
+      /* Label and control keep their width at every window size, so the
+         controls form one column; only the hint wraps. */
+      .field label { width: 11rem; flex: none; color: var(--text-secondary); overflow-wrap: anywhere; }
+      .field > input, .field > select, .field > .v { flex: none; }
+      .field > .v { width: 11rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .field .hint { min-width: 0; }
       .field input[type="text"], .field select {
         font: inherit; height: var(--ctl-h); padding: 0 .6rem; border-radius: var(--radius-ctl);
         border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); width: 11rem;
@@ -194,6 +201,7 @@
       <button role="tab" data-tab="disk" aria-selected="true">Disk</button>
       <button role="tab" data-tab="clean" aria-selected="false">Clean</button>
       <button role="tab" data-tab="config" aria-selected="false">Config</button>
+      <button role="tab" data-tab="distro" aria-selected="false">Distro</button>
       <button role="tab" data-tab="system" aria-selected="false">System</button>
     </nav>
 
@@ -239,6 +247,13 @@
       <div id="config-form"></div>
       <p class="actions"><button id="config-save" class="primary">Save</button> <span id="config-outcome"></span></p>
       <p class="actions" id="config-apply" hidden><button id="config-restart" class="danger">Restart WSL to apply…</button> <span class="hint">Saved settings take effect only after WSL restarts; that ends every session inside it.</span></p>
+    </section>
+
+    <section class="tab" id="tab-distro" role="tabpanel">
+      <p class="hint">The distro's own settings file (<code>/etc/wsl.conf</code>), read and written as its administrator (root). A save keeps the previous file as <code>/etc/wsl.conf.bak</code>; settings this window does not know stay untouched, and a setting left on "default" is removed so WSL's own default applies. Changes apply when WSL restarts.</p>
+      <div id="distro-form"></div>
+      <p class="actions"><button id="distro-save" class="primary">Save</button> <span id="distro-outcome"></span></p>
+      <p class="actions" id="distro-apply" hidden><button id="distro-restart" class="danger">Restart WSL to apply…</button> <span class="hint">Saved settings take effect only after WSL restarts; that ends every session inside it.</span></p>
     </section>
 
     <section class="tab" id="tab-system" role="tabpanel">
@@ -292,6 +307,8 @@
         while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
         return (v < 10 ? v.toFixed(1) : Math.round(v)) + ' ' + u[i];
       };
+      // The selects say on/off; the hints say the same, not true/false.
+      const onOff = v => (v === 'true' ? 'on' : v === 'false' ? 'off' : v);
       const secs = ms => (ms < 10000 ? (ms / 1000).toFixed(1) : Math.round(ms / 1000)) + 's';
       const ICON = {
         done: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.5l2.5 2.5L11 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -356,7 +373,7 @@
         document.body.classList.toggle('busy', !!job);
         el('refresh').disabled = !!job;
         el('giveback').disabled = !!job || !(lastReport && lastReport.held);
-        for (const id of ['sys-restart', 'sys-update', 'config-restart']) el(id).disabled = !!job;
+        for (const id of ['sys-restart', 'sys-update', 'config-restart', 'distro-restart']) el(id).disabled = !!job;
         updateCleanButtons();
         renderStatus();
       }
@@ -460,11 +477,15 @@
       const STAGE = {
         windows: { what: 'Windows', card: 'card-windows', ico: 'ico-windows', why: 'why-windows' },
         distro: { what: 'Inside the distro', card: 'card-distro', ico: 'ico-distro', why: 'why-distro' },
+        // Root-owned caches (ADR-0198): a row of its own, no card — the
+        // Clean tab lists them.
+        system: { what: 'System caches' },
       };
       function stageState(stage, state, detail) {
         const st = STAGE[stage];
         if (!st) return;
         scanLog.set(stage, st.what, state, detail);
+        if (!st.card) return;
         setIcon(el(st.ico), state);
         el(st.card).classList.toggle('failed', state === 'failed');
         const why = el(st.why);
@@ -505,6 +526,7 @@
           : 'Nothing is held right now — there is nothing to give back.';
         // The stream may have been cut short: the report is the truth.
         stageState('windows', w ? 'done' : 'failed', w ? 'Read the disk file' : rep.windowsError);
+        stageState('system', rep.system ? 'done' : 'failed', rep.system ? `Measured ${rep.system.length} system caches` : rep.systemError);
         stageState('distro', d ? 'done' : 'failed', d ? `Measured ${(d.consumers || []).length} places in ${d.homeDir || 'the home directory'}` : rep.distroError);
         renderClean();
       }
@@ -520,6 +542,7 @@
         scanLog.reset();
         stageState('windows', 'pending', 'waiting');
         stageState('distro', 'pending', 'waiting');
+        stageState('system', 'pending', 'waiting');
         setBusy('scan');
         renderClean();
         scanFailed = false;
@@ -559,6 +582,7 @@
             fillWindows(p.windows);
           }
           if (p.stage === 'distro' && p.distro) fillDistro(p.distro);
+          if (p.stage === 'system' && p.system && lastReport) { lastReport.system = p.system; renderClean(); }
           stageState(p.stage, p.state, p.state === 'failed' ? p.error : p.progress);
         } else if (p.op === 'compact') {
           scanLog.finishRunning('done');
@@ -727,7 +751,7 @@
           // The reason lives once, in the result line below the rows.
           sysLog.finishRunning(o.error || o.refused ? 'failed' : 'done', '');
           renderWSLOutcome(o, update ? 'update' : 'restart', update);
-          if (o.done) el('config-apply').hidden = true;
+          if (o.done) { el('config-apply').hidden = true; el('distro-apply').hidden = true; }
         } catch (e) {
           sysLog.finishRunning('failed', String(e));
           el('sys-outcome').innerHTML = `<p class="err">${errorHTML(e)}</p>`;
@@ -770,19 +794,23 @@
           updateCleanButtons();
           return;
         }
-        const caches = (d.consumers || []).filter(c => c.kind !== 'data');
+        const caches = allCaches();
         for (const id of [...cleanSelection]) if (!caches.some(c => c.id === id)) cleanSelection.delete(id);
         if (!caches.length) {
           host.innerHTML = '<div class="empty">No caches to clean right now.</div>';
           updateCleanButtons();
           return;
         }
-        host.innerHTML = '<table class="clean-table"><thead><tr><th></th><th>Cache</th><th class="n">Size</th><th>Kind</th></tr></thead><tbody>' +
-          caches.map(c =>
+        const row = c =>
             `<tr><td><input type="checkbox" id="cc-${esc(c.id)}" data-id="${esc(c.id)}" ${cleanSelection.has(c.id) ? 'checked' : ''}></td>` +
             `<td><label for="cc-${esc(c.id)}">${esc(c.title)}</label><div class="hint">${esc(c.note)}</div></td>` +
             `<td class="n v">${gb(c.bytes)}</td>` +
-            `<td class="kind-${esc(c.kind)}">${esc(c.kind)}</td></tr>`).join('') +
+            `<td class="kind-${esc(c.kind)}">${esc(c.kind)}</td></tr>`;
+        const mine = caches.filter(c => !c.system), sys = caches.filter(c => c.system);
+        host.innerHTML = '<table class="clean-table"><thead><tr><th></th><th>Cache</th><th class="n">Size</th><th>Kind</th></tr></thead><tbody>' +
+          mine.map(row).join('') +
+          (sys.length ? '<tr class="group"><td></td><td colspan="3">System caches <span class="hint">— cleaned as the distro\'s administrator (root)</span></td></tr>' + sys.map(row).join('') : '') +
+          (lastReport?.systemError ? `<tr class="group"><td></td><td colspan="3" class="hint">System caches could not be measured as the distro's administrator. Use Scan again at the top.<span class="tech">${esc(lastReport.systemError)}</span></td></tr>` : '') +
           '</tbody></table>';
         for (const box of host.querySelectorAll('input[type="checkbox"]')) {
           box.addEventListener('change', () => {
@@ -793,10 +821,18 @@
         updateCleanButtons();
       }
 
+      // The person's caches and the system ones, one list: system rows are
+      // marked and their ids carry the "system:" prefix the tool routes on.
+      function allCaches() {
+        const mine = (lastReport?.distro?.consumers || []).filter(c => c.kind !== 'data');
+        const sys = (lastReport?.system || []).map(c => ({ ...c, system: true }));
+        return mine.concat(sys);
+      }
+
       function updateCleanButtons() {
-        const caches = (lastReport?.distro?.consumers || []).filter(c => cleanSelection.has(c.id));
+        const caches = allCaches().filter(c => cleanSelection.has(c.id));
         el('clean-run').disabled = !!busy || caches.length === 0;
-        const listed = (lastReport?.distro?.consumers || []).some(c => c.kind !== 'data');
+        const listed = allCaches().length > 0;
         el('clean-run').parentElement.hidden = !listed && busy !== 'clean';
         for (const box of document.querySelectorAll('#clean-body input[type="checkbox"]')) box.disabled = !!busy;
         el('clean-total').textContent = caches.length
@@ -805,14 +841,25 @@
 
       async function runClean() {
         if (busy || cleanSelection.size === 0) return;
-        const titles = (lastReport?.distro?.consumers || []).filter(c => cleanSelection.has(c.id)).map(c => c.title);
+        const chosen = allCaches().filter(c => cleanSelection.has(c.id));
+        const titles = chosen.map(c => c.title);
         if (!confirm('Prune ' + titles.join(', ') + '?\n\nRedownload caches come back from the network on demand. Continue?')) return;
         el('clean-outcome').innerHTML = '';
         cleanLog.reset();
         setBusy('clean');
         try {
-          const titleOf = Object.fromEntries((lastReport?.distro?.consumers || []).map(c => [c.id, c.title]));
-          const out = asData(await invoke('clean_apply', { ids: [...cleanSelection], run: newRun() }));
+          const titleOf = Object.fromEntries(allCaches().map(c => [c.id, c.title]));
+          // Two runs, one outcome: the person's caches as the person, the
+          // system ones as root — never mixed in one call.
+          const mineIds = chosen.filter(c => !c.system).map(c => c.id);
+          const sysIds = chosen.filter(c => c.system).map(c => c.id);
+          const out = { results: [], totalFreed: 0 };
+          for (const [cmd, ids] of [['clean_apply', mineIds], ['system_clean_apply', sysIds]]) {
+            if (!ids.length) continue;
+            const r = asData(await invoke(cmd, { ids, run: newRun() }));
+            out.results.push(...r.results);
+            out.totalFreed += r.totalFreed;
+          }
           const failed = out.results.filter(r => r.error);
           cleanLog.finishRunning(failed.length ? 'failed' : 'done');
           el('clean-outcome').innerHTML =
@@ -899,7 +946,7 @@
             input = `<input type="text" id="${id}" value="${esc(cur)}" placeholder="${ph}" autocomplete="off">`;
           }
           row.innerHTML = `<label for="${id}">${esc(st.key)}</label>${input}` +
-            `<span class="hint">${esc(st.hint)} — default: ${esc(st.def)}${cur !== '' ? ' · <b>set: ' + esc(cur) + '</b>' : ''}</span>`;
+            `<span class="hint">${esc(st.hint)} — default: ${esc(st.type === 'bool' ? onOff(st.def) : st.def)}${cur !== '' ? ' · <b>set: ' + esc(st.type === 'bool' ? onOff(cur) : cur) + '</b>' : ''}</span>`;
           host.appendChild(row);
         }
       }
@@ -935,6 +982,95 @@
 
       el('config-save').addEventListener('click', saveConfig);
 
+      // ---- distro tab (/etc/wsl.conf, ADR-0198) -----------------------------
+      // The key table comes from the tool, so the Go side owns what is
+      // writable; only changed keys are sent, so untouched lines keep their
+      // exact formatting.
+      let distroLoaded = new Map();
+      let distroKeys = [];
+      function renderDistroConf(c) {
+        distroKeys = c.keys || [];
+        distroLoaded = new Map((c.values || []).map(v => [v.section + '.' + v.key, v.value]));
+        const host = el('distro-form');
+        host.innerHTML = '';
+        if (c.error) {
+          const p = document.createElement('p');
+          p.className = 'err';
+          putError(p, c.error);
+          host.appendChild(p);
+        }
+        let lastSection = '';
+        for (const k of distroKeys) {
+          if (k.section !== lastSection) {
+            lastSection = k.section;
+            const h = document.createElement('h3');
+            h.className = 'cfg-section';
+            h.textContent = '[' + k.section + ']';
+            host.appendChild(h);
+          }
+          const cur = distroLoaded.get(k.section + '.' + k.key) ?? '';
+          const id = 'dc-' + k.section + '-' + k.key;
+          const row = document.createElement('div');
+          row.className = 'field';
+          let input;
+          if (k.kind === 'readonly') {
+            input = `<span id="${id}" class="v">${esc(cur || 'not set')}</span>`;
+          } else if (k.kind === 'bool') {
+            input = `<select id="${id}"><option value="">default</option>` +
+              `<option value="true" ${cur === 'true' ? 'selected' : ''}>on</option>` +
+              `<option value="false" ${cur === 'false' ? 'selected' : ''}>off</option></select>`;
+          } else {
+            input = `<input type="text" id="${id}" value="${esc(cur)}" autocomplete="off" spellcheck="false">`;
+          }
+          const extra = k.kind === 'readonly' ? ' · shown only; this window never writes it' : '';
+          row.innerHTML = `<label for="${id}">${esc(k.key)}</label>${input}` +
+            `<span class="hint">${esc(k.hint)} — default: ${esc(k.kind === 'bool' ? onOff(k.default) : k.default)}${extra}${cur !== '' && k.kind !== 'readonly' ? ' · <b>set: ' + esc(k.kind === 'bool' ? onOff(cur) : cur) + '</b>' : ''}</span>`;
+          host.appendChild(row);
+        }
+      }
+
+      async function loadDistroConf() {
+        try {
+          renderDistroConf(asData(await invoke('distro_conf_read')));
+        } catch (e) {
+          el('distro-outcome').innerHTML = `<span class="err">${errorHTML(e)}</span>`;
+        }
+      }
+
+      async function saveDistroConf() {
+        const edits = [];
+        for (const k of distroKeys) {
+          if (k.kind === 'readonly') continue;
+          const input = el('dc-' + k.section + '-' + k.key);
+          if (!input) continue;
+          const v = input.value.trim();
+          if (v !== (distroLoaded.get(k.section + '.' + k.key) ?? '')) edits.push({ section: k.section, key: k.key, value: v });
+        }
+        el('distro-outcome').innerHTML = '';
+        if (!edits.length) { el('distro-outcome').innerHTML = '<span class="hint">Nothing changed.</span>'; return; }
+        const list = edits.map(e => `[${e.section}] ${e.key} = ${e.value ? onOff(e.value) : 'default'}`).join('\n');
+        // Settings that take away what PiCode itself relies on, named in the
+        // question — the person may still want them, but not by surprise.
+        const RISK = {
+          'boot.systemd.false': 'Turning systemd off stops PiCode from starting by itself.',
+          'interop.enabled.false': 'Turning interop off stops Linux from starting Windows programs; PiCode\'s browser and Windows helpers stop working.',
+          'network.generateResolvConf.false': 'With resolv.conf no longer written by WSL, Linux has no DNS unless you write /etc/resolv.conf yourself.',
+        };
+        const risks = edits.map(e => RISK[`${e.section}.${e.key}.${e.value}`]).filter(Boolean);
+        if (!confirm(`Save these to /etc/wsl.conf as the distro's administrator?\n\n${list}${risks.length ? '\n\nHeads up:\n• ' + risks.join('\n• ') : ''}\n\nThe current file is kept as /etc/wsl.conf.bak.`)) return;
+        try {
+          const r = asData(await invoke('distro_conf_write', { edits }));
+          el('distro-outcome').innerHTML = `<span class="ok">Saved${r.backup ? ' — backup at ' + esc(r.backup) : ''}.</span>`;
+          el('distro-apply').hidden = false;
+          await loadDistroConf();
+        } catch (e) {
+          el('distro-outcome').innerHTML = `<span class="err">${errorHTML(e)}</span>`;
+        }
+      }
+
+      el('distro-save').addEventListener('click', saveDistroConf);
+      el('distro-restart').addEventListener('click', () => restartWSL(false));
+
       // Window controls — the window is undecorated; local page, trusted.
       {
         const w = window.__TAURI__?.window?.getCurrentWindow?.();
@@ -952,6 +1088,7 @@
       // Listen first: the scan's opening step can arrive within milliseconds.
       listening.finally(() => scan());
       loadHost();
+      loadDistroConf();
       loadConfig();
     </script>
   </body>

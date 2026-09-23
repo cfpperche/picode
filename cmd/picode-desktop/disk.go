@@ -20,6 +20,9 @@ type diskReport struct {
 	WindowsError string             `json:"windowsError,omitempty"`
 	Distro       *hostfs.Report     `json:"distro,omitempty"`
 	DistroError  string             `json:"distroError,omitempty"`
+	// System is the root-owned caches (ADR-0198), measured as root.
+	System      []desktop.MeasuredSystemCache `json:"system,omitempty"`
+	SystemError string                        `json:"systemError,omitempty"`
 	// Held is what the VHDX holds that the distro has already freed: the space
 	// Windows will not get back until the file is compacted or made sparse.
 	Held int64     `json:"held,omitempty"`
@@ -64,12 +67,13 @@ func runDisk(distroFlag, userFlag string, asJSON, stream bool) error {
 // shell forwards every line that carries it and treats the first line
 // without it as the outcome.
 type scanStep struct {
-	Progress string             `json:"progress"`
-	Stage    string             `json:"stage"` // "windows" | "distro"
-	State    string             `json:"state"` // "running" | "done" | "failed"
-	Windows  *desktop.DiskFacts `json:"windows,omitempty"`
-	Distro   *hostfs.Report     `json:"distro,omitempty"`
-	Error    string             `json:"error,omitempty"`
+	Progress string                        `json:"progress"`
+	Stage    string                        `json:"stage"` // "windows" | "distro" | "system"
+	State    string                        `json:"state"` // "running" | "done" | "failed"
+	Windows  *desktop.DiskFacts            `json:"windows,omitempty"`
+	Distro   *hostfs.Report                `json:"distro,omitempty"`
+	System   []desktop.MeasuredSystemCache `json:"system,omitempty"`
+	Error    string                        `json:"error,omitempty"`
 }
 
 // collectDisk reads both halves, keeping each failure with its half. The
@@ -102,6 +106,21 @@ func collectDisk(a app, onStep func(scanStep)) diskReport {
 	} else {
 		rep.Distro = &distro
 		step(scanStep{Stage: "distro", State: "done", Progress: "Measured inside " + a.distro, Distro: &distro})
+	}
+
+	step(scanStep{Stage: "system", State: "running", Progress: "Measuring system caches"})
+	// Bounded on the real runner: a hung `wsl -u root` must not hold the
+	// scan (and the shell's one-job lock) with it.
+	sysRunner := a.runner
+	if _, real := a.runner.(osRunner); real {
+		sysRunner = timedRunner{d: 60 * time.Second}
+	}
+	if sys, err := desktop.MeasureSystemCaches(sysRunner, a.distro); err != nil {
+		rep.SystemError = err.Error()
+		step(scanStep{Stage: "system", State: "failed", Progress: "System caches could not be measured", Error: rep.SystemError})
+	} else {
+		rep.System = sys
+		step(scanStep{Stage: "system", State: "done", Progress: "Measured system caches", System: sys})
 	}
 
 	if rep.Windows != nil && rep.Distro != nil {

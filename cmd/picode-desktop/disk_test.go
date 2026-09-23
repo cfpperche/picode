@@ -99,7 +99,8 @@ func TestCollectDiskJoinsBothHalves(t *testing.T) {
 
 	// The distro half is asked of the binary inside the distro, by absolute
 	// path, with the account the caller resolved.
-	last := r.calls[len(r.calls)-1]
+	// The distro half is the call before the system-cache measure.
+	last := r.calls[len(r.calls)-2]
 	want := []string{desktop.WSLExe, "-d", "Ubuntu", "-u", "goat", "--", "/home/goat/.local/bin/picode", "disk", "--json"}
 	if strings.Join(last, " ") != strings.Join(want, " ") {
 		t.Errorf("distro call:\n got %v\nwant %v", last, want)
@@ -284,7 +285,7 @@ func TestCollectDiskStreamsEachHalf(t *testing.T) {
 			t.Errorf("%s:%s has no progress line — the shell would take it for the outcome", s.Stage, s.State)
 		}
 	}
-	want := "windows:running windows:done distro:running distro:failed"
+	want := "windows:running windows:done distro:running distro:failed system:running system:done"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("steps = %v, want %s", got, want)
 	}
@@ -317,5 +318,28 @@ func TestNoBareExecCommand(t *testing.T) {
 				t.Errorf("%s:%d spawns without newCmd — the child gets a console window: %s", f, i+1, strings.TrimSpace(line))
 			}
 		}
+	}
+}
+
+// TestSystemStageRunsAsRoot: the third half measures the system caches as
+// root through --exec, and a failure stays with its half.
+func TestSystemStageRunsAsRoot(t *testing.T) {
+	r := &diskStub{replies: [][]byte{
+		wide(diskLxss),
+		[]byte(`{"len":1,"total":2,"free":1}`),
+		wide("not sparse\r\n"),
+		wide("WSL version: 2.7.0.0\r\n"),
+		wide("--set-sparse\n"),
+		[]byte("/home/goat/.local/bin/picode\n"),
+		[]byte(reportJSON),
+		[]byte("1000\t/var/cache/apt/archives\n"),
+	}}
+	rep := collectDisk(app{runner: r, distro: "Ubuntu", user: "goat"}, nil)
+	if rep.SystemError != "" || len(rep.System) != 2 || rep.System[0].Bytes != 1000 {
+		t.Fatalf("system half: %+v %q", rep.System, rep.SystemError)
+	}
+	last := strings.Join(r.calls[len(r.calls)-1], " ")
+	if !strings.Contains(last, "-u root --exec sh -c") {
+		t.Errorf("system call = %s", last)
 	}
 }

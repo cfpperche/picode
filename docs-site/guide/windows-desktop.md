@@ -183,7 +183,9 @@ step streams into the window. Stopping the distro ends everything inside it
 readiness interlock refuses the run while someone is mid-turn, unless you
 force it.
 
-**Clean** — the caches the scan measured, with sizes: build caches,
+**Clean** — the caches the scan measured, with sizes — yours, and below them
+the system's (the apt package cache and the system logs), which are cleaned
+as the distro's administrator: build caches,
 package caches, downloaded engines and models. Select and prune; nothing
 stops. Caches marked `redownload` come back from the network the next time
 something needs them. Agent CLI sessions and the PiCode database never appear
@@ -196,6 +198,16 @@ swap, and the sparse-disk flag. Saving backs the file up to
 `.wslconfig.bak` first and leaves unknown settings untouched. Changes
 apply at the next full WSL restart; after a save the tab offers **Restart
 WSL to apply**, which asks first and states the cost.
+
+**Distro** — the distro's own settings file, `/etc/wsl.conf`: systemd, the
+account a terminal logs in as, whether the Windows PATH is added to Linux's,
+Windows drive mounting, the host name and whether WSL writes DNS and hosts
+files. The window reads and writes it as the distro's administrator (root)
+without asking for a password — WSL already lets your Windows account do
+that. Saving keeps the previous file as `/etc/wsl.conf.bak`; unknown settings
+stay untouched; changes apply when WSL restarts, and the tab offers **Restart
+WSL to apply**. The boot command setting is shown and never written from
+here, because it would run a command as root at every start.
 
 **System** — memory and the WSL version. Memory shows the limit the WSL
 virtual machine runs with, how much of it Linux is using (and how much of
