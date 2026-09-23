@@ -22,7 +22,19 @@ flows/states · cross-references (symbols, files, ADRs).
 
 | Wave | Files | OK | DRIFT | UNVERIFIABLE | Branch |
 |---|---|---|---|---|---|
-| 1 | routes, agent-manager, terminal-bridge, security-model | ~95 | 7 | 0 | `feat/docs-prose-audit` |
+| 1 | routes, agent-manager, terminal-bridge, security-model | ~95 | 7 | 0 | landed |
+| 2 | cli-terminal-launch, cli-providers, cli-settings, cli-memory, cli-session-handoff, packages, mcp, integrations | ~70 | 5 | 0 | `feat/prose-audit-w2` |
+
+## Wave 2 — Agent CLIs stack
+
+- [x] cli-terminal-launch.md — 5 DRIFT fixed: two `POST /api/clis/<cli>/terminals` mentions (route removed by ADR-0184's one door; today the handoff door and `POST /api/agents`); "npm-backed for pi/codex/claude-code" now names omp and opencode too (`ForMissing`); Muse/Antigravity no longer described as `surface: terminal` (full rows since launch-parity; `SurfaceTerminal` has no catalog row); pane-tab paragraph now lists Memory (six CLIs, ADR-0163) and Models (omp only, ADR-0181)
+- [x] cli-providers.md — clean: usage routes, plan windows, `resets[]`, custom providers ADR-0129/0175, unified pane ADR-0165/0169
+- [x] cli-settings.md — clean: `cycleOrder`/`modelTags` (clisettings/roles.go), `GET /api/cli-models`, `modellist.Probe`; the `docs/keybindings.md`/`docs/settings.md` mentions are pi's and omp's own upstream files, not repo paths
+- [x] cli-memory.md — clean: six-of-nine keepers matches the spec table (editable 4 + readonly 2; Pi/OpenCode none; Antigravity unknown)
+- [x] cli-session-handoff.md — clean: handoff routes, transcript/clisession capabilities
+- [x] packages.md — clean: verb route family registered, gallery/config/describe live, `guest_view.go` correctly described as removed
+- [x] mcp.md — clean: mcp.json targets, seed cards pinned, gallery ADR-0157
+- [x] integrations.md — clean: `/api/webhooks` CRUD registered
 
 ## Wave 1 — hot subsystems
 
