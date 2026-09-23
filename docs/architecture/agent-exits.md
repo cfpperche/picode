@@ -81,7 +81,7 @@ width on the phone and in narrow windows.
 | Route | Does |
 |---|---|
 | `GET /api/agent-exits` | the catalog, newest first; `workspace`, `cli`, `outcome` (a code or `unanswered`), `range` (today/7d/30d/all), `before` + `limit`; answers `{exits, next, ask, taxonomy}` |
-| `GET /api/agent-exits/summary` | counts for the same filters: outcomes, by CLI, reasons, asked / answered / answered-when-asked, median lifetime and turns |
+| `GET /api/agent-exits/summary` | counts for the same filters except outcome: outcomes, by CLI, reasons, asked / answered / answered-when-asked, median lifetime and turns. The clients' **Resolved** share divides by resolved + partial + unresolved (`exitHeadline`): a trial set no task |
 | `GET /api/agent-exits/export` | every exit, undone included, as JSON lines |
 | `GET`/`PATCH`/`DELETE /api/agent-exits/{id}` | one exit; PATCH labels or clears the answer |
 | `POST /api/agent-exits/{id}/undo` | links the exit to the agent an Undo brought back |

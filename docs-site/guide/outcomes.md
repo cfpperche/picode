@@ -56,6 +56,10 @@ before PiCode counted turns show **—** instead of a number.
 
 ## Using the page
 
+- The numbers at the top follow the date range, workspace and CLI filters.
+  **Resolved** is the share answered *Resolved* among agents that were set a
+  task: *Just trying* answers are left out. **Answered when asked** counts
+  answers given in the remove dialog.
 - Filter by date range, workspace, CLI and outcome.
 - Open a row to see the whole record. **Answer** (or **Change answer**) sets
   the outcome later; **Delete record** removes it from the page and from
