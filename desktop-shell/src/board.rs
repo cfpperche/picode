@@ -24,6 +24,9 @@ struct Inner {
     up: bool,
     detail: String,
     distro: Option<String>,
+    // The daemon's address while the health loop gets answers from it; None
+    // when it stops answering, so no reader opens a dead port.
+    url: Option<String>,
     child: Option<Child>,
     task: keepalive::TaskEnsure,
 }
@@ -34,6 +37,7 @@ impl Default for Inner {
             up: false,
             detail: "Starting…".to_string(),
             distro: None,
+            url: None,
             child: None,
             task: keepalive::TaskEnsure::default(),
         }
@@ -87,6 +91,18 @@ impl Board {
 
     pub fn distro(&self) -> Option<String> {
         self.inner.lock().expect("board").distro.clone()
+    }
+
+    /// The health loop's current answer to "where is PiCode": set while the
+    /// daemon answers, cleared the moment it does not. Windows opened from
+    /// the tray read this instead of asking wsl.exe again on the event
+    /// thread.
+    pub fn note_url(&self, url: Option<String>) {
+        self.inner.lock().expect("board").url = url;
+    }
+
+    pub fn url(&self) -> Option<String> {
+        self.inner.lock().expect("board").url.clone()
     }
 
     /// Starts the keepalive when the distro is known and no live child

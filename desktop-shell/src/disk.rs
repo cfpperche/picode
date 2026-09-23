@@ -89,6 +89,10 @@ pub struct CompactOutcome {
     pub returned: Option<i64>,
     #[serde(default)]
     pub sparse: Option<bool>,
+    /// The flow reached the stop: the distro's sessions ended even when the
+    /// run failed afterwards.
+    #[serde(default)]
+    pub stopped: bool,
 }
 
 fn parse_outcome(text: &str) -> Result<CompactOutcome, String> {
@@ -229,8 +233,8 @@ pub fn disk_report(app: tauri::AppHandle, run: Option<String>) -> Result<serde_j
 #[tauri::command(async)]
 pub fn disk_compact(app: tauri::AppHandle, run: Option<String>) -> Result<CompactOutcome, String> {
     // No claim about the distro here: a missing tool or an early failure
-    // stopped nothing, and a failure after the stop arrives as the
-    // outcome's own `error`, which says so.
+    // stopped nothing, and a failure after the stop arrives as an outcome
+    // with `error` and `stopped` set, which the page states.
     let v = stream_cli(&app, "compact", &run.unwrap_or_default(), &["disk-compact", "--yes", "--json"])?;
     serde_json::from_value(v).map_err(|e| format!("compact outcome JSON: {e}"))
 }
