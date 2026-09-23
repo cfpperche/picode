@@ -240,7 +240,7 @@ func askCall(ctx context.Context, c *Caller, args json.RawMessage, wait time.Dur
 			progress("still waiting for the human (" + elapsed(time.Since(started)) + ", item " + id + ")")
 			lastProgress = time.Now()
 		}
-		status, body, err := c.Daemon.Get(ctx, "/api/inbox/"+id)
+		status, body, err := c.Daemon.Get(ctx, "/api/inbox/"+id+"?wait=1")
 		if err == nil && status == 200 {
 			var it struct {
 				State    string  `json:"state"`

@@ -78,6 +78,10 @@ func claudeCredentialEnv(deps Deps, have map[string]string) [][2]string {
 	if have[claudeKeyEnv] != "" {
 		return nil
 	}
+	// A platform in Claude Code's settings outranks a key (ADR-0189).
+	if _, ok := claudePlatformInUse(); ok {
+		return nil
+	}
 	row, ok := claudeKeyInUse(deps)
 	if !ok {
 		return nil
@@ -178,15 +182,17 @@ func stringList(v any) []string {
 // active one and no subscription row is; key rows can always be chosen.
 func markClaudeInUse(deps Deps, providers []providerView) {
 	key, keyed := claudeKeyInUse(deps)
+	// A platform outranks both (ADR-0189): no row is what Claude Code runs on.
+	_, platform := claudePlatformInUse()
 	for i := range providers {
 		for j := range providers[i].Accounts {
 			a := &providers[i].Accounts[j]
 			if a.Type == catalog.LoginAPIKey {
 				a.Activatable = !a.Paused
-				a.Active = keyed && a.ID == key.ID && providers[i].ID == claudeKeyProvider(deps)
+				a.Active = !platform && keyed && a.ID == key.ID && providers[i].ID == claudeKeyProvider(deps)
 				continue
 			}
-			if keyed {
+			if keyed || platform {
 				a.Active = false
 			}
 		}

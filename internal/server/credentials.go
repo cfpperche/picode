@@ -44,6 +44,8 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/credentials/{provider}/{id}/verify", handleCredentialVerify(deps))
 	mux.HandleFunc("POST /api/credentials/{provider}/{id}/activate", handleCredentialActivate(deps))
 	mux.HandleFunc("DELETE /api/credentials/{provider}/{id}", handleCredentialDelete(deps))
+	mux.HandleFunc("PUT /api/claude-code/platform", handleClaudePlatformPut(deps))
+	mux.HandleFunc("DELETE /api/claude-code/platform", handleClaudePlatformDelete(deps))
 }
 
 // providerView is one provider the CLI can use, with the vault rows it holds.
@@ -183,6 +185,11 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 		}
 		if spec.CLI == "claude-code" {
 			markClaudeInUse(deps, providers)
+			// A third-party platform in Claude Code's settings (ADR-0189):
+			// what it is, never its secrets.
+			if view, ok := claudePlatformInUse(); ok {
+				out["platform"] = view
+			}
 		}
 		attachRowUsage(providers, time.Now())
 		out["providers"] = providers
@@ -867,6 +874,10 @@ func handleCredentialActivate(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusBadRequest, "Resume this key before using it.")
 				return
 			}
+			if err := clearClaudePlatform(); err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
 			if err := approveClaudeKey(rowKey(row)); err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
@@ -920,6 +931,10 @@ func writeCLILogin(deps Deps, spec clicreds.Spec, decl *clicreds.Provider, provi
 	// would otherwise outrank the file just written (ADR-0187).
 	if spec.CLI == "claude-code" {
 		if err := setClaudeKeyInUse(deps, "", ""); err != nil {
+			return "", "", http.StatusInternalServerError, err
+		}
+		// …and so would a third-party platform (ADR-0189).
+		if err := clearClaudePlatform(); err != nil {
 			return "", "", http.StatusInternalServerError, err
 		}
 	}

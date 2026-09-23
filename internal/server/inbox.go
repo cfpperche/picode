@@ -44,6 +44,15 @@ func handleCreateInboxItem(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
+		// An agent's question names the conversation it came from so a
+		// receiver can answer into exactly that one (ADR-0060). Pi's own
+		// inbox extension sends the path; an `ask_human` over MCP cannot
+		// know it, so the session the agent's receiver last reported stands
+		// in — the one it is showing while it asks. resolveReplySession
+		// still checks the path before anything is delivered to it.
+		if req.SourceKind == store.InboxFromAgent && strings.TrimSpace(req.SessionPath) == "" {
+			req.SessionPath = deps.Replies.receiverSession(req.SourceID)
+		}
 		it, err := deps.Store.CreateInboxItem(store.InboxItemParams{
 			Kind: req.Kind, SourceKind: req.SourceKind, SourceID: req.SourceID,
 			WorkspaceID: req.WorkspaceID, SessionPath: req.SessionPath, Reason: req.Reason, Title: req.Title,
@@ -77,9 +86,14 @@ func handleListInbox(deps Deps) http.HandlerFunc {
 }
 
 // handleGetInboxItem is one item by id — what `picode mcp inbox` polls
-// while `ask_human` waits for the human (ADR-0154, N1).
+// while `ask_human` waits for the human (ADR-0154, N1). A poll with
+// ?wait=1 marks an asker as waiting, so the answer is recorded for it to read
+// instead of also being typed into its terminal (agent_answer.go).
 func handleGetInboxItem(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if queryFlag(r, "wait") {
+			deps.Replies.askPolled(r.PathValue("id"))
+		}
 		it, err := deps.Store.GetInboxItem(r.PathValue("id"))
 		if err != nil {
 			writeStoreErr(w, err)
@@ -113,6 +127,28 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 			if _, err := deps.AnswerTerminalQuestion(id, req.Verb, req.Text); err != nil {
 				if errors.Is(err, store.ErrNotFound) {
 					writeErr(w, http.StatusConflict, "terminal no longer exists — reply not delivered; the item stays open")
+					return
+				}
+				writeErr(w, http.StatusConflict, err.Error())
+				return
+			}
+			it, _ = deps.Store.GetInboxItem(id)
+			writeJSON(w, http.StatusOK, it)
+			return
+		}
+		// An agent's question or approval goes through the door that agent
+		// listens on — the same rule the Inbox app applies, so the mobile
+		// Reply and the desktop one never disagree.
+		if it, err := deps.Store.GetInboxItem(id); err == nil && it.SourceKind == store.InboxFromAgent &&
+			req.Verb != store.VerbIgnore && it.State != store.InboxDone &&
+			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) {
+			if _, err := deps.AnswerAgentQuestion(r.Context(), id, req.Verb, req.Text); err != nil {
+				if errors.Is(err, errAnswerInvalid) {
+					writeErr(w, http.StatusBadRequest, err.Error())
+					return
+				}
+				if strings.Contains(err.Error(), "agent no longer exists") {
+					writeErr(w, http.StatusConflict, "agent no longer exists — reply not delivered; the item stays open")
 					return
 				}
 				writeErr(w, http.StatusConflict, err.Error())

@@ -3461,6 +3461,56 @@
         ]
       }
     },
+    "/api/claude-code/platform": {
+      "delete": {
+        "operationId": "deleteApiClaude-codePlatform",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "claude-code"
+        ]
+      },
+      "put": {
+        "operationId": "putApiClaude-codePlatform",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "claude-code"
+        ]
+      }
+    },
     "/api/cli-doctor": {
       "get": {
         "operationId": "getApiCli-doctor",
@@ -11671,6 +11721,9 @@
     },
     {
       "name": "checklists"
+    },
+    {
+      "name": "claude-code"
     },
     {
       "name": "cli-doctor"

@@ -70,6 +70,8 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   const [catalogError, setCatalogError] = useState("");
   const [addProviderOpen, setAddProviderOpen] = useState(false);
   const [claudeOpen, setClaudeOpen] = useState(false);
+  // The platform being edited, when the Claude Code dialog opens on it.
+  const [claudeEdit, setClaudeEdit] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ provider: "", key: "" });
   const [formError, setFormError] = useState("");
@@ -457,6 +459,21 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
     }
   }
 
+  // Claude Code on a cloud platform (ADR-0189): stopping removes it from
+  // Claude Code's settings, secret included, and the subscription or the
+  // chosen key is what new terminals use again.
+  async function stopPlatform(platform) {
+    const ok = await askConfirm({
+      title: "Stop using " + platform.name,
+      message: "Removes " + platform.name + " from Claude Code's settings, with any key saved there. New terminals go back to your Claude subscription or Console key.",
+      confirmLabel: "Stop using",
+      danger: true,
+    });
+    if (!ok) return;
+    await run("platform", () => api("/api/claude-code/platform", { method: "DELETE" }),
+      () => toast.ok("Claude Code no longer uses " + platform.name + "."));
+  }
+
   // A custom provider's definition and its key are one row in the CLI's own
   // file: removing it is the only way to un-key a gateway, so the confirm
   // names both halves.
@@ -683,6 +700,22 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
           </div>
         ) : null}
 
+        {data.platform ? (
+          <div className="cred-native">
+            <span className="cred-native-text">
+              {"Claude Code uses " + data.platform.name
+                + (data.platform.region ? " · " + data.platform.region : "")
+                + (data.platform.project ? " · " + data.platform.project : "")
+                + (data.platform.resource ? " · " + data.platform.resource : "")
+                + (shown.length ? ", instead of the accounts below." : ".")}
+            </span>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setClaudeEdit(data.platform); setClaudeOpen(true); }}>Edit</button>
+            <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "platform"} onClick={() => stopPlatform(data.platform)}>
+              {busy === "platform" ? "Stopping…" : "Stop using"}
+            </button>
+          </div>
+        ) : null}
+
         {shown.length ? (
           <div className="prov-table">
             {/* The column labels are the roster's legend: two readings are only
@@ -794,7 +827,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
               );
             })}
           </div>
-        ) : (
+        ) : data.platform ? null : (
           <p className="cred-empty"><span>{"No provider credentials for " + cliName + " yet."}</span></p>
         )}
       </> : null}
@@ -803,7 +836,8 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
           roster asks for it (omp): search, method, key or account, custom. */}
       <ClaudeCodeLoginDialog
         open={claudeOpen}
-        onClose={() => { setClaudeOpen(false); if (add && typeof location !== "undefined") location.hash = cliPaneHash(cli, "providers"); }}
+        editPlatform={claudeEdit}
+        onClose={() => { setClaudeOpen(false); setClaudeEdit(null); if (add && typeof location !== "undefined") location.hash = cliPaneHash(cli, "providers"); }}
         onSaved={load}
         onTerminalSignin={(res) => {
           const launchError = res && res.terminal && res.terminal.launchError;
