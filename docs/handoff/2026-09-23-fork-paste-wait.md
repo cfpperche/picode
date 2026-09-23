@@ -1,0 +1,6 @@
+# 2026-09-23 — fork-paste-wait
+
+- **Owner, live after the fork-git-shell deploy:** (1) pasting clipboard images into the Fork dialog's task box did nothing (the attach bar's paste lives in TermSurface's capture handler, not in the composer); (2) with agents working, the worktree command was typed into the git terminal and waited for Enter, but the modal dialog covered that terminal.
+- **Fix:** `AttachComposer` handles paste itself (files → attachments, text kept, desktop-shell Explorer files via `shellClipboardFiles`); inside a terminal pane the pane still takes the paste first. `typeIntoTerminal` returns `ran`/`prepared`; on `prepared` the dialog closes, a toast says to press Enter in the git terminal, and the fork continues in the background (10 min wait, failures as a toast).
+- **Verified:** `make ci-scoped` PASS; scratch instance with real Claude Code: a synthetic paste event in the dialog staged one chip; fork while the source was idle ran the command and opened the fork; fork while the source was writing an essay closed the dialog, showed the toast, and after Enter in the git terminal opened the fork in `.worktrees/calc-fork-2`.
+- **Open (owner's call, in `docs/handoff/open/agent-fork.md`):** exempting `create-worktree-branch` from ADR-0078's interlock, since in practice some agent is always working in the repository.
