@@ -34,6 +34,12 @@ else
   ./scripts/ci-scoped.sh || exit 1
 fi
 
+# The living docs (ADR index, architecture index, relative links) read only the
+# tree and take a second, and nearly every branch writes some: a note, a
+# fragment, a topic file. They run on every close, reused green run or not, so
+# the reuse rule never has to count docs/ as covered (ADR-0124).
+node scripts/docs-living.mjs || exit 1
+
 base=$(git merge-base main HEAD)
 changed=$(git diff --name-only "$base" HEAD)
 
