@@ -175,6 +175,13 @@ it. Show "Pause requested" while a process is still running. Cancellation
 closes future mission work, records whether the process stopped, and preserves
 files. Neither action implies rollback.
 
+Pause, cancel and acceptance do not release a potentially active writer merely
+because the mission changed state. Keep its execution reservation until stop
+is confirmed; a resume or replacement must reconcile any in-flight launch/send
+first. An idle badge alone does not prove quiescence. M0 defines the runtime
+evidence or explicit owner confirmation required to release a working folder,
+including outstanding child processes and writes outside PiCode's control.
+
 ## 6. Proposed implementation boundaries
 
 Use the existing Go server, SQLite store and feed; no new runtime or queue
@@ -195,6 +202,10 @@ identity as well as a display snapshot. An assignment records agent, native
 session when known, working folder, role, generation and start/end reason.
 Mission-owned records cannot cascade away when an agent, session, Inbox item
 or workspace is deleted; missing references become explicit unavailable rows.
+Reserve the mission and target agent atomically, including pending assignments;
+reject competing assignments and targets with an unrelated active turn or
+input draft. A native session rollover preserves the mission but needs an
+explicit binding and new assignment generation before that session can report.
 
 Mutations require the expected version and a request ID. Commit the mutation,
 its durable history and feed event in one transaction. Exact retries return
@@ -235,6 +246,12 @@ write responsibility to the new one. A crash may leave an unconfirmed launch;
 inspect identity/receipts and offer recovery rather than launch or paste again.
 An assignment generation rejects late reports from the former executor; it
 cannot itself stop that executor writing files.
+
+Recheck the mission version, reservation and dispatch authority immediately
+before each external effect. If pause/cancel races an effect already in flight,
+record its actual or unknown outcome, request stop where supported and retain
+the reservation until reconciled. A cancelled mission must never silently
+become active again because a late acknowledgement arrived.
 
 Reuse session handoff where its capabilities fit and link its lineage. Its
 existing "source remains running" behavior stays valid for ordinary Continue
@@ -291,14 +308,17 @@ row to a milestone test. A milestone cannot claim a row passed on prose alone.
 | D17 | Dirty source files and a different target worktree | Require explicit file/commit transfer; do not imply files were copied | M2 |
 | D18 | Reviewer requests changes | Record findings and return to execution; reviewer has no completion authority | M4 |
 | D19 | Automatic stage retry or resume with unmet prerequisites/limits | Refuse dispatch; retain named blocker and consumed budget | M5 |
+| D20 | Competing assignment or target has unrelated work/input draft | Reserve atomically or refuse; preserve draft and current responsibility | M1/M2 |
+| D21 | Pause/cancel races launch/send or its acknowledgement | Reconcile effect; retain uncertain writer reservation; no automatic reactivation | M2 |
+| D22 | Assigned agent opens another native session | Retain mission/history; require explicit new binding/generation; reject stale reports | M2 |
 
 ## 8. Delivery milestones
 
 | Milestone | Scope and dependencies | Acceptance gate |
 |---|---|---|
-| **M0 — settle the contract** | Confirm this scope; inspect current adapters; prototype list/detail/transfer; write proposed ADRs and map D01–D19 to tests | Owner approves boundaries; every action has a source of truth, capability rule and recovery behavior |
+| **M0 — settle the contract** | Confirm this scope; inspect current adapters; prototype list/detail/transfer; write proposed ADRs and map D01–D22 to tests | Owner approves boundaries; every action has a source of truth, capability rule and recovery behavior |
 | **M1 — persistent mission** | Store, API, feed, criteria, history and desktop/mobile shell; explicit assignment metadata; depends on M0 | Create/edit/reload/restart without loss; concurrent edits conflict; deletion preserves history; empty/error states visually accepted |
-| **M2 — execute and transfer** | Reporting CLI/MCP, start/pause/resume, checkpoints, context preview, transfer and crash reconciliation; depends on M1 | Real Codex → Claude Code transfer in one repository, same-CLI new-session recovery, Pi optional; no duplicate writer under D05–D10/D17 |
+| **M2 — execute and transfer** | Reporting CLI/MCP, start/pause/resume, checkpoints, context preview, transfer and crash reconciliation; depends on M1 | Real Codex → Claude Code transfer in one repository, same-CLI new-session recovery, Pi optional; no duplicate writer under D05–D10/D17/D20–D22 |
 | **M3 — review and close the loop** | Inbox correlation, criterion evidence, Delivery links, owner acceptance, mobile review and pilot; depends on M2 | End-to-end mission from request to acceptance with one question, one transfer and one rejected/stale review; **MVP release gate** |
 | **M4 — separate reviewer** | Sequential reviewer assignment and findings; explicit role changes; depends on accepted MVP | Reviewer returns evidence-linked findings; executor fixes; owner accepts current result; reviewer is advisory, with no assumed filesystem sandbox |
 | **M5 — dependent stages and bounded automation** | Explicit dependency graph, supported runner capabilities, pause/recovery, concurrency/retry/time budgets; depends on M4 and a separately approved CLI-neutral unattended runner | Dependencies, cycles, limits and restart replay tested; unavailable execution/cost controls remain explicit |
@@ -349,7 +369,7 @@ of working folders, user sessions or unrelated files.
 ## 10. Validation and success measures
 
 Use disposable scratch workspaces for lifecycle and crash fixtures. Store/API
-tests cover versions, grants, events, deletion and D01–D19 as each milestone
+tests cover versions, grants, events, deletion and D01–D22 as each milestone
 lands. Test the real installed CLIs for the capabilities claimed, including
 busy targets, unconfirmed submission, authentication failure and restart.
 Native-session evidence identifies the CLI version and source/target session.
