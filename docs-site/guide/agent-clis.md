@@ -276,6 +276,60 @@ turns, because naming a foreign model made one CLI refuse it and switch.
 And when the source conversation is still running, PiCode says so and asks
 before continuing, since its newest turns may not be on disk yet.
 
+## Fork an agent
+
+**Fork agent…** starts a second agent of the same CLI on a copy of an
+agent's conversation, with a task of its own, while the original keeps
+going. Use it when an agent finds something worth doing — a failure, a
+side question — but already has its next task: the fork takes the finding
+with its full context and handles it, and nobody explains the problem
+twice.
+
+Open an agent's **•••** in the sidebar and pick **Fork agent…** (offered
+once the agent has a conversation, for the CLIs listed below). The dialog
+asks for:
+
+- **Name** — the new agent's name.
+- **Where** — a **New worktree** (its own checkout on a new branch, from
+  the last commit) or the **Same folder** as the original.
+- **Task** — what the fork should do first, with photos, files or a
+  sketch: paste a screenshot straight in, as in the terminal's attach bar.
+  Left empty, the fork opens waiting.
+
+### New worktree or same folder
+
+| Use **New worktree** when… | Use **Same folder** when… |
+|---|---|
+| the fork will **edit code** while the original keeps editing | the fork only **investigates, explains or reviews** |
+| what the fork needs is **committed** | the fork needs the original's **uncommitted changes** (a worktree starts from the last commit and leaves them behind) |
+| the project runs in a fresh checkout with no setup | the project needs setup to run there (installed dependencies, a build) |
+| the repository has no worktree routine of its own | the agent already makes its own worktree (a repository whose `AGENTS.md` says so) |
+
+The worktree is created by a visible `git worktree add` in a terminal in
+that folder. When another agent is working in the repository, PiCode
+types the command without running it: the dialog closes, a message asks
+you to press **Enter** in that terminal, and the fork starts as soon as
+the worktree exists. Its branch is named after the fork.
+
+### Which CLIs fork
+
+Each CLI forks with its own mechanism; PiCode only starts it, so the copy
+is exactly what that CLI would make.
+
+| CLI | Fork agent… | How the CLI forks |
+|---|---|---|
+| [Claude Code](https://code.claude.com/docs/en/setup) | yes | `--resume <id> --fork-session` |
+| [Codex](https://learn.chatgpt.com/docs/codex/cli) | yes | `codex fork <id>` |
+| [Grok](https://docs.x.ai/build/cli/reference) | yes | `--resume <id> --fork-session` |
+| [OpenCode](https://opencode.ai/docs) | yes | `--session <id> --fork` |
+| [Omp](https://omp.sh/docs) | yes | `--fork <session>` |
+| [Pi](https://pi.dev) | not yet | `--fork` exists; a Pi agent owns its session file in PiCode |
+| [Hermes Agent](https://hermes-agent.nousresearch.com/docs/getting-started/installation), [Muse Code](https://dev.meta.ai/docs/muse-code), [Antigravity](https://antigravity.google/docs/cli/) | not yet | only inside their own TUI (`/branch`, `/fork`) |
+
+The fork is not **Continue in…**: that moves a conversation to a
+*different* CLI by translating it; a fork stays in the same CLI and copies
+it with its own fork. Neither stops the original.
+
 ## Reuse launch profiles
 
 **Launch profiles** holds a CLI's reusable settings and opens by default
@@ -386,6 +440,7 @@ names for cleanup.
 | Open | Attach to the existing terminal. No second CLI process. |
 | Start | Start a stopped terminal with current settings. |
 | Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, Hermes Agent `--resume <id>`, OpenCode `--session <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned; the surface names the CLI, the conversation and when it last moved. |
+| Fork agent… | Start a new agent of the same CLI on a copy of this conversation, with a task of its own, in a new worktree or the same folder ([Fork an agent](#fork-an-agent)). The original keeps going. On the agent's **•••** in the sidebar, when a conversation is pinned and the CLI has its own fork. |
 | Continue in… | Open this terminal's conversation in another CLI. The original terminal stays; a new terminal opens, or a stopped Pi agent when you pick "Pi agent · in the app". Offered when a conversation is pinned. |
 | Stop terminal | End its processes but keep the saved terminal and settings. |
 | Restart terminal | Prepare the next launch, end its processes and launch again. A pinned conversation is reopened with that CLI's verified resume arguments (the same recipe as Resume last session). Without a pin, Restart starts a fresh conversation. |

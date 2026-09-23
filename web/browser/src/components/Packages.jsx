@@ -8,6 +8,7 @@ import {
   loadPiPackagesContext, packageContextKey, cliPackagesHash,
 } from "@picode/shared/domain/cliPackages.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
+import { namedScope } from "@picode/shared/domain/cliNative.js";
 import { pkgName } from "@picode/shared/domain/pkgName.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import PackagesConfig from "./PackagesConfig.jsx";
@@ -580,7 +581,7 @@ export default function Packages({ hidden, route, catalog, describe = false, onP
                     aria-checked={scope === entry.vendor || scope === entry.id}
                     title={entry.note || undefined}
                     onClick={() => { const next = entry.vendor || entry.id; if (scope !== next) goToScope(next); }}
-                  >{entry.label}</button>
+                  >{namedScope(entry.label, report.workspaceName)}</button>
                 ))}
               </div>
             </div>

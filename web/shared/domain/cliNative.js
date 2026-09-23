@@ -25,6 +25,37 @@ export function scopeToLayer(scope) {
   return scope === "project" ? "project" : "global";
 }
 
+// A workspace layer is named, not generic: a pane bound to a workspace says
+// its name where the vendor-declared label says "This workspace" — the rule
+// Pi's pane has always followed (label: workspace.name) and Mcps' rows too.
+// A pane bound to nothing keeps the generic word, because there is no name to
+// say. The replacement is by words, not by scope, so a driver's suffix
+// survives: Claude Code's "This workspace (local)" names the checkout its
+// uncommitted file is kept in.
+export function namedScope(label, workspaceName = "") {
+  const name = String(workspaceName || "").trim();
+  if (!name) return label;
+  // A replacer function, not a replacement string: String.replace interprets
+  // `$` sequences ($&, $', $`) in a string replacement, and a workspace name
+  // may legally hold them (trimmed, ≤120 chars, no charset rule) — the name
+  // must land literally, first occurrence only.
+  return String(label || "").replace("This workspace", () => name);
+}
+
+// Every layer label in one report, renamed in one pass: a pane feeds its
+// layers (settings, models) or memory stores through this once, so the layer
+// switcher, the checked radio and the per-row provenance ("From …") all read
+// the name. Layers the pane cannot name come back untouched.
+export function namedLayers(layers = [], workspaceName = "") {
+  const name = String(workspaceName || "").trim();
+  if (!name || !Array.isArray(layers)) return layers;
+  return layers.map((l) => (
+    l && typeof l.label === "string" && l.label.includes("This workspace")
+      ? { ...l, label: namedScope(l.label, name) }
+      : l
+  ));
+}
+
 // The layer the pane opens on: the one the route names when the CLI has it,
 // otherwise the first layer the CLI declares.
 export function defaultLayer(layers = [], routeLayer = "") {

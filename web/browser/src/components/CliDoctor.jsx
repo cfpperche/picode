@@ -9,7 +9,7 @@ import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 // setting the CLI resolves here with the file it comes from. Read-only: the
 // fixes are the rows below it, or the file itself.
 
-export default function CliDoctor({ cli, workspaceId = "" }) {
+export default function CliDoctor({ cli, workspaceId = "", workspaceName = "" }) {
   const label = terminalCliLabel(cli);
   const [rep, setRep] = useState(null);
   const [error, setError] = useState(null);
@@ -118,7 +118,7 @@ export default function CliDoctor({ cli, workspaceId = "" }) {
               <div className="doctor-row" role="row" key={e.key} title={e.description || ""}>
                 <code className="doctor-key" role="cell">{e.key}</code>
                 <code className="doctor-val" role="cell" title={e.redacted ? "Hidden: this is a credential" : formatValue(e.value, 2000)}>{e.redacted ? "hidden" : formatValue(e.value)}</code>
-                <span className="doctor-src" role="cell">{sourceLabel(e.source)}</span>
+                <span className="doctor-src" role="cell">{sourceLabel(e.source, workspaceName)}</span>
               </div>
             ))}
           </div>

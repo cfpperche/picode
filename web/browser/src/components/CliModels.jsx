@@ -5,7 +5,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliModelsHash, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 import {
   defaultLayer, layerToScope, scopeToLayer, rowState, isRoleField, isListField,
-  listValue, roleAliases, selectorsInUse, splitSelector,
+  listValue, namedLayers, roleAliases, selectorsInUse, splitSelector,
 } from "@picode/shared/domain/cliNative.js";
 import {
   ALLOWED_KEY, HIDDEN_KEY, effectiveList, filterModels, formatContext, formatPrice,
@@ -28,7 +28,7 @@ import { AddRow, Row } from "./CliNativeSettings.jsx";
 
 const EMPTY = { state: "loading", rows: [], error: "" };
 
-export default function CliModels({ cli, route = {}, workspaceId = "" }) {
+export default function CliModels({ cli, route = {}, workspaceId = "", workspaceName = "" }) {
   const label = terminalCliLabel(cli);
   const [report, setReport] = useState(null);
   const [reportError, setReportError] = useState(null);
@@ -78,7 +78,9 @@ export default function CliModels({ cli, route = {}, workspaceId = "" }) {
     return () => { clearTimeout(timer); stop(); };
   }, [cli]);
 
-  const layers = report?.layers || [];
+  // The pane names the workspace it is bound to (the Pi pane's rule): one
+  // rename here feeds the switcher and the "From …" line on every list.
+  const layers = namedLayers(report?.layers || [], workspaceName);
   const layerName = defaultLayer(layers, route.layer);
   const scope = layerToScope(layerName);
   const current = layers.find((l) => l.scope === scope) || layers[0];
@@ -124,7 +126,7 @@ export default function CliModels({ cli, route = {}, workspaceId = "" }) {
   // Each list says where it comes from on its own line; the note only says
   // what a change to an inherited one does, which is true of either list.
   const inheritNote = scope === "project" && current?.path && ((!allowed.setHere && allowed.list.length) || (!hidden.setHere && hidden.list.length))
-    ? "Changing a list marked From Global gives this workspace its own copy, which then replaces the global one here."
+    ? "Changing a list marked From Global gives " + (workspaceName || "this workspace") + " its own copy, which then replaces the global one here."
     : "";
   const allHidden = catalog.state === "ready" && catalog.rows.length === 0 && hidden.list.length > 0;
 
@@ -218,6 +220,7 @@ export default function CliModels({ cli, route = {}, workspaceId = "" }) {
                 onLoadModels={() => {}}
                 picks={picks}
                 note={roleNote(field, state.value)}
+                workspaceName={workspaceName}
                 onSet={(value) => save(field.key, value)}
                 onReset={() => save(field.key, null, { reset: true })}
               />

@@ -11,8 +11,8 @@ export const supportsCliDoctor = (id) => DOCTOR_CLIS.includes(id);
 // is the CLI's default or comes from a source PiCode does not read (an
 // overlay, a foreign settings file the CLI also merges), so it is not called
 // "default" — that would be a claim PiCode cannot check.
-export function sourceLabel(source) {
-  if (source === "project") return "This workspace";
+export function sourceLabel(source, workspaceName = "") {
+  if (source === "project") return String(workspaceName || "").trim() || "This workspace";
   if (source === "user") return "Global";
   return "Not in either file";
 }
