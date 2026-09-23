@@ -1804,6 +1804,8 @@ img.ws-face.term-cli-face {
 .dash-facts dt { font-size: 11px; color: var(--text-secondary); }
 .dash-facts dd { margin: 2px 0 0; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .dash-fact-sub { font-size: 11px; font-weight: 400; color: var(--text-secondary); }
+/* A fact that is a phrase, not a number (Agent outcomes' "Most in the way"). */
+.dash-facts dd.dash-fact-text { font-size: 13px; font-weight: 550; line-height: 1.3; }
 
 /* Top sessions: rows are buttons into the sessions page. */
 .top-sessions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }

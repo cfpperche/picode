@@ -10,6 +10,7 @@ export const MENU_SECTIONS = [
   ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"],
   ["automations", "Automations", "Scheduled and triggered work"],
   ["snippets", "Snippets", "Reusable prompts"],
+  ["outcomes", "Outcomes", "How removed agents ended"],
   ["providers", "Providers", "Accounts, keys, usage"],
   ["llama", "llama.cpp", "Models and server connection"],
   ["connectors", "Connectors", "MCP servers and tools"],
@@ -24,7 +25,7 @@ export const MENU_SECTIONS = [
 ];
 
 export const MENU_GROUPS = [
-  ["Tools", ["automations", "snippets", "llama"]],
+  ["Tools", ["automations", "snippets", "outcomes", "llama"]],
   ["PiCode", ["preferences", "browser", "computer", "devices", "system", "integrations", "termset"]],
 ];
 
