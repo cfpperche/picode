@@ -84,3 +84,35 @@ test("an empty pane says why in one line", () => {
   assert.match(skillsEmptyLine("codex"), /on this machine\.$/);
   assert.match(skillsEmptyLine("codex", { hasWorkspace: true, workspaceName: "picode" }), /in picode/);
 });
+
+import { canRemoveSkill, conflictChoices, installBlocker, installLine, sizeLabel, skillTargetBody, updatesByKey, updatesSummary } from "./cliSkills.js";
+import { skillSourceSchema } from "../contracts/schemas.js";
+
+test("sources the form accepts, and the ones it refuses with a sentence", () => {
+  for (const s of ["anthropics/skills", "anthropics/skills/skills/pdf#main", "https://github.com/o/r/tree/v1/x", "https://skills.example.com", "/opt/skills/x", "~/my-skill"]) {
+    assert.equal(skillSourceSchema.safeParse({ source: s }).success, true, s);
+  }
+  for (const s of ["", "http://example.com", "not a source", "https://user:pw@x.com"]) {
+    assert.equal(skillSourceSchema.safeParse({ source: s }).success, false, s);
+  }
+});
+
+test("install, remove and update helpers", () => {
+  assert.equal(canRemoveSkill({ root: ".agents/skills" }), true);
+  assert.equal(canRemoveSkill({ root: "~/.claude/skills" }), false);
+  assert.match(installLine("workspace", "demo"), /demo's \.agents\/skills folder/);
+  assert.match(installLine("machine"), /~\/\.agents\/skills/);
+  assert.deepEqual(conflictChoices("exists").map((c) => Object.keys(c.body)[0]), ["adopt", "replace"]);
+  assert.deepEqual(conflictChoices("update")[0].body, { replace: true });
+  assert.deepEqual(conflictChoices("stale"), []);
+  const crit = { problems: [], findings: [{ severity: "critical", text: "x" }] };
+  assert.match(installBlocker(crit, false), /confirm/);
+  assert.equal(installBlocker(crit, true), "");
+  assert.match(installBlocker({ problems: ["no description"], findings: [] }, true), /breaks the format/);
+  assert.equal(sizeLabel(512), "512 B");
+  assert.equal(sizeLabel(2048), "2.0 KB");
+  assert.equal(updatesByKey([{ scope: "machine", name: "a", status: "behind" }])["machine:a"].status, "behind");
+  assert.equal(updatesSummary([]), "Nothing here was installed from a source PiCode can check.");
+  assert.equal(updatesSummary([{ name: "pdf", status: "behind" }, { status: "unreachable" }]), "Update available for pdf · 1 could not be checked.");
+  assert.deepEqual(skillTargetBody({ name: "a", scope: "workspace" }, "w1"), { name: "a", scope: "workspace", workspace: "w1" });
+});

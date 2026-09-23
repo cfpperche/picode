@@ -57,13 +57,22 @@ export function skillStatus(row, cli) {
   }
 }
 
+// A source as a short label: owner/repo, a site, or a folder's name.
+export function sourceLabel(src = {}) {
+  if (src.kind === "github") return src.owner + "/" + src.repo + (src.sub ? "/" + src.sub : "");
+  if (src.kind === "well-known") return (src.origin || "").replace(/^https:\/\//, "");
+  return (src.dir || src.input || "").replace(/\/+$/, "").split("/").pop();
+}
+
 // Where a skill came from, as one short phrase: the installer's source, or
 // the folder when no lock names it.
 export function skillOrigin(row) {
   const p = row.provenance;
   if (!p) return { label: "Added by hand", title: "No installer's lock names this folder" };
   const via = p.installer === "hermes" ? "Hermes hub" : "skills CLI";
-  const label = p.source || via;
+  // A local source is a long path whose useful part is its last folder.
+  const local = p.sourceType === "local" && p.source ? p.source.replace(/\/+$/, "").split("/").pop() : "";
+  const label = local || p.source || via;
   const title = "Recorded by the " + via + " in " + p.lock + (p.modified ? " — changed since it was installed" : "");
   return { label, title, modified: !!p.modified };
 }
@@ -116,4 +125,76 @@ export function skillsEmptyLine(cli, { workspaceName = "", hasWorkspace = false 
   const name = terminalCliLabel(cli);
   if (!hasWorkspace) return name + " has no skills in the folders it reads on this machine.";
   return name + " has no skills in the folders it reads here or in " + (workspaceName || "this workspace") + ".";
+}
+
+// --- slice 2: install, remove, update (ADR-0196) ---------------------------
+
+// Rows PiCode can remove: the canonical folder an install writes. A skill in
+// a CLI's own folder (~/.claude/skills, .grok/skills…) is that CLI's to manage.
+export function canRemoveSkill(row) {
+  return row.root === ".agents/skills" || row.root === "~/.agents/skills";
+}
+
+// Where an install lands, in one sentence the dialog shows before consent.
+export function installLine(scope, workspaceName = "") {
+  if (scope === "workspace") {
+    return "Installs into " + (workspaceName || "this workspace") + "'s .agents/skills folder, where most agent CLIs look, and links it for Claude Code.";
+  }
+  return "Installs into ~/.agents/skills on this computer, linked for Claude Code, Hermes and Antigravity where they are installed.";
+}
+
+// The answers a refusal offers: the code comes from the server (409).
+export function conflictChoices(code) {
+  if (code === "exists") {
+    return [
+      { label: "Keep mine", body: { adopt: true } },
+      { label: "Replace it", body: { replace: true }, danger: true },
+    ];
+  }
+  if (code === "update") return [{ label: "Use this version", body: { replace: true } }];
+  return [];
+}
+
+export function criticalFindings(c) {
+  return (c?.findings || []).filter((f) => f.severity === "critical");
+}
+
+// Why Install cannot run yet, in words (a disabled button never explains
+// itself — .pi/skills/uiux-review).
+export function installBlocker(c, accepted) {
+  if (!c) return "Pick a skill.";
+  if ((c.problems || []).length) return "This skill breaks the format: " + c.problems.join("; ") + ".";
+  if (criticalFindings(c).length && !accepted) return "Read the findings, then confirm you reviewed the files.";
+  return "";
+}
+
+export function sizeLabel(n = 0) {
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + " KB";
+  return (n / 1024 / 1024).toFixed(1) + " MB";
+}
+
+// Update rows by "scope:name", so a report row finds its check.
+export function updatesByKey(rows = []) {
+  const m = {};
+  for (const r of rows) m[r.scope + ":" + r.name] = r;
+  return m;
+}
+
+export function updatesSummary(rows = []) {
+  if (!rows.length) return "Nothing here was installed from a source PiCode can check.";
+  const behind = rows.filter((r) => r.status === "behind").length;
+  const failed = rows.filter((r) => r.status === "unreachable").length;
+  const parts = [];
+  const names = rows.filter((r) => r.status === "behind").map((r) => r.name);
+  parts.push(behind ? "Update available for " + names.slice(0, 3).join(", ") + (names.length > 3 ? " and " + (names.length - 3) + " more" : "") : "Everything checked is current");
+  if (failed) parts.push(failed + " could not be checked");
+  return parts.join(" · ") + ".";
+}
+
+// The body for DELETE /api/skills and POST /api/skills/update.
+export function skillTargetBody(row, workspaceId) {
+  const body = { name: row.name, scope: row.scope };
+  if (row.scope === "workspace") body.workspace = workspaceId;
+  return body;
 }

@@ -6,8 +6,9 @@
 The Skills tab (`#/clis/<cli>/skills`) reports the Agent Skills
 (agentskills.io) a CLI loads: every `SKILL.md` folder in the places that CLI
 reads, in its own precedence order, which copy wins, who installed it, and what
-it costs at start. Slice 1 of [the plan](../plans/skills.md) is read-only;
-installing, toggles, per-agent sets and the marketplace are the next slices.
+it costs at start. Slice 1 of [the plan](../plans/skills.md) reads; slice 2
+installs, removes, checks and updates; toggles, per-agent sets and the
+marketplace are the next slices.
 
 ## The declaration
 
@@ -87,11 +88,64 @@ trust, the vendor's command with **Copy**. An empty pane is one line and
 **Check again**; the report reloads when the window regains focus, because
 skill folders change outside PiCode.
 
+## Installing (slice 2)
+
+`skills.Manager` (`internal/skills/install.go`) is PiCode's own writer; no
+vendor command runs and the job lane is not involved (it only executes
+programs, one job per machine).
+
+- **Sources** (`source.go`): `owner/repo[/path][#ref]` or a GitHub URL is the
+  codeload tarball (no git needed; the top folder is stripped); an `https://`
+  site is its `/.well-known/agent-skills/index.json` (discovery schema 0.2.0:
+  `skill-md` or `archive` entries, each checked against its `sha256:` digest,
+  any mismatch refusing the whole source); an absolute or `~/` path is a local
+  folder. Downloads go through a client that refuses private addresses at dial
+  time (redirects included) and stay https. Extraction keeps regular files and
+  folders only — links and devices are skipped and named in the notes — and
+  refuses a path that leaves its folder or is absolute; limits are 50 MiB
+  downloaded, 200 MiB unpacked, 20,000 files per source.
+- **Preview** stages the source under `<data>/skills/stage/<id>` (30 minutes)
+  and lists every `SKILL.md` folder with its spec problems, digest, files and
+  the advisory scan (`scan.go`: pipe-to-shell, credential paths, paste and
+  tunnel hosts, destructive deletes, compiled programs, invisible characters as
+  critical; long encoded blobs and instruction overrides as warnings). A
+  finding is shown, never a verdict.
+- **Install** writes the canonical `<base>/.agents/skills/<name>` by copying to
+  a sibling temp folder and renaming, then links the folders of CLIs that do
+  not read it, derived from the declarations (`linkDirs`): `.claude/skills` in
+  a workspace; `~/.claude/skills`, `~/.hermes/skills` and
+  `~/.gemini/antigravity-cli/skills` on the machine, only for a CLI whose home
+  folder exists. A relative symlink, or a copy where links fail. The lock is
+  `skills-lock.json` v1 in the workspace or `~/.agents/.skill-lock.json` v3,
+  read so that every other entry and field survives, re-read before the atomic
+  write (409 `stale` if it moved), and never migrated (409 `lock-version`).
+  Global entries PiCode writes carry `computedHash` beside the CLI's fields.
+- **Refusals** are `skills.Conflict` codes the pane answers: `exists` (a folder
+  no lock names: **Adopt** records it, **Replace** overwrites), `update` (in a
+  lock with other content), `critical` (needs `acceptCritical`), `invalid`,
+  `gone` (preview expired, 410), `modified` and `unlocked` (remove or update
+  needs confirmation).
+- **Remove** deletes the canonical folder, the links that point at it and the
+  copies with its content, and the lock entry. **Update** refetches the entry's
+  source, refuses to overwrite local edits without `force`, and rewrites the
+  hash. **Check** fetches each source once and reports `current`, `behind`,
+  `modified`, `unreachable` (with the reason) or `missing`.
+
+Routes: `POST /api/skills/preview`, `POST /api/skills`, `DELETE /api/skills`,
+`POST /api/skills/update`, `GET /api/skills/updates`; every write publishes the
+ephemeral `skills.changed`. The pane's **Add skill** dialog
+(`AddSkillDialog.jsx`, both apps; Zod `skillSourceSchema`) previews, shows the
+findings and files, asks for the second confirmation on a critical finding and
+turns a 409 into its choices; **Check for updates** marks rows, and a row in
+`.agents/skills` offers **Update** and **Remove** with an inline confirmation.
+
 ## Live parity
 
 `internal/skills/live_test.go` runs the real `muse` against a fixture in a
 sandbox HOME (`PICODE_SKILLS_LIVE=1`, `PICODE_LIVE_SANDBOX` equal to HOME) and
 requires Muse's loaded skills and the reader's to be the same names from the
-same folders. Grok (`grok inspect --json`) and Hermes (`hermes skills list`)
+same folders. `TestLiveSkillsCLIHash` installs a fixture with the real
+`npx skills` (telemetry off) and requires its `computedHash` to equal
+`Digest` — measured equal on 2026-09-23, mixed-case file names included. Grok (`grok inspect --json`) and Hermes (`hermes skills list`)
 were compared by hand on 2026-09-23; their differences are vendor rules the
 reader does not model yet (`docs/handoff/open/skills.md`).
