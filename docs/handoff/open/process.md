@@ -106,6 +106,13 @@
   files*. Candidate: `make land`/`make close` prints the root's dirty files
   before attempting the fast-forward, and a blocked ff always prints its
   reason.
+- [ ] **`make ci-scoped` never runs `docs-check` for a change under `docs/`.**
+  `scripts/ci-scope.mjs` classifies every `docs/` path as `metadata` (fmt,
+  vet, hooks), but `docs-check` resolves every relative Markdown link inside
+  `docs/`. On 2026-09-23 `feat/agents-md-study` closed green and then failed
+  `make ci` on `main` at 65ba8571: the link regex read Antigravity's include
+  syntax inside inline code as a broken link (fixed by `feat/agents-md-link`).
+  Candidate: the `metadata` scope runs the link pass of `docs-check` alone.
 
 
 - `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K); capture tolerance is 128 px.

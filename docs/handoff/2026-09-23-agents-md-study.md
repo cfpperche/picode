@@ -9,3 +9,5 @@ One commit, docs only. The owner asked whether every PiCode CLI supports AGENTS.
 **What went to the owner.** The study offers options, not decisions: a read-only Instructions matrix and findings first (no ADR), settings-pane rows, repository writes behind one ADR, exit-record revisions to measure the effect of an `AGENTS.md` change, and an Omp upstream issue on the worktree shadowing. Nothing was built; the owner's calls live in `docs/handoff/open/agents-md.md`.
 
 Verified: `make close` green (scoped: metadata); `main` merged in afterwards and re-closed. visual-review: n/a — no UI. Nothing deployed.
+
+**Landing failed once.** `make ci` on `main` at 65ba8571 failed `docs-check`: its link regex read Antigravity's include syntax, quoted in inline code in the study, as a broken relative link. `ci-scoped` never ran `docs-check` because it classifies `docs/` as metadata. `feat/agents-md-link` rewords the sentence; the scoping gap is a debt in `docs/handoff/open/process.md`.
