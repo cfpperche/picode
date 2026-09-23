@@ -60,9 +60,9 @@
    the same attribute a screen reader does rather than a second class. */
 .cv-cluster > .cv-tool { min-width: 34px; }
 .cv-cluster > .cv-tool[aria-pressed="true"] {
-  background: var(--accent); color: #fff;
+  background: var(--accent-fill); color: var(--on-accent);
 }
-.cv-cluster > .cv-tool[aria-pressed="true"]:hover { background: var(--accent); color: #fff; filter: brightness(1.08); }
+.cv-cluster > .cv-tool[aria-pressed="true"]:hover { background: var(--accent-fill); color: var(--on-accent); filter: brightness(1.08); }
 
 /* The plane menu's anchor: a zero-size box placed at the cursor, so Radix has
    something real to measure from. Fixed, because the point is in client

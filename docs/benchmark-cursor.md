@@ -54,7 +54,9 @@ Surface
 Text
   --text-primary #e7eaf0 · --text-secondary #8b93a1
 Accent & status
-  --accent #7aa2f7 (focus, links, primary actions)
+  --accent #7aa2f7 (focus, links, borders)
+  --accent-fill + --on-accent (fills that carry text: primary buttons, send;
+    ≥ 4.5:1 in both themes, held by web/tools/accent-contrast.test.mjs)
   --ok #9ece6a · --warn #e0af68 · --danger #f7768e
 Type
   UI: sans 13px / 1.5 (Inter-class) · headings 600 weight, tight tracking
