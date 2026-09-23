@@ -43,11 +43,10 @@ func findBinary() string {
 
 func startArgs(bin, dir, rawURL string) []string {
 	host, port := "127.0.0.1", "8080"
+	// Hostname and Port, never a cut at the first colon: "[::1]:8080" gave a
+	// host of "[" (2026-09-23 review).
 	if u, err := url.Parse(rawURL); err == nil && u.Host != "" {
-		h, p, ok := strings.Cut(u.Host, ":")
-		if ok {
-			host, port = h, p
-		} else if u.Hostname() != "" {
+		if u.Hostname() != "" {
 			host = u.Hostname()
 		}
 		if u.Port() != "" {
