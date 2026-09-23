@@ -10,11 +10,7 @@ Shipped (d12bfaed):
 - `management.html`: activity rows with live clocks, skeletons, stale dimming on rescan, Clean tab fed by the same scan (one du walk instead of two), held-space explanation, failure states.
 
 Verified: on Windows (EnumWindows probe), the main-branch binary launched from a GUI process opened a visible `wsl.exe` window; the new binary opened none. `read_stream` tests pass as a Windows test exe via interop. Adversarial review: no blockers; fixed a false "distro was restarted" claim on early errors, cross-run event mixing, the dropped held-space line, lossy UTF-8, mixed numbers after a failed rescan, and a listener registered after the first scan.
-Blind spot: the page was reviewed in a stubbed Tauri replaying the real recorded scan; the real Tauri shell was not run end to end with this page, and the Management window was not opened live.
+Confirmed live by the owner 2026-09-23 after `make deploy` + `make desktop-restart`: Management opens with no terminal window and the scan streams (Windows ≈1 s, distro ≈15 s).
 visual-review: PASS after two FAIL rounds (12 states in `var/screenshots/mgmt/`).
 Debt recorded in `docs/handoff/open/windows-wsl.md`: `open_management_window` runs `discover_server` on the tray event thread.
 Merge: fast-forward ready.
-
-## Next up
-
-- Owner runs `make deploy` + `make desktop-restart`, opens Management once: no terminal window, streamed scan rows appear.
