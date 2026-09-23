@@ -9,7 +9,7 @@ Decision: ADR-0194. Study: `docs/benchmarks/2026-09-23-agent-exit-feedback.md` (
 
 ## Debts
 
-- [ ] The phone asks the question but has no Outcomes screen; the catalog is desktop only.
+- [x] The phone has no Outcomes screen — paid 2026-09-23 (`feat/mobile-outcomes`): More ▸ Outcomes lists, answers later, deletes and carries the switch; breakdowns and filters stay on the desktop page.
 - [x] Cost per agent — paid 2026-09-23 (`feat/exit-cost`): priced at removal from the session files; residual: a CLI agent counts only its last session, and Grok/Hermes/OpenCode/Antigravity are not measured.
 - [ ] Asking only at removal leaves out good agents that are never removed (accepted in ADR-0194; B should read living agents' observed signals too).
 - [ ] The Pi TUI turn count follows the watcher's scraped busy line, so a flicker between tools can count twice; guest CLIs and managed Pi count from explicit edges.

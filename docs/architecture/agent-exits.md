@@ -104,5 +104,7 @@ width on the phone and in narrow windows.
 - Cost covers a CLI agent's last known session only, and nothing for CLIs
   whose sessions live in a database (Grok, Hermes, OpenCode, Antigravity).
 - Asking only at removal leaves out good agents that are never removed.
-- The Outcomes page is desktop only; the phone asks the question but has no
-  catalog screen yet.
+- The phone's Outcomes (More ▸ Outcomes, `#/more/outcomes`,
+  `web/mobile/src/screens/OutcomesList.jsx`) lists records, answers later,
+  deletes and carries the switch; the numbers' breakdowns and the filters
+  stay on the desktop page.
