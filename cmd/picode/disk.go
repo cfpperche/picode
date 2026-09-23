@@ -27,7 +27,7 @@ func runDisk(args []string) {
 	if err != nil {
 		log.Fatalf("disk: %v", err)
 	}
-	rep, err := hostfs.Measure(hostfs.Exec{}, home)
+	rep, err := hostfs.MeasureWith(hostfs.Exec{}, home, locatedConsumers(home))
 	if err != nil {
 		log.Fatalf("disk: %v", err)
 	}
