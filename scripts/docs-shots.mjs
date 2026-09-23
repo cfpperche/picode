@@ -27,6 +27,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import {
   DOC_SCREENSHOT_SURFACES,
@@ -52,8 +53,21 @@ async function ownedFixture() {
       srv.close(() => resolve(p));
     });
   });
-  const child = spawn(bin, ["-addr", `127.0.0.1:${port}`], { cwd: root, stdio: "ignore" });
-  return { base: `http://127.0.0.1:${port}`, child };
+  const child = spawn(bin, ["-addr", `127.0.0.1:${port}`], { cwd: root, stdio: ["ignore", "ignore", "inherit"] });
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  // The fixture removes its directory only once its tmux server is gone
+  // (cmd/picode-docs-fixture shutdown); a directory still there after it
+  // exits is a server it could not end — say so, with the way to end it.
+  const dataDir = join(tmpdir(), `picode-docs-fixture-${port}`);
+  const release = async () => {
+    child.kill();
+    await Promise.race([exited, new Promise((r) => setTimeout(r, 15000))]);
+    if (existsSync(join(dataDir, "tmux.sock"))) {
+      console.warn(`docs-shots: the fixture left its tmux server running on ${join(dataDir, "tmux.sock")}.`);
+      console.warn(`  End it from a plain shell: tmux -S ${join(dataDir, "tmux.sock")} kill-server`);
+    }
+  };
+  return { base: `http://127.0.0.1:${port}`, child, release };
 }
 
 const externalBase = process.argv.includes("--base")
@@ -320,7 +334,7 @@ async function main() {
   let base = externalBase;
   if (!externalBase) {
     const owned = await ownedFixture();
-    release = () => owned.child.kill();
+    release = owned.release;
     base = owned.base;
   }
   try {
@@ -334,7 +348,7 @@ async function main() {
     // skipped the finally: what it skipped was a leaked fixture daemon and a
     // whole browser per failed run (thirteen chrome processes, measured
     // 2026-09-21). openSession is whatever surface was loading at the time.
-    release?.();
+    await release?.();
     closeSession();
   }
 }
