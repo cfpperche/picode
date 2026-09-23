@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -153,8 +154,27 @@ func ValidateExitLabel(l ExitLabel) error {
 	return err
 }
 
+// ExitCost is what the agent's sessions cost, read from the session files
+// the exit points at. Scope says which files: "agent" (every session in the
+// agent's own folder) or "last-session" (the one session PiCode knew — a CLI
+// agent's earlier sessions are not linked to it).
+type ExitCost struct {
+	Cost      float64 `json:"cost"`
+	Estimated float64 `json:"estimated"`
+	Unpriced  int     `json:"unpriced"`
+	Tokens    int64   `json:"tokens"`
+	Turns     int     `json:"turns"`
+	Sessions  int     `json:"sessions"`
+	Scope     string  `json:"scope"`
+}
+
+// ExitMeter reads one session file of a CLI; ok false means not measured.
+type ExitMeter func(cli, path string) (ExitCost, bool)
+
 // ExitInput is what the removal adds to what the store reads itself.
 type ExitInput struct {
+	// Meter prices the sessions the exit points at; nil records no cost.
+	Meter          ExitMeter
 	Origin         string
 	Asked          bool
 	AskSkip        string
@@ -239,6 +259,7 @@ type AgentExit struct {
 	Note            string       `json:"note"`
 	LabeledAt       *string      `json:"labeledAt"`
 	Taxonomy        int          `json:"taxonomy"`
+	Cost            *ExitCost    `json:"cost"` // nil = not measured
 	UndoneAt        *string      `json:"undoneAt"`
 	RestoredAgentID string       `json:"restoredAgentId,omitempty"`
 }
@@ -490,7 +511,52 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 			}
 		}
 	}
+	if in.Meter != nil {
+		ex.Cost = meterExit(a, ex.Sessions, in.Meter)
+	}
 	return ex, nil
+}
+
+// meterExit prices the sessions an exit points at. A Pi agent keeps its
+// sessions in a folder of its own (ADR-0040), so every one of them counts;
+// any other CLI names only the session PiCode last saw.
+func meterExit(a Agent, ss ExitSessions, meter ExitMeter) *ExitCost {
+	var paths []string
+	scope := "last-session"
+	switch {
+	case ss.PiSessionPath != "":
+		dir := filepath.Dir(ss.PiSessionPath)
+		if filepath.Base(dir) == a.ID {
+			if m, _ := filepath.Glob(filepath.Join(dir, "*.jsonl")); len(m) > 0 {
+				paths, scope = m, "agent"
+			}
+		}
+		if paths == nil {
+			paths = []string{ss.PiSessionPath}
+		}
+	case ss.CLISessionPath != "":
+		paths = []string{ss.CLISessionPath}
+	default:
+		return nil
+	}
+	var out ExitCost
+	for _, p := range paths {
+		c, ok := meter(a.CLI, p)
+		if !ok {
+			continue
+		}
+		out.Cost += c.Cost
+		out.Estimated += c.Estimated
+		out.Unpriced += c.Unpriced
+		out.Tokens += c.Tokens
+		out.Turns += c.Turns
+		out.Sessions++
+	}
+	if out.Sessions == 0 {
+		return nil
+	}
+	out.Scope = scope
+	return &out
 }
 
 func exitOrigin(o string) string {
@@ -533,7 +599,7 @@ func exitLaunchOf(l *TerminalLaunch) *ExitLaunch {
 
 const exitCols = `id, agent_id, agent_name, workspace_id, workspace_name, cli, provider, model, config, created_at, removed_at,
 	lifetime_s, turns, first_worked_at, last_worked_at, signals, sessions, sessions_purged, work_purged, origin, asked, ask_skip,
-	outcome, reasons, note, labeled_at, taxonomy, undone_at, restored_agent_id`
+	outcome, reasons, note, labeled_at, taxonomy, undone_at, restored_agent_id, cost`
 
 func insertExitTx(tx *sql.Tx, ex AgentExit) error {
 	config, err := marshalJSON(ex.Config)
@@ -552,11 +618,19 @@ func insertExitTx(tx *sql.Tx, ex AgentExit) error {
 	if ex.Turns != nil {
 		turns = *ex.Turns
 	}
-	_, err = tx.Exec(`INSERT INTO agent_exits (`+exitCols+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	var cost any
+	if ex.Cost != nil {
+		raw, err := marshalJSON(ex.Cost)
+		if err != nil {
+			return err
+		}
+		cost = raw
+	}
+	_, err = tx.Exec(`INSERT INTO agent_exits (`+exitCols+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		ex.ID, ex.AgentID, ex.AgentName, ex.WorkspaceID, ex.WorkspaceName, ex.CLI, ex.Provider, ex.Model, config, ex.CreatedAt, ex.RemovedAt,
 		ex.LifetimeS, turns, orNull(ex.FirstWorkedAt), orNull(ex.LastWorkedAt), signals, sessions, boolInt(ex.SessionsPurged), boolInt(ex.WorkPurged),
 		ex.Origin, boolInt(ex.Asked), ex.AskSkip, ex.Outcome, encodePackages(ex.Reasons), ex.Note, orNull(ex.LabeledAt), ex.Taxonomy,
-		orNull(ex.UndoneAt), ex.RestoredAgentID)
+		orNull(ex.UndoneAt), ex.RestoredAgentID, cost)
 	if err != nil {
 		return fmt.Errorf("store: insert exit: %w", err)
 	}
@@ -567,11 +641,11 @@ func scanExit(row interface{ Scan(...any) error }) (AgentExit, error) {
 	var ex AgentExit
 	var config, signals, sessions, reasons string
 	var turns sql.NullInt64
-	var first, last, labeled, undone sql.NullString
+	var first, last, labeled, undone, cost sql.NullString
 	var purgedS, purgedW, asked int
 	err := row.Scan(&ex.ID, &ex.AgentID, &ex.AgentName, &ex.WorkspaceID, &ex.WorkspaceName, &ex.CLI, &ex.Provider, &ex.Model, &config,
 		&ex.CreatedAt, &ex.RemovedAt, &ex.LifetimeS, &turns, &first, &last, &signals, &sessions, &purgedS, &purgedW, &ex.Origin, &asked,
-		&ex.AskSkip, &ex.Outcome, &reasons, &ex.Note, &labeled, &ex.Taxonomy, &undone, &ex.RestoredAgentID)
+		&ex.AskSkip, &ex.Outcome, &reasons, &ex.Note, &labeled, &ex.Taxonomy, &undone, &ex.RestoredAgentID, &cost)
 	if err != nil {
 		return AgentExit{}, err
 	}
@@ -590,6 +664,12 @@ func scanExit(row interface{ Scan(...any) error }) (AgentExit, error) {
 	ex.LastWorkedAt = nullStr(last)
 	ex.LabeledAt = nullStr(labeled)
 	ex.UndoneAt = nullStr(undone)
+	if cost.Valid && cost.String != "" {
+		var c ExitCost
+		if json.Unmarshal([]byte(cost.String), &c) == nil {
+			ex.Cost = &c
+		}
+	}
 	ex.SessionsPurged = purgedS != 0
 	ex.WorkPurged = purgedW != 0
 	ex.Asked = asked != 0
@@ -807,13 +887,18 @@ type ExitSummary struct {
 	MedianLifetimeS int64    `json:"medianLifetimeS"`
 	MedianTurns     *float64 `json:"medianTurns"`
 	MeasuredTurns   int      `json:"measuredTurns"`
+	// Cost is summed over the exits whose sessions were measured
+	// (CostMeasured of Total); Estimated is its list-price part.
+	Cost         float64 `json:"cost"`
+	Estimated    float64 `json:"estimated"`
+	CostMeasured int     `json:"costMeasured"`
 }
 
 // AgentExitSummary counts the catalog; f.Limit and f.Before are ignored.
 func (s *Store) AgentExitSummary(f ExitFilter) (ExitSummary, error) {
 	f.Before, f.Limit = "", 0
 	where, args := f.where()
-	rows, err := s.db.Query(`SELECT cli, asked, outcome, reasons, lifetime_s, turns FROM agent_exits`+where, args...)
+	rows, err := s.db.Query(`SELECT cli, asked, outcome, reasons, lifetime_s, turns, cost FROM agent_exits`+where, args...)
 	if err != nil {
 		return ExitSummary{}, fmt.Errorf("store: exit summary: %w", err)
 	}
@@ -828,7 +913,8 @@ func (s *Store) AgentExitSummary(f ExitFilter) (ExitSummary, error) {
 		var asked int
 		var life int64
 		var t sql.NullInt64
-		if err := rows.Scan(&cli, &asked, &outcome, &rs, &life, &t); err != nil {
+		var cst sql.NullString
+		if err := rows.Scan(&cli, &asked, &outcome, &rs, &life, &t, &cst); err != nil {
 			return ExitSummary{}, fmt.Errorf("store: exit summary: %w", err)
 		}
 		sum.Total++
@@ -864,6 +950,14 @@ func (s *Store) AgentExitSummary(f ExitFilter) (ExitSummary, error) {
 		}
 		for _, r := range decodePackages(rs) {
 			reasons[r]++
+		}
+		if cst.Valid && cst.String != "" {
+			var c ExitCost
+			if json.Unmarshal([]byte(cst.String), &c) == nil {
+				sum.Cost += c.Cost
+				sum.Estimated += c.Estimated
+				sum.CostMeasured++
+			}
 		}
 		lifetimes = append(lifetimes, life)
 		if t.Valid {
