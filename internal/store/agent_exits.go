@@ -35,6 +35,9 @@ const (
 	ExitSkipIdle   = "idle"   // the agent never worked
 	ExitSkipBrief  = "brief"  // it lived less than ExitAskMinLifetime
 	ExitSkipClient = "client" // the server would have asked; the caller did not
+	// ExitSkipWorkspace: the agent ended with its workspace; the dialog
+	// asked about the workspace, not each agent.
+	ExitSkipWorkspace = "workspace"
 )
 
 // ExitAskMinLifetime is the shortest life worth a question (Claude Code's
@@ -158,6 +161,9 @@ type ExitInput struct {
 	Label          ExitLabel
 	SessionsPurged bool
 	WorkPurged     bool
+	// LeaveTerminal: the caller is deleting the bound terminal itself (a
+	// terminal removal ends its agent), so the store must not.
+	LeaveTerminal bool
 }
 
 // ExitLaunch is a CLI agent's terminal launch record, without secrets:
@@ -389,7 +395,7 @@ func (s *Store) removeAgent(id string, in *ExitInput) (*AgentExit, error) {
 	if err := s.commit(tx); err != nil {
 		return nil, err
 	}
-	if a.TerminalID != nil && strings.TrimSpace(*a.TerminalID) != "" {
+	if a.TerminalID != nil && strings.TrimSpace(*a.TerminalID) != "" && (in == nil || !in.LeaveTerminal) {
 		_ = s.DeleteTerminal(*a.TerminalID)
 	}
 	return ex, nil
@@ -786,12 +792,16 @@ type ExitCount struct {
 
 // ExitSummary is the catalog's numbers for a window.
 type ExitSummary struct {
-	Total    int            `json:"total"`
-	Asked    int            `json:"asked"`
-	Answered int            `json:"answered"`
-	Outcomes map[string]int `json:"outcomes"`
-	ByCLI    []ExitCLIRow   `json:"byCli"`
-	Reasons  []ExitCount    `json:"reasons"`
+	Total    int `json:"total"`
+	Asked    int `json:"asked"`
+	Answered int `json:"answered"`
+	// AskedAnswered is answered in the dialog itself: the response rate is
+	// AskedAnswered / Asked (a label given later in the catalog is not a
+	// reply to the question).
+	AskedAnswered int            `json:"askedAnswered"`
+	Outcomes      map[string]int `json:"outcomes"`
+	ByCLI         []ExitCLIRow   `json:"byCli"`
+	Reasons       []ExitCount    `json:"reasons"`
 	// MedianLifetimeS is over every exit in the window; MedianTurns only
 	// over the exits whose turns were measured (nil when none were).
 	MedianLifetimeS int64    `json:"medianLifetimeS"`
@@ -848,6 +858,9 @@ func (s *Store) AgentExitSummary(f ExitFilter) (ExitSummary, error) {
 		} else {
 			sum.Answered++
 			sum.Outcomes[outcome]++
+			if asked != 0 {
+				sum.AskedAnswered++
+			}
 		}
 		for _, r := range decodePackages(rs) {
 			reasons[r]++

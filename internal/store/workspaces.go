@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Workspace is one registered project folder.
@@ -178,37 +179,82 @@ func (s *Store) RenameWorkspace(id, name string) (Workspace, error) {
 // project folder on disk is untouched; killing the tmux sessions is the
 // server's job before this runs.
 func (s *Store) RemoveWorkspace(id string) (removed bool, err error) {
+	removed, _, err = s.removeWorkspace(id, nil)
+	return removed, err
+}
+
+// RemoveWorkspaceWithExits is a person's removal of a workspace: each of
+// its agents ends too, and each gets an exit record in the same
+// transaction (ADR-0194). The dialog asked about the workspace, not each
+// agent, so the exits are unasked, with the skip "workspace".
+func (s *Store) RemoveWorkspaceWithExits(id string, in ExitInput) (removed bool, exits []AgentExit, err error) {
+	in.Asked, in.AskSkip, in.Label = false, ExitSkipWorkspace, ExitLabel{}
+	return s.removeWorkspace(id, &in)
+}
+
+func (s *Store) removeWorkspace(id string, in *ExitInput) (removed bool, exits []AgentExit, err error) {
+	if in != nil {
+		// Read before the transaction: the store has one connection.
+		agents, err := s.ListAgents(id)
+		if err != nil {
+			return false, nil, err
+		}
+		now := time.Now()
+		for _, a := range agents {
+			ex, err := s.buildExit(a, *in, now)
+			if err != nil {
+				return false, nil, err
+			}
+			exits = append(exits, ex)
+		}
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
-		return false, fmt.Errorf("store: remove workspace: %w", err)
+		return false, nil, fmt.Errorf("store: remove workspace: %w", err)
 	}
 	defer s.rollback(tx)
+	for _, ex := range exits {
+		if err := insertExitTx(tx, ex); err != nil {
+			return false, nil, err
+		}
+		if err := s.AppendEventTx(tx, "agent_exit.recorded", nil, nil, ex); err != nil {
+			return false, nil, err
+		}
+	}
 	if _, err := tx.Exec(`DELETE FROM terminal_settings WHERE scope IN (SELECT id FROM terminals WHERE workspace_id = ?)`, id); err != nil {
-		return false, fmt.Errorf("store: remove workspace terminal settings: %w", err)
+		return false, nil, fmt.Errorf("store: remove workspace terminal settings: %w", err)
 	}
 	if _, err := tx.Exec(`DELETE FROM terminals WHERE workspace_id = ?`, id); err != nil {
-		return false, fmt.Errorf("store: remove workspace terminals: %w", err)
+		return false, nil, fmt.Errorf("store: remove workspace terminals: %w", err)
 	}
 	// Its integration declaration (ADR-0182) is keyed by the id with no FK;
 	// left behind it would outlive the workspace it describes.
 	if _, err := tx.Exec(`DELETE FROM delivery_integration WHERE scope = ?`, id); err != nil {
-		return false, fmt.Errorf("store: remove workspace integration: %w", err)
+		return false, nil, fmt.Errorf("store: remove workspace integration: %w", err)
 	}
 	res, err := tx.Exec(`DELETE FROM workspaces WHERE id = ?`, id)
 	if err != nil {
-		return false, fmt.Errorf("store: remove workspace: %w", err)
+		return false, nil, fmt.Errorf("store: remove workspace: %w", err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return false, err
+		return false, nil, err
+	}
+	if n == 0 && len(exits) > 0 {
+		// Another removal won the race: exits for a workspace that was no
+		// longer there must not land (the deferred rollback drops them).
+		return false, nil, nil
 	}
 	if n > 0 {
 		if err := s.AppendEventTx(tx, "workspace.deleted", nil, nil, idData(id)); err != nil {
-			return false, err
+			return false, nil, err
 		}
 	}
 	if err := s.commit(tx); err != nil {
-		return false, fmt.Errorf("store: remove workspace: %w", err)
+		return false, nil, fmt.Errorf("store: remove workspace: %w", err)
 	}
-	return n > 0, nil
+	if n == 0 {
+		return false, nil, nil
+	}
+	return true, exits, nil
 }

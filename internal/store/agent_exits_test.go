@@ -303,7 +303,7 @@ func TestAgentExitCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sum.Total != 3 || sum.Asked != 2 || sum.Answered != 2 || sum.Outcomes[ExitResolved] != 1 || sum.Outcomes[ExitUnresolved] != 1 || sum.Outcomes[ExitOutcomeUnanswered] != 1 {
+	if sum.Total != 3 || sum.Asked != 2 || sum.Answered != 2 || sum.AskedAnswered != 2 || sum.Outcomes[ExitResolved] != 1 || sum.Outcomes[ExitUnresolved] != 1 || sum.Outcomes[ExitOutcomeUnanswered] != 1 {
 		t.Fatalf("summary = %+v", sum)
 	}
 	if len(sum.ByCLI) != 2 || sum.ByCLI[0].CLI != "codex" || sum.ByCLI[0].Total != 2 || sum.ByCLI[0].Unresolved != 1 || sum.ByCLI[0].Unanswered != 1 {
@@ -342,5 +342,43 @@ func TestAgentExitCatalog(t *testing.T) {
 	}
 	if len(exported) != 3 || exported[len(exported)-1] != undone.ID {
 		t.Fatalf("export walks every exit, undone included, oldest first: %v", exported)
+	}
+}
+
+func TestRemoveWorkspaceWithExitsEndsEachAgent(t *testing.T) {
+	s := openTest(t)
+	ws, _ := s.AddWorkspace("atlas", t.TempDir())
+	a, _ := s.AddAgent(ws.ID, "one", "")
+	b, _ := s.AddAgentWithCLI(ws.ID, "claude-code", "two", "")
+	removed, exits, err := s.RemoveWorkspaceWithExits(ws.ID, ExitInput{Origin: ExitFromDesktop, Asked: true, Label: ExitLabel{Outcome: ExitResolved}, SessionsPurged: true})
+	if err != nil || !removed {
+		t.Fatalf("remove = %v %v", removed, err)
+	}
+	if len(exits) != 2 {
+		t.Fatalf("exits = %d", len(exits))
+	}
+	got := map[string]AgentExit{}
+	for _, ex := range exits {
+		got[ex.AgentID] = ex
+	}
+	for _, id := range []string{a.ID, b.ID} {
+		ex, ok := got[id]
+		if !ok {
+			t.Fatalf("no exit for %s", id)
+		}
+		// The dialog asked about the workspace, not the agent: whatever the
+		// input said, the exit is unasked and carries no answer.
+		if ex.Asked || ex.AskSkip != ExitSkipWorkspace || ex.Outcome != "" || ex.Origin != ExitFromDesktop || !ex.SessionsPurged || ex.WorkspaceName != "atlas" {
+			t.Fatalf("exit = %+v", ex)
+		}
+	}
+	if got[b.ID].CLI != "claude-code" {
+		t.Fatalf("cli = %q", got[b.ID].CLI)
+	}
+	if list, _ := s.ListAgentExits(ExitFilter{WorkspaceID: ws.ID}); len(list) != 2 {
+		t.Fatalf("the catalog outlives the workspace: %d", len(list))
+	}
+	if removed, exits, err := s.RemoveWorkspaceWithExits(ws.ID, ExitInput{}); removed || len(exits) != 0 || err != nil {
+		t.Fatalf("second removal = %v %v %v", removed, exits, err)
 	}
 }

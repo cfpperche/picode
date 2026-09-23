@@ -283,6 +283,14 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, []string{"agent_exit.deleted"}},
+		{"RemoveWorkspaceWithExits", func(s *Store) {
+			w, _ := s.AddWorkspace("w", proj)
+			_, _ = s.AddAgent(w.ID, "a", "")
+			s.OnEvent = recorder(s)
+			if _, _, err := s.RemoveWorkspaceWithExits(w.ID, ExitInput{Origin: ExitFromDesktop}); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"agent_exit.recorded", "workspace.deleted"}},
 		{"SetExitAskOn", func(s *Store) {
 			s.OnEvent = recorder(s)
 			if err := s.SetExitAskOn(false); err != nil {

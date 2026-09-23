@@ -1,4 +1,7 @@
-export function askConfirm({ title, message, confirmLabel, danger, choices } = {}) {
+// feedback (optional) is the removal dialog's question (ADR-0194):
+// { taxonomy } from the cleanup preview. With it, a confirm resolves
+// { ...choices, feedback: { draft, shown, stopAsking } }.
+export function askConfirm({ title, message, confirmLabel, danger, choices, feedback } = {}) {
   return new Promise((resolve) => {
     window.dispatchEvent(new CustomEvent("picode-confirm", {
       detail: {
@@ -7,6 +10,7 @@ export function askConfirm({ title, message, confirmLabel, danger, choices } = {
         confirmLabel: confirmLabel || "Continue",
         danger: !!danger,
         choices: Array.isArray(choices) ? choices : [],
+        feedback: feedback && feedback.taxonomy ? feedback : null,
         resolve,
       },
     }));

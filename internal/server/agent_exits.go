@@ -62,6 +62,31 @@ func readExitRequest(w http.ResponseWriter, r *http.Request) (exitRequest, error
 	return req, nil
 }
 
+// exitOriginOf is the face a removal body names ("" = the API).
+func exitOriginOf(req exitRequest) string {
+	if req.Exit == nil {
+		return ""
+	}
+	return req.Exit.Origin
+}
+
+// endTerminalAgent writes the exit of the agent a terminal removal ends: a
+// CLI agent's TUI is its terminal (ADR-0160), so removing the terminal is
+// removing the agent, and the person decided it (ADR-0194). The caller
+// deletes the terminal itself afterwards; a plain shell has no agent.
+func (deps Deps) endTerminalAgent(termID string, req exitRequest) error {
+	a, err := deps.Store.AgentByTerminal(termID)
+	if err != nil {
+		return nil
+	}
+	in := deps.exitInput(a, req, false, false, time.Now())
+	in.LeaveTerminal = true
+	if _, err := deps.Store.RemoveAgentWithExit(a.ID, in); err != nil && !errors.Is(err, store.ErrNotFound) {
+		return err
+	}
+	return nil
+}
+
 // exitPreview is the exit block of GET /api/agents/{id}/cleanup: whether
 // the removal dialog asks, why not, and the words it shows.
 type exitPreview struct {

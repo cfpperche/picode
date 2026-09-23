@@ -281,3 +281,54 @@ func TestTerminalReportsCountTurns(t *testing.T) {
 	// A plain shell has no agent: reporting on it counts nothing and fails nothing.
 	reportTermState(deps, shell.ID, TermWorking, "", now)
 }
+
+func TestWorkspaceRemovalEndsItsAgentsWithExits(t *testing.T) {
+	ts, st := exitServer(t)
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Gone", "path": t.TempDir()})
+	var wk store.Workspace
+	if err := json.NewDecoder(res.Body).Decode(&wk); err != nil || wk.ID == "" {
+		t.Fatalf("workspace: %v", err)
+	}
+	if _, err := st.AddAgent(wk.ID, "inside", ""); err != nil {
+		t.Fatal(err)
+	}
+	if del := sendJSON(t, ts, http.MethodDelete, "/api/workspaces/"+wk.ID, map[string]any{"exit": map[string]string{"origin": "desktop"}}); del.StatusCode != http.StatusNoContent {
+		t.Fatalf("remove workspace = %d", del.StatusCode)
+	}
+	exits, _ := st.ListAgentExits(store.ExitFilter{WorkspaceID: wk.ID})
+	if len(exits) != 1 || exits[0].AskSkip != store.ExitSkipWorkspace || exits[0].Origin != store.ExitFromDesktop || exits[0].WorkspaceName != "Gone" {
+		t.Fatalf("exits = %+v", exits)
+	}
+}
+
+// A CLI agent's TUI is its terminal (ADR-0160): removing the terminal ends
+// the agent, and the removal writes its exit (ADR-0194).
+func TestTerminalRemovalEndsItsAgentWithAnExit(t *testing.T) {
+	ts, st := exitServer(t)
+	a, _ := st.AddAgentWithCLI(store.FreeWorkspaceID, "codex", "reviewer", "")
+	term, _ := st.CreateTerminal("reviewer", t.TempDir())
+	if _, err := st.UpdateAgent(a.ID, store.AgentPatch{TerminalID: &term.ID}); err != nil {
+		t.Fatal(err)
+	}
+	shell, _ := st.CreateTerminal("shell", t.TempDir())
+	if bad := sendJSON(t, ts, http.MethodDelete, "/api/terminals/"+term.ID, map[string]any{"exit": map[string]any{"outcome": "nope"}}); bad.StatusCode != http.StatusBadRequest {
+		t.Fatalf("bad answer = %d", bad.StatusCode)
+	}
+	res := sendJSON(t, ts, http.MethodDelete, "/api/terminals/"+term.ID, map[string]any{"exit": map[string]any{"origin": "mobile", "asked": true, "outcome": "resolved"}})
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("remove terminal = %d", res.StatusCode)
+	}
+	exits, _ := st.ListAgentExits(store.ExitFilter{})
+	if len(exits) != 1 || exits[0].AgentID != a.ID || exits[0].Origin != store.ExitFromMobile || exits[0].Outcome != store.ExitResolved {
+		t.Fatalf("exits = %+v", exits)
+	}
+	if _, err := st.GetAgent(a.ID); err == nil {
+		t.Fatal("agent survived its terminal")
+	}
+	if res := sendJSON(t, ts, http.MethodDelete, "/api/terminals/"+shell.ID, nil); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("remove shell = %d", res.StatusCode)
+	}
+	if exits, _ := st.ListAgentExits(store.ExitFilter{}); len(exits) != 1 {
+		t.Fatalf("a plain shell has no agent and no exit: %d", len(exits))
+	}
+}

@@ -4,8 +4,10 @@
 - **Date**: 2026-09-23
 - **Boundary**: persistence + protocol — a new table `agent_exits`, three
   columns on `agents` and three event types; `DELETE /api/agents/{id}` takes an
-  optional JSON body and answers `200` with the exit instead of `204`; the
-  cleanup preview gains an `exit` block; new routes under `/api/agent-exits`.
+  optional JSON body and answers `200` with the exit instead of `204`;
+  `DELETE /api/workspaces/{id}` takes the same optional body (its origin) and
+  writes its agents' exits; the cleanup preview gains an `exit` block; new
+  routes under `/api/agent-exits`.
 - **Study**: [2026-09-23 — feedback when an agent is removed](../benchmarks/2026-09-23-agent-exit-feedback.md)
 
 ## Context
@@ -55,11 +57,16 @@ and appends `agent.deleted`.** The row holds:
   id and path, plus whether the removal deleted the sessions or the work folder,
   so cost and a later review can be derived while the files exist;
 - **the question** — `origin` (desktop, mobile, api), `asked`, and when not
-  asked why (`off`, `idle`, `brief`, `client`);
+  asked why (`off`, `idle`, `brief`, `client`, `workspace`);
 - **the person's answer** — `outcome`, `reasons`, `note`, `labeled_at` and the
   taxonomy version; a person can label, relabel or delete an exit later;
 - **an Undo** — `undone_at` and the restored agent's id; undone exits stay in
   the table and leave every count.
+
+**Removing a workspace ends its agents too**, and `DELETE /api/workspaces/{id}`
+writes one exit per agent in the same transaction as the workspace delete.
+The dialog asked about the workspace, not each agent, so those exits are
+unasked with the skip `workspace`; the catalog can label them later.
 
 Rollbacks that call `Store.DeleteAgent` directly (a failed launch, handoff,
 adoption, principal) write no exit: nobody decided anything.
@@ -81,6 +88,7 @@ ephemeral notices, and a durable event per turn would flood the seven-day log.
 | on | yes | no | — | false | `brief` |
 | on | yes | yes | yes | true | — |
 | on | yes | yes | no (API, an older client) | false | `client` |
+| any | any | any | — (removed with its workspace) | false | `workspace` |
 
 "Worked" is `turns ≥ 1`, or a `last_worked_at`, or `turns` not measured.
 The preference is the setting `agent_exits.ask` (absent = on). A question the
