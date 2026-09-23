@@ -12,6 +12,7 @@ export default function WorkspaceMenu({ ws, onCreate, onNewTerm, onNewCliPrincip
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content className="ws-row-menu m-settings-menu" side="bottom" align="end" sideOffset={4} collisionPadding={8}>
+          <DropdownMenu.Item asChild><a className="ws-row-menu-item" href={"#/missions?workspace=" + encodeURIComponent(ws.id)}><IconAgent size={14} /> Missions</a></DropdownMenu.Item>
           <DropdownMenu.Item asChild><a className="ws-row-menu-item" href={"#/clis/messages/" + encodeURIComponent("workspace:" + ws.id)}><IconChat size={14} /> Communication</a></DropdownMenu.Item>
           <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onOpenFiles({ kind: "workspace", id: ws.id })}><IconFolder size={14} /> Files</DropdownMenu.Item>
           <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onOpenGit({ kind: "workspace", id: ws.id })}><IconGit size={14} /> Git</DropdownMenu.Item>

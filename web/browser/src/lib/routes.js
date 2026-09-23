@@ -8,6 +8,7 @@ import { cliLocation, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 // Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
 // cliLocation in @picode/shared/domain/cliLaunch.js.
 export const ROUTES = {
+	missions: "/missions",
   workspace: "/",
   preferences: "/preferences",
   clis: "/clis",
@@ -30,6 +31,7 @@ export const ROUTES = {
 
 export function parseRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  if (/^\/(?:missions(?:\/new)?|mission\/[^/?]+)(?:\?|$)/.test(h)) return "missions";
   if (h === "/preferences/status" || h === "/clis" || h.startsWith("/clis/")) return "clis";
   if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";
   if (cliPackagesLocation(h)) return "clis";

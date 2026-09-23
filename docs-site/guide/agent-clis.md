@@ -328,6 +328,9 @@ is exactly what that CLI would make.
 | [Pi](https://pi.dev) | not yet | `--fork` exists; a Pi agent owns its session file in PiCode |
 | [Hermes Agent](https://hermes-agent.nousresearch.com/docs/getting-started/installation), [Muse Code](https://dev.meta.ai/docs/muse-code), [Antigravity](https://antigravity.google/docs/cli/) | not yet | only inside their own TUI (`/branch`, `/fork`) |
 
+In the sidebar, a fork's row has a **fork of &lt;name&gt;** line, with
+**(removed)** once the original agent is gone.
+
 The fork is not **Continue in…**: that moves a conversation to a
 *different* CLI by translating it; a fork stays in the same CLI and copies
 it with its own fork. Neither stops the original.

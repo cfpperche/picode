@@ -13,6 +13,19 @@ import { parseSnip, utf8Bytes, SNIP_LIMITS } from "../domain/snipDraft.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
+const missionText = (label, bytes) => z.string().refine(value => new TextEncoder().encode(value).length <= bytes, `${label} is too long.`);
+export const missionDraftSchema = z.object({
+  workspaceId: required("Workspace"), title: required("Title").pipe(missionText("Title", 200)),
+  objective: required("Objective").pipe(missionText("Objective", 8192)),
+  context: missionText("Context", 32768), nextAction: missionText("Next action", 2000),
+  criteriaText: required("Acceptance criteria").refine(value => {
+    const rows = value.split("\n").map(x => x.trim()).filter(Boolean);
+    return rows.length <= 32 && rows.every(x => new TextEncoder().encode(x).length <= 1000);
+  }, "Use up to 32 criteria, one per line, each up to 1000 bytes."),
+});
+export const missionUpdateSchema = z.object({ note: required("Update").pipe(missionText("Update", 8192)), nextAction: missionText("Next action", 2000) });
+export const missionEvidenceSchema = z.object({ criterionId: required("Criterion"), kind: z.enum(["note", "file", "delivery"]), value: required("Evidence").pipe(missionText("Evidence", 8192)), outcome: z.enum(["pass", "fail"]) });
+
 export const webappUrlSchema = z.object({
   url: required("URL").max(2048, "Use a URL up to 2048 characters.").refine((raw) => {
     try {

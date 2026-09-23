@@ -136,7 +136,10 @@
     "./styles/credentials.css": "./styles/credentials.css",
     "./domain/peerParticipants.js": "./domain/peerParticipants.js",
     "./client/delivery.js": "./client/delivery.js",
-    "./domain/delivery.js": "./domain/delivery.js"
+    "./domain/delivery.js": "./domain/delivery.js",
+    "./domain/missions.js": "./domain/missions.js",
+    "./client/useMissions.js": "./client/useMissions.js",
+    "./styles/missions.css": "./styles/missions.css"
   },
   "scripts": {
     "test": "node --test client/*.test.js contracts/*.test.js domain/*.test.js"
