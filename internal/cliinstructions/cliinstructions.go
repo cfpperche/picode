@@ -80,7 +80,7 @@ type CLIInfo struct {
 
 // Action is the one thing a finding offers.
 type Action struct {
-	Kind  string `json:"kind"` // "open" (a workspace file) or "link" (a URL)
+	Kind  string `json:"kind"` // "open" (a workspace file), "settings" (a CLI's Settings pane) or "link" (a URL)
 	Label string `json:"label"`
 	Path  string `json:"path,omitempty"`
 	URL   string `json:"url,omitempty"`

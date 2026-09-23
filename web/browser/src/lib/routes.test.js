@@ -296,3 +296,8 @@ test("instructions: one tab per workspace, round-tripped through the hash", () =
   assert.equal(instructionsTabWorkspace("i:ws_1"), "ws_1");
   assert.equal(instructionsTabWorkspace("g:x"), "");
 });
+
+test("an Instructions tab is not an agent (it carried i:<workspace> into ?agentId=, 2026-09-23)", () => {
+  assert.equal(isAgentTab("i:ws_1"), false);
+  assert.equal(isAgentTab("ag_1"), true);
+});

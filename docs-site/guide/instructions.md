@@ -45,6 +45,12 @@ file to open:
 - import lines (`@path`) that most CLIs read as plain text;
 - a folder Grok does not trust yet.
 
+Some fixes are a setting rather than a file. A CLI's **Settings** page has an
+**Instructions** group: Claude Code's **Project instructions** (read CLAUDE.md,
+AGENTS.md or both), the extra file names and the size limit Codex uses,
+Hermes's size limit, and extra instruction files for OpenCode. A finding
+whose fix is one of them opens that page.
+
 When you create an agent from the sidebar, the **New agent** dialog shows the
 same answer in one line for the CLI you pick.
 

@@ -11,6 +11,7 @@
 - Agent CLIs Terminals ⋯ on the phone is still hand-built (Launch settings / Restart / Stop / Remove), not `termRowMenu`. Work rows use the shared menu (`surface: "phone"`) since 2026-09-19.
 - [ ] `TestRespawnPanePreservesSessionAndQuotesArgs` (`internal/tmux`) failed once in the merge gate on `main` at `e24d51f2` (2026-09-22): `quoted env = ""`. It passed 3/3 alone and the next full `make ci` on the same commit was green. Not diagnosed; the traps below suggest a shared fixture name or a read before the respawned pane's env is set.
 - [ ] `TestCLIRestartPreparationFailureAndWorkspaceCleanup` (`internal/server`, shard 3) failed once in `make close` on `feat/agy-login` right after a merge of `main` (2026-09-23); it passed 3/3 alone and the rerun of `make close` was green. Not diagnosed — a load-sensitive test, like the respawn flake above.
+- [ ] Two more load-sensitive `internal/server` flakes on 2026-09-23, each green alone (3/3) and on the rerun: `TestTerminalRefusesAShellThatExitsAtOnce` (`make close` on `feat/opencode-login`) and `TestPiLegacyAndRPC` (the merge gate at `a41ceacf3`: `TempDir RemoveAll cleanup: … directory not empty`, a process still writing into the test's temp dir after it ended). Not diagnosed.
 - Scrollbars: the web terminal draws none (a tmux client has no scrollback — `term-scrollbar.test.mjs`); a draggable bar means taking the tmux client off the alternate screen, a decision.
 
 ## Traps
