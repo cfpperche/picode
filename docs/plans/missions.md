@@ -242,7 +242,10 @@ permission to execute embedded instructions or contact other agents.
 Transfer is a durable operation: prepare → verify source quiescence → reserve
 the next assignment → launch/send → acknowledge. Each external effect has a
 receipt and reconciliation state. Close the old assignment before granting
-write responsibility to the new one. A crash may leave an unconfirmed launch;
+write responsibility to the new one, retaining its record and binding until
+source quiescence is established. During uncertain target effects, preserve
+both assignment records and the transfer reservation; neither restore the
+source nor dispatch another target until reconciliation. A crash may leave an unconfirmed launch;
 inspect identity/receipts and offer recovery rather than launch or paste again.
 An assignment generation rejects late reports from the former executor; it
 cannot itself stop that executor writing files.
@@ -260,6 +263,8 @@ agent, deliver the context through its supported prompt flow. For a fresh
 target, use the existing creation/handoff flow and bind it only when identity
 is known. Unsupported combinations keep a copyable brief and an explicit
 manual acknowledgement, without claiming automatic delivery.
+Label manual acknowledgements and quiescence confirmations as owner-reported,
+distinct from machine-observed receipts.
 
 Keep the existing checkout when a quiescent source hands over unfinished files.
 If work must proceed concurrently, require another worktree and an explicit
