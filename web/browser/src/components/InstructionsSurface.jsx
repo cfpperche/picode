@@ -97,7 +97,7 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
           ) : null}
 
           {groups.length > 0 ? (
-            <div className="instr-scroll">
+            <div className="instr-scroll" onScroll={(e) => { const el = e.currentTarget; el.classList.toggle("at-end", el.scrollLeft + el.clientWidth >= el.scrollWidth - 2); }} ref={(el) => { if (el) el.classList.toggle("at-end", el.scrollWidth <= el.clientWidth + 2); }}>
               <table className="instr-matrix">
                 <thead>
                   <tr>
@@ -135,7 +135,7 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
                                 onClick={() => setPicked(on ? null : { path: f.path, cli: c.id })}
                               >
                                 {STATUS_LABEL[cell.status] || cell.status}
-                                {cell.cut ? <span className="instr-cut" aria-hidden="true">cut</span> : null}
+                                {cell.cut ? <span className="instr-cut" aria-hidden="true" title={cell.cut}>cut</span> : null}
                               </button>
                             </td>
                           );

@@ -36,7 +36,14 @@
 .instr-findings .btn { flex: none; height: var(--ctl-h); white-space: nowrap; display: inline-flex; align-items: center; }
 @keyframes instr-enter { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 
-.instr-scroll { overflow-x: auto; }
+/* The table scrolls sideways inside the card when nine columns do not fit:
+   a visible thin scrollbar and a fade at the right edge say more columns
+   are there (visual review, 2026-09-23). */
+.instr-scroll {
+  overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+.instr-scroll.at-end { mask-image: none; }
 .instr-matrix { width: 100%; border-collapse: collapse; }
 .instr-matrix th, .instr-matrix td { padding: 4px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
 /* A CLI's name may take two lines, so nine columns fit a normal card. */
