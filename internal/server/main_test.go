@@ -37,6 +37,9 @@ func TestMain(m *testing.M) {
 	if os.Getenv("PICODE_FAKE_MUSE") == "1" {
 		os.Exit(fakeMuse(os.Args[1:]))
 	}
+	if os.Getenv("PICODE_FAKE_AGY") == "1" {
+		os.Exit(fakeAgy(os.Args[1:]))
+	}
 	if os.Getenv("PICODE_FAKE_HERMES") == "1" {
 		os.Exit(fakeHermes(os.Args[1:]))
 	}
