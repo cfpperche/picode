@@ -710,6 +710,12 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-size: 8px; font-weight: 650; color: var(--text-secondary); flex: none;
   box-sizing: border-box;
 }
+
+/* PiCode's own inline marks (Pi's, terminalCli.js PI_MARK) are drawn in a
+   neutral ink that reads on both grounds: the white plate other faces keep
+   for dark vendor marks turned Pi's block logo into a solid square. */
+img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: transparent; border-radius: 0; }
+
 .pi-spin {
   width: 16px; height: 16px; display: grid; place-items: center; flex: none;
   font-family: var(--mono); font-size: 13px; line-height: 1; color: currentColor;
@@ -801,7 +807,7 @@ img.ws-face.term-cli-face {
 /* A phone has no hover: a destructive button has to read destructive at rest,
    or the only warning is the tap itself. */
 .btn-danger {
-  color: var(--danger);
+  color: var(--danger-ink);
   border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
   background: color-mix(in srgb, var(--danger) 8%, transparent);
 }
@@ -1863,6 +1869,10 @@ img.ws-face.term-cli-face {
 }
 .dlg-input:focus { outline: none; border-color: var(--accent); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+/* A dialog's secondary button beside a bordered primary or danger one: the
+   plain --border on the elevated ground measured ~1.1:1 in dark, so the pair
+   read lopsided. */
+.dlg-actions .btn-ghost { border-color: color-mix(in srgb, var(--text-secondary) 35%, var(--bg-elevated)); }
 /* The create form's actions stay at the sheet's bottom edge, safe-area
    included: a tall form scrolled them out of reach (measured 2026-09-14). */
 .dlg.dlg-sheet.dlg-create .dlg-actions {
@@ -2072,6 +2082,9 @@ img.ws-face.term-cli-face {
 .notice-x:hover { background: var(--bg-hover); color: var(--text-primary); }
 /* A one-line notice has no header to align with: centre the control. */
 .notice.no-head .notice-x { top: 50%; transform: translateY(-50%); }
+/* With a foot (Undo, Open) the card is two rows: centring over both put the
+   x on the divider against the first action. It belongs to the text row. */
+.notice.no-head.has-foot .notice-x { top: 8px; transform: none; }
 .notice.has-x .notice-head,
 .notice.has-x .notice-body { padding-inline-end: 40px; }
 .sr-only {

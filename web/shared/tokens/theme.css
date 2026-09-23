@@ -35,6 +35,8 @@
   --ok: #63d297;
   --warn: #e5c07b;
   --danger: #f7768e;
+  /* Danger as text on its own tint (a destructive button at rest). */
+  --danger-ink: var(--danger);
   --remote: #7dcfff;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
   --code: "JetBrains Mono", "Fira Code", ui-monospace, "Cascadia Code", Menlo, monospace;
@@ -82,5 +84,7 @@
   --ok: #2e7d32;
   --warn: #a16207;
   --danger: #cf3b54;
+  /* #cf3b54 on its 8% tint measured ~4.3:1; this holds AA (~6:1). */
+  --danger-ink: #a8293f;
   --remote: #0e7490;
 }
