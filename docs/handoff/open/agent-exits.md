@@ -14,3 +14,7 @@ Decision: ADR-0194. Study: `docs/benchmarks/2026-09-23-agent-exit-feedback.md` (
 - [ ] Asking only at removal leaves out good agents that are never removed (accepted in ADR-0194; B should read living agents' observed signals too).
 - [ ] The Pi TUI turn count follows the watcher's scraped busy line, so a flicker between tools can count twice; guest CLIs and managed Pi count from explicit edges.
 - [ ] No response rate exists yet: `asked` vs answered-in-the-dialog is recorded from the first removal on; read it before tuning when to ask.
+- [ ] Agent history (ADR-0205): the 8-second Undo still re-points a Pi `sessionPath` without moving the old private folder, so an undone Pi agent can resume a conversation its chat does not show; route Undo through the restore endpoint.
+- [ ] Agent history has no phone screen.
+- [ ] Agent history: a restore mints a new agent id, so automations, pins and Canvas edges on the old id stay broken.
+- [ ] Agent history: exits written before ADR-0205 have no `cwd`; their lookup reads the CLI's whole store (slow on a large Codex tree).

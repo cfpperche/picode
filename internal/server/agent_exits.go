@@ -135,7 +135,7 @@ func (deps Deps) exitPreviewFor(agent store.Agent, now time.Time) *exitPreview {
 // the client did not show the question, the skip says why: the server's
 // own reason, or "client" when the server would have asked.
 func (deps Deps) exitInput(agent store.Agent, req exitRequest, purgeSessions, purgeWork bool, now time.Time) store.ExitInput {
-	in := store.ExitInput{Origin: store.ExitFromAPI, SessionsPurged: purgeSessions, WorkPurged: purgeWork, Meter: exitMeter()}
+	in := store.ExitInput{Origin: store.ExitFromAPI, SessionsPurged: purgeSessions, WorkPurged: purgeWork, Meter: exitMeter(), PiSessionFallback: piSessionFallback}
 	if b := req.Exit; b != nil {
 		in.Origin = b.Origin
 		in.Asked = b.Asked

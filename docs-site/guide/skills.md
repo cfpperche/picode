@@ -41,5 +41,44 @@ Most CLIs read `.agents/skills` in the project. Claude Code reads only
 `.claude/skills`. The first folder that has a name wins, so the same skill in
 two places shows one **Loaded** row and one **Shadowed** row.
 
-Installing, switching a skill off and choosing skills per agent come next; see
+## Adding a skill
+
+**Add skill** asks where the skill comes from:
+
+| Source | Example |
+|---|---|
+| A GitHub repository, optionally a folder and a branch or tag | `anthropics/skills`, `anthropics/skills/skills/pdf#main` |
+| A GitHub address | `https://github.com/owner/repo/tree/main/skills/pdf` |
+| A site that publishes a skills index | `https://example.com` (read from `/.well-known/agent-skills/index.json`) |
+| A folder on this computer | `~/my-skills/release-notes` |
+
+**Look inside** downloads it without installing anything and shows every skill
+it carries: its files, format problems and what the safety scan noticed. The
+scan looks for known risky patterns, such as a script piped into a shell or a
+read of your SSH keys; it is not a review, and PiCode never marks a skill as
+safe. A critical finding asks you to confirm that you read the files.
+
+Pick **This machine** or the workspace. A workspace install goes into
+`.agents/skills`, which seven of the nine CLIs read, with a link in
+`.claude/skills` for Claude Code; a machine install goes into `~/.agents/skills`
+with links for Claude Code, Hermes and Antigravity where they are installed.
+Both are recorded in the same lock file the `skills` command-line tool uses
+(`skills-lock.json` in the project, `~/.agents/.skill-lock.json` on the
+computer), so either tool can update what the other installed.
+
+If a folder with that name is already there, PiCode asks: keep it and only
+record where it came from, or replace it.
+
+## Updating and removing
+
+**Check for updates** compares every recorded skill with its source. A skill
+with a newer version shows **update**; open the row and choose **Update**. If
+you edited the skill since it was installed, PiCode asks before overwriting
+your changes.
+
+**Remove** is offered for skills in `.agents/skills`, and asks first: every CLI
+that reads that folder loses the skill. Skills in a CLI's own folder are that
+CLI's to manage.
+
+Switching a skill off for one CLI and choosing skills per agent come next; see
 the [plan](https://github.com/cfpperche/picode/blob/main/docs/plans/skills.md).

@@ -3000,3 +3000,8 @@ img.ws-face.term-cli-face {
 .term-adopt { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; margin-bottom: 6px; border-radius: var(--radius-ctl); background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); font-size: 12px; }
 .term-adopt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .term-adopt .btn { flex: none; }
+
+/* New agent: what the picked CLI reads in this workspace
+   (docs/architecture/cli-instructions.md); the line's height is held while
+   the answer loads, so the fields below never jump. */
+.create-instr { margin: 0; min-height: 18px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
