@@ -165,7 +165,7 @@ export default function Outcomes({ hidden, workspaces = [] }) {
 
       <div className="dash-kpi-row outc-kpis">
         <StatTile label="Removed" value={String(head.total)} loading={firstLoad} compareLabel={range === "all" ? "all time" : undefined} />
-        <StatTile label="Resolved" value={head.resolvedShare} loading={firstLoad} compareLabel={head.attempts ? `${head.resolved} of ${head.attempts} tasks, trials aside` : "no answers yet"} />
+        <StatTile label="Resolved" value={head.resolvedShare} loading={firstLoad} compareLabel={head.attempts ? `${head.resolved} of ${head.attempts} tasks` : "no answers yet"} />
         <StatTile label="Answered when asked" value={head.answerRate} loading={firstLoad} compareLabel={summary && summary.asked ? `${summary.askedAnswered} of ${summary.asked} asked` : "not asked yet"} />
         <StatTile
           label="Median life"

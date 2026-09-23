@@ -29,6 +29,9 @@
 .outc-ws { color: var(--text-secondary); }
 .outc-num { font-variant-numeric: tabular-nums; color: var(--text-secondary); text-align: right; }
 .outc-answer { min-width: 0; }
+/* The Outcome column sits right after a right-aligned number; without the
+   inset the gap was half the others'. Header and rows share the grid. */
+.outc-row-head > :nth-child(7) { padding-left: 12px; }
 .outc-noanswer { font-size: 12px; color: var(--text-secondary); }
 .outc-when { font-size: 12px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
 .outc-skel { padding: 14px 6px; }
@@ -39,7 +42,9 @@
   color: var(--text-secondary);
 }
 .outc-colhead:hover { background: none; }
-.outc-chev { width: 12px; height: 12px; color: var(--text-secondary); transition: transform var(--motion-fast) var(--ease-out); }
+/* The primary ink at 70%: --text-secondary measured 2.7:1 on the light
+   ground, under the 3:1 an icon needs. */
+.outc-chev { width: 12px; height: 12px; color: var(--text-primary); opacity: .7; transition: transform var(--motion-fast) var(--ease-out); }
 .outc-row.is-open .outc-chev { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .outc-chev { transition: none; } }
 .outc-group + .outc-group { margin-top: 12px; }
