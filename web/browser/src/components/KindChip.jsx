@@ -9,7 +9,9 @@ const KINDS = [
 
 // `options` narrows the list to what the target takes (the attach
 // composer offers only the modes a working CLI has, ADR-0206).
-export default function KindChip({ value, onChange, options = KINDS, id = "task-kind" }) {
+// `closeFocus` moves focus to the owner's field once the list closes;
+// `search={false}` drops the filter field for a list of two.
+export default function KindChip({ value, onChange, options = KINDS, id = "task-kind", closeFocus, search = true }) {
   const cur = options.find((k) => k.id === value) || options[0];
   return (
     <SearchCombo
@@ -18,7 +20,9 @@ export default function KindChip({ value, onChange, options = KINDS, id = "task-
       onChange={onChange}
       options={options}
       label={cur.label}
-      searchPlaceholder="Delivery"
+      searchPlaceholder={search ? "Delivery" : false}
+      ariaLabel="Delivery"
+      closeFocus={closeFocus}
       icon={<IconKind />}
     />
   );

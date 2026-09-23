@@ -9,6 +9,12 @@
 
 const LABELS = Object.freeze({ prompt: "Prompt", steer: "Steer", follow_up: "Follow-up" });
 
+// One line per choice, for people who never met the words.
+const HINTS = Object.freeze({
+  steer: "Reaches the agent in this turn",
+  follow_up: "Sent when this turn ends",
+});
+
 // Placeholder per mode: what Send will do, in the words a person uses.
 const PLACEHOLDERS = Object.freeze({
   steer: "Steer the running turn",
@@ -19,7 +25,7 @@ export function deliveryOptions(modes, state) {
   if (state !== "working") return [];
   return (Array.isArray(modes) ? modes : [])
     .filter((m) => m === "steer" || m === "follow_up")
-    .map((id) => ({ id, label: LABELS[id] }));
+    .map((id) => ({ id, label: LABELS[id], hint: HINTS[id] }));
 }
 
 // The mode Send uses: the person's pick while it is still offered, else the

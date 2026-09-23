@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Command } from "cmdk";
 import { IconCheck } from "./Icons.jsx";
@@ -6,12 +6,16 @@ import { IconCheck } from "./Icons.jsx";
 export default function SearchCombo({
   id, value, onChange, options, label, searchPlaceholder, disabled, footer, icon,
   triggerClassName, popoverClassName, markCurrent = false, side = "top", align = "start", ariaLabel, onOpen,
+  closeFocus,
 }) {
   const [open, setOpen] = useState(false);
   // onOpen lets an owner fetch its options the first time the list is asked
   // for, so a picker backed by a subprocess costs nothing until it is used.
   const openChanged = (next) => { if (next && onOpen) onOpen(); setOpen(next); };
   const searchable = searchPlaceholder !== false;
+  // Without a search field cmdk's keys (arrows, Enter) still need focus
+  // inside the Command root, so the list takes it on open.
+  const listRoot = useRef(null);
 
   return (
     <Popover.Root open={open} onOpenChange={openChanged}>
@@ -31,8 +35,12 @@ export default function SearchCombo({
           align={align}
           sideOffset={6}
           collisionPadding={8}
+          // closeFocus hands focus to the owner's field instead of back to
+          // the chip (the attach composer: pick a mode, keep typing).
+          onCloseAutoFocus={closeFocus ? (e) => { e.preventDefault(); closeFocus(); } : undefined}
+          onOpenAutoFocus={searchable ? undefined : (e) => { e.preventDefault(); if (listRoot.current) listRoot.current.focus(); }}
         >
-          <Command label={searchable && searchPlaceholder ? searchPlaceholder : (ariaLabel || label || "Search")} loop>
+          <Command ref={listRoot} tabIndex={searchable ? undefined : -1} label={searchable && searchPlaceholder ? searchPlaceholder : (ariaLabel || label || "Search")} loop>
             {searchable ? <Command.Input className="combo-input" placeholder={searchPlaceholder || "Search"} /> : null}
             <Command.List className="combo-list">
               <Command.Empty className="combo-empty">No matches</Command.Empty>

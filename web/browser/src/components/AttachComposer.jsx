@@ -181,7 +181,7 @@ export default function AttachComposer({
         )}
         {deliveryOptions.length && onDelivery ? (
           <span className="term-attach-kind" title="How the message reaches the working CLI">
-            <KindChip id="attach-kind" value={delivery} onChange={onDelivery} options={deliveryOptions} />
+            <KindChip id="attach-kind" value={delivery} onChange={onDelivery} options={deliveryOptions} search={false} closeFocus={() => inputRef.current && inputRef.current.focus()} />
           </span>
         ) : null}
         {onClose ? <button type="button" className="ws-icon-btn" title="Close (Esc)" aria-label="Close the message bar" onClick={onClose}><IconX size={13} /></button> : null}

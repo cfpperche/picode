@@ -7,7 +7,7 @@ test("idle hides the selector; working offers the busy modes the CLI has", () =>
   assert.deepEqual(deliveryOptions(["prompt", "steer", "follow_up"], ""), []);
   assert.deepEqual(deliveryOptions(["prompt", "steer", "follow_up"], "needs-you"), []);
   assert.deepEqual(deliveryOptions(["prompt", "steer", "follow_up"], "working").map((o) => o.id), ["steer", "follow_up"]);
-  assert.deepEqual(deliveryOptions(["prompt", "follow_up"], "working"), [{ id: "follow_up", label: "Follow-up" }]);
+  assert.deepEqual(deliveryOptions(["prompt", "follow_up"], "working"), [{ id: "follow_up", label: "Follow-up", hint: "Sent when this turn ends" }]);
   assert.deepEqual(deliveryOptions(["prompt"], "working"), []);
   assert.deepEqual(deliveryOptions(undefined, "working"), []);
 });
