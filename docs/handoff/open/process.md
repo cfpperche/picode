@@ -5,6 +5,21 @@
 - [x] The handoff board sat at its cap and failed `make close` until a paid debt was pruned — superseded by ADR-0145 (bounded view: 2 bullets per topic, 7-day notes, open debts only, over target warns).
 
 ## Debts
+
+- [ ] **`internal/server` in one `-race` process on a two-core runner has
+  outgrown its timeout.** Measured 2026-09-23: 1691 s on the 0.5.0-era suite
+  (94% of the 30m ceiling), then `FAIL internal/server 1800.070s` — a red gate
+  with no failing test to read — once ADR-0184's launch tests, which spawn real
+  terminals, landed. The ceiling is 50m now; that buys time, not speed, and
+  every push to `main` pays ~35 minutes for that job. Candidates, cheapest
+  first: give the heavy packages (`internal/server`, `internal/store`) a CI job
+  of their own, so their ceiling is theirs and the rest of the job finishes
+  early; revisit `GO_TEST_SHARDS=1` — the comment in `.github/workflows/ci.yml`
+  turned sharding off because four shards each started their own tmux server,
+  and the tmux tests now keep to their own socket and server, so that reason
+  may be addressable; and trim the suite, which is 365 serial tests by design
+  (they swap package-level probes, ADR-0086).
+
 - [x] **`TestStopIdleFencesConversationAndCommands` fails on the GitHub
   runners and nobody can say why.** Paid 2026-09-22 (`feat/ci-vendor-tests`) —
   reproduced and explained. The capture bridge resolves its session file in a

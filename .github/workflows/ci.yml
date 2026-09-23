@@ -197,7 +197,14 @@ jobs:
       # topology rather than the shipped Windows product (ADR-0020).
       # The race detector puts internal/server and internal/store past
       # `go test`'s 10-minute default in a single process, so the timeout is
-      # raised rather than left to kill the gate.
+      # raised rather than left to kill the gate. Raised again on 2026-09-23:
+      # the package sat at 1691 s on the 0.5.0-era suite — 94% of the 30m
+      # ceiling — and ADR-0184's launch tests, which spawn real terminals,
+      # took it over: `FAIL github.com/cfpperche/picode/internal/server
+      # 1800.070s`, a red gate with no failing test to read. A bigger number
+      # is not the structural fix; see docs/handoff/open/process.md (the heavy
+      # packages in a job of their own, or sharding revisited now that the
+      # tmux tests keep to their own servers).
       #
       # Sharding is off here on purpose, after trying it: a hosted runner has
       # two cores, so four shards of a CPU-bound package buy no wall clock —
@@ -207,7 +214,7 @@ jobs:
       # spend.
       - name: Test daemon
         if: matrix.os != 'windows-latest'
-        run: GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 30m" ./scripts/go-test.sh ./...
+        run: GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 50m" ./scripts/go-test.sh ./...
 
       - name: Compile Windows packages and tests
         if: matrix.os == 'windows-latest'
