@@ -7,5 +7,5 @@ Decision table: D01–D17/D20–D22 map to fixtures and measured evidence in `do
 visual-review: PASS from screenshot review of browser navigation/list/empty/blocked/conflict and mobile completed/error/empty/blocked states; mobile controls corrected to 36px, overlay audit ok.
 Visual card: overlay inside yes; items readable yes; trigger usable yes; clipping, double scroll or dead hover no; next click obvious yes.
 Limits: one controlled native task, browser phone emulation only; no physical phone or Windows-shell acceptance, no live proof for other providers, no exhaustive native-send crash injection.
-No production deployment or main CI was performed by this closing-docs session. Durable follow-ups are in `docs/handoff/open/missions.md`.
-Integration: feature commit `dbbfde2c4`, synchronized with main at `d6e0a9c51`; final landing and main CI are recorded by the integrating session.
+Production was not deployed. Durable follow-ups are in `docs/handoff/open/missions.md`.
+Integration: feature commit `dbbfde2c4`, landed on main at `f4cf3b514`; full `make ci` passed after the fast-forward.
