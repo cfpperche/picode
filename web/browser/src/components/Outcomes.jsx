@@ -4,9 +4,12 @@ import StatTile from "./StatTile.jsx";
 import RankedBars from "./RankedBars.jsx";
 import DateRangePicker from "./DateRangePicker.jsx";
 import { SwitchCtl } from "./settingsControls.jsx";
+import { IconChevronRight } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
+import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
+import { checklistLevelLabel } from "@picode/shared/domain/checklist.js";
 import {
   choiceLabel, emptyExitDraft, exitHeadline, fmtLifetime, fmtTurns, outcomeRows, pickOutcome, reasonRows, takesReasons, toggleReason,
 } from "@picode/shared/domain/agentExit.js";
@@ -17,6 +20,21 @@ import "./outcomes.css";
 
 const FREE = "ws_free";
 const OUTCOME_FILTERS = ["resolved", "partial", "unresolved", "trial", "unanswered"];
+
+// The CLI's own name ("Claude Code"), as the sidebar says it; an id the
+// catalog does not know stays as it is.
+function cliName(id) {
+  const label = terminalCliLabel(id);
+  return label === "Terminal" ? id : label;
+}
+
+// "4m ago", "just now", or "on 12 Sep" past a week (relTime's own forms).
+function ago(iso) {
+  const r = relTime(iso);
+  if (!r) return "";
+  if (r === "now") return "just now";
+  return /^\d+[mhd]$/.test(r) ? r + " ago" : "on " + r;
+}
 
 function query(params) {
   const q = new URLSearchParams();
@@ -147,7 +165,7 @@ export default function Outcomes({ hidden, workspaces = [] }) {
 
       <div className="dash-kpi-row outc-kpis">
         <StatTile label="Removed" value={String(head.total)} loading={firstLoad} compareLabel={range === "all" ? "all time" : undefined} />
-        <StatTile label="Resolved" value={head.resolvedShare} loading={firstLoad} compareLabel={head.answered ? `${head.resolved} of ${head.answered} answered` : "no answers yet"} />
+        <StatTile label="Resolved" value={head.resolvedShare} loading={firstLoad} compareLabel={head.attempts ? `${head.resolved} of ${head.attempts} tasks, trials aside` : "no answers yet"} />
         <StatTile label="Answered when asked" value={head.answerRate} loading={firstLoad} compareLabel={summary && summary.asked ? `${summary.askedAnswered} of ${summary.asked} asked` : "not asked yet"} />
         <StatTile
           label="Median life"
@@ -177,13 +195,13 @@ export default function Outcomes({ hidden, workspaces = [] }) {
         </select>
         <select className="set-select" value={cli} onChange={(e) => setCli(e.target.value)} aria-label="CLI">
           <option value="">All CLIs</option>
-          {cliOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+          {cliOptions.map((c) => <option key={c} value={c}>{cliName(c)}</option>)}
         </select>
         <select className="set-select" value={outcome} onChange={(e) => setOutcome(e.target.value)} aria-label="Outcome">
           <option value="">Every outcome</option>
           {OUTCOME_FILTERS.map((o) => <option key={o} value={o}>{o === "unanswered" ? "No answer" : choiceLabel(tax && tax.outcomes, o)}</option>)}
         </select>
-        <a className="btn btn-ghost btn-sm outc-export" href="/api/agent-exits/export" download>Export</a>
+        {empty && !filtered ? null : <a className="btn btn-ghost btn-sm outc-export" href="/api/agent-exits/export" download>Export</a>}
       </div>
 
       {firstLoad ? (
@@ -197,6 +215,17 @@ export default function Outcomes({ hidden, workspaces = [] }) {
           <p className="outc-empty">No agents removed yet — each one you remove lands here with how it went. <a className="btn-link" href={DOCS_BASE + "/guide/outcomes"} target="_blank" rel="noreferrer">How outcomes work</a></p>
         )
       ) : exits ? (
+        <>
+        <div className="outc-row-head outc-colhead" aria-hidden="true">
+          <span />
+          <span>Agent</span>
+          <span>CLI · model</span>
+          <span>Workspace</span>
+          <span className="outc-num">Lived</span>
+          <span className="outc-num">Turns</span>
+          <span>Outcome</span>
+          <span className="outc-when">Removed</span>
+        </div>
         <ul className="outc-list">
           {exits.map((ex) => {
             const isOpen = open === ex.id;
@@ -204,9 +233,10 @@ export default function Outcomes({ hidden, workspaces = [] }) {
             return (
               <li key={ex.id} className={"outc-row" + (isOpen ? " is-open" : "")}>
                 <button type="button" className="outc-row-head" aria-expanded={isOpen} onClick={() => { setOpen(isOpen ? "" : ex.id); setEditing(null); }}>
+                  <IconChevronRight className="outc-chev" aria-hidden="true" />
                   <span className="outc-name" title={ex.agentName}>{ex.agentName}</span>
-                  <span className="outc-cli" title={[ex.cli, ex.model].filter(Boolean).join(" · ")}>
-                    {ex.cli}{ex.model ? <span className="outc-sub"> · {ex.model}</span> : null}
+                  <span className="outc-cli" title={[cliName(ex.cli), ex.model].filter(Boolean).join(" · ")}>
+                    {cliName(ex.cli)}{ex.model ? <span className="outc-sub"> · {ex.model}</span> : null}
                   </span>
                   <span className="outc-ws" title={ex.workspaceName}>{ex.workspaceId === FREE ? "Free" : ex.workspaceName || "—"}</span>
                   <span className="outc-num" title="How long it lived">{fmtLifetime(ex.lifetimeS)}</span>
@@ -231,6 +261,7 @@ export default function Outcomes({ hidden, workspaces = [] }) {
             );
           })}
         </ul>
+        </>
       ) : null}
       {data && data.next ? (
         <div className="outc-more">
@@ -255,32 +286,49 @@ function ExitDetail({ ex, tax, onLabel, onDelete }) {
   const launch = c.launch || null;
   const sig = ex.signals || {};
   const setup = [
+    ["CLI", cliName(ex.cli)],
     ex.provider ? ["Provider", ex.provider] : null,
     ex.model ? ["Model", ex.model] : null,
     c.thinking ? ["Thinking", c.thinking] : null,
-    c.opMode ? ["Tools", c.opMode] : null,
-    c.checklist ? ["Checklist", c.checklist] : null,
+    c.opMode === "readonly" ? ["Tools", "Read-only"] : null,
+    c.checklist ? ["Checklist", checklistLevelLabel(c.checklist)] : null,
     c.packages && c.packages.length ? ["Packages", c.packages.join(", ")] : null,
-    launch && launch.args && launch.args.length ? ["Launch arguments", launch.args.join(" ")] : null,
-    launch && launch.envKeys && launch.envKeys.length ? ["Environment set", launch.envKeys.join(", ")] : null,
-    c.workPath ? ["Folder", c.workPath] : null,
+    launch && launch.args && launch.args.length ? ["Launch arguments", launch.args.join(" "), true] : null,
+    launch && launch.envKeys && launch.envKeys.length ? ["Environment set", launch.envKeys.join(", "), true] : null,
+    c.workPath ? ["Folder", c.workPath, true] : null,
   ].filter(Boolean);
-  const answer = ex.outcome ? choiceLabel(tax && tax.outcomes, ex.outcome) : "No answer";
+  const answer = ex.outcome ? choiceLabel(tax && tax.outcomes, ex.outcome) : ex.askSkip === "workspace" ? "No answer — removed with its workspace" : "No answer";
+  const neededYou = !sig.inboxItems ? "Never" : `${sig.inboxBlocking || 0} ${sig.inboxBlocking === 1 ? "time" : "times"}${sig.inboxItems > (sig.inboxBlocking || 0) ? ` · ${sig.inboxItems} Inbox items in all` : ""}`;
+  const where = ex.sessions && (ex.sessions.piSessionPath || ex.sessions.cliSessionPath);
   return (
     <>
-      <dl className="outc-facts">
-        <Fact label="Outcome">
-          {answer}
-          {ex.reasons && ex.reasons.length ? <span className="outc-sub"> — {ex.reasons.map((r) => choiceLabel(tax && tax.reasons, r)).join(", ")}</span> : null}
-        </Fact>
-        {ex.note ? <Fact label="Note"><span className="outc-note">{ex.note}</span></Fact> : null}
-        <Fact label="Lived">{fmtLifetime(ex.lifetimeS)}, {fmtTurns(ex.turns)} turns{ex.lastWorkedAt ? <span className="outc-sub"> · last worked {relTime(ex.lastWorkedAt)}</span> : null}</Fact>
-        <Fact label="Asked you">{sig.inboxBlocking || 0} of {sig.inboxItems || 0} Inbox items needed you</Fact>
-        {sig.checklistTotal ? <Fact label="Checklist">{sig.checklistDone} of {sig.checklistTotal} steps done</Fact> : null}
-        {setup.map(([k, v]) => <Fact key={k} label={k}><span className="outc-mono">{v}</span></Fact>)}
-        {c.extraPrompt ? <Fact label="Extra prompt"><span className="outc-note">{c.extraPrompt}</span></Fact> : null}
-        <Fact label="Sessions">{ex.sessionsPurged ? "Deleted with the agent" : ex.sessions && (ex.sessions.piSessionPath || ex.sessions.cliSessionPath) ? <span className="outc-mono">{ex.sessions.piSessionPath || ex.sessions.cliSessionPath}</span> : "Not recorded"}</Fact>
-      </dl>
+      <div className="outc-group">
+        <div className="outc-group-label">Your answer</div>
+        <dl className="outc-facts">
+          <Fact label="Outcome">
+            {answer}
+            {ex.reasons && ex.reasons.length ? <span className="outc-sub"> — {ex.reasons.map((r) => choiceLabel(tax && tax.reasons, r)).join(", ")}</span> : null}
+          </Fact>
+          {ex.note ? <Fact label="Note"><span className="outc-note">{ex.note}</span></Fact> : null}
+        </dl>
+      </div>
+      <div className="outc-group">
+        <div className="outc-group-label">What PiCode saw</div>
+        <dl className="outc-facts">
+          <Fact label="Lived">{fmtLifetime(ex.lifetimeS)}{ex.lastWorkedAt ? <span className="outc-sub"> · last worked {ago(ex.lastWorkedAt)}</span> : null}</Fact>
+          <Fact label="Turns">{ex.turns == null ? <span className="outc-sub">Not counted — this agent predates turn counting</span> : ex.turns}</Fact>
+          <Fact label="Needed you">{neededYou}</Fact>
+          {sig.checklistTotal ? <Fact label="Checklist">{sig.checklistDone} of {sig.checklistTotal} steps done</Fact> : null}
+          <Fact label="Sessions">{ex.sessionsPurged ? "Deleted with the agent" : where ? <span className="outc-mono">{where}</span> : "Not recorded"}</Fact>
+        </dl>
+      </div>
+      <div className="outc-group">
+        <div className="outc-group-label">How it was set up</div>
+        <dl className="outc-facts">
+          {setup.map(([k, v, mono]) => <Fact key={k} label={k}>{mono ? <span className="outc-mono">{v}</span> : v}</Fact>)}
+          {c.extraPrompt ? <Fact label="Extra prompt"><span className="outc-note">{c.extraPrompt}</span></Fact> : null}
+        </dl>
+      </div>
       <div className="outc-actions">
         <button type="button" className="btn btn-sm" onClick={onLabel}>{ex.outcome ? "Change answer" : "Answer"}</button>
         <button type="button" className="btn btn-ghost btn-sm btn-danger" onClick={onDelete}>Delete record</button>
@@ -294,7 +342,8 @@ function LabelEditor({ tax, edit, onChange, onSave, onCancel }) {
   if (!tax) return null;
   return (
     <div className="exit-ask outc-edit">
-      <div className="exit-chips" role="group" aria-label="Outcome">
+      <div className="exit-ask-head"><span className="exit-ask-title" id="outc-edit-title">How did it go?</span></div>
+      <div className="exit-chips" role="group" aria-labelledby="outc-edit-title">
         {tax.outcomes.map((o) => (
           <button key={o.id} type="button" className="exit-chip" aria-pressed={d.outcome === o.id} onClick={() => onChange(pickOutcome(tax, d, o.id))}>{o.label}</button>
         ))}
@@ -312,9 +361,9 @@ function LabelEditor({ tax, edit, onChange, onSave, onCancel }) {
       {d.outcome ? (
         <textarea className="dlg-input exit-note" rows={2} maxLength={1000} aria-label="Note" placeholder="Anything else worth remembering? (optional)" value={d.note} onChange={(e) => onChange({ ...d, note: e.target.value })} />
       ) : null}
-      <div className="outc-actions">
-        <button type="button" className="btn btn-primary btn-sm" onClick={onSave}>Save</button>
+      <div className="outc-actions outc-actions-end">
         <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+        <button type="button" className="btn btn-primary btn-sm" onClick={onSave}>Save</button>
       </div>
     </div>
   );

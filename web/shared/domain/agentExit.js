@@ -45,13 +45,15 @@ export function choiceLabel(list, id) {
   return c ? c.label : id;
 }
 
-// A lifetime in the largest unit that still reads as a whole number.
+// A lifetime in the largest unit that still reads as a whole number, in the
+// same short units the removal time uses (relTime: "4m", "2h", "3d"), so a
+// row never mixes two ways of writing time.
 export function fmtLifetime(seconds) {
   const s = Math.max(0, Math.floor(Number(seconds) || 0));
-  if (s < 60) return s + " s";
-  if (s < 3600) return Math.floor(s / 60) + " min";
-  if (s < 86400) return Math.floor(s / 3600) + " h";
-  return Math.floor(s / 86400) + " d";
+  if (s < 60) return s + "s";
+  if (s < 3600) return Math.floor(s / 60) + "m";
+  if (s < 86400) return Math.floor(s / 3600) + "h";
+  return Math.floor(s / 86400) + "d";
 }
 
 // Turns are "not measured" (null) for agents born before the counter —
@@ -65,17 +67,20 @@ export function fmtShare(part, whole) {
   return Math.round((part / whole) * 100) + "%";
 }
 
-// The headline numbers of a summary: resolved among the answered ones, and
-// answered in the dialog among the times it asked.
+// The headline numbers of a summary: resolved among the agents that were
+// set a task (a "Just trying" answer is left aside — nothing was asked of
+// that agent), and answered in the dialog among the times it asked.
 export function exitHeadline(summary) {
   const s = summary || {};
   const outcomes = s.outcomes || {};
-  const answered = s.answered || 0;
+  const resolved = outcomes.resolved || 0;
+  const attempts = resolved + (outcomes.partial || 0) + (outcomes.unresolved || 0);
   return {
     total: s.total || 0,
-    answered,
-    resolved: outcomes.resolved || 0,
-    resolvedShare: fmtShare(outcomes.resolved || 0, answered),
+    answered: s.answered || 0,
+    attempts,
+    resolved,
+    resolvedShare: fmtShare(resolved, attempts),
     answerRate: fmtShare(s.askedAnswered || 0, s.asked || 0),
   };
 }

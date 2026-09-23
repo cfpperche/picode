@@ -16,7 +16,7 @@
 .outc-row:last-child { border-bottom: 1px solid var(--border); }
 .outc-row-head {
   display: grid; align-items: center; gap: 10px; width: 100%;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 0.9fr) 56px 44px 132px 64px;
+  grid-template-columns: 14px minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 0.9fr) 52px 48px 132px 64px;
   min-height: 40px; padding: 6px 6px; box-sizing: border-box;
   background: none; border: 0; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer;
 }
@@ -32,6 +32,22 @@
 .outc-noanswer { font-size: 12px; color: var(--text-secondary); }
 .outc-when { font-size: 12px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
 .outc-skel { padding: 14px 6px; }
+/* Column names over the rows: without them a turn count ran into the
+   answer beside it ("2 Didn't resolve"). */
+.outc-colhead {
+  min-height: 28px; cursor: default; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-secondary);
+}
+.outc-colhead:hover { background: none; }
+.outc-chev { width: 12px; height: 12px; color: var(--text-secondary); transition: transform var(--motion-fast) var(--ease-out); }
+.outc-row.is-open .outc-chev { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .outc-chev { transition: none; } }
+.outc-group + .outc-group { margin-top: 12px; }
+.outc-group-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-secondary); margin: 0 0 6px;
+}
+.outc-actions-end { justify-content: flex-end; }
 
 .outc-detail { padding: 6px 6px 14px; }
 .outc-facts { margin: 0; display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 6px 14px; font-size: 12.5px; }
@@ -45,8 +61,8 @@
 .outc-more { display: flex; justify-content: center; margin-top: 12px; }
 
 @media (max-width: 900px) {
-  .outc-row-head { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 132px; }
-  .outc-ws, .outc-num, .outc-when { display: none; }
+  .outc-row-head { grid-template-columns: 14px minmax(0, 1fr) minmax(0, 1fr) 132px; }
+  .outc-ws, .outc-num, .outc-when, .outc-colhead > :nth-child(4) { display: none; }
   .outc-facts { grid-template-columns: minmax(0, 1fr); }
   .outc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

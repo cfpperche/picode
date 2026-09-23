@@ -569,11 +569,11 @@ function OutcomesFacts({ rep }) {
     <>
       <dl className="dash-facts">
         <div><dt>Removed</dt><dd>{head.total}</dd></div>
-        <div><dt>Resolved</dt><dd>{head.resolvedShare}{head.answered ? <span className="dash-fact-sub"> of {head.answered} answered</span> : null}</dd></div>
+        <div><dt>Resolved</dt><dd>{head.resolvedShare}{head.attempts ? <span className="dash-fact-sub"> of {head.attempts} tasks</span> : null}</dd></div>
         <div>
           <dt>Most in the way</dt>
           <dd className="dash-fact-text">
-            {!top ? EM : tied > 1 ? <>No single one<span className="dash-fact-sub"> — {tied} tied at {top.count}</span></> : <>{choiceLabel(rep.taxonomy && rep.taxonomy.reasons, top.id)}<span className="dash-fact-sub"> — {top.count}×</span></>}
+            {!top ? EM : tied > 1 ? <>No single one<span className="dash-fact-sub">{tied} tied at {top.count}</span></> : <>{choiceLabel(rep.taxonomy && rep.taxonomy.reasons, top.id)}<span className="dash-fact-sub">{top.count} {top.count === 1 ? "time" : "times"}</span></>}
           </dd>
         </div>
       </dl>

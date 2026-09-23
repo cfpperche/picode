@@ -7,6 +7,13 @@
    bottom sheet (the phone, a narrow desktop window) keeps its own full width:
    this rule loads after the apps' sheets and would otherwise win the tie. */
 .dlg.dlg-exit:not(.dlg-sheet) { width: min(480px, calc(100vw - 32px)); }
+/* Anchored from the top, so revealing the reasons grows the dialog downward
+   and the chip just pressed stays under the pointer (a centred dialog grew
+   both ways and moved it ~110px up). */
+.dlg.dlg-exit:not(.dlg-sheet) {
+  top: min(14vh, 120px); transform: translate(-50%, 0);
+  max-height: calc(100vh - min(14vh, 120px) - 16px); overflow-y: auto;
+}
 
 .exit-ask { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .exit-ask-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }

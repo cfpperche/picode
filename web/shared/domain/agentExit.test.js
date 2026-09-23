@@ -55,19 +55,19 @@ test("the request body sends an answer only when the question was shown", () => 
   assert.equal(noteOnly.exit.note, "");
 });
 
-test("lifetimes and turns read in whole units, unmeasured turns as a dash", () => {
-  assert.equal(fmtLifetime(42), "42 s");
-  assert.equal(fmtLifetime(125), "2 min");
-  assert.equal(fmtLifetime(7300), "2 h");
-  assert.equal(fmtLifetime(3 * 86400 + 5), "3 d");
-  assert.equal(fmtLifetime(-4), "0 s");
+test("lifetimes and turns read in whole short units, unmeasured turns as a dash", () => {
+  assert.equal(fmtLifetime(42), "42s");
+  assert.equal(fmtLifetime(125), "2m");
+  assert.equal(fmtLifetime(7300), "2h");
+  assert.equal(fmtLifetime(3 * 86400 + 5), "3d");
+  assert.equal(fmtLifetime(-4), "0s");
   assert.equal(fmtTurns(null), "—");
   assert.equal(fmtTurns(0), "0");
 });
 
-test("the headline divides by what it counts, never by zero", () => {
-  const h = exitHeadline({ total: 5, asked: 4, answered: 3, askedAnswered: 2, outcomes: { resolved: 2 } });
-  assert.deepEqual(h, { total: 5, answered: 3, resolved: 2, resolvedShare: "67%", answerRate: "50%" });
+test("the headline divides by what it counts, never by zero, and leaves trials aside", () => {
+  const h = exitHeadline({ total: 6, asked: 4, answered: 4, askedAnswered: 2, outcomes: { resolved: 2, unresolved: 1, trial: 1 } });
+  assert.deepEqual(h, { total: 6, answered: 4, attempts: 3, resolved: 2, resolvedShare: "67%", answerRate: "50%" });
   const empty = exitHeadline(null);
   assert.equal(empty.resolvedShare, "—");
   assert.equal(empty.answerRate, "—");
