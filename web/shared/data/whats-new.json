@@ -224,5 +224,56 @@
         "summary": "Getting started installs tmux and PiCode first, the picker lists a CLI only when it is installed, and PiCode Desktop on Windows brings the runtime — tmux, git, curl, Node.js and npm — without choosing an agent CLI for you."
       }
     ]
+  },
+  {
+    "version": "0.6.0",
+    "date": "2026-09-23",
+    "highlights": [
+      {
+        "icon": "agent",
+        "title": "Removing an agent asks how it went",
+        "summary": "The remove dialog, on the desktop and the phone, asks one optional question — Resolved, Partly, Didn't resolve, Just trying — and, when it did not go well, what got in the way. It never blocks Remove, and the Outcomes page keeps every answer with what PiCode saw: how long it lived, its turns, how often it asked for you."
+      },
+      {
+        "icon": "workspace",
+        "title": "Landing rules you can read and edit",
+        "summary": "A machine's rules for landing delivered work — fast-forward only, plus up to eight checks — are now a Preferences page that names which workspaces follow them, with per-workspace rules and an Edit shortcut; the same page exists on the phone."
+      },
+      {
+        "icon": "inbox",
+        "title": "An authorized entry actually runs",
+        "summary": "Authorizing a queue entry is execution authority now: PiCode runs the operation the project declared and records on the entry what it did, or the reason it did not — one operation per repository, with every stale authorization a named blocker rather than a silent move."
+      },
+      {
+        "icon": "workspace",
+        "title": "Spend stops guessing",
+        "summary": "Claude Code, Codex and Grok tokens are counted once (the dashboard was showing roughly double for two of them), Claude Code subagents count, and a CLI whose turns carry no price is estimated at list price — marked as an estimate, and a CLI's own figure always wins."
+      },
+      {
+        "icon": "workspace",
+        "title": "Backups cover every agent CLI",
+        "summary": "A snapshot keeps each CLI's settings, its login file with Include secrets, and the conversations of Claude Code, Codex, Grok, Omp and Muse Code as well as Pi's; restore puts them back. OpenCode, Hermes and Antigravity keep conversations in a live database, which is not copied."
+      },
+      {
+        "icon": "workspace",
+        "title": "Ways out of PiCode, from the workspace menu",
+        "summary": "Show the folder in Explorer, copy its path, open the repository on GitHub, GitLab, Bitbucket or Azure DevOps, and open or create the pull request for the current branch."
+      },
+      {
+        "icon": "terminal",
+        "title": "Omp's models and roles in one pane",
+        "summary": "Every model Omp reports it can reach, and the role map — roles, fallback chains, the quick-switch cycle, thinking levels — edited where they live, including the workspace file `omp config set` cannot reach."
+      },
+      {
+        "icon": "terminal",
+        "title": "Terminals that lied are gone",
+        "summary": "A terminal whose shell was already dead no longer survives as an empty row, and creating one right after closing the last no longer fails when tmux's server had just emptied."
+      },
+      {
+        "icon": "workspace",
+        "title": "A fleet's settings keep up",
+        "summary": "Workspace settings from the card's menu, Checks and tool approval in Omp's Settings, a Limits card that shows every plan PiCode can read, and `/login` opening where you are looking."
+      }
+    ]
   }
 ]

@@ -16,6 +16,256 @@ changelog entries included.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-23
+
+### Added
+
+- **Removing an agent asks how it went.** The remove dialog, on the desktop and the phone, asks an optional question — Resolved, Partly, Didn't resolve, Just trying — and, when it did not go well, what got in the way. It never blocks Remove, it skips agents that never worked or lived under a minute, and **Stop asking** turns it off.
+- **Outcomes page.** The user menu ▸ Outcomes lists every removed agent with your answer, its setup and what PiCode saw (how long it lived, turns, how often it asked for you), with filters, a later answer, record deletion and a JSON-lines export. Records stay on this machine; environment variables are kept by name only.
+- **Agent outcomes on the dashboard**: removed agents, the share resolved and the reason most in the way for the chosen range.
+
+- Hermes's **Add provider** lists every provider Hermes supports (about 45, read from Hermes itself). You can add a key, or sign in with a code for Nous, OpenAI Codex, xAI and MiniMax, without a terminal. Hermes keeps each credential in its own pool, after the ones already there.
+
+- **The integration declaration names its mode (ADR-0186).** `mode` is `local` (PiCode runs the declared commands and the fast-forward), `provider` (the project's own merge queue integrates it; PiCode enqueues and observes), or absent, which runs nothing. It is set in Preferences → Landing work or in a workspace's Settings, beside the rules it applies to, and follows the same workspace → machine fallback.
+- Provider mode carries no check commands — its provider runs those — and the declaration refuses the combination instead of keeping commands that would never run.
+
+- Grok's **Add provider** opens its own sign-in: your Grok account in the browser, a device code for signing in from a phone or another computer, or an xAI API key. No terminal is needed, though signing in from one is still offered.
+
+- **Landing work on the phone.** Preferences → Landing work now exists in the mobile app too: this machine's rules for landing delivered work, the workspaces that follow them, and an Edit sheet per workspace to rename it or give it rules of its own.
+
+- Codex's **Add provider** opens its own sign-in, the same options as Codex's `/login`: ChatGPT in the browser, a device code (for signing in from a phone or another computer), your own API key, or Amazon Bedrock. Codex saves each login itself. Signing in from a terminal is still offered.
+
+- Claude Code can run through an Anthropic-compatible gateway (Z.ai, Kimi, DeepSeek, MiniMax and others), set up from its sign-in dialog. You give the URL, the token and, optionally, the models. Your Anthropic key is never sent to the gateway.
+
+- Claude Code can run on Amazon Bedrock, Microsoft Foundry or Google Vertex AI, set up from its sign-in dialog ("3rd-party platform"), with the same sign-in methods Claude Code's own `/login` offers. The Providers pane shows which platform is in use, with Edit and Stop using.
+
+- Omp agents load Pi's Inbox reply receiver, so a reply arrives as the agent's own turn, confirmed against its session file, as it does for Pi.
+
+- **Preferences → Landing work.** Set this machine's rules for landing delivered work — the ones every workspace without its own follows — and see which rules each workspace uses, with an Edit shortcut to its Settings.
+
+- Claude Code's **Add provider** opens its own sign-in: your Claude subscription through the browser, or an Anthropic Console key. No terminal is needed, though signing in from one is still offered. Only one login is in use at a time, and **Use** switches between them.
+
+- **Make agent.** When you type a CLI such as Claude Code or Codex into a
+  plain PiCode shell, the shell offers to make it an agent — named, in the
+  sidebar and the fleet, with its own permissions. It only happens when you
+  press the button.
+
+- **Dashboard: Codex and live Claude Code sessions count in Spend.** Turns a CLI leaves unpriced are estimated at list price from LiteLLM's public price table, refreshed daily; the estimate is marked on the Spend card, on each CLI row ("estimated" or "$X est.") and on each model row ("~$X"). A CLI's own figure always wins. Set `PICODE_PRICE_TABLE_URL=off` to keep PiCode from fetching the table.
+
+- **Checks for Omp.** Omp's Settings pane opens with a card of measured
+  problems for the folder: a config file Omp moved aside, a key written twice
+  or in the flat form, a key this Omp no longer knows, the older
+  `.omp/settings.json`, Pi settings Omp does not read, a committed `.env`, no
+  approval mode set, and how many Omp terminals will read a change only at
+  restart. Each line has one action. Below it, every setting Omp resolves in the
+  folder, with the file it comes from; credentials are hidden.
+- **Tool approval** (`tools.approvalMode`) is a row in Omp's Settings.
+
+- **Workspace settings.** A **Settings…** item on the workspace card's menu renames the workspace and sets how delivered work lands in the project: follow this machine's rules, or give the workspace its own (up to eight checks that must pass before an authorized branch lands as a fast-forward). With no rules, or fast-forward off, it says plainly that authorized branches stay blocked. It also links to the workspace's Communication page.
+
+- **An authorized entry actually runs now (ADR-0182).** Authorizing a queue entry is execution authority: PiCode runs the operation the project declared — fast-forward only, after the declared commands pass — and records on the entry what it did, or the reason it did not. A second entry in the same repository waits: one operation per repository, enforced in the store and in the daemon.
+- **Every stale authorization is a named blocker**, never a silent move: no declaration, a declaration that is not fast-forward-only, the branch moved off the reviewed revision, the target gone or moved past a fast-forward, or recorded evidence of failed checks. The target stays where it was.
+- **A daemon that stops mid-run leaves the outcome unknown** on the entry — nothing is retried and no success is inferred — and the owner's withdraw clears it.
+
+- **Dashboard: the Limits card shows every plan PiCode can read.** Plan windows fetched for signed-in accounts (Anthropic, xAI, Z.ai, Codex and the rest) now sit beside the ones a CLI records itself, and a plan that needs a new sign-in says so, with a link to the right Providers pane.
+
+- **Backups cover every agent CLI.** A snapshot now keeps each CLI's settings file; with **Include secrets**, its login file; and with **Include sessions**, the conversations of Claude Code, Codex, Grok, Omp and Muse Code as well as Pi's. Restore puts them back. OpenCode, Hermes Agent and Antigravity keep conversations in a live database, which is not copied.
+
+- **Agent CLIs: `/login` opens where you are looking.** A CLI's "open in the
+  browser" (OAuth logins) no longer starts a Chromium inside WSL: the page
+  opens in the desktop app's own browser tab, in a tab of the browser you
+  run PiCode in, or — with no client open — in the Windows default browser.
+  CLI launch PATHs carry the PiCode wrappers too, so CLIs that resolve
+  `xdg-open`/`wslview` by PATH (not `$BROWSER`) are covered.
+  Off switch on Agent CLIs ("browser hand-off").
+
+- **Omp Models pane.** `#/clis/omp/models` lists every model Omp reports it can
+  reach in the workspace, grouped by provider, with kind chips, a filter,
+  context size and price. **Allowed** edits `enabledModels` (Omp then uses only
+  those, and the pane warns when none of them is reachable in the folder);
+  **Hide provider** / **Show** edit `disabledProviders`. Both layers; a toggle
+  writes the layer's complete list, because omp's arrays replace the parent's
+  rather than extend it (ADR-0181).
+- The pane says when a layer leaves Omp with no usable model (an allowed list
+  naming only models the folder cannot reach) and offers **Allow every model
+  here**; a layer that hides every provider says so and offers **Show all**.
+- The model catalog answer is kept while the config files it depends on are
+  unchanged, so reopening the pane is instant; **Refresh** asks Omp again.
+
+- Omp terminals now show their todo plan as the sidebar checklist — the
+  current step on the agent card, the full list in the disclosure — the
+  way Pi and Claude Code already do. The new `packages/omp-checklist` is
+  an installable omp package: it watches omp's native `todo` tool and
+  mirrors the committed phases to the checklist routes at whatever scope
+  you install it — Global, This workspace, or an agent's package list.
+  Omp registers no new tool and nothing is gated.
+
+- **Workspace menu: ways out of PiCode.** The "…" menu on a workspace card now shows the folder in Explorer (or the file manager), copies its path (Linux and Windows paths under WSL), opens the repository on GitHub, GitLab, Bitbucket or Azure DevOps, and opens or creates the pull request for the current branch.
+
+### Changed
+
+- Removing a workspace, or an agent's terminal, now keeps a record of each agent it ends.
+
+- Model pickers, Providers and the agent status bar no longer wait about two seconds on every catalog read: the llama.cpp server's answer is kept and refreshed in the background (an unreachable server no longer stalls anything), and Pi's model list is kept until a sign-in, a custom provider, a package or Pi itself changes. **Try again** on Providers asks Pi afresh.
+
+- **A declaration that names no mode no longer executes.** An entry the owner authorizes is ejected with `not run: the project declares no integration mode…`, and the Delivery read and the settings surface both say so; adding `mode` to the declaration restores it.
+- Under `provider`, ordering is refused (`the provider owns the queue's order`) rather than being a second opinion beside the provider's queue.
+
+- The desktop app shows your workspaces, agents and terminals as soon as they are read (tens of milliseconds), instead of first waiting several seconds for the Pi model catalog.
+
+- The workspace card's **⋯** menu no longer offers **Sessions** — open sessions from **Agent CLIs**, the dashboard's top-sessions tiles, or an agent instead. The menu now holds Communication, Files, Git graph and the outside/Settings actions.
+
+- Management errors now say what happened and what to do, such as "PiCode inside the distro is older than the desktop app. Update PiCode, then scan again." The tool's original message stays underneath in smaller text.
+
+- The Management window now shows its scan as it happens. Windows and the distro each get a row with a spinner and a clock, and each card fills as soon as its half is read. **Scan again** keeps the previous numbers on screen until the new ones arrive.
+- The Clean tab uses the same scan as the Disk tab, so opening the window walks the home directory once instead of twice.
+
+- Omp's model rows: the model picker's arrow sits at its right edge like the
+  selects beside it, a role's help line keeps clear of the controls, and
+  Settings rows without a help line no longer touch.
+
+- A CLI that was still running in a terminal with no agent becomes an agent on
+  upgrade, keeping its browser and computer permissions. Permissions now belong
+  only to agents: a CLI typed into a plain shell gets no grant (the computer
+  tool refuses it; the browser keeps only its own split beside the session)
+  and cannot register deliveries until you make it an agent. Settings ▸ Browser and Settings ▸
+  Computer list agents only.
+
+- A CLI's sign-in terminal no longer shows up in the sidebar or among the
+  CLI's terminals; it lives on the Providers card that opened it. PiCode
+  closes it once the account is saved, when the login exits, after 15
+  minutes without activity, or when you press **Cancel** — and the card says
+  when it closed.
+
+- Every CLI you start from PiCode is now an agent. Agent CLIs' **New
+  terminal** is **New agent** (launch profiles included), a session's
+  **Open in terminal** is **Resume as agent**, and continuing a conversation
+  in another CLI opens it as an agent — so it shows up in the sidebar and
+  the fleet, and permissions, Inbox and automations reach it by name.
+
+- On the phone, the Settings, Packages and Providers shortcuts in More's search open the CLI of the last agent you opened (Pi when there is none), their labels no longer say Pi, and the matches share one "Agent CLIs" group (the heading used to repeat over each row, on the phone and in the desktop menu search).
+
+- **Omp's model roles moved to the Models pane.** Roles, the quick-switch cycle,
+  fallback chains and the retry settings now sit above **All models** on
+  `#/clis/omp/models`, the way Omp's own model hub keeps them on one screen. A
+  role whose model is not reachable in the folder, or not in the allowed list,
+  says so on its own row. Settings keeps the thinking level, memory and
+  interface rows.
+- A fallback chain reads as what it is for — "When default fails", "When any
+  openai model fails" — and the Fallbacks help says what `@smol` means.
+
+- Omp's **Add provider** now opens the same dialog as Pi: search the providers, choose between an account and a key, finish the sign-in in the browser (or in Omp's own login when PiCode cannot run it), and reach Custom provider from the list. Only what Omp supports for each provider is offered.
+
+- The workspace menu's Communication row has its own two-bubble icon instead of repeating the Sessions list icon.
+
+- Omp's Providers pane offers every provider Omp's own `/login` lists (about 80, read from the installed Omp), not only the 11 PiCode declared. A key saved for one of them is passed to Omp in the variable Omp reads it from.
+
+- The workspace menu is grouped: PiCode views first, then the new outside actions, then Move up / Move down, with Remove workspace last.
+
+### Removed
+
+- `POST /api/clis/{cli}/terminals`. Starting a CLI goes through
+  `POST /api/agents` or `POST /api/workspaces/{id}/agents` with `overrides`.
+
+### Fixed
+
+- Keys already in Hermes's credential pool are recognised again. Hermes 0.21 stores them under a different field.
+
+- **The architecture reference matches the code again after the first prose-audit wave** (routes, agent-manager, terminal-bridge, security-model): five path references that still pointed at `web/desktop/src/lib` and `web/desktop/src/styles` now name the browser bundle where that code lives, the user-menu description names the real groups (Tools: Automations, Snippets, llama.cpp; PiCode: Preferences, Browser, Computer, Devices, System, Integrations, Termset), and the workspace-menu and per-CLI session-index descriptions reflect the current nine-CLI, no-Sessions-item reality.
+
+- **A terminal whose shell is gone no longer survives as an empty row.** tmux
+  reports a session as alive for the few milliseconds before it reaps a pane
+  that died at once, so PiCode could keep a terminal that never lived — and
+  every later action on it answered "no server running". The creation now asks
+  a second time, 50 ms later, before it trusts the answer.
+
+- The desktop app's windows keep working when PiCode runs on a port other than 8445, whether another port in its range or one you picked in Settings. Before, the Management window opened but could not scan, and the main window's buttons stopped responding.
+
+- An xAI key saved for Grok now reaches Grok. Choosing it signs Grok out of its own session, which is kept in the vault, and **Use** brings that session back.
+
+- The Apps sidebar no longer flashes "No apps yet." while your apps are still loading.
+
+- Opening **Management** from the tray no longer freezes the tray while WSL is slow. The window opens right away at the address PiCode is already answering on.
+- The desktop app no longer waits a full 30 seconds before showing its main window at startup or after **Open PiCode** rebuilds it. The check that waits for PiCode to be ready was probing the distro's name instead of PiCode's address, so it could never succeed.
+- When **Give back held space** fails before anything stops, the Management window no longer says the distro was restarted. When it fails after the stop, the window now says that the distro's sessions ended.
+
+- **The Connectors docs no longer teach a removed import flow.** The app adds connectors from the Marketplace catalog cards or the **Custom server…** form (ADR-0157 removed definition-file import); the MCP guides, the Integrations guide and `connectors/README.md` now describe that flow. The sidebar tab list in Getting started includes **Apps**, and the connector packages' install paths name their real location (**Agent CLIs → Connectors → Installed**).
+
+- Opening the desktop Management window no longer pops up a terminal window: every measurement and cleanup now runs in the background.
+- The steps of **Give back held space** now show in the window while it runs. Before, the window never received them.
+
+- Moving Codex from Amazon Bedrock to another login no longer leaves it pointed at Bedrock.
+
+- In dark mode, primary buttons, the send button and pressed Canvas tools are easier to read: their fill is a deeper blue, and white text on it now meets the WCAG AA contrast bar (5.3:1, up from 3.0:1).
+
+- While the app is still loading, the sidebar and the main pane no longer claim you have nothing ("No workspaces yet.", "No agents yet / Add workspace"); they show a placeholder until your work has been read.
+
+- Ignore in the Inbox closes a question from an agent running in its terminal. It used to fail with "The terminal session could not be identified safely" for Claude Code and every other non-Pi agent, which left the item impossible to close.
+
+- A shell could still become a CLI terminal with no agent through its launch
+  settings; that is refused now — use **Make agent**.
+- A sign-in terminal closes when its login exits (it no longer drops back to a
+  hidden shell), times out after 15 minutes without activity instead of 15
+  minutes after it opened, and **Check now** after coming back to the card no
+  longer files the account that was already saved.
+- Esc and clicks inside the sign-in window go to the login instead of closing
+  it; on phones the window has the terminal key bar.
+- **New agent** with a folder that does not exist says so instead of creating
+  it; a Pi **New agent** from Agent CLIs is the same Pi agent the palette makes.
+- Upgrading no longer fails to start when a terminal belongs to a workspace
+  that is gone, a Pi terminal keeps its conversation as an agent, and
+  deliveries a terminal registered stay reachable by its agent.
+- A stopped agent terminal offers **Start** instead of sending you to Agent CLIs.
+
+- A browser sign-in (Anthropic, OpenAI Codex) left unfinished no longer
+  blocks every later sign-in with "already in progress" until PiCode
+  restarts: it gives up after 15 minutes, like the device-code sign-ins.
+
+- Replying in the Inbox to a question from Claude Code, Codex, Grok or any other non-Pi agent no longer fails with "The terminal session could not be identified safely". An agent still waiting in `ask_human` gets the answer as the tool's result. If it stopped waiting, the reply is typed into its terminal. If it is not running, the answer stays on the item, and the item says the agent was not told.
+- The mobile Inbox's Reply now reaches a Pi agent running in its terminal, as the desktop Inbox already did.
+
+- An Anthropic key saved for Claude Code now reaches Claude Code: new terminals start on it once you choose it. Before, the key was saved and never used.
+
+- **Creating a terminal right after closing the last one no longer fails.**
+  When tmux's server had just emptied — the moment between the last session
+  ending and the server exiting — its `has-session` answer, *"no current
+  target"*, was read as a real failure, so PiCode refused to create a session it
+  should simply have created. The answer now means what it is: not there.
+
+- Removing a workspace no longer leaves its integration rules behind.
+- Two windows saving a workspace's integration rules over each other now get a conflict instead of silently losing one save.
+- On a narrow window, pressing Escape in a dialog opened from the sidebar no longer also closes the navigation drawer.
+
+- Add provider's search now highlights the best match, not Custom provider. Typing and clearing keep the list at the top with the highlighted row in view. Custom provider is now a button under the list.
+- Provider icons: more of Omp's providers show their vendor's mark, and a provider with no mark shows the first letter of its name, not of its id.
+
+- Dashboard rankings no longer lose their bars in a narrow card.
+
+- The packages pane on every agent CLI now names the context you are bound
+  to in its scope switch — Global, <workspace>, <agent> — the way Pi's
+  always did, instead of a generic "This workspace" that could be any of
+  them. A pane bound to no workspace stops offering the workspace scope
+  rather than promising a scope that cannot install.
+
+- A list row's **Use inherited** sat alone at the right edge, in Settings as
+  in Models; it now sits under the list.
+
+- **Shared-server members can install CLIs from Agent CLIs.** Their container now has Node.js 22 and installs into each member's own `~/.local`; before, the distro's old Node and a root-owned npm made Install fail. Existing containers are updated on the next `picode provision`.
+
+- **Dashboard: Claude Code, Codex and Grok tokens are counted once.** Claude Code repeats a response's usage on every block it writes, Codex forks copy their parent's history, and Codex and Grok count cached tokens inside input; the dashboard summed all of it and showed roughly twice the real token totals for Claude Code and Codex.
+- **Dashboard: Claude Code subagents are counted.** Their transcripts live one folder deeper than the dashboard looked, so their tokens and tool calls were missing.
+- **Dashboard: Grok usage comes from its update stream.** Sessions that never wrote `usage.json` now report tokens and cost.
+
+- **Automations and the Chrome extension no longer paste into a CLI's login or menu screen.** When the terminal of a Claude Code, Codex or other agent is open but not at a prompt PiCode recognizes, the run is skipped as **unrecognized** and nothing is typed; before, it was pasted blind and recorded as done.
+- **The Chrome extension sends to agents of every CLI.** A non-Pi agent gets the page link and your message at its prompt while its terminal is open; screenshots and Act on this page still need a Pi agent.
+- **Provider usage works without Pi.** The usage summary and its background refresh read the signed-in accounts from the vault instead of Pi's model list, so the Providers roster of every CLI keeps its usage on a machine without Pi.
+- PiCode no longer checks Pi packages against npm every 30 minutes on a machine where Pi was never used.
+
+- **System's Agent CLIs section no longer flashes "none installed"** while the list loads: it shows placeholder rows, and says so if the list cannot be read. On the phone, the list now refreshes after you install or remove a CLI, so System and the Automations banner stay current without a reload.
+- The Automations "Pi is not installed" banner ignores disabled automations.
+- A free **New agent** takes the CLI's name when the Name field is left empty, as the placeholder suggests.
+- The docs say what PiCode needs precisely: only tmux for PiCode itself, Node.js and npm to install CLIs from Agent CLIs, **Install** for Pi, Claude Code, Codex, OpenCode and Omp, and how Connectors differ on the CLIs other than Pi.
+
 ## [0.5.0] - 2026-09-22
 
 ### Added
@@ -4606,7 +4856,8 @@ changelog entries included.
   binary (0001), dual-channel tmux+RPC agent control (0002), dependence on
   user-installed `pi` (0003).
 
-[Unreleased]: https://github.com/cfpperche/picode/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/cfpperche/picode/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/cfpperche/picode/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/cfpperche/picode/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cfpperche/picode/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/cfpperche/picode/compare/v0.3.0...v0.3.1

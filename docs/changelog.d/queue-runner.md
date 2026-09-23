@@ -1,4 +1,0 @@
-### Added
-- **An authorized entry actually runs now (ADR-0182).** Authorizing a queue entry is execution authority: PiCode runs the operation the project declared — fast-forward only, after the declared commands pass — and records on the entry what it did, or the reason it did not. A second entry in the same repository waits: one operation per repository, enforced in the store and in the daemon.
-- **Every stale authorization is a named blocker**, never a silent move: no declaration, a declaration that is not fast-forward-only, the branch moved off the reviewed revision, the target gone or moved past a fast-forward, or recorded evidence of failed checks. The target stays where it was.
-- **A daemon that stops mid-run leaves the outcome unknown** on the entry — nothing is retried and no success is inferred — and the owner's withdraw clears it.

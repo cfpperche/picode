@@ -1,2 +1,0 @@
-### Fixed
-- **The Connectors docs no longer teach a removed import flow.** The app adds connectors from the Marketplace catalog cards or the **Custom server…** form (ADR-0157 removed definition-file import); the MCP guides, the Integrations guide and `connectors/README.md` now describe that flow. The sidebar tab list in Getting started includes **Apps**, and the connector packages' install paths name their real location (**Agent CLIs → Connectors → Installed**).
