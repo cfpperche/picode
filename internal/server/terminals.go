@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/store"
@@ -596,7 +597,19 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) (bool, er
 		// new-session answers 0. Verify, or this reports a terminal that
 		// never lived and every later tmux call answers "no server running"
 		// (measured 2026-09-20: dash given --rcfile).
-		if live, err := deps.Tmux.HasSession(r.Context(), name); err != nil || !live {
+		//
+		// tmux reaps the death on its own event loop, so the first answer can
+		// still be "alive" just after the shell is gone: ask again once, after
+		// a beat. Measured 2026-09-23 under the gate's PATH (no agent CLIs):
+		// 5 ms and 20 ms both still said alive, 50 ms told the truth five runs
+		// out of five. Fifty milliseconds on a terminal creation is invisible;
+		// a phantom terminal is not.
+		live, liveErr := deps.Tmux.HasSession(r.Context(), name)
+		if liveErr == nil && live {
+			time.Sleep(50 * time.Millisecond)
+			live, liveErr = deps.Tmux.HasSession(r.Context(), name)
+		}
+		if liveErr != nil || !live {
 			return false, fmt.Errorf("The shell exited immediately (%s). Set SHELL to a shell that exists, or check the daemon's environment.", cmd)
 		}
 	}

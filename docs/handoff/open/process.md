@@ -19,6 +19,25 @@
   and the tmux tests now keep to their own socket and server, so that reason
   may be addressable; and trim the suite, which is 365 serial tests by design
   (they swap package-level probes, ADR-0086).
+  **Re-measured 2026-09-23** (`feat/ci-sharding`, branch not landed): a
+  dispatched run with the script's four shards came back red, but not for the
+  reason the decision was made for — macOS failed on two test defects of its
+  own (below) and ubuntu on `TestPreviewEventsStream`, seen once under shard
+  load and unattributed. So the verdict on sharding is *open*, not negative,
+  and the honest next step is the first candidate here — the heavy packages in
+  a CI job of their own — because it removes the ceiling question without
+  betting the gate on how four processes share a two-core runner.
+
+- [ ] **The macOS Go job is red on tests nobody runs.** Found 2026-09-23 by
+  dispatching CI on a branch (main's pushes classify macOS out for most diffs,
+  so these have been unseen): `TestLocateOMPRules` compares a path without
+  resolving `/private/var` (macOS's `/var` is a symlink, `omp_catalog_test.go`),
+  and `TestKillServerThroughAGuardedPath` dies with *"File name too long"*
+  binding its tmux socket under the runner's long `TMPDIR` — the same class the
+  2026-09-23 socket fix handled for PiCode's own sockets, still open in the
+  fixture (`binary_test.go`). Both are test defects, both small; until they are
+  fixed, any PR or dispatched run is red on macOS, and a macOS regression
+  cannot be told apart from this noise.
 
 - [x] **`TestStopIdleFencesConversationAndCommands` fails on the GitHub
   runners and nobody can say why.** Paid 2026-09-22 (`feat/ci-vendor-tests`) —
@@ -38,17 +57,16 @@
   the bridge marks `resolved` when its first `get_state` returns (success or
   not) and the test waits for that — no retry, the single assertion stays.
 
-- [ ] **Nothing stops the next server test from depending on a CLI installed on
-  the machine.** Two did — `TestPackageOpenCodeRemoveIsPiCodeOwnWrite` needed
-  `opencode`, `TestOmpSigninUnknownProviderStaysTerminal` needed `omp` — and
-  both passed locally (this machine has all nine CLIs) while failing on every
-  runner, *after* the 0.5.0 tag was pushed. Both are hermetic now (`stubVendor`,
-  2026-09-22, `feat/ci-vendor-tests`), but the guard is discipline alone: the
-  drivers locate a CLI with `exec.LookPath`, so any test that reaches a read or
-  a launch path without a stub passes here and fails there. Candidate: run
-  `internal/server` (and any package that touches `clipkgs`) under a PATH with
-  no agent CLI — in `ci-scoped` or as a CI job — so the failure lands in scope
-  rather than in the next push to `main`.
+- [x] **Nothing stops the next server test from depending on a CLI installed on
+  the machine.** Paid 2026-09-23 (`feat/hermetic-gate`): `ci-scoped`'s Go stage
+  now runs the scoped packages with `PATH=<toolchain>:/usr/bin:/bin` — no agent
+  CLI exists there, so a test that reaches a vendor-locating path without
+  stubbing fails at the gate instead of on a runner. Three did on 2026-09-22
+  (`opencode`, `omp`, `pi`; the third landed an hour after the first two were
+  fixed) and main went red for hours over tests this PATH catches in one run.
+  The whole suite was measured under it before adopting it: one failure, which
+  was not a CLI dependency at all — see the terminal-creation race fixed in the
+  same branch.
 
 - [x] **Should `/pair` be guarded-and-exempt instead of unguarded?** Today
   `guarded()` covers `/api/`, `/ws/` and `/mcp/communication` only, so the
@@ -104,6 +122,12 @@
   before diagnosing. And `gh run watch … | tail` reports `tail`'s status, not
   the run's — redirect and read `$?`, or a green-looking `exit=0` will cover
   two real failures.
+- **`git stash` is shared across every session in a checkout.** A peek at the
+  list on 2026-09-23 found `stash@{0}` mine and `stash@{1}` another branch's
+  ("emitter checkpoint before managed-stop retest", `feat/browser-capture-emitter`)
+  — the same stack, one `stash clear` or a wrong-index `pop` away from deleting
+  someone else's work. Read the list before touching it, pop by index, and know
+  that a worktree's stash lives in the primary checkout's git dir.
 - Hook edits cannot be exercised from a worktree (it runs the root's hooks); a refused commit needs `git -c core.hooksPath=$PWD/.githooks commit`.
 - `make ci` failed once (2026-09-12) after Go packages ok, passed on the identical tree — cause unknown; `var/ci-last.log` keeps it diagnosable (retries hide it).
 - A branch that edited `docs/handoff.md` pre-ADR-0123 hits one `modify/delete` conflict: resolve with `git rm -f docs/handoff.md` (the hook refuses it staged, on purpose).

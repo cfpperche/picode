@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { workspaceSettingsSchema } from "@picode/shared/contracts/schemas.js";
-import { cleanChecks, draftFrom, followsRows, integrationSave, machinePage } from "@picode/shared/domain/workspaceSettings.js";
+import { cleanChecks, draftFrom, followsRows, integrationSave, machinePage, integrationIntro } from "@picode/shared/domain/workspaceSettings.js";
 import LandingRulesFields from "./LandingRulesFields.jsx";
 import { toast } from "../lib/toast.js";
 
@@ -104,7 +104,7 @@ export default function LandingWork({ hidden, workspaces, workspacesLoaded = tru
   return (
     <section className="settings-section landing-work" hidden={hidden}>
       <h3>Landing work</h3>
-      <p className="settings-desc">Rules for every workspace that has none of its own. When you authorize a branch an agent delivered, PiCode runs these checks and then merges it.</p>
+      <p className="settings-desc">Rules for every workspace that has none of its own. {integrationIntro(draft)}</p>
       {loadError ? (
         <p className="wsset-state" role="alert">{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={() => load(false)}>Retry</button></p>
       ) : !layers || !base ? (

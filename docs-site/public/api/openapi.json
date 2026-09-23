@@ -6172,6 +6172,71 @@
         ]
       }
     },
+    "/api/hermes/credential": {
+      "delete": {
+        "operationId": "deleteApiHermesCredential",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "hermes"
+        ]
+      },
+      "get": {
+        "operationId": "getApiHermesCredential",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "hermes"
+        ]
+      },
+      "post": {
+        "operationId": "postApiHermesCredential",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "hermes"
+        ]
+      }
+    },
     "/api/inbox": {
       "delete": {
         "operationId": "deleteApiInbox",
@@ -12174,6 +12239,9 @@
     },
     {
       "name": "health"
+    },
+    {
+      "name": "hermes"
     },
     {
       "name": "inbox"

@@ -125,6 +125,16 @@ The `local` mode is the fallback for a repository with no hosting provider, and
 is the runner described below: the declared single-line commands, then a
 fast-forward-only move.
 
+The declaration's `mode` is implemented end to end for what does not need a
+vendor: an undeclared mode runs nothing (the runner records `failed` with
+`not run: the project declares no integration mode…`), `local` runs the runner,
+and `provider` is refused by the runner with `not run: this project integrates
+through its own provider…` while the owner's `order` is refused with "the
+provider owns the queue's order". Provider mode carries no commands — its
+provider runs those checks — and the declaration refuses the combination. What
+is still to build is the provider path itself: enqueueing through the project's
+queue and reading its position and ejections.
+
 The surface speaks the community's vocabulary — **merge queue**, entry,
 position, *approved*, *integrating*, *integrated*, *ejected with a reason* — so
 anyone who knows GitHub or bors can read the screen without a manual. Internal

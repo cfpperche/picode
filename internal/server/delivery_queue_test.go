@@ -103,7 +103,7 @@ func TestDeliveryQueueOwnerDoors(t *testing.T) {
 		t.Fatalf("authorize = %d %v", res, out)
 	}
 	settled := waitForQueueState(t, ts, ws.ID, id)
-	if settled["state"] != "failed" || !strings.HasPrefix(settled["note"].(string), "not run: the project declares no integration rules") {
+	if settled["state"] != "failed" || !strings.HasPrefix(settled["note"].(string), "not run: the project declares no integration mode") {
 		t.Fatalf("settled = %v", settled)
 	}
 
@@ -228,7 +228,7 @@ func TestDeliveryQueueAuthorizeRunsTheDeclaration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if code, out := queueRequest(t, ts, "PUT", "/api/delivery/integration?workspace="+ws.ID,
-		`{"ffOnly":true,"checks":["true"]}`); code != 200 {
+		`{"mode":"local","ffOnly":true,"checks":["true"]}`); code != 200 {
 		t.Fatalf("declare = %d %v", code, out)
 	}
 	code, out := queueRequest(t, ts, "POST", "/api/delivery/tool", fmt.Sprintf(
@@ -271,7 +271,7 @@ func TestDeliveryQueueFailedCheckLeavesTheTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	if code, out := queueRequest(t, ts, "PUT", "/api/delivery/integration?workspace="+ws.ID,
-		`{"ffOnly":true,"checks":["echo nope >&2; false"]}`); code != 200 {
+		`{"mode":"local","ffOnly":true,"checks":["echo nope >&2; false"]}`); code != 200 {
 		t.Fatalf("declare = %d %v", code, out)
 	}
 	code, out := queueRequest(t, ts, "POST", "/api/delivery/tool", fmt.Sprintf(
@@ -357,7 +357,7 @@ func TestDeliveryQueueResumeMarksUnknownAndDrains(t *testing.T) {
 		t.Fatalf("the interrupted entry = %+v (%v)", marked, err)
 	}
 	settled := waitForQueueState(t, ts, ws.ID, authorized.ID)
-	if settled["state"] != "failed" || !strings.HasPrefix(settled["note"].(string), "not run: the project declares no integration rules") {
+	if settled["state"] != "failed" || !strings.HasPrefix(settled["note"].(string), "not run: the project declares no integration mode") {
 		t.Fatalf("the authorized entry = %v", settled)
 	}
 	if marked2, err := st.GetQueueEntry(repoKeyOf(t, repo), running.ID); err != nil || marked2.Note != marked.Note {
@@ -418,5 +418,54 @@ func TestIntegrationLayersList(t *testing.T) {
 	layers, _ := out["workspaces"].(map[string]any)
 	if machine == nil || machine["ffOnly"] != true || len(layers) != 1 || layers[ws.ID] == nil {
 		t.Fatalf("layers = %v", out)
+	}
+}
+
+// Under provider mode the project's own queue owns the order and performs the
+// integration (ADR-0186): PiCode refuses to order, and an authorized entry is
+// ejected with the reason instead of being run here.
+func TestDeliveryQueueProviderModeIsNotRunHere(t *testing.T) {
+	ts, st := newInboxServer(t)
+	repo := gitRepo(t)
+	gitRun(t, repo, "checkout", "-q", "-b", "feature")
+	gitRun(t, repo, "commit", "--allow-empty", "-m", "feature work")
+	head := strings.TrimSpace(gitOut(t, repo, "rev-parse", "HEAD"))
+	gitRun(t, repo, "checkout", "-q", "main")
+	before := strings.TrimSpace(gitOut(t, repo, "rev-parse", "main"))
+	ws, agent, err := storeWorkspaceWithAgent(st, "queue", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, out := queueRequest(t, ts, "PUT", "/api/delivery/integration?workspace="+ws.ID,
+		`{"mode":"provider","ffOnly":true}`); code != 200 {
+		t.Fatalf("declare = %d %v", code, out)
+	}
+	code, out := queueRequest(t, ts, "POST", "/api/delivery/tool", fmt.Sprintf(
+		`{"agent":%q,"action":"register","requestId":"create","title":"Fix","branch":"feature","revision":%q,"target":"main"}`, agent.ID, head))
+	if code != 200 {
+		t.Fatalf("register = %d %v", code, out)
+	}
+	delivery := out["delivery"].(map[string]any)["id"].(string)
+	code, out = queueRequest(t, ts, "POST", "/api/delivery/tool", fmt.Sprintf(
+		`{"agent":%q,"action":"request-integration","requestId":"q1","id":%q,"revision":%q,"target":"main"}`, agent.ID, delivery, head))
+	if code != 200 {
+		t.Fatalf("request = %d %v", code, out)
+	}
+	queueID := out["queue"].(map[string]any)["id"].(string)
+	if code, out = queueRequest(t, ts, "POST", "/api/workspaces/"+ws.ID+"/delivery/queue", fmt.Sprintf(
+		`{"action":"order","requestId":"o1","id":%q,"expectedVersion":1,"orderKey":0}`, queueID)); code != 409 ||
+		!strings.Contains(out["error"].(string), "owns the queue's order") {
+		t.Fatalf("order under provider = %d %v", code, out)
+	}
+	if code, out = queueRequest(t, ts, "POST", "/api/workspaces/"+ws.ID+"/delivery/queue", fmt.Sprintf(
+		`{"action":"authorize","requestId":"a1","id":%q,"expectedVersion":1}`, queueID)); code != 200 {
+		t.Fatalf("authorize = %d %v", code, out)
+	}
+	settled := waitForQueueState(t, ts, ws.ID, queueID)
+	if settled["state"] != "failed" || !strings.Contains(settled["note"].(string), "integrates through its own provider") {
+		t.Fatalf("entry = %v", settled)
+	}
+	if got := strings.TrimSpace(gitOut(t, repo, "rev-parse", "main")); got != before {
+		t.Fatalf("main moved to %s under provider mode", got)
 	}
 }

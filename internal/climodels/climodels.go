@@ -2,9 +2,9 @@
 // pane that writes a model selector offers the CLI's own answer instead of a
 // text box (ADR-0181).
 //
-// Only omp declares a reader today, and it is the vendor's own command — the
+// omp and Pi have readers, each the vendor's own command — the
 // bounded-subprocess exception ADR-0167 already makes for plugin verbs, with
-// none of its consequences: this one is read-only and changes nothing.
+// none of its consequences: these are read-only and change nothing.
 //
 // Two facts decide the shape, both measured on 2026-09-22 against omp 18.2.8:
 //
@@ -47,9 +47,18 @@ type Model struct {
 	Kind     string `json:"kind,omitempty"`
 	// Selector is what a role assignment holds. omp emits it itself, so the
 	// pane writes the vendor's own string rather than one PiCode assembled.
-	Selector string   `json:"selector"`
-	Context  int      `json:"contextWindow,omitempty"`
-	Thinking []string `json:"thinking,omitempty"`
+	Selector string `json:"selector"`
+	Context  int    `json:"contextWindow,omitempty"`
+	// MaxOut is the most tokens one answer may carry, when the vendor says.
+	MaxOut int `json:"maxOutput,omitempty"`
+	// The vendor's own labels for the two sizes ("1.0M", "32.8K"): a label
+	// parsed to a number and printed again would not be the vendor's.
+	ContextLabel string `json:"contextLabel,omitempty"`
+	MaxOutLabel  string `json:"maxOutputLabel,omitempty"`
+	// Reasoning is the vendor's yes/no for thinking, for a CLI that states
+	// that and not the levels (Pi's table; the levels live beside it).
+	Reasoning bool     `json:"reasoning,omitempty"`
+	Thinking  []string `json:"thinking,omitempty"`
 	// Input lists what the model accepts beside text (`image`), in the
 	// vendor's own words.
 	Input []string `json:"input,omitempty"`
@@ -79,33 +88,47 @@ type Report struct {
 	CachedAt string `json:"askedAt,omitempty"`
 }
 
-// supported are the CLIs PiCode has measured a read-only catalog command for.
-var supported = []string{"omp"}
+// reader is one CLI's catalog command: how to ask it, and which files decide
+// its answer (the cache keeps an answer while none of them moved). command is
+// the binary to run — the reader's own name unless a caller configured another
+// path (the daemon's AgentCmd for Pi).
+type reader struct {
+	command string
+	probe   func(ctx context.Context, command, dir string) (Report, error)
+	inputs  func(command, dir string) []string
+}
+
+// readers are the CLIs PiCode has measured a read-only catalog command for,
+// in the order Supported lists them.
+var (
+	readerOrder = []string{"omp", "pi"}
+	readers     = map[string]reader{
+		"omp": {command: "omp", probe: probeOmp, inputs: ompInputs},
+		"pi":  {command: "pi", probe: probePi, inputs: piInputs},
+	}
+)
+
+// panes are the CLIs whose Models pane edits their own model lists (ADR-0181);
+// a CLI can have a reader — its catalog feeds pickers — without that pane.
+var panes = []string{"omp"}
 
 // Supports reports whether PiCode knows how to ask this CLI.
 func Supports(cli string) bool {
-	for _, id := range supported {
-		if id == cli {
-			return true
-		}
-	}
-	return false
+	_, ok := readers[cli]
+	return ok
 }
 
-// Supported lists them, for the test that keeps the UI's list in step.
-func Supported() []string { return append([]string{}, supported...) }
+// Supported lists them.
+func Supported() []string { return append([]string{}, readerOrder...) }
 
-// The probe costs about eleven seconds (measured 2026-09-22), so an answer is
-// kept while the files that decide it are unchanged: both config layers and the
-// custom providers, by path, size and modification time. A save in PiCode's own
-// panes changes one of them, so a write is never answered from before it.
-//
-// The credential store and the catalog cache are deliberately not in the
-// fingerprint: omp rewrites both on every run — measured, the first version of
-// this cache keyed on them and never hit once — and several omp terminals share
-// them on the owner's machine. What they would have caught (a sign-in, a
-// catalog refresh) is covered by the age bound and by the pane's Refresh, which
-// asks again regardless (`fresh`).
+// Panes lists the CLIs with a Models pane, for the test that keeps the UI's
+// list in step.
+func Panes() []string { return append([]string{}, panes...) }
+
+// An answer is kept while the files that decide it are unchanged — by path,
+// size and modification time — and for at most cacheFor; a save in PiCode's
+// own panes changes one of them, so a write is never answered from before it.
+// Each reader names its files (measured per CLI: see ompInputs, piInputs).
 const cacheFor = 10 * time.Minute
 
 type cached struct {
@@ -117,22 +140,11 @@ type cached struct {
 var (
 	cacheMu sync.Mutex
 	cache   = map[string]cached{}
-	// home is the CLI's config root; tests point it at a fixture.
+	// home is the CLIs' config root; tests point it at a fixture.
 	home = func() string { h, _ := os.UserHomeDir(); return h }
 )
 
-func fingerprint(dir string) string {
-	agent := filepath.Join(home(), ".omp", "agent")
-	if v := os.Getenv("PI_CODING_AGENT_DIR"); v != "" {
-		agent = v
-	}
-	files := []string{
-		filepath.Join(agent, "config.yml"),
-		filepath.Join(agent, "models.yml"),
-	}
-	if dir != "" {
-		files = append(files, filepath.Join(dir, ".omp", "config.yml"), filepath.Join(dir, ".omp", "settings.json"))
-	}
+func stamp(files []string) string {
 	var b strings.Builder
 	for _, f := range files {
 		if st, err := os.Stat(f); err == nil {
@@ -144,25 +156,70 @@ func fingerprint(dir string) string {
 	return b.String()
 }
 
+// fingerprint is the state of every file that decides cli's answer in dir.
+func fingerprint(cli, command, dir string) string {
+	r, ok := readers[cli]
+	if !ok {
+		return ""
+	}
+	if command == "" {
+		command = r.command
+	}
+	return stamp(r.inputs(command, dir))
+}
+
+// omp: both config layers and the custom providers. The credential store and
+// the catalog cache are deliberately not in it: omp rewrites both on every run
+// — measured, the first version of this cache keyed on them and never hit once
+// — and several omp terminals share them on the owner's machine. What they
+// would have caught (a sign-in, a catalog refresh) is covered by the age bound
+// and by the pane's Refresh, which asks again regardless (`fresh`).
+func ompInputs(_, dir string) []string {
+	agent := filepath.Join(home(), ".omp", "agent")
+	if v := os.Getenv("PI_CODING_AGENT_DIR"); v != "" {
+		agent = v
+	}
+	files := []string{
+		filepath.Join(agent, "config.yml"),
+		filepath.Join(agent, "models.yml"),
+	}
+	if dir != "" {
+		files = append(files, filepath.Join(dir, ".omp", "config.yml"), filepath.Join(dir, ".omp", "settings.json"))
+	}
+	return files
+}
+
 // Read asks the CLI for its catalog, in dir. An empty dir runs where the daemon
 // runs, which answers for the machine rather than for a project.
 func Read(ctx context.Context, cli, dir string, fresh bool) (Report, error) {
-	if !Supports(cli) {
+	return ReadCommand(ctx, cli, "", dir, fresh)
+}
+
+// ReadCommand is Read with the binary to run named — "" is the reader's own
+// (`pi`, `omp`). The Pi catalog passes the daemon's configured AgentCmd.
+func ReadCommand(ctx context.Context, cli, command, dir string, fresh bool) (Report, error) {
+	r, ok := readers[cli]
+	if !ok {
 		return Report{}, fmt.Errorf("PiCode cannot ask %s for its models", cli)
 	}
-	key := cli + "\x00" + dir
+	if command == "" {
+		command = r.command
+	}
+	key := cli + "\x00" + command + "\x00" + dir
 	if !fresh {
 		cacheMu.Lock()
 		c, ok := cache[key]
 		cacheMu.Unlock()
-		if ok && c.print == fingerprint(dir) && time.Since(c.at) < cacheFor {
+		if ok && c.print == fingerprint(cli, command, dir) && time.Since(c.at) < cacheFor {
 			return c.rep, nil
 		}
 	}
 	// Taken before the probe, so a config written while it runs makes the next
 	// read ask again rather than keep an answer from before the write.
-	print := fingerprint(dir)
-	rep, err := probe(ctx, dir)
+	print := fingerprint(cli, command, dir)
+	ctx, cancel := context.WithTimeout(ctx, readTimeout)
+	defer cancel()
+	rep, err := r.probe(ctx, command, dir)
 	if err != nil {
 		return Report{}, err
 	}
@@ -173,12 +230,22 @@ func Read(ctx context.Context, cli, dir string, fresh bool) (Report, error) {
 	return rep, nil
 }
 
-func probe(ctx context.Context, dir string) (Report, error) {
-	ctx, cancel := context.WithTimeout(ctx, readTimeout)
-	defer cancel()
+// Forget drops every kept answer for cli, for a change PiCode made that no
+// input file shows yet — or one it shows only after the next write.
+func Forget(cli string) {
+	cacheMu.Lock()
+	for k := range cache {
+		if strings.HasPrefix(k, cli+"\x00") {
+			delete(cache, k)
+		}
+	}
+	cacheMu.Unlock()
+}
+
+func probeOmp(ctx context.Context, command, dir string) (Report, error) {
 	// `--kind all` is the vendor's own word for "every kind", and the roles
 	// that are not chat roles (image, speech, dictation, judge, web) need it.
-	cmd := exec.CommandContext(ctx, "omp", "models", "--json", "--kind", "all")
+	cmd := exec.CommandContext(ctx, command, "models", "--json", "--kind", "all")
 	if dir != "" {
 		cmd.Dir = dir
 	}

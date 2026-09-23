@@ -122,7 +122,7 @@ func runningOnWSL() bool {
 
 func handleCatalog(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rep, err := loadCatalog(deps)
+		rep, err := loadCatalogFresh(deps, r.URL.Query().Get("fresh") == "1")
 		if err != nil {
 			writeErr(w, http.StatusServiceUnavailable, err.Error())
 			return
@@ -135,8 +135,10 @@ func handleCatalog(deps Deps) http.HandlerFunc {
 // llama models, and how many agents and automations name each provider — so
 // "the catalog" has one definition here. The credential roster reads pi's
 // provider list from the same place (ADR-0169).
-func loadCatalog(deps Deps) (catalog.Report, error) {
-	rep, err := catalog.Load(deps.AgentCmd)
+func loadCatalog(deps Deps) (catalog.Report, error) { return loadCatalogFresh(deps, false) }
+
+func loadCatalogFresh(deps Deps, fresh bool) (catalog.Report, error) {
+	rep, err := catalog.LoadFresh(deps.AgentCmd, fresh)
 	if err != nil {
 		return rep, err
 	}

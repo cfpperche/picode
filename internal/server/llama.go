@@ -1,12 +1,15 @@
 package server
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/cfpperche/picode/internal/store"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/cfpperche/picode/internal/catalog"
 	"github.com/cfpperche/picode/internal/llama"
@@ -43,6 +46,8 @@ func handleLlamaList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	models, err := c.List()
+	// The pane asked the server live; the catalog keeps that answer.
+	rememberCatalogLlama(models, err)
 	ok := err == nil
 	if models == nil {
 		models = []llama.Model{}
@@ -83,16 +88,87 @@ func handleLlamaHFInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, info)
 }
 
+// The catalog asks the llama.cpp server which models are loaded, and every
+// catalog read used to ask again with a 2 s timeout. A configured server that
+// accepts and never answers (measured 2026-09-23: 127.0.0.1:8080 on the owner's
+// WSL) made every /api/catalog, and so every model picker, wait those 2 s. Now
+// the answer — a failure included — is kept per server and key and served at
+// once; past catalogLlamaFor it is refreshed in the background, so only the
+// first read after the daemon starts (or after the server setting changes)
+// waits. The llama pane's own live read and its model operations refresh it.
+const catalogLlamaFor = 30 * time.Second
+
+var catalogLlama struct {
+	sync.Mutex
+	key        string
+	at         time.Time
+	models     []llama.Model
+	err        error
+	refreshing bool
+}
+
+// listCatalogLlama is the probe itself; tests replace it.
+var listCatalogLlama = func() ([]llama.Model, error) {
+	c, err := llamaClient()
+	if err != nil {
+		return nil, err
+	}
+	c.ShortTimeout()
+	return c.List()
+}
+
+// catalogLlamaKey names the server being asked: its URL and a digest of its
+// key, so a changed setting is a different entry and never answered from the
+// old one (the key itself is not kept).
+func catalogLlamaKey() string {
+	sum := sha256.Sum256([]byte(catalog.LlamaKey()))
+	return llamaURL() + "\x00" + string(sum[:8])
+}
+
+func catalogLlamaModels() ([]llama.Model, error) {
+	key := catalogLlamaKey()
+	catalogLlama.Lock()
+	if catalogLlama.key == key && !catalogLlama.at.IsZero() {
+		models, err := catalogLlama.models, catalogLlama.err
+		if time.Since(catalogLlama.at) >= catalogLlamaFor && !catalogLlama.refreshing {
+			catalogLlama.refreshing = true
+			go func() {
+				models, err := listCatalogLlama()
+				rememberCatalogLlama(models, err)
+			}()
+		}
+		catalogLlama.Unlock()
+		return models, err
+	}
+	catalogLlama.Unlock()
+	models, err := listCatalogLlama()
+	rememberCatalogLlama(models, err)
+	return models, err
+}
+
+func rememberCatalogLlama(models []llama.Model, err error) {
+	catalogLlama.Lock()
+	catalogLlama.key, catalogLlama.at, catalogLlama.models, catalogLlama.err = catalogLlamaKey(), time.Now(), models, err
+	catalogLlama.refreshing = false
+	catalogLlama.Unlock()
+}
+
+// forgetCatalogLlama ages the kept answer out: a load, unload or download
+// changes which models are loaded, so the next catalog read refreshes it in
+// the background while still answering at once.
+func forgetCatalogLlama() {
+	catalogLlama.Lock()
+	if !catalogLlama.at.IsZero() {
+		catalogLlama.at = time.Now().Add(-catalogLlamaFor)
+	}
+	catalogLlama.Unlock()
+}
+
 func attachLlamaModels(rep *catalog.Report) {
 	if catalog.LlamaURL() == "" && catalog.LlamaKey() == "" {
 		return
 	}
-	c, err := llamaClient()
-	if err != nil {
-		return
-	}
-	c.ShortTimeout()
-	models, err := c.List()
+	models, err := catalogLlamaModels()
 	if err != nil {
 		return
 	}
@@ -153,6 +229,7 @@ func handleLlamaOperation(deps Deps, operation string) http.HandlerFunc {
 			llamaJobError(w, err)
 			return
 		}
+		forgetCatalogLlama()
 		writeJSON(w, http.StatusAccepted, map[string]any{"job": j})
 	}
 }

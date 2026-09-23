@@ -76,10 +76,12 @@ func TestSelectorIsAlwaysPresent(t *testing.T) {
 }
 
 func TestOnlyDeclaredCLIsAnswer(t *testing.T) {
-	if !Supports("omp") {
-		t.Error("omp has a reader")
+	for _, cli := range []string{"omp", "pi"} {
+		if !Supports(cli) {
+			t.Errorf("%s has a reader", cli)
+		}
 	}
-	for _, cli := range []string{"pi", "claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy"} {
+	for _, cli := range []string{"claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy"} {
 		if Supports(cli) {
 			t.Errorf("%s has no measured way to list its models", cli)
 		}
@@ -112,8 +114,8 @@ func TestJSListMatchesTheReaders(t *testing.T) {
 			js = append(js, id)
 		}
 	}
-	if strings.Join(js, ",") != strings.Join(Supported(), ",") {
-		t.Fatalf("UI list %v, readers %v", js, Supported())
+	if strings.Join(js, ",") != strings.Join(Panes(), ",") {
+		t.Fatalf("UI list %v, panes %v", js, Panes())
 	}
 }
 
@@ -141,7 +143,7 @@ func TestFingerprintMovesWithTheFiles(t *testing.T) {
 	t.Cleanup(func() { home = old })
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	ws := t.TempDir()
-	a := fingerprint(ws)
+	a := fingerprint("omp", "", ws)
 	cfg := filepath.Join(h, ".omp", "agent", "config.yml")
 	if err := os.MkdirAll(filepath.Dir(cfg), 0o755); err != nil {
 		t.Fatal(err)
@@ -149,7 +151,7 @@ func TestFingerprintMovesWithTheFiles(t *testing.T) {
 	if err := os.WriteFile(cfg, []byte("disabledProviders: [groq]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	b := fingerprint(ws)
+	b := fingerprint("omp", "", ws)
 	if a == b {
 		t.Fatal("creating the global config did not move the fingerprint")
 	}
@@ -160,7 +162,7 @@ func TestFingerprintMovesWithTheFiles(t *testing.T) {
 	if err := os.WriteFile(proj, []byte("disabledProviders: [openai]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	c := fingerprint(ws)
+	c := fingerprint("omp", "", ws)
 	if c == b {
 		t.Fatal("writing the workspace config did not move the fingerprint")
 	}
@@ -168,10 +170,10 @@ func TestFingerprintMovesWithTheFiles(t *testing.T) {
 	if err := os.Chtimes(proj, later, later); err != nil {
 		t.Fatal(err)
 	}
-	if fingerprint(ws) == c {
+	if fingerprint("omp", "", ws) == c {
 		t.Fatal("a touched workspace config did not move the fingerprint")
 	}
-	if fingerprint("") == fingerprint(ws) {
+	if fingerprint("omp", "", "") == fingerprint("omp", "", ws) {
 		t.Fatal("the machine answer and a workspace answer must not share a fingerprint")
 	}
 }

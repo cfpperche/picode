@@ -15,6 +15,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	os.Setenv(ompRulesEnv, filepath.Join(dir, "no-omp-rules.json"))
+	os.Setenv(hermesCatalogEnv, filepath.Join(dir, "no-hermes-catalog.json"))
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)

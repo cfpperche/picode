@@ -34,6 +34,9 @@ func TestMain(m *testing.M) {
 	if os.Getenv("PICODE_FAKE_GROK") == "1" {
 		os.Exit(fakeGrok(os.Args[1:]))
 	}
+	if os.Getenv("PICODE_FAKE_HERMES") == "1" {
+		os.Exit(fakeHermes(os.Args[1:]))
+	}
 	home, err := os.MkdirTemp("", "picode-test-home")
 	if err != nil {
 		panic(err)
@@ -54,6 +57,7 @@ func TestMain(m *testing.M) {
 	// omp_catalog.go): a developer machine with Omp installed would get a
 	// different roster than CI. Point the reader at nothing.
 	os.Setenv("PICODE_OMP_RULES", filepath.Join(home, "no-omp-rules.json"))
+	os.Setenv("PICODE_HERMES_CATALOG", filepath.Join(home, "no-hermes-catalog.json"))
 	os.Exit(tmuxtest.Main(m))
 }
 

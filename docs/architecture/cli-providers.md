@@ -101,7 +101,12 @@ dialog (`GrokLoginDialog.jsx`, `add.kind: "grok"`, ADR-0192) runs Grok's own
 (`POST`/`GET`/`DELETE /api/grok/login`); an xAI key becomes the login in use
 only when chosen — Grok's session, which outranks the key, is filed in the
 vault and signed out, and `XAI_API_KEY` rides new launches; Use on the
-session writes it back from the copy of `auth.json` kept at the logout. The
+session writes it back from the copy of `auth.json` kept at the logout. Hermes
+(ADR-0193) uses pi's picker fed by its roster, which appends Hermes's own
+registry (read through its venv's Python); the key door runs `hermes auth add
+<id> --type api-key` with the key on stdin, the account door its device-code
+sign-in, and what Hermes stored is filed in the vault. A new credential goes
+last in Hermes's pool. The
 other guests'
 dialog still holds a provider `<select>`
 limited to that CLI's providers, the key field with the line that says the

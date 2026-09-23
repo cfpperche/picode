@@ -38,6 +38,7 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [userCode, setUserCode] = useState("");
+  const [authPage, setAuthPage] = useState("");
   const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
   // The picker is filtered and ordered here, not by cmdk: cmdk re-sorts the
   // DOM on every keystroke and keeps its own scroll, which left the list
@@ -88,6 +89,7 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
     setKey("");
     setErr("");
     setUserCode("");
+    setAuthPage("");
     setLlamaUrl("http://127.0.0.1:8080");
     setQuery("");
     setBusy(false);
@@ -102,8 +104,15 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
     reset();
   }, [open]);
 
+  // A Hermes sign-in runs `hermes auth add` on the server until it ends:
+  // leaving the step stops it, or it would hold the next sign-in back.
+  function stopHermes() {
+    if (cli === "hermes" && waiting) api("/api/hermes/credential", { method: "DELETE" }).catch(() => {});
+  }
+
   function close() {
     oauthAttempt.current++;
+    stopHermes();
     reset();
     if (onClose) onClose();
   }
@@ -119,6 +128,7 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
 
   function goBack() {
     oauthAttempt.current++;
+    stopHermes();
     setWaiting(false);
     setBusy(false);
     if ((step === "key" || step === "oauth") && pick && pick.login === "both") {
@@ -149,7 +159,14 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
     setBusy(true);
     setErr("");
     try {
-      if (guest) {
+      if (cli === "hermes") {
+        // Hermes adds the key to its own pool, last in line (ADR-0193).
+        await api("/api/hermes/credential", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: pick.id, type: "api_key", key: parsed.value.key }),
+        });
+      } else if (guest) {
         // A guest's key lands in the vault; the CLI reads it through the
         // variable its roster names (omp: at launch, ADR-0178).
         await api("/api/credentials", {
@@ -203,7 +220,14 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
     setBusy(true);
     setErr("");
     try {
-      const res = guest
+      const hermes = cli === "hermes";
+      const res = hermes
+        ? await api("/api/hermes/credential", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: pick.id, type: "oauth" }),
+        })
+        : guest
         ? await api("/api/credentials/signin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -217,19 +241,19 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
       if (!current()) return;
       // The CLI's own login runs in a terminal: the pane's sign-in strip owns
       // it from here (the door to that terminal and Check now), not a modal.
-      if (guest && !res.oauth) {
+      if (guest && !hermes && !res.oauth) {
         close();
         if (onTerminalSignin) onTerminalSignin(res);
         return;
       }
       if (res && res.userCode) setUserCode(res.userCode);
-      if (res && res.url) window.open(res.url, "_blank", "noopener");
+      if (res && res.url) { setAuthPage(res.url); window.open(res.url, "_blank", "noopener"); }
       setWaiting(true);
       const t0 = Date.now();
       while (Date.now() - t0 < 5 * 60 * 1000) {
         await new Promise((r) => setTimeout(r, 1000));
         if (!current()) return;
-        const st = await api("/api/oauth/status");
+        const st = await api(hermes ? "/api/hermes/credential" : "/api/oauth/status");
         if (!current()) return;
         if (st && st.done) {
           setWaiting(false);
@@ -279,7 +303,7 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
         <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">{title}</Dialog.Title>
           <Dialog.Description className="dlg-body">
-            {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : inTerminal ? cliName + " signs in to " + label(pick) + " in a terminal of its own; PiCode opens it for you." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
+            {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : pick && pick.signin === "device" ? cliName + " signs in to " + label(pick) + " with a one-time code you confirm in the browser." : inTerminal ? cliName + " signs in to " + label(pick) + " in a terminal of its own; PiCode opens it for you." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
           </Dialog.Description>
 
           {step === "pick" ? (
@@ -325,11 +349,14 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
           {step === "oauth" ? (
             <div>
               {userCode ? <p className="oauth-code">{userCode}</p> : null}
+              {waiting && authPage ? (
+                <a className="cred-help cred-link-block" href={authPage} target="_blank" rel="noopener noreferrer">Open the sign-in page again</a>
+              ) : null}
               <p className="form-error" hidden={!err}>{err}</p>
               <div className="dlg-actions" data-align-row data-align-wrap>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                 {canAccount ? (
-                  <button type="button" className="btn btn-primary btn-sm" disabled={busy || waiting} onClick={startAccount}>{waiting ? "Waiting…" : inTerminal ? (busy ? "Opening…" : "Open sign-in") : "Continue in browser"}</button>
+                  <button type="button" className="btn btn-primary btn-sm" disabled={busy || waiting} onClick={startAccount}>{waiting ? <span className="cred-waiting">Waiting</span> : inTerminal ? (busy ? "Opening…" : "Open sign-in") : pick && pick.signin === "device" ? "Get a code" : "Continue in browser"}</button>
                 ) : (
                   <button type="button" className="btn btn-primary btn-sm" onClick={close}>Close</button>
                 )}

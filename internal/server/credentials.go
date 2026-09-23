@@ -47,6 +47,9 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("PUT /api/claude-code/platform", handleClaudePlatformPut(deps))
 	mux.HandleFunc("POST /api/codex/login", handleCodexLoginStart(deps))
 	mux.HandleFunc("POST /api/grok/login", handleGrokLoginStart(deps))
+	mux.HandleFunc("POST /api/hermes/credential", handleHermesCredential(deps))
+	mux.HandleFunc("GET /api/hermes/credential", handleHermesLoginStatus)
+	mux.HandleFunc("DELETE /api/hermes/credential", handleHermesLoginCancel)
 	mux.HandleFunc("GET /api/grok/login", handleGrokLoginStatus)
 	mux.HandleFunc("DELETE /api/grok/login", handleGrokLoginCancel)
 	mux.HandleFunc("GET /api/codex/login", handleCodexLoginStatus)
@@ -184,6 +187,11 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			if spec.CLI == "grok" {
 				out["add"] = map[string]any{"kind": "grok", "label": "Add provider"}
 			}
+			// Hermes adds to its own pool by `hermes auth add` (ADR-0193):
+			// pi's picker, fed by Hermes's roster, with Hermes's doors.
+			if spec.CLI == "hermes" {
+				out["add"] = map[string]any{"kind": "provider", "label": "Add provider"}
+			}
 			// omp keeps provider definitions of its own in models.yml (the
 			// owner's amendment to ADR-0169): the same custom door pi has,
 			// with the definitions riding this roster as rows below.
@@ -308,6 +316,13 @@ func attachSignin(spec clicreds.Spec, providers []providerView) {
 		switch {
 		case (spec.CLI == "omp" || spec.CLI == "claude-code") && oauth.Supports(p.ID):
 			p.Signin = "browser"
+		// Hermes runs every OAuth PiCode offers as a device code (ADR-0193).
+		// Hermes: a device code where Hermes runs one, else no account door —
+		// its terminal login asks for a provider, not this one.
+		case spec.CLI == "hermes":
+			if clicreds.HermesDeviceSignin(p.ID) {
+				p.Signin = "device"
+			}
 		case spec.Login != nil:
 			p.Signin = "terminal"
 		}
