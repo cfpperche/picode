@@ -4,6 +4,7 @@ import { cliSettingsHash, cliSettingsQuery } from "@picode/shared/domain/cliSett
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliMemoryHash } from "@picode/shared/domain/cliNative.js";
 import { cliConnectorsHash } from "@picode/shared/domain/integrations.js";
+import { cliSkillsHash } from "@picode/shared/domain/cliSkills.js";
 
 const RUN = [
   { id: "launch", label: "Launch" },
@@ -23,6 +24,8 @@ const SETUP = [
   // the tab; the ones with no native memory answer in one line.
   { id: "memory", label: "Memory" },
   { id: "packages", label: "Packages" },
+  // Standalone Agent Skills each CLI loads, and from where (ADR-0196).
+  { id: "skills", label: "Skills" },
   { id: "connectors", label: "Connectors" },
 ];
 
@@ -37,6 +40,7 @@ export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
   if (pane === "models") return cliModelsHash(cli, { workspaceId: ctx.workspaceId || "", layer: ctx.layer || "" });
   if (pane === "memory") return cliMemoryHash(cli, { workspaceId: ctx.workspaceId || "", scope: ctx.scope === "workspace" || ctx.scope === "global" ? ctx.scope : "" });
   if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
+  if (pane === "skills") return cliSkillsHash(cli, { workspaceId: ctx.workspaceId || "" });
   if (pane === "connectors") return cliConnectorsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
   return cliPaneHash(cli, pane, pane === "sessions" ? workspace : "");
 }
