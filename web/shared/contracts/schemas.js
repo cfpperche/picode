@@ -136,7 +136,7 @@ export const apiKeySchema = z.object({
 // checks the same rules; these give the same message in every browser.
 const REGION = /^[a-z0-9-]{2,32}$/;
 export const claudePlatformSchema = z.object({
-  kind: z.enum(["bedrock", "vertex", "foundry"]),
+  kind: z.enum(["bedrock", "vertex", "foundry", "gateway"]),
   auth: z.string().min(1, "Pick how Claude Code signs in."),
   region: z.string().trim().optional(),
   profile: z.string().trim().optional(),
@@ -148,6 +148,10 @@ export const claudePlatformSchema = z.object({
   keyFile: z.string().trim().optional(),
   resource: z.string().trim().optional(),
   apiKey: z.string().trim().optional(),
+  baseUrl: z.string().trim().optional(),
+  authToken: z.string().trim().optional(),
+  model: z.string().trim().optional(),
+  fastModel: z.string().trim().optional(),
 }).superRefine((v, ctx) => {
   const need = (ok, path, message) => { if (!ok) ctx.addIssue({ code: "custom", path: [path], message }); };
   if (v.kind === "bedrock") {
@@ -160,6 +164,16 @@ export const claudePlatformSchema = z.object({
     need(!!v.project, "project", "A Google Cloud project ID is required.");
     need(REGION.test(v.region || ""), "region", "A region is required, like us-east5 or global.");
     if (v.auth === "serviceAccount") need((v.keyFile || "").startsWith("/"), "keyFile", "The service account key file needs its full path.");
+  }
+  if (v.kind === "gateway") {
+    let ok = false;
+    try {
+      const u = new URL(v.baseUrl || "");
+      const local = ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname);
+      ok = u.protocol === "https:" || (u.protocol === "http:" && local);
+    } catch { ok = false; }
+    need(ok, "baseUrl", "The gateway URL must start with https:// (http:// only for this machine).");
+    need(!!v.authToken, "authToken", "The gateway's token is required.");
   }
   if (v.kind === "foundry") {
     need(/^[A-Za-z0-9-]{2,64}$/.test(v.resource || ""), "resource", "The Foundry resource name is required (letters, digits and dashes).");

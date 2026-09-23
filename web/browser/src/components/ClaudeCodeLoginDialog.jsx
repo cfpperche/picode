@@ -46,6 +46,12 @@ const PLATFORMS = {
     ],
     region: "global",
   },
+  // An Anthropic-compatible gateway (ADR-0190): Claude Code's own LLM
+  // gateway setup, a base URL and a token.
+  gateway: {
+    name: "Anthropic-compatible gateway",
+    auth: [["token", "Gateway token"]],
+  },
 };
 
 function blankPlatform(kind, from) {
@@ -59,6 +65,10 @@ function blankPlatform(kind, from) {
     project: (same && same.project) || "",
     resource: (same && same.resource) || "",
     keyFile: (same && same.keyFile) || "",
+    baseUrl: (same && same.baseUrl) || "",
+    model: (same && same.model) || "",
+    fastModel: (same && same.fastModel) || "",
+    authToken: "",
     bearerToken: "", accessKeyId: "", secretAccessKey: "", sessionToken: "", apiKey: "",
   };
 }
@@ -127,7 +137,7 @@ export default function ClaudeCodeLoginDialog({ open, onClose, onSaved, onTermin
     setErr("");
     try {
       await api("/api/claude-code/platform", { ...JSON_POST(parsed.value), method: "PUT" });
-      await done("Claude Code will use " + PLATFORMS[pf.kind].name + " in new terminals.");
+      await done("Claude Code will use " + (pf.kind === "gateway" ? "your gateway" : PLATFORMS[pf.kind].name) + " in new terminals.");
     } catch (ex) {
       setErr(ex.message);
       setBusy(false);
@@ -213,7 +223,7 @@ export default function ClaudeCodeLoginDialog({ open, onClose, onSaved, onTermin
     : step === "console"
       ? "Billed by API usage. Claude Code uses this key in new terminals instead of your subscription."
       : step === "platforms"
-        ? "Billed by your cloud account. Pick where Claude Code runs."
+        ? "Pick where Claude Code runs: your cloud account, or a gateway that speaks Anthropic's API."
         : step === "platform"
           ? "Saved in Claude Code's own settings, the way its /login saves it. New terminals use it."
           : "Use your Claude subscription, an Anthropic Console key, or a cloud platform.";
@@ -262,12 +272,34 @@ export default function ClaudeCodeLoginDialog({ open, onClose, onSaved, onTermin
 
           {step === "platform" && pf ? (
             <form className="cred-form" noValidate onSubmit={savePlatform}>
-              <label className="cred-field">
-                <span>Sign in with</span>
-                <select className="cred-input" value={pf.auth} onChange={field("auth")}>
-                  {PLATFORMS[pf.kind].auth.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </label>
+              {pf.kind === "gateway" ? (
+                <>
+                  <label className="cred-field">
+                    <span>Gateway URL</span>
+                    <input className="cred-input" type="url" autoComplete="off" spellCheck={false} placeholder="https://api.example.com/anthropic" value={pf.baseUrl} onChange={field("baseUrl")} />
+                  </label>
+                  <label className="cred-field">
+                    <span>Token</span>
+                    <input className="cred-input" type="password" autoComplete="off" spellCheck={false} value={pf.authToken} onChange={field("authToken")} />
+                  </label>
+                  <label className="cred-field">
+                    <span>Model (optional)</span>
+                    <input className="cred-input" autoComplete="off" spellCheck={false} placeholder="the gateway's default" value={pf.model} onChange={field("model")} />
+                  </label>
+                  <label className="cred-field">
+                    <span>Fast model (optional)</span>
+                    <input className="cred-input" autoComplete="off" spellCheck={false} placeholder="for quick background tasks" value={pf.fastModel} onChange={field("fastModel")} />
+                  </label>
+                  <em className="cred-help">Providers such as Z.ai, Kimi, DeepSeek and MiniMax publish an Anthropic-compatible URL for Claude Code. Your Anthropic key is not sent to it.</em>
+                </>
+              ) : (
+                <label className="cred-field">
+                  <span>Sign in with</span>
+                  <select className="cred-input" value={pf.auth} onChange={field("auth")}>
+                    {PLATFORMS[pf.kind].auth.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+              )}
               {pf.kind === "foundry" ? (
                 <label className="cred-field">
                   <span>Resource name</span>
@@ -280,7 +312,7 @@ export default function ClaudeCodeLoginDialog({ open, onClose, onSaved, onTermin
                   <input className="cred-input" autoComplete="off" spellCheck={false} placeholder="my-gcp-project" value={pf.project} onChange={field("project")} />
                 </label>
               ) : null}
-              {pf.kind !== "foundry" ? (
+              {pf.kind === "bedrock" || pf.kind === "vertex" ? (
                 <label className="cred-field">
                   <span>Region</span>
                   <input className="cred-input" autoComplete="off" spellCheck={false} placeholder={PLATFORMS[pf.kind].region} value={pf.region} onChange={field("region")} />
@@ -328,7 +360,7 @@ export default function ClaudeCodeLoginDialog({ open, onClose, onSaved, onTermin
               ) : null}
               {pf.auth === "adc" ? <em className="cred-help">Uses the Google Cloud login on this machine (gcloud auth application-default login).</em> : null}
               {pf.auth === "environment" ? <em className="cred-help">Claude Code uses the credentials its environment already has.</em> : null}
-              {editPlatform && editPlatform.kind === pf.kind && ["bearer", "accessKey", "apiKey"].includes(pf.auth) ? (
+              {editPlatform && editPlatform.kind === pf.kind && ["bearer", "accessKey", "apiKey", "token"].includes(pf.auth) ? (
                 <em className="cred-help">The saved secret is not shown. Enter it again to keep this method.</em>
               ) : null}
               <p className="form-error" role="alert" hidden={!err}>{err}</p>

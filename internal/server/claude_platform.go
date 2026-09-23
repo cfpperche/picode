@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -45,7 +46,14 @@ var claudePlatformNames = map[string]string{
 	"bedrock": "Amazon Bedrock",
 	"vertex":  "Google Vertex AI",
 	"foundry": "Microsoft Foundry",
+	"gateway": "a custom gateway",
 }
+
+// claudeGatewayKeys are an Anthropic-compatible gateway's own keys
+// (ADR-0190). Unlike a platform's, they are removed only when a gateway is the
+// login in use or is being written: an ANTHROPIC_BASE_URL someone set for a
+// corporate proxy, with no token beside it, is theirs and stays.
+var claudeGatewayKeys = []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_MODEL"}
 
 // claudePlatformRequest is the form the dialog sends. Secrets travel once,
 // on save, and are never read back.
@@ -62,6 +70,10 @@ type claudePlatformRequest struct {
 	KeyFile         string `json:"keyFile"`
 	Resource        string `json:"resource"`
 	APIKey          string `json:"apiKey"`
+	BaseURL         string `json:"baseUrl"`
+	AuthToken       string `json:"authToken"`
+	Model           string `json:"model"`
+	FastModel       string `json:"fastModel"`
 }
 
 // claudePlatformView is what the roster says about the platform in use —
@@ -75,6 +87,10 @@ type claudePlatformView struct {
 	Project  string `json:"project,omitempty"`
 	Resource string `json:"resource,omitempty"`
 	KeyFile  string `json:"keyFile,omitempty"`
+	// A gateway's address and models; its token is never read back.
+	BaseURL   string `json:"baseUrl,omitempty"`
+	Model     string `json:"model,omitempty"`
+	FastModel string `json:"fastModel,omitempty"`
 }
 
 var (
@@ -150,6 +166,25 @@ func (r claudePlatformRequest) env() (map[string]string, error) {
 		default:
 			return nil, errors.New("Pick how Claude Code signs in to Microsoft Foundry.")
 		}
+	case "gateway":
+		u, err := url.Parse(t(r.BaseURL))
+		local := err == nil && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1")
+		if err != nil || u.Host == "" || !(u.Scheme == "https" || (u.Scheme == "http" && local)) {
+			return nil, errors.New("The gateway URL must start with https:// (http:// only for this machine).")
+		}
+		if t(r.AuthToken) == "" {
+			return nil, errors.New("The gateway's token is required.")
+		}
+		out["ANTHROPIC_BASE_URL"] = t(r.BaseURL)
+		out["ANTHROPIC_AUTH_TOKEN"] = t(r.AuthToken)
+		if t(r.Model) != "" {
+			out["ANTHROPIC_MODEL"] = t(r.Model)
+		}
+		if t(r.FastModel) != "" {
+			out["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = t(r.FastModel)
+		}
+		// A gateway has no switch of its own: its URL and token are it.
+		return out, nil
 	default:
 		return nil, errors.New("Unknown platform.")
 	}
@@ -250,6 +285,13 @@ func claudePlatformInUse() (claudePlatformView, bool) {
 		}
 		return v, true
 	}
+	// A gateway is a URL with a token beside it (Claude Code's own LLM
+	// gateway setup); a URL alone is a proxy, not a login.
+	if str("ANTHROPIC_BASE_URL") != "" && str("ANTHROPIC_AUTH_TOKEN") != "" {
+		v := claudePlatformView{Kind: "gateway", Name: claudePlatformNames["gateway"], Auth: "token",
+			BaseURL: str("ANTHROPIC_BASE_URL"), Model: str("ANTHROPIC_MODEL"), FastModel: str("ANTHROPIC_DEFAULT_HAIKU_MODEL")}
+		return v, true
+	}
 	return claudePlatformView{}, false
 }
 
@@ -271,7 +313,12 @@ func writeClaudePlatformEnv(set map[string]string) error {
 	if env == nil {
 		env = map[string]any{}
 	}
-	for _, k := range claudePlatformKeys {
+	owned := claudePlatformKeys
+	current, inUse := claudePlatformInUse()
+	if (inUse && current.Kind == "gateway") || set["ANTHROPIC_BASE_URL"] != "" {
+		owned = append(append([]string{}, claudePlatformKeys...), claudeGatewayKeys...)
+	}
+	for _, k := range owned {
 		if _, ok := env[k]; ok {
 			delete(env, k)
 			changed = true

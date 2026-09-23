@@ -699,6 +699,7 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
                 + (data.platform.region ? " · " + data.platform.region : "")
                 + (data.platform.project ? " · " + data.platform.project : "")
                 + (data.platform.resource ? " · " + data.platform.resource : "")
+                + (data.platform.baseUrl ? " · " + gatewayHost(data.platform.baseUrl) : "")
                 + (shown.length ? ", instead of the accounts below." : ".")}
             </span>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setClaudeEdit(data.platform); setClaudeOpen(true); }}>Edit</button>
@@ -1038,4 +1039,9 @@ function AccountRow({
       </span>
     </li>
   );
+}
+
+// gatewayHost is the part of a gateway URL a person recognises.
+function gatewayHost(u) {
+  try { return new URL(u).host; } catch { return u; }
 }
