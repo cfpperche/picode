@@ -1,0 +1,2 @@
+### Fixed
+- **Third prose-audit wave (native surfaces and apps): ten stale path references in the Canvas architecture doc now point at the browser bundle** where that code lives (CanvasSurface, PatternSwatch, GrantedContacts, useAgentSocket, fileDocs, nativeApps, routes). work-browser, computer-tool, chrome-extension, file-preview, docker-app, docker-maintenance and tmux-app verified clean — including the 23-action computer catalog, the Docker monitor limits (30/60/300 s cadence, 32 projects, 128 containers, 7/30-day retention) and the preview ticket mechanics.

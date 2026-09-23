@@ -66,7 +66,7 @@ leave its panel behind.
 
 The owner of a `file` or `diff` ref is one letter — `t` terminal, `a` agent, `w`
 workspace — the desktop's own convention for the routes and tab ids that
-already name a file (ADR-0030, `web/desktop/src/lib/routes.js`). A path may
+already name a file (ADR-0030, `web/browser/src/lib/routes.js`). A path may
 hold colons of its own, so only the first two separate; the shape is refused
 with **"ref must be `<owner>:<id>:<path>` with owner t, a or w"** on both
 sides, and `parseRef` / `buildRef` (`web/shared/domain/canvas.js`) are the
@@ -449,7 +449,7 @@ read and revoked. `linkCounts(edges, panels, peers, names)` answers
 chip can never disagree with the line; `linkChipTitle` writes the words,
 because a bare number teaches nothing. A panel with no link has no chip.
 
-**The audit list** (`web/desktop/src/components/GrantedContacts.jsx`,
+**The audit list** (`web/browser/src/components/GrantedContacts.jsx`,
 heading **Granted contacts**), the non-spatial place ADR-0116's Consequences
 ask for by name. It is **Messages' own section**, not the Canvas reaching
 outside its app: the grant lives in `peer_connections` and decides who the
@@ -490,8 +490,8 @@ handler test in `internal/server/canvas_test.go`):
 
 The app (`internal/apps/canvas.go`: id `canvas`, icon `canvas`, `surface:
 "native"`, no badge — ADR-0109) is registered by the desktop as `canvas`
-in `web/desktop/src/lib/nativeApps.js` and mounts
-`web/desktop/src/components/canvas/CanvasSurface.jsx` with `host` plus
+in `web/browser/src/lib/nativeApps.js` and mounts
+`web/browser/src/components/canvas/CanvasSurface.jsx` with `host` plus
 `initialPath` / `onPathChange`, so `#/app/canvas/<canvasId>` opens that
 canvas and switching updates the hash. The phone lists the tile as
 *Desktop only*.
@@ -507,7 +507,7 @@ carries none of it: the desktop's main chunk dropped 15 376 B of JS and
 `#/app/matrix/<id>` are replaced — never pushed — with the canvas route,
 path and all, and an `x:matrix` restored from `localStorage` is rewritten to
 `x:canvas` on the way out of `readOpenTabs`. Both read one map,
-`RENAMED_APPS` in `web/desktop/src/lib/routes.js` (`renamedAppId` /
+`RENAMED_APPS` in `web/browser/src/lib/routes.js` (`renamedAppId` /
 `renamedAppHash` / `renamedTabId`), because a bookmark and a saved tab strip
 disagreeing is exactly what a second mechanism would eventually do. The
 redirect is its own effect declared before the one that resolves a hash into
@@ -526,13 +526,13 @@ in this binary.
 | `Plane.jsx` | the plane's host: `@xyflow/react` 12.11.6, lazy-imported, one custom node type rendering the same `Panel`; the camera, the zoom rule and the minimap. Not `CanvasCanvas.jsx`: it is named for what it is. **Canvas** below |
 | `PanelStill.jsx`, `stills.js` | the two bodies a canvas panel has instead of a live pane — the text still and the name-plate — and the memory-only map of captured screens |
 | `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), the link chip, Open · Maximize · Remove from canvas; it observes its own visibility; two memo layers so a re-render never touches a body |
-| `AgentChatPanel.jsx`, `web/desktop/src/hooks/useAgentSocket.js` | a managed agent's body (phase 4): one `/ws/agent?agent=` per mount driving the desktop's own `lib/agentEvents.js` reducer and reconciling `…/sessions/transcript?agent=&tail=200`, rendered by the tab's `Conversation` in `readOnly` mode. The **Chat body** section below |
+| `AgentChatPanel.jsx`, `web/browser/src/hooks/useAgentSocket.js` | a managed agent's body (phase 4): one `/ws/agent?agent=` per mount driving the desktop's own `lib/agentEvents.js` reducer and reconciling `…/sessions/transcript?agent=&tail=200`, rendered by the tab's `Conversation` in `readOnly` mode. The **Chat body** section below |
 | `PanelBody.jsx`, `TerminalPanel.jsx`, `NotePanel.jsx`, `FilePanel.jsx`, `DiffPanel.jsx` | `PanelBody` routes by **kind**: a terminal or an agent is `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record), a note is `NotePanel` — one `GET /api/pins/{id}` per mount, `react-markdown` + `remarkGfm` over the app's `.md` styles, refetched on that pin's `pin.updated` (it subscribes to the feed itself, as the Inspector does for `git.updated`) — a file is `FilePanel`, which is `FilePane` with `variant="embedded"` plus the two things the canvas adds (`docKey`, `onDirty`) — a diff is `DiffPanel`, `WorkingDiff` under a nonce the feed bumps. Unloaded → one muted line with the feed's last state; the rows below as one line + one action |
 | `PanelFace.jsx` | the mark that says what a panel is bound to, in the header and on the name-plate: a provider face, a CLI badge, or the pin mark |
 | `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list **grouped by kind** — Agents, Terminals, Pins, Open files, Changes to an open file — of what is not yet on this canvas, with the sidebar's faces and words; a group with nothing in it says so under the list with its one action (*No pins yet.* — New pin); the name form (`canvasNameSchema`, Zod, the store's messages, `noValidate`) |
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
-| `Link.jsx`, `web/desktop/src/components/GrantedContacts.jsx` | how one edge draws on the plane, and Messages' **Granted contacts** audit list — the **Edges** section above |
-| `web/desktop/src/lib/fileDocs.js` | the open documents of `file` panels, keyed by ref and held outside React — `paneOwnership.js` for an editor, so maximizing a panel keeps unsaved text |
+| `Link.jsx`, `web/browser/src/components/GrantedContacts.jsx` | how one edge draws on the plane, and Messages' **Granted contacts** audit list — the **Edges** section above |
+| `web/browser/src/lib/fileDocs.js` | the open documents of `file` panels, keyed by ref and held outside React — `paneOwnership.js` for an editor, so maximizing a panel keeps unsaved text |
 | `web/shared/domain/canvas.js` | `nextSlot`, `layoutDiff`, `parseRef` / `buildRef` / `validateRef`, `refOwner`, `gitTouches`, `bindingState`, `hasPane`, `loadPolicy` (with the zoom and the per-row `pane`), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `hasChat` / `CHAT_STATES` / `CHAT_LIVE_MAX` / `chatBudget`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `canvas.test.js` |
 
 **The fleet decides what a panel is bound to**, and a note's pin follows the
@@ -959,7 +959,7 @@ an unfinished app-wide feature — a texture under a file tree, a transcript
 or a git graph is noise behind content, and those surfaces are content.
 
 **The rows show the pattern, not a word.**
-`web/desktop/src/components/canvas/PatternSwatch.jsx` draws React Flow's own
+`web/browser/src/components/canvas/PatternSwatch.jsx` draws React Flow's own
 geometry with the plane's own tokens (`--canvas-pattern` over `--bg-base`),
 so a row cannot drift from what the plane draws. The one deliberate
 difference is density: the swatch tiles every 8 px against the plane's 32,
@@ -991,7 +991,7 @@ disabled-with-a-tooltip: a control that cannot act is not drawn.
 tab keeps `conversation`; a canvas may hold several at once, so a panel
 passes null and no id repeats).
 
-**The socket is per mount** (`web/desktop/src/hooks/useAgentSocket.js`, the
+**The socket is per mount** (`web/browser/src/hooks/useAgentSocket.js`, the
 desktop port of the phone's hook): one `/ws/agent?agent=<id>`, the desktop's
 own pure reducer (`lib/agentEvents.js` — not a third copy), and the
 transcript window reconciled on every `snapshot` and `agent_settled`

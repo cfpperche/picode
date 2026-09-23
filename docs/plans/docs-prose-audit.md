@@ -43,28 +43,16 @@ flows/states · cross-references (symbols, files, ADRs).
 - [x] terminal-bridge.md — clean: backoff 1s→10s/12 bursts, RespawnPaneEnv/PasteText/PaneCommand/PaneSessionID, bornGrace 5s, tmux-guard table (`tmux-guard.log`, `show-environment` probe, `# PiCode intercept` marker), ADR-0138/0139/0180/0112 all verified in code
 - [x] security-model.md — clean: guarded() = `/api/`,`/ws/`,`/mcp/communication`; PairingTTL 10min, 5 fails/min + 10min lockout, daily prune after a week; preview ticket DefaultTTL 1h; webapps fetch 4s/256KB/64KB; appCSP `ipc.localhost` desktop-only; `external.rs` allowlist as described
 
-## Wave 2 — Agent CLIs stack
-
-- [ ] cli-terminal-launch.md
-- [ ] cli-providers.md
-- [ ] cli-session-handoff.md
-- [ ] cli-settings.md
-- [ ] cli-memory.md
-- [ ] packages.md
-- [ ] mcp.md
-- [ ] integrations.md
-
 ## Wave 3 — native surfaces & apps
 
-- [ ] work-browser.md
-- [ ] computer-tool.md
-- [ ] chrome-extension.md
-- [ ] canvas.md
-- [ ] docker-app.md
-- [ ] docker-maintenance.md
-- [ ] tmux-app.md
-- [ ] file-preview.md
-
+- [x] canvas.md — 10 DRIFT fixed, all one class: `web/desktop/src/{components,hooks,lib}/…` paths → the browser bundle (GrantedContacts, CanvasSurface, PatternSwatch, useAgentSocket, fileDocs, nativeApps, routes). Numbers verified (panel min 256×224 = 32×28 units)
+- [x] work-browser.md — clean: all cited rs/js files exist, ADRs 0132/0134/0135/0144/0146/0172 exist
+- [x] computer-tool.md — clean: closed catalog of 23 confirmed by counting `internal/computer/actions.go`; 1280/480 caps in computer.rs; five commands in main.rs; refusal names in capture.rs
+- [x] chrome-extension.md — clean: `/api/extension/*` routes, `doorDeliverUnattended`, native messaging
+- [x] file-preview.md — clean: TokenBytes 32, 26-char base32 label, 1 MiB overlay cap (`maxAgentText`), kinds registry, previewHostHandler
+- [x] docker-app.md — clean: API 1.44, PICODE_DOCKER_HOST/DOCKER_CONTEXT order, 45s job bound, `docker_operations`, `docker.changed` ephemeral (cmd/picode/main.go)
+- [x] docker-maintenance.md — clean: monitor Validate() = intervals 30/60/300, retention 7/30, 32-project cap, 4 concurrent, 128 containers
+- [x] tmux-app.md — clean: `StartTmuxServerWatch` at 15s
 ## Wave 4 — stable
 
 - [ ] automations.md · broker.md · change-feed.md · climetrics.md ·
