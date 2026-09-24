@@ -17,6 +17,9 @@ type SessionCost struct {
 	Unpriced  int     `json:"unpriced"`  // turns with tokens the table does not price
 	Tokens    int64   `json:"tokens"`    // input + output + cache read + cache write
 	Turns     int     `json:"turns"`     // assistant messages
+	// Models counts assistant turns per model the session file names, so an
+	// exit can say which model a terminal CLI ran (the agent row does not).
+	Models map[string]int `json:"models,omitempty"`
 }
 
 // MeterSessionFile reads one session file of a CLI that keeps its sessions
@@ -50,6 +53,12 @@ func MeterSessionFile(cli, path string, prices *pricing.Table) (SessionCost, boo
 		out.Tokens += e.toks.Input + e.toks.Output + e.toks.CacheRead + e.toks.CacheWrite
 		if e.role == "assistant" {
 			out.Turns++
+			if e.model != "" {
+				if out.Models == nil {
+					out.Models = map[string]int{}
+				}
+				out.Models[e.model]++
+			}
 		}
 		c := e.cost
 		if c == 0 && e.role == "assistant" && e.toks != (session.TokenTotals{}) {

@@ -166,6 +166,10 @@ type ExitCost struct {
 	Turns     int     `json:"turns"`
 	Sessions  int     `json:"sessions"`
 	Scope     string  `json:"scope"`
+	// Models: assistant turns per model in the metered sessions; the most
+	// used one fills the exit's model when the agent row had none (a
+	// terminal CLI). Exits before 2026-09-24 have none.
+	Models map[string]int `json:"models,omitempty"`
 }
 
 // ExitMeter reads one session file of a CLI; ok false means not measured.
@@ -558,6 +562,9 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 	}
 	if in.Meter != nil {
 		ex.Cost = meterExit(a, ex.Sessions, in.Meter)
+		if ex.Model == "" && ex.Cost != nil {
+			ex.Model = dominantModel(ex.Cost.Models)
+		}
 	}
 	if in.Instructions != nil {
 		if root == "" {
@@ -566,6 +573,18 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 		ex.Config.Instructions = in.Instructions(a, root, ex.Sessions)
 	}
 	return ex, nil
+}
+
+// dominantModel is the model with the most turns; a tie goes to the name
+// that sorts first, so the answer is stable.
+func dominantModel(models map[string]int) string {
+	best, most := "", 0
+	for m, n := range models {
+		if n > most || (n == most && m < best) {
+			best, most = m, n
+		}
+	}
+	return best
 }
 
 // meterExit prices the sessions an exit points at. A Pi agent keeps its
@@ -601,6 +620,12 @@ func meterExit(a Agent, ss ExitSessions, meter ExitMeter) *ExitCost {
 		out.Unpriced += c.Unpriced
 		out.Tokens += c.Tokens
 		out.Turns += c.Turns
+		for m, n := range c.Models {
+			if out.Models == nil {
+				out.Models = map[string]int{}
+			}
+			out.Models[m] += n
+		}
 		out.Sessions++
 	}
 	if out.Sessions == 0 {

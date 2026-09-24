@@ -77,7 +77,7 @@ func exitMeter() store.ExitMeter {
 		if !ok {
 			return store.ExitCost{}, false
 		}
-		return store.ExitCost{Cost: c.Cost, Estimated: c.Estimated, Unpriced: c.Unpriced, Tokens: c.Tokens, Turns: c.Turns}, true
+		return store.ExitCost{Cost: c.Cost, Estimated: c.Estimated, Unpriced: c.Unpriced, Tokens: c.Tokens, Turns: c.Turns, Models: c.Models}, true
 	}
 }
 

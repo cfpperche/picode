@@ -395,11 +395,11 @@ func TestMeterExitScopes(t *testing.T) {
 	calls := 0
 	meter := func(cli, path string) (ExitCost, bool) {
 		calls++
-		return ExitCost{Cost: 1.5, Estimated: 0.5, Tokens: 100, Turns: 2}, true
+		return ExitCost{Cost: 1.5, Estimated: 0.5, Tokens: 100, Turns: 2, Models: map[string]int{"m-a": 1, "m-b": 1}}, true
 	}
 	pi := Agent{ID: "pi-1", CLI: CLIPi}
 	c := meterExit(pi, ExitSessions{PiSessionPath: filepath.Join(agentDir, "a.jsonl")}, meter)
-	if c == nil || c.Scope != "agent" || c.Sessions != 2 || c.Cost != 3 || c.Estimated != 1 || c.Tokens != 200 || c.Turns != 4 {
+	if c == nil || c.Scope != "agent" || c.Sessions != 2 || c.Cost != 3 || c.Estimated != 1 || c.Tokens != 200 || c.Turns != 4 || c.Models["m-a"] != 2 {
 		t.Fatalf("pi agent folder = %+v", c)
 	}
 	guest := Agent{ID: "g-1", CLI: "codex"}
@@ -440,5 +440,41 @@ func TestExitCostIsStoredAndSummed(t *testing.T) {
 	sum, _ := s.AgentExitSummary(ExitFilter{})
 	if sum.CostMeasured != 1 || sum.Cost != 2.25 || sum.Total != 2 {
 		t.Fatalf("summary cost = %+v (an agent with no session is not measured)", sum)
+	}
+}
+
+// A terminal CLI's agent row has no model; the exit takes the one its
+// session used most. An agent that names its model keeps it.
+func TestExitModelFromSessions(t *testing.T) {
+	if got := dominantModel(map[string]int{"b": 2, "a": 2, "c": 1}); got != "a" {
+		t.Fatalf("tie = %q, want the first by name", got)
+	}
+	if dominantModel(nil) != "" {
+		t.Fatal("no models, no answer")
+	}
+	s := openTest(t)
+	meter := func(cli, path string) (ExitCost, bool) {
+		return ExitCost{Turns: 5, Models: map[string]int{"gpt-6-astra": 4, "gpt-6-mini": 1}}, true
+	}
+	a, _ := s.AddAgent(FreeWorkspaceID, "guest", "")
+	sp := filepath.Join(t.TempDir(), "s.jsonl")
+	_ = os.WriteFile(sp, []byte("{}\n"), 0o644)
+	if _, err := s.UpdateAgent(a.ID, AgentPatch{SessionPath: &sp}); err != nil {
+		t.Fatal(err)
+	}
+	ex, err := s.RemoveAgentWithExit(a.ID, ExitInput{Meter: meter})
+	if err != nil || ex.Model != "gpt-6-astra" || ex.Cost.Models["gpt-6-mini"] != 1 {
+		t.Fatalf("exit model = %q, cost %+v, %v", ex.Model, ex.Cost, err)
+	}
+	if got, _ := s.GetAgentExit(ex.ID); got.Model != "gpt-6-astra" {
+		t.Fatalf("stored model = %q", got.Model)
+	}
+	b, _ := s.AddAgent(FreeWorkspaceID, "pi", "")
+	m := "glm-5.3-flash"
+	if _, err := s.UpdateAgent(b.ID, AgentPatch{Model: &m, SessionPath: &sp}); err != nil {
+		t.Fatal(err)
+	}
+	if ex, _ := s.RemoveAgentWithExit(b.ID, ExitInput{Meter: meter}); ex.Model != m {
+		t.Fatalf("a named model was replaced: %q", ex.Model)
 	}
 }

@@ -168,3 +168,16 @@ made while the agent ran is attributed to it. Accepted as the first step —
 two exits with the same hashes ran on the same instructions, which is what
 option B needs to compare outcomes across edits; capturing at launch is the
 refinement if that attribution proves noisy.
+
+## Amendment 2026-09-24 — the model of a terminal CLI
+
+A terminal CLI's agent row carries no model, so every such exit recorded
+`model: ""` (15 of 17 in production on 2026-09-24). The cost meter already
+reads the session files, and each assistant turn there names its model: the
+exit's `cost` gains `models` (assistant turns per model) and, when the agent
+row names no model, the exit's `model` column takes the one with the most
+turns (a tie goes to the name that sorts first). No migration: `cost` is
+JSON and `model` already exists. A model the person set on the agent is
+never replaced. Grok, Hermes, OpenCode and Antigravity stay unmeasured, as
+their cost does. First slice (B0) of the insights study,
+`docs/benchmarks/2026-09-24-exit-insights.md`.

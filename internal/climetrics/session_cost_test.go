@@ -1,7 +1,9 @@
 package climetrics
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -15,6 +17,25 @@ func TestMeterSessionFile(t *testing.T) {
 	cx, ok := MeterSessionFile("codex", filepath.Join("testdata", "codex-rollout.jsonl"), nil)
 	if !ok || cx.Tokens == 0 {
 		t.Fatalf("codex fixture = %+v, %v", cx, ok)
+	}
+	// The models each assistant turn names (an exit's model for a terminal
+	// CLI). Codex names it in turn_context, which this fixture predates; the
+	// line below is the shape a 2026-09-23 rollout carries.
+	if cc.Models["claude-opus-5"] != 1 || cc.Models["claude-fable-5-1"] != 1 {
+		t.Fatalf("claude-code models = %v", cc.Models)
+	}
+	raw, err := os.ReadFile(filepath.Join("testdata", "codex-rollout.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.SplitN(string(raw), "\n", 2)
+	ctx := `{"timestamp":"2026-09-06T00:32:35.000Z","type":"turn_context","payload":{"cwd":"/home/goat/picode","model":"gpt-6-astra"}}`
+	withCtx := filepath.Join(t.TempDir(), "rollout.jsonl")
+	if err := os.WriteFile(withCtx, []byte(lines[0]+"\n"+ctx+"\n"+lines[1]), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if cm, ok := MeterSessionFile("codex", withCtx, nil); !ok || cm.Models["gpt-6-astra"] == 0 {
+		t.Fatalf("codex models = %v, %v", cm.Models, ok)
 	}
 	// Without a price table nothing is estimated; Codex never writes a price.
 	if cx.Estimated != 0 || cx.Cost != 0 {
