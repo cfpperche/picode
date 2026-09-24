@@ -33,10 +33,10 @@ export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
   // The layer rides along: this href is written by the pane's "carry the
   // selected agent" rewrite, and dropping the layer there made a layer pill
   // click look like it did nothing (2026-09-12).
-  if (pane === "settings") return cliSettingsHash(cli, { agentId: ctx.agentId || "", focus: ctx.focus || "", layer: ctx.layer || "" });
+  if (pane === "settings") return cliSettingsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", focus: ctx.focus || "", layer: ctx.layer || "" });
   // The keyboard map is machine-wide, but the link keeps the settings context:
-  // going there and back must not move the reader to another agent or layer.
-  if (pane === "keyboard") return cliPaneHash(cli, "keyboard") + cliSettingsQuery({ agentId: ctx.agentId || "", layer: ctx.layer || "" });
+  // going there and back must not move the reader to another agent, workspace or layer.
+  if (pane === "keyboard") return cliPaneHash(cli, "keyboard") + cliSettingsQuery({ workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", layer: ctx.layer || "" });
   if (pane === "models") return cliModelsHash(cli, { workspaceId: ctx.workspaceId || "", layer: ctx.layer || "" });
   if (pane === "memory") return cliMemoryHash(cli, { workspaceId: ctx.workspaceId || "", scope: ctx.scope === "workspace" || ctx.scope === "global" ? ctx.scope : "" });
   if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });

@@ -241,7 +241,7 @@ test("provider command navigation opens canonical list or add", () => {
     go("packages", "A", { workspaceId: "W" });
     assert.equal(location.hash, "#/clis/pi/packages?workspaceId=W&agentId=A");
     go("settings", "A", { workspaceId: "W" });
-    assert.equal(location.hash, "#/clis/pi/settings?agentId=A");
+    assert.equal(location.hash, "#/clis/pi/settings?workspaceId=W&agentId=A");
     // A selected agent of another CLI opens that CLI's pane (ADR-0179).
     go("packages", "C", { workspaceId: "W", cli: "claude-code" });
     assert.equal(location.hash, "#/clis/claude-code/packages?workspaceId=W&agentId=C");
