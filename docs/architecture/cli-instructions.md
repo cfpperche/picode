@@ -103,6 +103,7 @@ a relaunch resumes it instead of sending the prompt again.
 | Workspace `…` menu ▸ **Instructions** | the page `#/instructions/<workspaceId>`, over the tabs like Agent CLIs: findings, then the matrix of files × CLIs; a cell's reason below the table |
 | **New agent** dialog | one line for the picked CLI (`createLine`, `web/shared/domain/instructions.js`) |
 | The page's empty state ▸ **Draft with an agent** | the New agent dialog with the draft prompt (above) |
+| **Outcomes** ▸ an exit ▸ How it was set up ▸ Instructions | the files the removed agent read, each with a short hash (`AgentRevisions`, `revisions.go`; ADR-0194 amendment 2026-09-24) |
 
 | CLI page ▸ **Settings** ▸ Instructions | the settings that change what a CLI reads: Claude Code's Project instructions mode (user layer only — Claude ignores it in project settings), Codex's `project_doc_fallback_filenames` and `project_doc_max_bytes`, Hermes's `context_file_max_chars`, OpenCode's `instructions`. Declared in `internal/clisettings/specs.go` like every other row; a finding whose fix is one of them links there |
 

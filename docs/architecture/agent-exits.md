@@ -35,7 +35,7 @@ design and a workspace removal keeps its exits.
 | Part | Columns |
 |---|---|
 | Who | `agent_id`, `agent_name`, `cli`, `workspace_id`, `workspace_name` |
-| Setup | `provider`, `model`; `config` JSON: thinking, op mode, checklist, packages, extra prompt, work path, `launch` (a CLI agent's `terminal_launches` record: args, path, tools, the applied snapshot, and **env names only** — an override can carry a key, so values never reach the exit) |
+| Setup | `provider`, `model`; `config` JSON: thinking, op mode, checklist, packages, extra prompt, work path, `launch` (a CLI agent's `terminal_launches` record: args, path, tools, the applied snapshot, and **env names only** — an override can carry a key, so values never reach the exit), `instructions` (the instruction files the agent read: path, bytes and a 12-hex SHA-256 of each at removal, `source` `observed` from the CLI's record or `declared` from the rules — `cliinstructions.AgentRevisions`; absent on exits before 2026-09-24) |
 | Observed | `created_at`, `removed_at`, `lifetime_s`, `turns`, `first_worked_at`, `last_worked_at`; `signals` JSON: last status, Inbox items and how many were blocking, checklist done/total |
 | Sessions | `sessions` JSON: the Pi session path (or, for an agent that never bound one, the newest file in its private folder) or the CLI's last session id/path, and `cwd` — the folder its CLI ran in (ADR-0205); `sessions_purged`, `work_purged` |
 | Question | `origin` (desktop/mobile/api), `asked`, `ask_skip` (off/idle/brief/client/workspace) |
