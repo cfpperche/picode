@@ -4,6 +4,7 @@ import { cliKeysLocation, cliSettingsLocation } from "./cliSettings.js";
 import { cliConnectorsLocation } from "./integrations.js";
 import { supportsCliModels } from "./cliModels.js";
 import { cliSkillsQuery } from "./cliSkills.js";
+import { scopeKind } from "./scopeIcon.js";
 
 const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "models", "settings", "keyboard", "memory", "packages", "skills", "connectors"]);
 
@@ -54,6 +55,22 @@ export function cliPaneSetupContext(route = {}, legacy = {}) {
     // click that did nothing (2026-09-12).
     layer: route.layer || "",
   };
+}
+
+// Each setup pane names the same three scopes its own way: Packages and
+// Connectors user/project/agent, Skills machine/workspace/agent, Memory
+// global/workspace. A tab link carries the scope into the next pane in that
+// pane's words; carried raw, Skills' "workspace" made the Packages and
+// Connectors links invalid (2026-09-24). A scope the pane lacks is dropped.
+const PANE_SCOPES = {
+  packages: { global: "user", workspace: "project", agent: "agent" },
+  connectors: { global: "user", workspace: "project", agent: "agent" },
+  skills: { global: "machine", workspace: "workspace", agent: "agent" },
+  memory: { global: "global", workspace: "workspace" },
+};
+
+export function paneScope(pane, scope) {
+  return (PANE_SCOPES[pane] || {})[scopeKind(scope)] || "";
 }
 
 // The Models pane's address: its workspace and the layer being edited.

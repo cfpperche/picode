@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { cliModelsHash, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
+import { cliModelsHash, cliPaneHash, paneScope } from "@picode/shared/domain/cliLaunch.js";
 import { cliSettingsHash, cliSettingsQuery } from "@picode/shared/domain/cliSettings.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliMemoryHash } from "@picode/shared/domain/cliNative.js";
@@ -39,9 +39,9 @@ export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
   if (pane === "keyboard") return cliPaneHash(cli, "keyboard") + cliSettingsQuery({ workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", layer: ctx.layer || "" });
   if (pane === "models") return cliModelsHash(cli, { workspaceId: ctx.workspaceId || "", layer: ctx.layer || "" });
   if (pane === "memory") return cliMemoryHash(cli, { workspaceId: ctx.workspaceId || "", scope: ctx.scope === "workspace" || ctx.scope === "global" ? ctx.scope : "" });
-  if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
-  if (pane === "skills") return cliSkillsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "" });
-  if (pane === "connectors") return cliConnectorsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
+  if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: paneScope("packages", ctx.scope) || "user" });
+  if (pane === "skills") return cliSkillsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: paneScope("skills", ctx.scope) });
+  if (pane === "connectors") return cliConnectorsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: paneScope("connectors", ctx.scope) || "user" });
   return cliPaneHash(cli, pane, pane === "sessions" ? workspace : "");
 }
 

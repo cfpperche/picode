@@ -224,3 +224,16 @@ test("adoptOffer: only a shell running a detected CLI, not yet an agent (ADR-018
   assert.equal(adoptOffer({ ...shell, kind: "signin" }, null), "");
   assert.equal(adoptOffer(null, null), "");
 });
+
+import { paneScope } from "./cliLaunch.js";
+
+test("a scope crosses panes in each pane's own words", () => {
+  const rows = [
+    ["packages", "workspace", "project"], ["packages", "machine", "user"], ["packages", "agent", "agent"], ["packages", "global", "user"],
+    ["connectors", "workspace", "project"], ["connectors", "machine", "user"], ["connectors", "agent", "agent"],
+    ["skills", "project", "workspace"], ["skills", "user", "machine"], ["skills", "agent", "agent"],
+    ["memory", "project", "workspace"], ["memory", "user", "global"], ["memory", "agent", ""],
+    ["packages", "", ""], ["packages", "nonsense", ""], ["settings", "user", ""],
+  ];
+  for (const [pane, scope, want] of rows) assert.equal(paneScope(pane, scope), want, pane + " " + scope);
+});
