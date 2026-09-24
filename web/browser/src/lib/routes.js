@@ -42,9 +42,21 @@ export function workspaceOverviewRoute(hash) {
   try { return decodeURIComponent(m[1]); } catch { return null; }
 }
 
+export function workspaceAgentsHash(id) {
+  return "#/workspaces/" + encodeURIComponent(id) + "/agents";
+}
+
+export function workspaceAgentsRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const m = /^\/workspaces\/([^/]+)\/agents$/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return null; }
+}
+
 export function parseRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
   if (workspaceOverviewRoute(h)) return "workspaceOverview";
+  if (workspaceAgentsRoute(h)) return "workspaceAgents";
   if (/^\/(?:missions(?:\/new)?|mission\/[^/?]+)(?:\?|$)/.test(h)) return "missions";
   if (h === "/preferences/status" || h === "/clis" || h.startsWith("/clis/")) return "clis";
   if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";

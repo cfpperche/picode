@@ -80,7 +80,7 @@ import CreateForm from "./components/CreateForm.jsx";
 import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
 import { DRAFT_TASK } from "@picode/shared/domain/instructions.js";
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, inboxHash, inboxPath, legacyInboxHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, isInstructionsTab } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, workspaceAgentsRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, inboxHash, inboxPath, legacyInboxHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, isInstructionsTab } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
@@ -4437,8 +4437,8 @@ export default function App({ shellChrome = false } = {}) {
         ) : null}
         <AgentHistory hidden={route !== "history"} workspaces={workspaces} onOpenAgent={(id) => { loadWorkspaces().then((list) => revealAgent(id, list)).catch(() => revealAgent(id)); }} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
-        {route === "workspaceOverview" ? <Suspense fallback={<div className="pane-view"><div className="settings-wrap"><div className="skel-line w-70" /><div className="skel-line w-90" /></div></div>}>
-          <WorkspaceOverview key={workspaceOverviewRoute()} id={workspaceOverviewRoute()} workspaces={workspaces} terminals={terminals} loaded={bootstrapped} workingIds={tuiWorking} waitingId={waiting ? selectedId : null}
+        {route === "workspaceOverview" || route === "workspaceAgents" ? <Suspense fallback={<div className="pane-view"><div className="settings-wrap"><div className="skel-line w-70" /><div className="skel-line w-90" /></div></div>}>
+          <WorkspaceOverview key={route === "workspaceAgents" ? workspaceAgentsRoute() : workspaceOverviewRoute()} id={route === "workspaceAgents" ? workspaceAgentsRoute() : workspaceOverviewRoute()} workspaces={workspaces} terminals={terminals} checklists={checklists} loaded={bootstrapped} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} fullAgents={route === "workspaceAgents"}
             onOpenAgent={revealAgent} onOpenTerm={(id) => { openTermTab(id); location.hash = termHash(id); }}
             onOpenTree={(id, name) => { openTreeTab("workspace", id, name); location.hash = treeHash("workspace", id); }}
             onOpenGit={(id, name) => { openGitTab("workspace", id, name); location.hash = gitHash("workspace", id); }}
