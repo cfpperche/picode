@@ -27,8 +27,12 @@ introduce a launcher or background scheduler.
 
 All mutations require `requestId`, and updates require `expectedVersion`.
 Agent writes also require assignment `generation` and a known matching native
-session. Replaying the same payload returns the original receipt. Reusing a
-key with another payload conflicts. A per-mission server mutex serializes
+session. The CLI/MCP boundary validates these three fields before posting a
+mutation, with a field-specific message; `show` and `context` remain available
+without mutation fields. The daemon remains authoritative for current-version,
+assignment and session checks, including refusing stale generations. Replaying
+the same payload returns the original receipt. Reusing a key with another
+payload conflicts. A per-mission server mutex serializes
 owner operations with sends; the store transaction makes competing agent
 reservations exclusive. External runtime and filesystem activity remains
 outside that transaction and must be observed and owner-confirmed.

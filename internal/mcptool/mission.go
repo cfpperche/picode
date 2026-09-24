@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
 )
 
 var MissionActions = []string{"show", "context", "acknowledge", "report", "block", "evidence", "request-review"}
@@ -44,6 +46,9 @@ func CallMission(ctx context.Context, c *Caller, args json.RawMessage) (json.Raw
 	if e := json.Unmarshal(args, &payload); e != nil || payload == nil {
 		return nil, fmt.Errorf("expected a mission request object")
 	}
+	if err := validateMissionMutationFields(payload); err != nil {
+		return nil, err
+	}
 	delete(payload, "agent")
 	delete(payload, "term")
 	if c.Identity.Agent != "" {
@@ -74,4 +79,27 @@ func CallMission(ctx context.Context, c *Caller, args json.RawMessage) (json.Raw
 		return nil, fmt.Errorf("invalid mission response; outcome unknown")
 	}
 	return raw, nil
+}
+
+func validateMissionMutationFields(payload map[string]any) error {
+	action, _ := payload["action"].(string)
+	if action == "show" || action == "context" {
+		return nil
+	}
+	requestID, ok := payload["requestId"].(string)
+	if !ok || strings.TrimSpace(requestID) == "" {
+		return fmt.Errorf("requestId is required for mission mutations; provide a stable retry key and reuse it with the same content")
+	}
+	for _, field := range []string{"expectedVersion", "generation"} {
+		value, ok := payload[field].(float64)
+		if !ok || value < 1 || math.Trunc(value) != value {
+			switch field {
+			case "expectedVersion":
+				return fmt.Errorf("expectedVersion is required for mission mutations; read the mission to get its current version")
+			default:
+				return fmt.Errorf("generation is required for mission mutations; read the assignment context for its current generation")
+			}
+		}
+	}
+	return nil
 }
