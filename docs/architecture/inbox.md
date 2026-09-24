@@ -9,7 +9,7 @@ Inbox is PiCode's durable human mailbox. `internal/store/inbox.go` owns items, s
 | Primitive-tree views and action mapping | `internal/inboxview` |
 | Browser and mobile rendering | Each app's `AppSurface`, pointed at `/api/inbox` |
 | Badge | `GET /api/inbox/badge`, with blocking count and a dot for other open activity |
-| Navigation | Desktop sidebar button → `#/inbox[/<id>]`; mobile Inbox tab uses the same hash shape |
+| Navigation | Desktop sidebar button → `#/inbox[/<id>]`, with Back in the page header → `#/`; mobile Inbox tab uses the same hash shape |
 | Compatibility | `#/app/inbox[/<path>]` replaces to the core route; `/api/apps/inbox/{view,action}` remains an alias |
 
 Inbox is not in `GET /api/apps`. The desktop Apps grid and its badge count only registered apps. The desktop Inbox button fetches its badge independently and follows `inbox.*` feed events. The phone derives its numeric badge from its blocking Inbox read. The common primitives renderer is a presentation dependency, not app registration.
