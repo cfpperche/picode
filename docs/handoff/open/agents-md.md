@@ -12,9 +12,7 @@ Study: `docs/benchmarks/2026-09-23-agents-md.md`. The owner's decisions of
 
 ## Next
 
-- Settings rows, observed reads and ADR-0204's first fixes (bridge, personal file) landed 2026-09-23.
-- Slice 1 landed (`feat/agents-md-instructions`): the resolver, the workspace Instructions tab and the New agent line, read-only. Next: the Settings rows (Claude Code's Project instructions mode, Codex's `project_doc_max_bytes` and fallback names, Hermes's `context_file_max_chars`) and the "what this agent read" line from session records (Claude transcript, Codex rollout, Grok `prompt_context.json`).
-- Done 2026-09-23: this repository's `AGENTS.md` trimmed to 214 lines (detail in `docs/agents/`), and the New agent line on the phone. Open: exit records carrying instruction revisions (§10.5), and running a CLI's own `/init` as a draft (left out of ADR-0204).
+- Nothing queued. Built 2026-09-23/24: the Instructions page (`#/instructions/<workspace>`), Settings rows, observed reads, ADR-0204 fixes, Draft with an agent, instruction revisions on exits, and every CLI's rule measured (Muse, Omp, Antigravity with its exact-folder trust). What is left waits on Omp upstream (#13010, under Debts).
 
 ## Debts
 
