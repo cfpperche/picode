@@ -35,7 +35,7 @@ design and a workspace removal keeps its exits.
 | Part | Columns |
 |---|---|
 | Who | `agent_id`, `agent_name`, `cli`, `workspace_id`, `workspace_name` |
-| Setup | `provider`, `model`; `config` JSON: thinking, op mode, checklist, packages, extra prompt, work path, `launch` (a CLI agent's `terminal_launches` record: args, path, tools, the applied snapshot, and **env names only** — an override can carry a key, so values never reach the exit) |
+| Setup | `provider`, `model`; `config` JSON: thinking, op mode, checklist, packages, extra prompt, work path, `launch` (a CLI agent's `terminal_launches` record: args, path, tools, the applied snapshot, and **env names only** — an override can carry a key, so values never reach the exit), `instructions` (the instruction files the agent read: path, bytes and a 12-hex SHA-256 of each at removal, `source` `observed` from the CLI's record or `declared` from the rules — `cliinstructions.AgentRevisions`; absent on exits before 2026-09-24) |
 | Observed | `created_at`, `removed_at`, `lifetime_s`, `turns`, `first_worked_at`, `last_worked_at`; `signals` JSON: last status, Inbox items and how many were blocking, checklist done/total |
 | Sessions | `sessions` JSON: the Pi session path (or, for an agent that never bound one, the newest file in its private folder) or the CLI's last session id/path, and `cwd` — the folder its CLI ran in (ADR-0205); `sessions_purged`, `work_purged` |
 | Question | `origin` (desktop/mobile/api), `asked`, `ask_skip` (off/idle/brief/client/workspace) |
@@ -111,7 +111,9 @@ width on the phone and in narrow windows.
 
 ## Agent history (ADR-0205)
 
-`#/history` (desktop; user menu ▸ Tools, and the palette) lists the removed
+`#/history` (desktop: user menu ▸ Tools, and the palette; phone: More ▸ Tools ▸
+Agent history, `#/more/history`, `web/mobile/src/screens/HistoryList.jsx`,
+without the filters) lists the removed
 agents that can come back. There is no table: `GET /api/agent-history` reads
 `Store.AgentHistoryCandidates` (not undone, not forgotten, points at a
 session) and keeps the exits a `clisession.Locator` still finds on disk —
@@ -135,7 +137,7 @@ failed refresh keeps the previous results visible with a retry action.
 | Route | Does |
 |---|---|
 | `GET /api/agent-history` | `{entries: [{exit, session, folder, folderExists, workspaceExists, canDeleteFile}]}`, newest removal first, at most 500 exits read |
-| `POST /api/agent-history/{id}/restore` | `{workspaceId?, name?, undo?}` → 201 `{agent, terminalId, resume, envKeys}` under the removed agent's id (ADR-0211); the refusals are ADR-0205's table (409 restored or id taken / `workspace_gone` / `folder_gone`, 410 transcript gone unless `undo`, the launch pre-flight). The removal toast's Undo calls it with `undo: true`: no transcript is needed, and a private folder purged under the data dir's `work/` is made again |
+| `POST /api/agent-history/{id}/restore` | `{workspaceId?, name?, undo?}` → 201 `{agent, terminalId, resume, envKeys}` under the removed agent's id (ADR-0211); the refusals are ADR-0205's table (409 restored or id taken / `workspace_gone` / `folder_gone`, 410 transcript gone unless `undo`, the launch pre-flight). The removal toast's Undo calls it with `undo: true`: no transcript is needed, and a private folder purged under the data dir's `work/` is made again. Both callers go through `restoreAgent` (`web/shared/client/launchAgent.js`), which also starts the agent: a terminal's `launch/start` (with `resume` when a session was pinned), else a Pi agent's `managed/start`, which is what shows its conversation |
 | `POST /api/agent-history/{id}/forget` | `{deleteFile?}` → the exit with `forgottenAt`; `deleteFile` only for a Pi file under Pi's sessions root that no living agent is bound to |
 
 A restored Pi agent gets the exit's provider, model, thinking, tools,
@@ -160,4 +162,3 @@ joins. Code: `internal/server/agent_history.go`, `internal/clisession/locate.go`
   `web/mobile/src/screens/OutcomesList.jsx`) lists records, answers later,
   deletes and carries the switch; the numbers' breakdowns and the filters
   stay on the desktop page.
-- The agent history has no phone screen yet.

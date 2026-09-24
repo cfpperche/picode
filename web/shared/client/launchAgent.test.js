@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createLaunchAgent } from "./launchAgent.js";
+import { createLaunchAgent, restoreAgent } from "./launchAgent.js";
 
 function recorder(replies) {
   const calls = [];
@@ -48,4 +48,28 @@ test("a Pi launch with a profile keeps its overrides", async () => {
   const { calls, request } = recorder({ "/api/agents": { id: "p2", terminalId: "t2" }, "/api/terminals/t2/launch/start": {} });
   await createLaunchAgent({ cli: "pi", overrides: { args: ["--verbose"] } }, request);
   assert.deepEqual(calls[0].body.overrides, { args: ["--verbose"] });
+});
+
+test("a restored CLI agent starts its terminal, resuming when the server pinned a session", async () => {
+  const { calls, request } = recorder({
+    "/api/agent-history/ex%201/restore": { agent: { id: "a", cli: "codex" }, terminalId: "t9", resume: true, envKeys: ["K"] },
+    "/api/terminals/t9/launch/start": {},
+  });
+  const out = await restoreAgent("ex 1", { workspaceId: "w1", undo: true }, request);
+  assert.deepEqual(calls[0].body, { workspaceId: "w1", undo: true });
+  assert.deepEqual(calls[1], { url: "/api/terminals/t9/launch/start", body: { confirm: false, resume: true } });
+  assert.deepEqual(out, { agent: { id: "a", cli: "codex" }, terminalId: "t9", envKeys: ["K"], startError: "" });
+});
+
+test("a restored Pi agent starts its managed run; a failed start is reported, not thrown", async () => {
+  const calls = [];
+  const request = async (url, opts) => {
+    calls.push(url);
+    if (url.endsWith("/restore")) return { agent: { id: "p", cli: "pi" }, terminalId: "", resume: false };
+    throw new Error("no pi");
+  };
+  const out = await restoreAgent("ex2", {}, request);
+  assert.deepEqual(calls, ["/api/agent-history/ex2/restore", "/api/agents/p/managed/start"]);
+  assert.equal(out.startError, "no pi");
+  assert.equal(out.agent.id, "p");
 });

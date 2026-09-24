@@ -376,3 +376,39 @@ func TestTerminalRemovalEndsItsAgentWithAnExit(t *testing.T) {
 		t.Fatalf("a plain shell has no agent and no exit: %d", len(exits))
 	}
 }
+
+// An exit freezes the instruction files the agent read, with a hash of
+// each (ADR-0194, amended 2026-09-24): a free Pi agent, which keeps no record
+// of its own, gets the rules' answer for its folder.
+func TestExitRecordsInstructionRevisions(t *testing.T) {
+	ts, _ := exitServer(t)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# Build\nmake\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := postJSON(t, ts, "/api/agents", map[string]string{"name": "reader", "path": dir})
+	var ag agentView
+	if err := json.NewDecoder(res.Body).Decode(&ag); err != nil || ag.ID == "" {
+		t.Fatalf("create agent: %v", err)
+	}
+	del := sendJSON(t, ts, http.MethodDelete, "/api/agents/"+ag.ID, nil)
+	var out struct {
+		Exit store.AgentExit `json:"exit"`
+	}
+	_ = json.NewDecoder(del.Body).Decode(&out)
+	in := out.Exit.Config.Instructions
+	if in == nil || in.Source != "declared" || len(in.Files) != 1 || in.Files[0].Path != "AGENTS.md" || len(in.Files[0].SHA) != 12 || in.Files[0].Bytes != 13 {
+		t.Fatalf("instructions = %+v", in)
+	}
+}
+
+func TestPathWithin(t *testing.T) {
+	for _, c := range []struct {
+		root, p string
+		want    bool
+	}{{"/w", "/w", true}, {"/w", "/w/sub", true}, {"/w", "/w2", false}, {"/w", "/", false}, {"/w/a", "/w", false}} {
+		if got := pathWithin(c.root, c.p); got != c.want {
+			t.Errorf("pathWithin(%s, %s) = %v", c.root, c.p, got)
+		}
+	}
+}

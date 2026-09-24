@@ -3,7 +3,7 @@ import * as Dialog from "./ResponsiveDialog.jsx";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { managedPrincipalSchema, freeAgentPickSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { catalogForAgent } from "@picode/shared/domain/managedPrincipal.js";
-import { createLine } from "@picode/shared/domain/instructions.js";
+import { createLine, startsWithPrompt } from "@picode/shared/domain/instructions.js";
 import FolderField from "./FolderField.jsx";
 import "../styles/instructions.css";
 
@@ -12,9 +12,12 @@ import "../styles/instructions.css";
 // hub stays the place to install runtimes.
 
 // workspace = { free: true } is the sidebar's free New agent (ADR-0179): same
-// picker, a folder field, POST /api/agents.
+// picker, a folder field, POST /api/agents. workspace.task = { title, prompt }
+// is Instructions' Draft with an agent: the agent starts on that prompt, and
+// only CLIs that can start with one are offered.
 export default function NewCliPrincipal({ open, workspace, onClose, onCreated }) {
   const free = !!(workspace && workspace.free);
+  const task = !free && workspace && workspace.task ? workspace.task : null;
   const [status, setStatus] = useState("loading");
   const [path, setPath] = useState("");
   const [clis, setClis] = useState([]);
@@ -27,6 +30,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   // What the picked CLI reads in this workspace (docs/architecture/
   // cli-instructions.md): null while reading, false when it could not be read.
   const [instr, setInstr] = useState(null);
+  const [unable, setUnable] = useState([]);
 
   useEffect(() => {
     if (!open) return;
@@ -38,10 +42,13 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
     setPath("");
     setClis([]);
     setCliId("");
+    setUnable([]);
     let live = true;
     api("/api/clis").then((d) => {
       if (!live) return;
-      const rows = catalogForAgent(d.clis || []);
+      const all = catalogForAgent(d.clis || []);
+      const rows = task ? all.filter(startsWithPrompt) : all;
+      setUnable(task ? all.filter((c) => !startsWithPrompt(c)).map((c) => c.name || c.id) : []);
       setClis(rows);
       setCliId(rows[0] ? rows[0].id : "");
       setStatus("ok");
@@ -51,7 +58,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
       setStatus("err");
     });
     return () => { live = false; };
-  }, [open, retry]);
+  }, [open, retry, !!task]);
 
   useEffect(() => {
     if (!open || free || !workspace || !workspace.id) { setInstr(null); return; }
@@ -65,7 +72,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
 
   const selected = clis.find((c) => c.id === cliId);
   const instrLine = instr ? createLine(instr, cliId) : "";
-  const title = "New agent" + (!free && workspace && workspace.name ? " in " + workspace.name : "");
+  const title = (task ? task.title : "New agent") + (!free && workspace && workspace.name ? " in " + workspace.name : "");
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -80,6 +87,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
       const body = { cli: parsed.value.cli };
       if (parsed.value.name) body.name = parsed.value.name;
       if (free && parsed.value.path) body.path = parsed.value.path;
+      if (task) body.prompt = task.prompt;
       const url = free ? "/api/agents" : "/api/workspaces/" + encodeURIComponent(workspace.id) + "/agents";
       const created = await api(url, {
         method: "POST",
@@ -115,7 +123,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   } else if (!clis.length) {
     body = (
       <div className="form-new">
-        <p>No agents to create. Install a CLI first.</p>
+        <p>{task && unable.length ? "None of your agents can start with a prompt yet." : "No agents to create. Install a CLI first."}</p>
         <div className="dlg-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => { onClose(); location.hash = "#/clis"; }}>Open Agent CLIs</button>
@@ -130,7 +138,12 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
             <option key={c.id} value={c.id}>{c.name || c.id}</option>
           ))}
         </select>
-        {!free && instr !== false ? (
+        {task ? (
+          <>
+            <blockquote className="create-task">{task.prompt}</blockquote>
+            {unable.length ? <p className="create-instr">{unable.join(", ")} can't start with a prompt yet.</p> : null}
+          </>
+        ) : !free && instr !== false ? (
           <p className="create-instr" role="status" aria-live="polite">{instr === null ? "\u00a0" : instrLine}</p>
         ) : null}
         <input
@@ -158,7 +171,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">{title}</Dialog.Title>
-          <Dialog.Description className="dlg-body">{free ? "Pick which agent runs, and the folder it works in. Leave the folder empty for a private one." : "Pick which agent runs in this folder."}</Dialog.Description>
+          <Dialog.Description className="dlg-body">{free ? "Pick which agent runs, and the folder it works in. Leave the folder empty for a private one." : task ? "The agent writes the file itself; review it in Git before you commit." : "Pick which agent runs in this folder."}</Dialog.Description>
           {body}
         </Dialog.Content>
       </Dialog.Portal>

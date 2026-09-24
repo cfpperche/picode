@@ -9,8 +9,8 @@ CLI still keeps the conversation file, the agent waits in **Agent history**
 and you can bring it back, with its setup and its conversation.
 
 - **Where:** the user menu ▸ **Agent history**, the command palette
-  (<kbd>Ctrl</kbd>+<kbd>K</kbd> ▸ "Agent history"), or `#/history`. Desktop
-  only for now.
+  (<kbd>Ctrl</kbd>+<kbd>K</kbd> ▸ "Agent history"), or `#/history`. On the
+  phone: **More ▸ Agent history** (the list without its filters).
 - **How long:** as long as the conversation exists. When the CLI (or you)
   deletes it, the agent leaves the history on its own. Its record stays in
   [Outcomes](./outcomes).

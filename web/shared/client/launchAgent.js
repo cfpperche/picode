@@ -35,3 +35,26 @@ export async function createLaunchAgent({ cli, name, workspaceId, folder, overri
 function post(body) {
   return { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
+
+// ADR-0205/0211: bring a removed agent back from its exit and start it, the
+// same way from the history page and from the removal toast's Undo. A CLI
+// agent's terminal starts (resuming its pinned conversation when there is
+// one); a Pi agent without a terminal starts its managed run, which is what
+// shows its conversation. Resolves { agent, terminalId, envKeys, startError };
+// rejects only when nothing came back.
+export async function restoreAgent(exitId, { workspaceId, undo } = {}, request = api) {
+  const res = await request("/api/agent-history/" + encodeURIComponent(exitId) + "/restore", post({ workspaceId: workspaceId || "", undo: !!undo }));
+  const agent = res.agent || null;
+  const terminalId = res.terminalId || "";
+  let startError = "";
+  try {
+    if (terminalId) {
+      await request("/api/terminals/" + encodeURIComponent(terminalId) + "/launch/start", post({ confirm: false, resume: !!res.resume }));
+    } else if (agent) {
+      await request("/api/agents/" + encodeURIComponent(agent.id) + "/managed/start", { method: "POST" });
+    }
+  } catch (e) {
+    startError = (e && e.message) || String(e);
+  }
+  return { agent, terminalId, envKeys: res.envKeys || [], startError };
+}
