@@ -79,6 +79,14 @@ changes below, with two explicit refusals recorded under *Alternatives*.
    manual run, which is the late discovery the paragraph above calls the cost.
    Windows stays on tags and manual runs: it compiles rather than executes the
    daemon (ADR-0020), so a per-push leg would buy little.
+
+   **Amended 2026-09-24:** the two packages that take ~26 minutes under `-race`
+   on a two-core runner (`internal/server`, `internal/store`) run in a job of
+   their own (`go-heavy`), on the same platform list and with the same Windows
+   skip; the rest of the suite keeps a ceiling and a verdict of its own. A
+   package this slow had already killed a run with no failing test to read
+   (`FAIL internal/server 1800.070s`, 2026-09-22) while sharing the ceiling
+   with ~300 others.
 6. **Gates.** `scripts/go-test.sh` runs `internal/server` across four
    processes (package globals are per process, so the probe swapping that
    rules out `t.Parallel` is untouched) and unsets `PICODE_TERM_ID` so every
