@@ -4428,6 +4428,7 @@ export default function App({ shellChrome = false } = {}) {
         {route === "inbox" ? <AppSurface
           appId="inbox"
           apiBase="/api/inbox"
+          backHref="#/"
           manifest={{ id: "inbox", name: "Inbox", icon: "inbox", apiVersion: 1 }}
           hidden={false}
           initialPath={inboxPath(hash)}
