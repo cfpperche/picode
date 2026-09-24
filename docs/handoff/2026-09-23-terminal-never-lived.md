@@ -1,0 +1,8 @@
+# 2026-09-23 — feat/terminal-never-lived: the promise moves off the instant
+
+The owner chose option (b) of the three the flake diagnosis offered: keep the fast synchronous verdict, and change what the product promises — a terminal that never lived *does not survive* instead of *is refused on the spot*. No synchronous check can be instant: a shell has to start before it can exit (measured here — a dead-pane session still answers "alive" the instant `new-session` returns).
+Shipped: `reapIfNeverLived` — 1.5 s after a create, if the session is gone, the row is deleted through the store, so the removal is announced like every other mutation (ADR-0048) and the pane refetches. A shell that is merely slow to start is safe: its session is there when the reaper looks; only a *gone* session is reaped.
+Measured: four parallel suites × 20 rounds under the gate's PATH — **0 of 4 logs fail**, where the synchronous-only check failed 2 of 4. A kernel-side variant (`/proc` zombie state, which removes the tmux-reaping term) was written, measured and dropped first: the shell's own start-and-exit is the dominant term, and it failed identically.
+Tests: `TestTerminalThatNeverLivedDoesNotSurvive` (refused **or** reaped — the invariant, not the instant) and `TestALivingTerminalSurvivesTheDeferredVerdict`.
+Docs: `terminal-bridge.md` restates the guarantee, the fragment is `docs/changelog.d/terminal-never-lived.md`, and the debt is paid in `docs/handoff/open/terminal.md`.
+Blind spot: 1.5 s is chosen, not derived — a shell slower than that *and* dead by then is reaped; slower and alive is safe. The reaper is one goroutine per create and nobody waits on it.
