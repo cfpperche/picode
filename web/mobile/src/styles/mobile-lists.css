@@ -128,7 +128,13 @@
 .m-outcomes .m-outc-none { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
 .m-outcomes .m-outc-chev { transition: transform var(--motion-fast) var(--ease-out); }
 .m-outcomes .m-outc-row.is-open .m-outc-chev { transform: rotate(90deg); }
-.m-outcomes .m-outc-detail { padding: 4px 12px 14px; }
+/* An open row stacks its detail under the header: side by side, long paths
+   squeezed the header to 16px and hid which agent was open (QA 2026-09-24). */
+.m-outcomes .m-outc-row { flex-wrap: wrap; }
+.m-outcomes .m-outc-row > .m-row-main { flex: 1 1 100%; min-width: 0; }
+.m-outcomes .m-outc-detail { flex: 1 1 100%; min-width: 0; box-sizing: border-box; padding: 4px 12px 14px; }
+/* The page's own lines sit on the rows' inset, not the screen edge. */
+.m-outcomes > .m-list-empty, .m-outcomes .m-outc-facts { padding-inline: 14px; }
 .m-outcomes .m-outc-facts-list { margin: 0; display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px 10px; font-size: 13px; }
 .m-outcomes .m-outc-facts-list dt { color: var(--text-secondary); }
 .m-outcomes .m-outc-facts-list dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
@@ -136,3 +142,18 @@
 .m-outcomes .m-outc-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .m-outcomes .m-outc-actions-end { justify-content: flex-end; }
 .m-outcomes .m-outc-edit { margin-top: 0; padding-top: 4px; border-top: 0; }
+/* Agent history (ADR-0205): Outcomes' rows, plus the blocker tags and the
+   restore target. */
+.m-history .m-hist-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.m-history .m-hist-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-history .m-hist-tag {
+  flex: none; padding: 0 6px; border-radius: 999px; font-size: 11px; font-weight: 400; line-height: 18px;
+  color: var(--text-secondary); border: 1px solid color-mix(in srgb, var(--text-secondary) 45%, transparent);
+}
+.m-history .m-hist-tag.is-warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.m-history .m-hist-path { font-family: var(--mono); font-size: 12px; }
+.m-history .m-hist-target { display: grid; gap: 6px; margin-top: 12px; font-size: 13px; color: var(--text-secondary); }
+.m-history .m-hist-target select { width: 100%; height: var(--ctl-h); margin: 0; }
+.m-history .m-hist-target select:disabled { opacity: .55; }
+.m-history .m-hist-blocked { margin: 8px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+.m-history .m-outc-row.is-busy { opacity: .6; }

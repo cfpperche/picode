@@ -150,3 +150,21 @@ only for unpriced turns, kept apart as the estimate). A Pi agent's folder
 counts whole; another CLI's last known session only; a CLI whose sessions
 are not files is "not measured" (NULL), never zero. Migration 071 adds the
 `cost` column.
+
+## Amendment 2026-09-24 — instruction revisions
+
+The exit also records which instruction files the agent read (AGENTS.md,
+CLAUDE.md and their kin, `docs/architecture/cli-instructions.md`), each
+with its path, size and the first 12 hex digits of the SHA-256 of its
+content — never the text. The list comes from the CLI's own session record
+when it keeps one (Claude Code, Codex, Grok: `source: "observed"`), else from
+PiCode's rules for the CLI and the folder it ran in (`"declared"`). It lives
+in the `config` JSON as `instructions`, beside the rest of the frozen setup,
+so no migration: an exit written before reads no key, which means "not
+recorded", never "none".
+
+The hash is of the file **at removal**, not at the session's start: an edit
+made while the agent ran is attributed to it. Accepted as the first step —
+two exits with the same hashes ran on the same instructions, which is what
+option B needs to compare outcomes across edits; capturing at launch is the
+refinement if that attribution proves noisy.
