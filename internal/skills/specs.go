@@ -32,6 +32,10 @@ type Spec struct {
 	// Launch is the CLI's own per-run mechanism for an agent's skill set;
 	// empty when there is none.
 	Launch string
+	// AgentScope: the CLI already loads a per-agent list at launch (Pi and
+	// Omp take an agent's packages with -e, and those carry skills), so the
+	// pane offers the agent as a scope.
+	AgentScope bool
 }
 
 // ScopedRoot pairs a root with the scope it belongs to.
@@ -63,6 +67,7 @@ var specs = []Spec{
 		TrustCommand: "/trust",
 		TrustNote:    "Pi loads this workspace's skills once the folder is trusted in Pi.",
 		Launch:       "pi --skill <path> per skill; --no-skills for an isolated agent",
+		AgentScope:   true,
 	},
 	{
 		CLI: "omp",
@@ -78,8 +83,9 @@ var specs = []Spec{
 			home("~/.agents/skills", true),
 			home("~/.agent/skills", true),
 		},
-		Toggle: "skills.ignoredSkills in Omp's settings",
-		Launch: "omp --skills=<globs>; --no-skills for an isolated agent",
+		Toggle:     "skills.ignoredSkills in Omp's settings",
+		Launch:     "omp --skills=<globs>; --no-skills for an isolated agent",
+		AgentScope: true,
 	},
 	{
 		CLI: "claude-code",

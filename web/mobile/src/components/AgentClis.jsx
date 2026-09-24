@@ -256,7 +256,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
         {pane === "models" ? <CliModels cli={route.id} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
         {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} workspaceId={setupCtx.workspaceId} workspaceName={wsCtxName} /> : null}
         {pane === "memory" ? <CliMemory route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
-        {pane === "skills" ? <CliSkills key={route.id + ":" + (route.workspaceId || setupCtx.workspaceId || "")} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
+        {pane === "skills" ? <CliSkills key={route.id + ":" + (route.workspaceId || setupCtx.workspaceId || "") + ":" + (route.agentId || setupCtx.agentId || "")} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} agentId={route.agentId || setupCtx.agentId || ""} workspaceName={wsCtxName} /> : null}
         {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} /> : null}
         {pane === "connectors" ? <ConnectorsPane route={route} onReload={onReloadAgent} /> : null}
       </div>

@@ -11,14 +11,17 @@ const row = (over = {}) => ({ name: "pdf", description: "PDF tools", scope: "mac
 test("the address round-trips through cliLocation", () => {
   assert.equal(cliSkillsHash("codex"), "#/clis/codex/skills");
   assert.equal(cliSkillsHash("codex", { workspaceId: "w1", scope: "workspace" }), "#/clis/codex/skills?workspaceId=w1&scope=workspace");
-  assert.equal(cliSkillsHash("codex", { scope: "all" }), "#/clis/codex/skills");
+  assert.equal(cliSkillsHash("codex", { scope: "machine" }), "#/clis/codex/skills");
+  assert.equal(cliSkillsHash("pi", { workspaceId: "w1", agentId: "a1", scope: "agent" }), "#/clis/pi/skills?workspaceId=w1&agentId=a1&scope=agent");
+  assert.equal(cliLocation("#/clis/pi/skills?workspaceId=w1&agentId=a1&scope=agent").agentId, "a1");
   const loc = cliLocation("#/clis/codex/skills?workspaceId=w1&scope=machine");
   assert.equal(loc.pane, "skills");
   assert.equal(loc.workspaceId, "w1");
   assert.equal(loc.scope, "machine");
   assert.equal(cliLocation("#/clis/codex/skills?scope=bogus").invalid, true);
   assert.equal(cliLocation("#/clis/codex/skills/extra").invalid, true);
-  assert.deepEqual(cliSkillsQuery(new URLSearchParams("")), { workspaceId: "", scope: "all", invalid: false });
+  assert.deepEqual(cliSkillsQuery(new URLSearchParams("")), { workspaceId: "", agentId: "", scope: "machine", invalid: false });
+  assert.equal(cliLocation("#/clis/codex/skills?scope=all").invalid, true);
 });
 
 test("every CLI carries the Skills tab after Packages", () => {
@@ -31,6 +34,8 @@ test("every CLI carries the Skills tab after Packages", () => {
 test("the report path names the CLI and the workspace", () => {
   assert.equal(skillsReportPath("grok"), "/api/skills/report?cli=grok");
   assert.equal(skillsReportPath("grok", "w9"), "/api/skills/report?cli=grok&workspace=w9");
+  assert.equal(skillsReportPath("pi", "w9", "a1"), "/api/skills/report?cli=pi&workspace=w9&agent=a1");
+  assert.equal(skillsReportPath("pi", "", "a1"), "/api/skills/report?cli=pi");
 });
 
 test("each status reads in words, with the reason where there is one", () => {
@@ -57,9 +62,12 @@ test("filters keep the scope and the text, loaded first", () => {
     row({ name: "alpha", scope: "workspace", root: ".agents/skills", status: "if-trusted" }),
     row({ name: "beta", description: "deploys to prod" }),
   ];
-  assert.deepEqual(visibleSkills(rows).map((r) => r.name + ":" + r.status), ["beta:loaded", "zeta:loaded", "alpha:if-trusted", "zeta:shadowed"]);
+  assert.deepEqual(visibleSkills(rows).map((r) => r.name + ":" + r.status), ["beta:loaded", "zeta:loaded", "zeta:shadowed"]);
   assert.deepEqual(visibleSkills(rows, { scope: "workspace" }).map((r) => r.name), ["alpha"]);
   assert.deepEqual(visibleSkills(rows, { text: "PROD" }).map((r) => r.name), ["beta"]);
+  // The agent chip: what it loads across scopes, or nothing when isolated.
+  assert.deepEqual(visibleSkills(rows, { scope: "agent", agent: { isolated: false } }).map((r) => r.name), ["beta", "zeta", "alpha"]);
+  assert.deepEqual(visibleSkills(rows, { scope: "agent", agent: { isolated: true } }), []);
   assert.deepEqual(skillsSummary(rows), { total: 4, loaded: 3, shadowed: 1, tokens: 24 });
 });
 
@@ -115,4 +123,15 @@ test("install, remove and update helpers", () => {
   assert.equal(updatesSummary([]), "Nothing here was installed from a source PiCode can check.");
   assert.equal(updatesSummary([{ name: "pdf", status: "behind" }, { status: "unreachable" }]), "Update available for pdf · 1 could not be checked.");
   assert.deepEqual(skillTargetBody({ name: "a", scope: "workspace" }, "w1"), { name: "a", scope: "workspace", workspace: "w1" });
+});
+
+import { agentScopeLine, skillScopes } from "./cliSkills.js";
+
+test("chips run Global, the workspace, then the agent where the CLI has one", () => {
+  assert.deepEqual(skillScopes({}).map((s) => s.label), ["Global"]);
+  assert.deepEqual(skillScopes({ workspacePath: "/w" }, "picode").map((s) => s.label), ["Global", "picode"]);
+  assert.deepEqual(skillScopes({ workspacePath: "/w", agent: { name: "delivery" } }, "picode").map((s) => s.id + ":" + s.label), ["machine:Global", "workspace:picode", "agent:delivery"]);
+  assert.match(agentScopeLine({ agent: { name: "delivery", isolated: true } }, "omp"), /runs isolated/);
+  assert.match(agentScopeLine({ agent: { name: "delivery", isolated: false } }, "omp"), /What delivery loads/);
+  assert.equal(agentScopeLine({}, "pi"), "");
 });
