@@ -10,6 +10,7 @@ Status: approved M0–M3 implemented under ADRs 0199–0200; one controlled Code
 
 - Pilots 1–3/5 completed: `mission_WUFG3EEGTSC3LAAM54DRTWPGJF` used dedicated Omp/manual context paste and a stale-main review; `mission_N7K4X3IA26T6AQC66EEW27LWSO` used Codex → Claude Code transfer and a copy correction after review; `mission_6S3Q5CSTFZIZ4R2MNPTSQSJZCE` paused and resumed the same native Codex session before fixing missing MCP mutation fields. All three were accepted, landed and passed full CI. Run two more real missions, including a physical-phone answer; compare observed context-recovery time with five baseline tasks before claiming a gain. Accepted records are under `var/qa/missions-pilot/`.
 - M4 (separate reviewer) requires separate approval. For M5 (dependent stages and unattended execution), the owner must decide in a new ADR whether its integration step consumes Delivery's declared queue/provider boundary under ADR-0186 instead of adding a second integration executor; check current runner capability evidence first.
+- Native Pi Mission extension registration was confirmed with `getAllTools()` in Pi 0.87.1 scratch RPC and TUI, but the tool did not call a live mission endpoint. Owner dogfood still needs to verify attributed first acknowledgement and reporting in both modes; see `docs/handoff/2026-09-24-mission-pi-native.md`.
 
 ## Debts
 

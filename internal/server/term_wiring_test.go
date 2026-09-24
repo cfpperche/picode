@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/pimission"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -281,13 +282,15 @@ func TestInterceptPi(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pi wrapper missing: %v", err)
 	}
-	// Two extensions ride every interactive launch: the activity reporter and,
-	// since ADR-0089's amendment, the Ask receiver.
-	if !strings.Contains(string(wrapperBody), quotedCLIArgs([]string{"-e", extension, "-e", piReplyExtensionFile(dataDir)})+" \"$@\"") {
-		t.Fatalf("pi wrapper does not prepend the state and receiver extensions and preserve argv:\n%s", wrapperBody)
+	// Activity, Ask and native Missions each have one PiCode-owned extension.
+	if !strings.Contains(string(wrapperBody), quotedCLIArgs([]string{"-e", extension, "-e", piReplyExtensionFile(dataDir), "-e", pimission.Path(dataDir)})+" \"$@\"") {
+		t.Fatalf("pi wrapper does not prepend the state, receiver and Missions extensions and preserve argv:\n%s", wrapperBody)
 	}
 	if _, err := os.Stat(piReplyExtensionFile(dataDir)); err != nil {
 		t.Fatalf("the receiver extension the wrapper names does not exist: %v", err)
+	}
+	if _, err := os.Stat(pimission.Path(dataDir)); err != nil {
+		t.Fatalf("native mission extension missing: %v", err)
 	}
 	if !strings.Contains(string(wrapperBody), `auth|config|install|list|remove|uninstall|update`) {
 		t.Fatalf("pi wrapper does not preserve subcommand dispatch:\n%s", wrapperBody)
@@ -345,7 +348,7 @@ func TestInterceptPi(t *testing.T) {
 			}
 			wantArgs := append([]string(nil), tc.args...)
 			if tc.inject {
-				wantArgs = append([]string{"-e", extension, "-e", piReplyExtensionFile(dataDir)}, wantArgs...)
+				wantArgs = append([]string{"-e", extension, "-e", piReplyExtensionFile(dataDir), "-e", pimission.Path(dataDir)}, wantArgs...)
 			}
 			want := strings.Join(wantArgs, "\n") + "\n"
 			if string(got) != want {
@@ -731,7 +734,7 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 	}
 	if real, err := os.ReadFile(realLog); err != nil {
 		t.Fatal(err)
-	} else if !strings.Contains(string(real), "pi|-e "+piTerminalStateExtensionFile(dataDir)+" -e "+piReplyExtensionFile(dataDir)+" hello") {
+	} else if !strings.Contains(string(real), "pi|-e "+piTerminalStateExtensionFile(dataDir)+" -e "+piReplyExtensionFile(dataDir)+" -e "+pimission.Path(dataDir)+" hello") {
 		t.Fatalf("real argv did not preserve Pi injection: %q", real)
 	}
 }

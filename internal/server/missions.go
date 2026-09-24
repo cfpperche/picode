@@ -136,7 +136,7 @@ func registerMissionRoutes(mux Registrar, deps Deps) {
 			writeJSON(w, 200, map[string]any{"mission": v, "context": store.MissionContext(v, h...)})
 			return
 		}
-		missionApply(w, r, deps, a.ID, req.MissionMutation)
+		missionApply(w, r, deps, a.ID, req.MissionMutation, a)
 	})
 }
 
@@ -237,7 +237,51 @@ func missionObservation(ctx context.Context, deps Deps, v store.Mission, target 
 	return o, nil
 }
 
-func missionApply(w http.ResponseWriter, r *http.Request, deps Deps, actor string, m store.MissionMutation) {
+func assignedMissionSession(deps Deps, a store.Agent, v store.Mission) (string, error) {
+	if v.Assignment == nil || v.Assignment.AgentID != a.ID {
+		return "", errors.New("this mission is not assigned to this agent")
+	}
+	current := ""
+	if a.TerminalID != nil {
+		if rt, ok := deps.TermRuntimes.Get(*a.TerminalID); ok {
+			// A live PiCode runtime wins over the last-session pointer. An
+			// empty runtime session means this run has not bound yet.
+			if rt.CLI == a.CLI && rt.SessionID != "" {
+				current = a.CLI + ":" + rt.SessionID
+			}
+		} else {
+			if path := deps.Store.ResolvePendingAgentSession(a.ID); path != "" {
+				current = a.CLI + ":" + path
+			} else if launch, err := deps.Store.TerminalLaunch(*a.TerminalID); err == nil && launch != nil && launch.LastSession != nil && launch.LastSession.CLI == a.CLI {
+				last := launch.LastSession
+				if last.SessionID != "" {
+					current = a.CLI + ":" + last.SessionID
+				} else if last.Path != "" {
+					current = a.CLI + ":" + last.Path
+				}
+			}
+		}
+	} else {
+		current = missionSession(deps, a)
+	}
+	if current == "" {
+		// A managed Pi can create its JSONL after RPC startup returns. The
+		// store matches only IDs PiCode minted for this agent, records the
+		// discovered path and updates the agent's current pointer.
+		if path := deps.Store.ResolvePendingAgentSession(a.ID); path != "" {
+			current = a.CLI + ":" + path
+		}
+	}
+	if current == "" {
+		return "", errors.New("the current native session is not yet verified by PiCode; wait for session binding and retry")
+	}
+	if v.Assignment.Session != "" && v.Assignment.Session != current {
+		return "", errors.New("the native session changed; assign it again")
+	}
+	return current, nil
+}
+
+func missionApply(w http.ResponseWriter, r *http.Request, deps Deps, actor string, m store.MissionMutation, toolAgent ...store.Agent) {
 	if m.RequestID == "" {
 		writeErr(w, 400, "requestId is required")
 		return
@@ -266,6 +310,14 @@ func missionApply(w http.ResponseWriter, r *http.Request, deps Deps, actor strin
 			return
 		}
 	}
+	nativeSession := ""
+	if actor != store.MissionOwner && len(toolAgent) > 0 {
+		nativeSession, err = assignedMissionSession(deps, toolAgent[0], v)
+		if err != nil {
+			writeErr(w, 409, err.Error())
+			return
+		}
+	}
 	target := ""
 	if m.Action == "assign" {
 		target = m.AgentID
@@ -280,6 +332,9 @@ func missionApply(w http.ResponseWriter, r *http.Request, deps Deps, actor strin
 		observed.WorkspaceID, observed.WorkspacePath, observed.Assignment = ws.ID, ws.Path, nil
 	}
 	o, obsErr := missionObservation(r.Context(), deps, observed, target)
+	if actor != store.MissionOwner && nativeSession != "" {
+		o.Session = nativeSession
+	}
 	needsSource := m.Action == "relink" || m.Action == "create" || m.Action == "assign" || m.Action == "dispatch" || m.Action == "evidence" || m.Action == "accept" || m.Action == "request-review" || actor != store.MissionOwner
 	if needsSource && obsErr != nil {
 		writeErr(w, 409, obsErr.Error())

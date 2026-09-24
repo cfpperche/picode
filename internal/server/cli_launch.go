@@ -24,6 +24,7 @@ import (
 	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/communication"
 	"github.com/cfpperche/picode/internal/credentials"
+	"github.com/cfpperche/picode/internal/pimission"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -1179,6 +1180,9 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil && a.IsPi() {
 			if err := validatePiAgentArgs(c.Args); err != nil {
 				return nil, err
+			}
+			if _, err := pimission.Ensure(deps.DataDir); err != nil {
+				return nil, fmt.Errorf("prepare native mission extension: %w", err)
 			}
 			piAgent = &a
 			piFingerprint = piAgentLaunchFingerprint(c, a)

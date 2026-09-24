@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/pimission"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -26,6 +27,35 @@ func TestIntegrationMechanismTable(t *testing.T) {
 	}
 	if p := cliIntegrationPlan("muse", t.TempDir(), "hook"); len(p.Files) != 1 || p.Summary == "" {
 		t.Errorf("muse plan = %+v, want a summary and the wrapper file", p)
+	}
+}
+
+func TestPiTerminalLaunchIncludesOneNativeMissionExtension(t *testing.T) {
+	dir := t.TempDir()
+	p := cliIntegrationPlan("pi", dir, "hook")
+	if len(p.Branches) != 1 {
+		t.Fatalf("Pi integration branches = %+v", p.Branches)
+	}
+	args := p.Branches[0].Args
+	count := 0
+	for i, arg := range args {
+		if arg == "-e" && i+1 < len(args) && strings.HasSuffix(args[i+1], "pi-mission.ts") {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("Pi CLI extension args = %v", args)
+	}
+	path, err := pimission.Ensure(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(contents), "@earendil-works/pi-coding-agent") || strings.Contains(string(contents), "typebox") {
+		t.Fatal("embedded extension depends on unresolved package imports")
 	}
 }
 
