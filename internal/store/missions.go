@@ -260,7 +260,7 @@ func (s *Store) ApplyMission(actor string, m MissionMutation, obs MissionObserva
 	if _, err = tx.Exec(`INSERT INTO mission_requests(actor,request_id,payload,result) VALUES(?,?,?,?)`, actor, m.RequestID, missionRaw(m), string(raw)); err != nil {
 		return v, err
 	}
-	if err = s.AppendEventTx(tx, "mission.changed", nil, nil, map[string]any{"id": v.ID, "workspaceId": v.WorkspaceID, "version": v.Version}); err != nil {
+	if err = s.AppendEventTx(tx, "mission.changed", nil, nil, map[string]any{"id": v.ID, "workspaceId": v.WorkspaceID, "version": v.Version, "title": v.Title, "state": v.State, "action": m.Action}); err != nil {
 		return v, err
 	}
 	return v, s.commit(tx)
@@ -409,7 +409,7 @@ func (s *Store) missionNoticeTx(tx *sql.Tx, v *Mission, m MissionMutation) error
 		}
 	}
 	v.InboxID = id
-	return s.AppendEventTx(tx, "inbox.created", nil, nil, map[string]any{"id": id, "kind": kind, "sourceKind": InboxFromSystem, "sourceId": v.ID, "title": title})
+	return s.AppendEventTx(tx, "inbox.created", nil, nil, map[string]any{"id": id, "kind": kind, "sourceKind": InboxFromSystem, "sourceId": v.ID, "workspaceId": v.WorkspaceID, "title": title})
 }
 
 // An old question remains answerable as history; it cannot reactivate a new
@@ -443,7 +443,7 @@ func (s *Store) missionAnswerTx(tx *sql.Tx, v *Mission, actor string, m MissionM
 	if n != 1 {
 		return errors.New("this question is already resolved")
 	}
-	return s.AppendEventTx(tx, "inbox.updated", nil, nil, map[string]any{"id": m.InboxID, "state": InboxDone})
+	return s.AppendEventTx(tx, "inbox.updated", nil, nil, map[string]any{"id": m.InboxID, "workspaceId": v.WorkspaceID, "title": v.Title, "state": InboxDone})
 }
 
 // AgentMissionID is navigation metadata, not a grant to update the mission.

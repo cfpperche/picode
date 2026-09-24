@@ -7,16 +7,19 @@ import { agentRowStatus, agentStatusLabel, agentTerm } from "@picode/shared/doma
 import { terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { formatMoney } from "@picode/shared/domain/providerUsage.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
+import { activeMissions, activityLabel, attentionItems, recentActivity } from "../lib/workspaceOverviewModel.js";
 import PageFrame from "./PageFrame.jsx";
 import DateRangePicker from "./DateRangePicker.jsx";
 import "../styles/workspace-overview.css";
 
-const empty = { git: null, pr: null, inbox: null, missions: null, stats: null };
+const empty = { git: null, graph: null, pr: null, inbox: null, missions: null, stats: null, activity: null };
 const paths = (id, range, ws) => ({
   git: `/api/workspaces/${encodeURIComponent(id)}/gitstatus`,
+  graph: `/api/workspaces/${encodeURIComponent(id)}/git?limit=10&remotes=0`,
   ...(ws.remote?.kind === "github" ? { pr: `/api/workspaces/${encodeURIComponent(id)}/pr` } : {}),
   inbox: "/api/inbox?blocking=1",
   missions: `/api/missions?workspace=${encodeURIComponent(id)}`,
+  activity: `/api/workspaces/${encodeURIComponent(id)}/activity`,
   stats: `/api/workspaces/${encodeURIComponent(id)}/stats?range=${encodeURIComponent(range)}`,
 });
 
@@ -35,10 +38,20 @@ export default function WorkspaceOverview({ id, workspaces, terminals, loaded, w
   const [data, setData] = useState(empty);
   const [errors, setErrors] = useState({});
   const [refresh, setRefresh] = useState(0);
+  const [lastVisit, setLastVisit] = useState(null);
   const agents = useMemo(() => ws ? agentsOf(ws) : [], [ws]);
   const owned = new Set(agents.map((a) => a.terminalId).filter(Boolean));
   const shells = terminals.filter((t) => t.workspaceId === id && !owned.has(t.id));
   const retry = () => setRefresh((n) => n + 1);
+
+  useEffect(() => {
+    const key = `picode.workspaceOverview.visit.${id}`;
+    try {
+      const previous = Number(window.localStorage.getItem(key));
+      setLastVisit(previous > 0 ? previous : null);
+      window.localStorage.setItem(key, String(Date.now()));
+    } catch { setLastVisit(null); }
+  }, [id]);
 
   useEffect(() => {
     if (!ws) return;
@@ -59,7 +72,7 @@ export default function WorkspaceOverview({ id, workspaces, terminals, loaded, w
     let timer;
     const unsub = subscribeFeed((event) => {
       const type = String(event.type || "");
-      if (type === "feed.open" || type === "git.updated" || type.startsWith("inbox.") || type.startsWith("mission.")) {
+      if (type === "feed.open" || type === "git.updated" || type.startsWith("inbox.") || type.startsWith("mission.") || type.startsWith("agent.")) {
         clearTimeout(timer);
         timer = setTimeout(retry, 300);
       }
@@ -70,40 +83,65 @@ export default function WorkspaceOverview({ id, workspaces, terminals, loaded, w
 
   if (!ws && !loaded) return <PageFrame id="workspace-overview" title="Loading workspace"><div className="wo-skeleton" aria-label="Loading workspace"><span /><span /></div></PageFrame>;
   if (!ws) return <PageFrame id="workspace-overview" title="Workspace unavailable"><p className="wo-empty">This workspace is no longer available. <a href="#/">Open dashboard</a></p></PageFrame>;
-  const inbox = (data.inbox?.items || []).filter((item) => item.workspaceId === id && item.state !== "done").slice(0, 3);
-  const missions = (data.missions?.missions || []).filter((m) => !m.archived && m.state !== "accepted").slice(0, 3);
+  const inbox = (data.inbox?.items || []).filter((item) => item.workspaceId === id && item.state !== "done");
+  const missions = activeMissions(data.missions?.missions || []);
   const git = data.git;
   const pr = data.pr?.status === "ok" ? data.pr.pr : null;
   const stats = data.stats;
+  const statusOf = (agent) => agentRowStatus(agent, { workingIds, waitingId, term: agentTerm(agent, terminals) });
+  const attention = attentionItems({ workspaceId: id, inbox, missions, agents, statusOf, pr });
+  const activity = recentActivity(data.activity?.items || [], data.graph?.commits || [], lastVisit);
+  const visitWithinRetention = lastVisit && lastVisit > Date.now() - 7 * 86400_000;
+  const activityHref = (item) => item.kind === "mission" ? `#/mission/${encodeURIComponent(item.entityId)}`
+    : item.kind === "inbox" ? `#/app/inbox/item/${encodeURIComponent(item.entityId)}`
+      : null;
 
   return <PageFrame id="workspace-overview" title={ws.name} context={ws.path}>
     <div className="wo-content">
-      <div className="wo-grid">
-        <Block title="Needs you" href="#/app/inbox" action="Open Inbox" pending={!data.inbox && !errors.inbox} error={errors.inbox} retry={retry}>
-          {inbox.length ? <ul className="wo-list">{inbox.map((item) => <li key={item.id}><a href={`#/app/inbox/item/${encodeURIComponent(item.id)}`}><strong>{item.title}</strong><small>{relTime(item.createdAt)}</small></a></li>)}</ul>
+      <section className="wo-focus" aria-label="Needs you">
+        <div className="wo-block-head"><h3>Needs you</h3><a href="#/app/inbox">Open Inbox</a></div>
+        {!data.inbox && !data.missions && !errors.inbox && !errors.missions ? <div className="wo-skeleton" aria-label="Loading attention"><span /><span /></div>
+          : attention.length ? <ul className="wo-list">{attention.slice(0, 5).map((item) => <li key={item.key}>
+            {item.href ? <a href={item.href} target={item.href.startsWith("http") ? "_blank" : undefined} rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}><strong>{item.label}</strong><small>{item.detail}</small></a>
+              : <button type="button" onClick={() => onOpenAgent(item.agentId)}><strong>{item.label}</strong><small>{item.detail}</small></button>}
+          </li>)}</ul>
+            : !data.inbox && !data.missions ? <p className="wo-empty">Could not load attention. <button type="button" onClick={retry}>Retry</button></p>
             : <p className="wo-empty">Nothing needs your answer. <a href="#/app/inbox">Open Inbox</a></p>}
-        </Block>
+        {(errors.inbox || errors.missions) && (data.inbox || data.missions) ? <p className="wo-note">Some updates are unavailable. <button type="button" onClick={retry}>Retry</button></p> : null}
+      </section>
+      <div className="wo-grid">
         <Block title="Project" pending={!git && !errors.git} error={errors.git} retry={retry}>
           {git?.git ? <div className="wo-project">
             <p><strong>{git.branch || "Detached checkout"}</strong><span>{git.totals?.files || 0} changed files</span></p>
             <p>{git.ahead ? `↑${git.ahead} ahead` : ""}{git.behind ? ` ↓${git.behind} behind` : ""}</p>
             {pr?.url ? <p><a href={pr.url} target="_blank" rel="noopener noreferrer">Pull request #{pr.number} · {pr.state}</a></p> : null}
+            {pr?.checks?.total ? <p><span>{pr.checks.failed ? `${pr.checks.failed} failed` : pr.checks.pending ? `${pr.checks.pending} running` : `${pr.checks.passed} passed`} checks</span><a href={pr.url} target="_blank" rel="noopener noreferrer">View checks</a></p> : null}
             <div className="wo-actions"><button type="button" onClick={() => onOpenGit(id, ws.name)}>Open Git</button><button type="button" onClick={() => onOpenTree(id, ws.name)}>Open files</button></div>
           </div> : <p className="wo-empty">No Git repository here. <button type="button" onClick={() => onOpenTree(id, ws.name)}>Open files</button></p>}
         </Block>
         <Block title="Agents" pending={false} href={null}>
           {agents.length || shells.length ? <ul className="wo-list">{agents.map((agent) => {
             const term = agentTerm(agent, terminals);
-            const status = agentRowStatus(agent, { workingIds, waitingId, term });
+            const status = statusOf(agent);
             return <li key={agent.id}><button type="button" onClick={() => onOpenAgent(agent.id)}><strong>{displayAgentName(agent, ws)}</strong><small>{agent.cli || "Pi"} · {agentStatusLabel(status)}</small></button></li>;
           })}{shells.map((term) => <li key={term.id}><button type="button" onClick={() => onOpenTerm(term.id)}><strong>{term.name || "Terminal"}</strong><small>{terminalStatusLabel(term) || terminalStatus(term)}</small></button></li>)}</ul>
             : <p className="wo-empty">No agents here yet. <button type="button" onClick={() => onNewAgent(id)}>Create agent</button></p>}
         </Block>
         <Block title="Missions" href={`#/missions?workspace=${encodeURIComponent(id)}`} pending={!data.missions && !errors.missions} error={errors.missions} retry={retry}>
-          {missions.length ? <ul className="wo-list">{missions.map((m) => <li key={m.id}><a href={`#/mission/${encodeURIComponent(m.id)}`}><strong>{m.title}</strong><small>{m.state}</small></a></li>)}</ul>
+          {missions.length ? <ul className="wo-list">{missions.slice(0, 3).map((m) => <li key={m.id}><a href={`#/mission/${encodeURIComponent(m.id)}`}><span className="wo-mission"><strong>{m.title}</strong>{m.nextAction ? <span>{m.nextAction}</span> : null}</span><small>{m.state === "in-review" ? "Review" : m.state === "blocked" ? "Blocked" : m.assignment?.agentName || m.state}</small></a></li>)}</ul>
             : <p className="wo-empty">No active missions. <a href={`#/missions?workspace=${encodeURIComponent(id)}`}>Open Missions</a></p>}
         </Block>
       </div>
+      <section className="wo-activity" aria-label="Recent changes">
+        <div className="wo-block-head"><h3>{visitWithinRetention ? "Since your last visit" : "Recent changes"}</h3><span>Last 7 days</span></div>
+        {(!data.activity && !errors.activity) || (data.activity && !activity.length && !data.graph && !errors.graph) ? <div className="wo-skeleton" aria-label="Loading recent changes"><span /><span /></div>
+          : errors.activity ? <p className="wo-empty">Could not load recent changes. <button type="button" onClick={retry}>Retry</button></p>
+            : activity.length ? <ul className="wo-list wo-timeline">{activity.map((item) => <li key={`${item.kind}:${item.id}`}>
+              {activityHref(item) ? <a href={activityHref(item)}><span><small>{activityLabel(item)}</small><strong>{item.title}</strong></span><small>{relTime(new Date(item.at).toISOString())}</small></a>
+                : <button type="button" onClick={() => item.kind === "commit" ? onOpenGit(id, ws.name) : onOpenAgent(item.entityId)}><span><small>{activityLabel(item)}</small><strong>{item.title}</strong></span><small>{relTime(new Date(item.at).toISOString())}</small></button>}
+            </li>)}</ul>
+              : <p className="wo-empty">{visitWithinRetention ? "No changes since your last visit." : "No recent changes here."} {git?.git ? <button type="button" onClick={() => onOpenGit(id, ws.name)}>Open Git</button> : <button type="button" onClick={() => onOpenTree(id, ws.name)}>Open files</button>}</p>}
+      </section>
       <section className="wo-usage" aria-label="Workspace usage">
         <div className="wo-usage-head"><h3>Agent activity</h3><DateRangePicker name="workspace-range" value={range} onChange={setRange} /></div>
         {!stats && !errors.stats ? <div className="wo-skeleton" aria-label="Loading agent activity"><span /><span /></div>

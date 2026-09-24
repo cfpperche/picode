@@ -120,5 +120,7 @@ Workspace menus and the browser command palette open a compact list/detail
 flow. Mobile additionally exposes Missions under More. Cursor's artifact
 review informs criterion/evidence pairing; t3code's persistent result links
 inform Delivery artifact references; Paseo's explicit workspace boundary informs the
-transfer preview. See the benchmark references in the approved plan. There
-is no new dashboard or shared presentation component between apps.
+transfer preview. See the benchmark references in the approved plan. The
+browser workspace overview reads a bounded summary of active missions and
+links to the existing detail view; it creates no second mission editor or
+shared presentation component between apps.
