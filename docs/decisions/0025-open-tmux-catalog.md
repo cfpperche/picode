@@ -13,10 +13,12 @@ day: the GUI must expose the entire tmux configuration space, not an agent's
 curated subset. Decisions here are provisional (AGENTS.md #6); this one
 changed, and this ADR records the new shape.
 
-Two facts measured on the owner's machine (tmux 3.6) shaped the design:
+Two facts measured on the owner's machine shaped the design (re-measured
+on tmux 3.7c, 2026-09-24, when the owner's server restarted onto it):
 
-1. **The catalog is large and typed only by convention** — 159 options across
-   three scopes (31 server, 61 session, 67 window). tmux does not expose
+1. **The catalog is large and typed only by convention** — 174 options across
+   three scopes (32 server, 68 session, 74 window; 159 = 31 + 61 + 67 on the
+   3.6 measurement this ADR was written from). tmux does not expose
    value types; it validates at `set-option` time with a usable message
    ("value is invalid: abc", "unknown value: middle").
 2. **tmux normalises more than a whitelist would guess** — `yes` is a valid
@@ -85,8 +87,8 @@ replaces the whole list. The block is what the catalog already carried —
 `show-options` reports the entries in index order, so joining them with
 newlines loses nothing and needs no list widget.
 
-Two things were measured on tmux 3.6 before the code was written, and both
-shape it:
+Two things were measured before the code was written, and both shape it
+(the list rule below re-measured on 3.7c, 2026-09-24: it holds unchanged):
 
 **Shrinking a list needs per-index unsets.** Writing `name[0]` and `name[1]`
 over a three-entry layer leaves `name[2]` exactly where it was — it survives

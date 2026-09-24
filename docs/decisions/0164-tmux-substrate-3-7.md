@@ -61,6 +61,15 @@ the last session ending). Everything this repository measured on 3.6 stays
 true until then, so the follow-up re-measure is a line in
 `docs/handoff/open/terminal.md`, not an assumption here.
 
+**Amended 2026-09-24:** the server has restarted onto 3.7c and the follow-up
+line is paid. No tmux server was running at all when the re-measure was made
+(the socket under `/tmp/tmux-1000` was stale), so the next one is 3.7c by
+construction: the catalog re-counted at 174 options (32 server, 68 session, 74
+window), `allow-passthrough`, `extended-keys` and `extended-keys-format` all
+exist with PiCode's own `set-option` calls accepted, `display-popup` and
+`display-menu` are present for the overlay surface this ADR plans, and the
+list-shrinking rule holds unchanged. ADR-0025 carries the numbers.
+
 If we are wrong: a machine on 3.6 (fresh Ubuntu, a container, a CI image)
 still runs PiCode — nothing gates on the version — and would silently show no
 floating overlays if that surface ever ships. The mitigation is the honest

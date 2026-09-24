@@ -29,7 +29,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted, clone exception carved by 0034, amended by 0038; write refusal amended by 0078 for the Inspector's Git actions (user's shell, behind an interlock); owner-switching toolbar amended 2026-09-13 |
 | [0023](0023-built-ui-is-not-committed.md) | Built UI is not committed; embedding moves behind a build tag | accepted |
 | [0024](0024-terminal-settings.md) | Terminal settings — global defaults, per-terminal overrides, user presets | accepted, amended in part by 0025 |
-| [0025](0025-open-tmux-catalog.md) | The whole tmux catalog is a settings surface | accepted |
+| [0025](0025-open-tmux-catalog.md) | The whole tmux catalog is a settings surface | accepted; re-measured on tmux 3.7c 2026-09-24 (catalog 174 = 32/68/74, the per-index list rule held) |
 | [0026](0026-sidebar-tabs-and-workspace-terminals.md) | Four sidebar tabs; workspaces own terminals | accepted |
 | [0027](0027-workspaces-start-empty.md) | Workspaces start empty | accepted |
 | [0028](0028-model-roles.md) | Model roles as an opt-in MIT pi package (`packages/pi-roles`) | accepted |
@@ -168,7 +168,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0161](0161-live-desktop-overlays.md) | Live desktop overlays | accepted |
 | [0162](0162-pi-interactive-shared-runtime.md) | Pi uses the shared interactive runtime | accepted, amends 0160 and 0089 |
 | [0163](0163-cli-native-config-and-memory.md) | Native settings and native memory for every agent CLI — one generic file driver per config shape plus a per-CLI declaration; memory reported in four honest tiers (editable, read-only, none, unknown); no PiCode memory store, no cross-CLI transfer | accepted, extends 0150, amends 0101's Pi-only registry; amended 2026-09-20 after an adversarial review — its store table describes what the vendors document, not what was probed (Hermes' folder is empty here, Omp's backend is off); only four of the six stores have a config-key switch, and the Memory pane links to Settings rather than owning a toggle; `force` exists in the API with no control yet. The corrected description is `docs/architecture/cli-memory.md` and `docs/architecture/cli-settings.md` |
-| [0164](0164-tmux-substrate-3-7.md) | The tmux substrate requires 3.7 for floating overlays, and reports name the running server's version | accepted |
+| [0164](0164-tmux-substrate-3-7.md) | The tmux substrate requires 3.7 for floating overlays, and reports name the running server's version | accepted; amended 2026-09-24 (the server restarted onto 3.7c; the 3.6 re-measure is paid, numbers in 0025) |
 | [0165](0165-credentials-vault.md) | One credential vault for every agent CLI — encrypted at rest, one row per account per provider, read-only declarations per CLI, a Providers pane for all nine (step 1; launch injection is step 2) | accepted |
 | [0166](0166-credential-activation.md) | Activating an account = writing the CLI's own credential file (the pi model generalized; no HOME or config-dir change, one live account per CLI, refused while a terminal of that CLI runs, the replaced file kept once) | accepted |
 | [0167](0167-packages-for-every-cli.md) | Native packages for every agent CLI | accepted |

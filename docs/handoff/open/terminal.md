@@ -2,9 +2,22 @@
 
 ## Next
 
-- tmux 3.7c is in PATH (`/usr/local/bin`) while the running server is still 3.6: at the first server restart (reboot, or the last session ending) re-measure `extended-keys-format`, `allow-passthrough`, `display-popup` and the floating-pane gestures on 3.7c, then refresh ADR-0025's 3.6-era numbers (ADR-0164).
+- Nothing queued.
 
 ## Debts
+
+- [x] **The 3.7c re-measure.** Paid 2026-09-24 on a private 3.7c server (no
+  tmux server was running on the machine at all — the socket under
+  `/tmp/tmux-1000` was stale — so the next one is 3.7c by construction):
+  the catalog re-counted at **174** options (32 server, 68 session, 74 window)
+  where the 3.6 measurement said 159 (31/61/67); `allow-passthrough`,
+  `extended-keys` and `extended-keys-format` all exist and PiCode's own calls
+  (`set-option -s extended-keys-format xterm`, `extended-keys on`) are
+  accepted; `display-popup` and `display-menu` are present for the overlay
+  surface ADR-0164 plans (PiCode itself calls neither yet); and the
+  list-shrinking rule that shapes `SetArrayOption` holds unchanged — writing
+  `[0]` and `[1]` over a three-entry list left `[2]` intact. ADR-0025
+  refreshed, ADR-0164 amended, both index rows note it.
 - [x] **Fixed by construction 2026-09-23** (`feat/restart-test-flake`; not reproduced, so not measured): both pane-pid reads dropped their error, so a tmux call that failed under load read as pid 0 and looked like a killed process; `panePIDSoon` retries for 5 s and fails with the real error. Original: `TestCLIRestartPreparationFailureAndWorkspaceCleanup` failed once in a full 4-shard `make close` (2026-09-23, "preparation failure killed the old process") and passed on the retry; 0 of 24 under three parallel loops alone, on main and on `feat/fixture-kill-wait` alike. Suspect: it reads `PanePID` right after the launch returns, before the pane may exist, so a 0 read later differs. Not diagnosed.
 
 - [x] **`make ci` was red on `main` in `internal/server`** (2026-09-20) — root cause found and fixed on `feat/tmux-server-red`: with no `SHELL` in the daemon's environment, `defaultShell()` fell back to `/bin/sh` (dash) and `ensureShell` handed dash `--rcfile`, which it rejects (`Illegal option --`, status 2). The pane exited at once, a server with nothing else on it followed under `exit-empty`, `new-session` still answered 0, and the API reported `running:true` — which is why the failures read `no server running`, `mouse=""` and `catalog = 503` in four shards. The fix: bash fallback, `--rcfile` only for a shell that resolves to bash, and a liveness check that refuses a pane which never lived. The earlier note's two candidates were both wrong; the socket plumbing was innocent.
