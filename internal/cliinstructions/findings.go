@@ -12,7 +12,8 @@ const ompWorktreeIssue = "https://github.com/can1357/oh-my-pi/issues/13010"
 // findings are the lines a person may want to act on. Each speaks only of
 // installed CLIs, and each measured case in the study has one: a CLAUDE.md
 // that hides AGENTS.md from Claude Code, a file over a CLI's limit, imports
-// most CLIs read as text, Omp in a nested worktree, an untrusted Grok folder.
+// most CLIs read as text, Omp in a nested worktree, an untrusted Grok or
+// Antigravity folder.
 func findings(s *scan, rep *Report) []Finding {
 	installed := map[string]bool{}
 	name := map[string]string{}
@@ -106,6 +107,16 @@ func findings(s *scan, rep *Report) []Finding {
 		for _, f := range rep.Files {
 			if f.Cells["grok"].Status == StatusUntrusted {
 				add("grok-untrusted", "Grok ignores this folder's instructions until you trust the folder in Grok.", nil, []string{"grok"}, nil)
+				break
+			}
+		}
+	}
+
+	// Antigravity in a folder it does not trust (only the exact folder counts).
+	if installed["agy"] {
+		for _, f := range rep.Files {
+			if f.Cells["agy"].Status == StatusUntrusted {
+				add("agy-untrusted", "Antigravity ignores this folder's instructions until you open this exact folder in Antigravity and trust it.", nil, []string{"agy"}, nil)
 				break
 			}
 		}

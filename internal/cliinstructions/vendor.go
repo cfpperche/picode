@@ -107,6 +107,37 @@ func hermesCap(home string) int {
 	return 0
 }
 
+// agyTrusted reports whether Antigravity's CLI trusts exactly this folder
+// (trustedWorkspaces in ~/.gemini/antigravity-cli/settings.json). Measured
+// 2026-09-24: a trusted parent (/tmp) did not trust the folders below it,
+// and a trusted folder did not trust its subfolder.
+func agyTrusted(home, folder string) bool {
+	b, err := os.ReadFile(filepath.Join(home, ".gemini", "antigravity-cli", "settings.json"))
+	if err != nil {
+		return false
+	}
+	var doc struct {
+		TrustedWorkspaces []string `json:"trustedWorkspaces"`
+	}
+	if json.Unmarshal(b, &doc) != nil {
+		return false
+	}
+	want := filepath.Clean(folder)
+	if resolved, err := canon(want); err == nil {
+		want = resolved
+	}
+	for _, t := range doc.TrustedWorkspaces {
+		got := filepath.Clean(t)
+		if resolved, err := canon(got); err == nil {
+			got = resolved
+		}
+		if got == want {
+			return true
+		}
+	}
+	return false
+}
+
 // grokTrusted reports whether ~/.grok/trusted_folders.toml trusts exactly
 // this folder. Measured: trusting a parent folder does not trust the
 // repository inside it.
