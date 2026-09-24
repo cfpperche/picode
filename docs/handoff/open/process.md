@@ -27,6 +27,13 @@
   and the honest next step is the first candidate here — the heavy packages in
   a CI job of their own — because it removes the ceiling question without
   betting the gate on how four processes share a two-core runner.
+  **Landed 2026-09-24** (`feat/ci-heavy-job`, owner approved on request): the
+  heavy pair runs in a `go-heavy` job on the same platform list and with the
+  same Windows skip, the rest of the suite keeps a `-timeout 25m` ceiling of
+  its own (`GO_TEST_EXCLUDE_HEAVY=1` in `scripts/go-test.sh`), and the two jobs
+  run in parallel. The ceiling question is answered by construction. Whether
+  the split buys wall clock is not assumed: two cores are still two cores, and
+  the 275-385 s shard timings above came from a 16-core machine, not a runner.
 
 - [x] **The macOS Go job is red on tests nobody runs.** Paid 2026-09-23, in two
   steps: the two defects are fixed (`feat/macos-tests`) and the leg now runs
