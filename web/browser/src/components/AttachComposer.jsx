@@ -180,11 +180,6 @@ export default function AttachComposer({
         ) : (
           <p className="term-attach-empty">Add a photo, a file or a sketch.</p>
         )}
-        {deliveryOptions.length && onDelivery ? (
-          <span className="term-attach-kind" title="How the message reaches the working CLI">
-            <KindChip id="attach-kind" value={delivery} onChange={onDelivery} options={deliveryOptions} search={false} closeFocus={() => inputRef.current && inputRef.current.focus()} />
-          </span>
-        ) : null}
         {onClose ? <button type="button" className="ws-icon-btn" title="Close (Esc)" aria-label="Close the message bar" onClick={onClose}><IconX size={13} /></button> : null}
       </div>
       {/* Not a [data-align-row]: the field grows by design (overlayAudit's
@@ -210,6 +205,12 @@ export default function AttachComposer({
           aria-label={placeholder}
           autoComplete="off"
         />
+        {/* Delivery sits beside Send: it decides what Send does. */}
+        {deliveryOptions.length && onDelivery ? (
+          <span className="term-attach-kind" title="How the message reaches the working CLI">
+            <KindChip id="attach-kind" value={delivery} onChange={onDelivery} options={deliveryOptions} search={false} closeFocus={() => inputRef.current && inputRef.current.focus()} />
+          </span>
+        ) : null}
         {hideSend ? null : (
           <button type="button" className="icon-btn icon-btn-send" title={sendLabel + " (Enter)"} aria-label={sendLabel} disabled={!canSend} onClick={submit}><IconSend size={16} /></button>
         )}
