@@ -3,7 +3,7 @@
 // and the node tests hold the sidebar to it.
 //
 // Five groups, most-used first and the dangerous one last:
-//   1. inside PiCode — Communication, Files, Git graph
+//   1. inside PiCode — Overview, Communication, Files, Git graph
 //   2. out of PiCode — the folder in the owner's file manager (Explorer under
 //      WSL), the repository's web page, its pull request, and the path
 //   3. Settings… — the name and how delivered work lands (WorkspaceSettings)
@@ -65,6 +65,7 @@ export function workspaceRowMenu(ws = {}, { canMoveUp = false, canMoveDown = fal
   const repo = !!(ws.git && (ws.git.branch || ws.git.worktree));
   const remote = ws.remote && ws.remote.url ? ws.remote : null;
   const inside = [
+    { id: "overview", label: "Overview" },
     { id: "missions", label: "Missions" },
     { id: "communication", label: "Communication" },
     { id: "files", label: "Files" },

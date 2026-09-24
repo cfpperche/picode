@@ -12,5 +12,5 @@ Scratch browser showed Compacting and Ready in the sidebar; overlay audit passed
 visual-review: PASS (scratch screenshot and five-question card).
 Not done / debts: native compaction was not exercised in authenticated CLI sessions;
 OpenCode and Omp signals were verified against installed packages and hook contracts.
-Merge: branch commit `fe581171e`; main advanced during closing; merge main and rerun
-`make close` before fast-forward landing.
+Merge: `main` was merged after it advanced during closing; rerun `make close`
+before fast-forward landing.

@@ -68,6 +68,7 @@ func (deps Deps) liveState(agentID string) (streaming, waiting bool, dialog *rpc
 
 func registerWorkspaceRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/workspaces", handleList(deps))
+	mux.HandleFunc("GET /api/workspaces/{id}/stats", handleWorkspaceStats(deps))
 	mux.HandleFunc("POST /api/workspaces", handleAdd(deps))
 	registerSidebarOrderRoutes(mux, deps)
 	mux.HandleFunc("DELETE /api/workspaces/{id}", handleRemove(deps))

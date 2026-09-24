@@ -156,7 +156,7 @@ func replay(p *parsed, acc *cliAcc, req Request) (contributed bool) {
 	var inWindow int64
 	for i := range p.ents {
 		e := &p.ents[i]
-		if inCurrentWindow(req, e.at) {
+		if inCurrentWindow(req, e.at) && (req.KeepCwd == nil || req.KeepCwd(e.cwd)) {
 			inWindow += p.weight(e)
 		}
 		before := acc.current.Messages
@@ -166,7 +166,7 @@ func replay(p *parsed, acc *cliAcc, req Request) (contributed bool) {
 		}
 	}
 	for _, c := range p.compactions {
-		if inCurrentWindow(req, c.at) {
+		if inCurrentWindow(req, c.at) && (req.KeepCwd == nil || req.KeepCwd(c.cwd)) {
 			acc.turns.Compactions++
 		}
 	}

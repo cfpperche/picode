@@ -30,8 +30,20 @@ export const ROUTES = {
   history: "/history",
 };
 
+export function workspaceOverviewHash(id) {
+  return "#/workspaces/" + encodeURIComponent(id) + "/overview";
+}
+
+export function workspaceOverviewRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const m = /^\/workspaces\/([^/]+)\/overview$/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return null; }
+}
+
 export function parseRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  if (workspaceOverviewRoute(h)) return "workspaceOverview";
   if (/^\/(?:missions(?:\/new)?|mission\/[^/?]+)(?:\?|$)/.test(h)) return "missions";
   if (h === "/preferences/status" || h === "/clis" || h.startsWith("/clis/")) return "clis";
   if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";

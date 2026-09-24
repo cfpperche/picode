@@ -12,6 +12,20 @@ changes nothing in them.
 - **Not this:** not a bill. A plan subscription is not charged per token;
   PiCode shows what the tokens would cost on the API.
 
+## One workspace
+
+Open **Workspaces → workspace menu (⋯) → Overview** for one project's
+questions, agents, Git state, missions and recorded activity. This opens a
+page; your editor tabs stay as they were. Pick Today, 7 days, 30 days or All
+for the activity chart. Each row opens the existing Inbox, agent, Git or
+Missions view where you can act.
+
+Activity is assigned from the folder each CLI recorded for a session. A
+session under a nested workspace belongs to that more specific workspace.
+Sessions without a recorded folder are not included; changing the registered
+workspaces can change which older sessions appear. The home dashboard above
+still counts the whole machine.
+
 ## Spend: reported and estimated
 
 Some CLIs write down what each turn cost, and PiCode uses that figure. Codex
