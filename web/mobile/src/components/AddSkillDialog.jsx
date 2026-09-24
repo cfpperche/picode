@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as Dialog from "./MobileSheet.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { skillSourceSchema } from "@picode/shared/contracts/schemas.js";
@@ -7,10 +7,15 @@ import { conflictChoices, criticalFindings, installBlocker, installLine, sizeLab
 // Add a skill (ADR-0196 slice 2): name a source, read what it carries —
 // files, spec problems, the advisory scan — then install one skill with
 // explicit consent. PiCode never vouches: the findings are shown, not judged.
-export default function AddSkillDialog({ open, onClose, workspaceId = "", workspaceName = "", onDone }) {
+// With an agent (slice 4), the skill can go to that agent alone: a copy in
+// PiCode's cache its CLI receives at the next start.
+export default function AddSkillDialog({ open, onClose, workspaceId = "", workspaceName = "", agentId = "", agentName = "", initialScope = "", onDone }) {
+  const fallback = initialScope === "agent" && agentId ? "agent" : initialScope === "machine" || !workspaceId ? "machine" : "workspace";
   const [step, setStep] = useState("source");
   const [source, setSource] = useState("");
-  const [scope, setScope] = useState(workspaceId ? "workspace" : "machine");
+  const [scope, setScope] = useState(fallback);
+  // Each opening starts where the pane's chip is.
+  useEffect(() => { if (open) setScope(fallback); }, [open, fallback]);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -50,9 +55,10 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
     setBusy(true); setErr(""); setQuestion(null);
     const body = { preview: preview.id, path: cand.path, scope, acceptCritical: accepted, ...extra };
     if (scope === "workspace") body.workspace = workspaceId;
+    if (scope === "agent") body.agent = agentId;
     try {
       const res = await api("/api/skills", { method: "POST", body: JSON.stringify(body) });
-      onDone(res);
+      onDone(res, scope);
       close();
     } catch (x) {
       const code = x.body?.code || "";
@@ -91,8 +97,11 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
                 {workspaceId ? (
                   <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}>{workspaceName || "This workspace"}</button>
                 ) : null}
+                {agentId ? (
+                  <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "agent"} onClick={() => setScope("agent")}>{agentName || "This agent"}</button>
+                ) : null}
               </div>
-              <p className="skill-add-note">{installLine(scope, workspaceName)}</p>
+              <p className="skill-add-note">{installLine(scope, workspaceName, agentName)}</p>
               <p className="form-error" role="alert" hidden={!err}>{err}</p>
               <div className="dlg-actions" data-align-row data-align-wrap>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Cancel</button>
@@ -133,7 +142,7 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
                     <summary>Files</summary>
                     <ul>{cand.files.map((f) => <li key={f}>{f}</li>)}</ul>
                   </details>
-                  <p className="skill-add-note">{installLine(scope, workspaceName)}</p>
+                  <p className="skill-add-note">{installLine(scope, workspaceName, agentName)}</p>
                   {critical.length ? (
                     <label className="skill-add-accept">
                       <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
@@ -156,7 +165,7 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
                 {question ? conflictChoices(question.code).map((c) => (
                   <button key={c.label} type="button" className={"btn btn-sm " + (c.danger ? "btn-danger" : "btn-primary")} disabled={busy} onClick={() => install(c.body)}>{c.label}</button>
                 )) : (
-                  <button type="button" className="btn btn-primary btn-sm" disabled={busy || !!blocker} onClick={() => install()}>{busy ? <span className="cred-waiting">Installing</span> : "Install"}</button>
+                  <button type="button" className="btn btn-primary btn-sm" disabled={busy || !!blocker} onClick={() => install()}>{busy ? <span className="cred-waiting">Installing</span> : scope === "agent" ? "Add to " + (agentName || "this agent") : "Install"}</button>
                 )}
               </div>
             </div>

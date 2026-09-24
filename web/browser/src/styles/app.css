@@ -1307,11 +1307,11 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 .ws-status.is-interactive, .ws-status.is-ready { color: var(--text-secondary); }
 .ws-status.is-stopped { color: var(--text-secondary); opacity: .7; }
 .ws-status-age { color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
+/* Narrow rows drop the busy pill's age, never its spinner: motion is what
+   tells a busy row from a parked one at a glance (ADR-0212 dogfood). */
 @container (max-width: 280px) {
   .ws-status.is-working .ws-status-age,
-  .ws-status.is-compacting .ws-status-age,
-  .ws-status.is-working .pi-spin,
-  .ws-status.is-compacting .pi-spin { display: none; }
+  .ws-status.is-compacting .ws-status-age { display: none; }
 }
 .ws-menu-tick { width: 16px; height: 16px; display: grid; place-items: center; flex: none; color: var(--accent); }
 .ws-row-menu-trigger {

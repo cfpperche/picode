@@ -32,11 +32,21 @@ type Spec struct {
 	// Launch is the CLI's own per-run mechanism for an agent's skill set;
 	// empty when there is none.
 	Launch string
-	// AgentScope: the CLI already loads a per-agent list at launch (Pi and
-	// Omp take an agent's packages with -e, and those carry skills), so the
-	// pane offers the agent as a scope.
+	// AgentScope: PiCode passes an agent's own skills at launch through
+	// Launch (slice 4, measured 2026-09-24), so the pane offers the agent as
+	// a scope. AgentOrder says which copy wins when an agent skill and a
+	// folder skill share a name.
 	AgentScope bool
+	AgentOrder string // AgentFoldersWin | AgentWins | AgentNamespaced
 }
+
+// How a CLI resolves an agent skill against a folder skill of the same name
+// (measured with each CLI's own command list, 2026-09-24).
+const (
+	AgentFoldersWin = "folders"    // Pi: the first skill discovered keeps the name
+	AgentWins       = "agent"      // Omp: skills.customDirectories outrank the folders
+	AgentNamespaced = "namespaced" // Claude Code: plugin skills are plugin:name
+)
 
 // ScopedRoot pairs a root with the scope it belongs to.
 type ScopedRoot struct {
@@ -66,8 +76,9 @@ var specs = []Spec{
 		ProjectTrust: true,
 		TrustCommand: "/trust",
 		TrustNote:    "Pi loads this workspace's skills once the folder is trusted in Pi.",
-		Launch:       "pi --skill <path> per skill; --no-skills for an isolated agent",
+		Launch:       "pi --skill <folder> for each of the agent's skills; an isolated agent adds --no-skills, and --skill still loads",
 		AgentScope:   true,
+		AgentOrder:   AgentFoldersWin,
 	},
 	{
 		CLI: "omp",
@@ -84,8 +95,9 @@ var specs = []Spec{
 			home("~/.agent/skills", true),
 		},
 		Toggle:     "skills.ignoredSkills in Omp's settings",
-		Launch:     "omp --skills=<globs>; --no-skills for an isolated agent",
+		Launch:     "omp --config <overlay> naming the agent's skills in skills.customDirectories; an isolated agent's overlay turns the folders off",
 		AgentScope: true,
+		AgentOrder: AgentWins,
 	},
 	{
 		CLI: "claude-code",
@@ -94,8 +106,10 @@ var specs = []Spec{
 			home("~/.claude/skills", false),
 			ws(".claude/skills", false, false),
 		},
-		Toggle: "skillOverrides in Claude Code's settings",
-		Launch: "claude --plugin-dir <dir> for one session",
+		Toggle:     "skillOverrides in Claude Code's settings",
+		Launch:     "claude --plugin-dir <folder>: the agent's skills as the picode-agent plugin, invoked as /picode-agent:<name>",
+		AgentScope: true,
+		AgentOrder: AgentNamespaced,
 	},
 	{
 		CLI: "codex",

@@ -50,7 +50,9 @@ export function skillStatus(row, cli) {
     case "loaded":
       return { label: "Loaded", tone: "ok" };
     case "shadowed":
-      return { label: "Shadowed", tone: "muted", detail: "The copy in " + row.shadowedBy + " wins" };
+      return { label: "Shadowed", tone: "muted", detail: row.shadowedBy === AGENT_ROOT ? "This agent's own copy wins" : "The copy in " + row.shadowedBy + " wins" };
+    case "missing":
+      return { label: "Missing", tone: "warn", detail: "Its copy is gone from PiCode's cache, so the next start leaves it out. Add it again" };
     case "needs-trust":
       return { label: "Needs trust", tone: "warn", detail: name + " skips this workspace's skills until you trust the folder" };
     case "if-trusted":
@@ -74,6 +76,11 @@ export function sourceLabel(src = {}) {
 export function skillOrigin(row) {
   const p = row.provenance;
   if (!p) return { label: "Added by hand", title: "No installer's lock names this folder" };
+  if (p.installer === "picode") {
+    const src = (p.source || "").replace(/\/+$/, "");
+    const label = src.startsWith("/") || src.startsWith("~") ? src.split("/").pop() : src;
+    return { label: label || "PiCode", title: "Added to this agent by PiCode from " + (p.source || "a source") };
+  }
   const via = p.installer === "hermes" ? "Hermes hub" : "skills CLI";
   // A local source is a long path whose useful part is its last folder.
   const local = p.sourceType === "local" && p.source ? p.source.replace(/\/+$/, "").split("/").pop() : "";
@@ -97,8 +104,12 @@ export function alsoLoadedLine(row) {
 // rest, each group by name.
 const RANK = { loaded: 0, "if-trusted": 1, "needs-trust": 2, invalid: 3, shadowed: 4 };
 
+// The agent's own list, as the reader names its folder (internal/skills).
+export const AGENT_ROOT = "This agent only";
+
 // The chips a report offers: Global, the workspace by its name, and the
-// agent by its name when the CLI has an agent scope (Pi, Omp).
+// agent by its name when the CLI takes an agent's own skills at launch (Pi,
+// Omp, Claude Code — ADR-0196 slice 4).
 export function skillScopes(report, workspaceName = "") {
   const out = [{ id: "machine", label: "Global" }];
   if (report?.workspacePath) out.push({ id: "workspace", label: workspaceName || "This workspace" });
@@ -106,19 +117,33 @@ export function skillScopes(report, workspaceName = "") {
   return out;
 }
 
-// Under the agent chip: what that agent loads — every loaded skill, or none
-// when it runs isolated (then only its own packages' skills).
+// Under the agent chip: what that agent loads — its own skills and the
+// folders' (none of the folders' when it runs isolated), and how a skill
+// added here reaches it.
 export function agentScopeLine(report, cli) {
   const a = report?.agent;
   if (!a) return "";
   const name = terminalCliLabel(cli);
-  if (a.isolated) return a.name + " runs isolated: " + name + " loads none of these folders for it, only the skills in its own packages.";
-  return "What " + a.name + " loads. Skills for " + a.name + " alone come with its packages.";
+  const own = cli === "claude-code" ? " Its own skills appear as /picode-agent:<name>." : "";
+  if (a.isolated) return a.name + " runs isolated: " + name + " loads only its own skills and its packages' skills, none from these folders." + own;
+  return "What " + a.name + " loads. A skill you add here is for " + a.name + " alone and loads at its next start." + own;
+}
+
+// The CLIs that take an agent's own skills at launch (internal/skills specs
+// AgentScope; TestSkillsAgentCLIsMatch pins it).
+export const AGENT_SKILL_CLIS = ["pi", "omp", "claude-code"];
+
+// Opened for an agent whose CLI has no way to take skills of its own at
+// launch: one line saying so, instead of a missing chip nobody explains.
+export function noAgentScopeLine(report, cli, agentId = "") {
+  if (!agentId || report?.agent || AGENT_SKILL_CLIS.includes(cli)) return "";
+  return terminalCliLabel(cli) + " cannot take skills for one agent when it starts; skills here reach every " + terminalCliLabel(cli) + " agent. Pi, Omp and Claude Code can.";
 }
 
 export function visibleSkills(rows = [], { scope = "machine", text = "", agent = null } = {}) {
   const needle = text.trim().toLowerCase();
   const inScope = (r) => {
+    if (r.scope === "agent") return scope === "agent";
     if (scope === "agent") return !agent?.isolated && (r.status === "loaded" || r.status === "if-trusted");
     return r.scope === scope;
   };
@@ -160,11 +185,14 @@ export function skillsEmptyLine(cli, { workspaceName = "", hasWorkspace = false 
 // Rows PiCode can remove: the canonical folder an install writes. A skill in
 // a CLI's own folder (~/.claude/skills, .grok/skills…) is that CLI's to manage.
 export function canRemoveSkill(row) {
-  return row.root === ".agents/skills" || row.root === "~/.agents/skills";
+  return row.scope === "agent" || row.root === ".agents/skills" || row.root === "~/.agents/skills";
 }
 
 // Where an install lands, in one sentence the dialog shows before consent.
-export function installLine(scope, workspaceName = "") {
+export function installLine(scope, workspaceName = "", agentName = "") {
+  if (scope === "agent") {
+    return "Keeps a copy in PiCode for " + (agentName || "this agent") + " alone, loaded at its next start. Nothing is written to the workspace or your home folder.";
+  }
   if (scope === "workspace") {
     return "Installs into " + (workspaceName || "this workspace") + "'s .agents/skills folder, where most agent CLIs look, and links it for Claude Code.";
   }
@@ -221,8 +249,23 @@ export function updatesSummary(rows = []) {
 }
 
 // The body for DELETE /api/skills and POST /api/skills/update.
-export function skillTargetBody(row, workspaceId) {
+export function skillTargetBody(row, workspaceId, agentId = "") {
   const body = { name: row.name, scope: row.scope };
   if (row.scope === "workspace") body.workspace = workspaceId;
+  if (row.scope === "agent") body.agent = agentId;
   return body;
+}
+
+// The toast after an install, by where it landed.
+export function installedLine(res, scope, agentName = "") {
+  if (res.status === "already") return res.name + (scope === "agent" ? " is already on " + (agentName || "this agent") + "." : " is already installed.");
+  if (res.status === "adopted") return "Recorded where " + res.name + " came from.";
+  if (scope === "agent") return res.name + " added to " + (agentName || "this agent") + ". It loads at the next start.";
+  return res.name + " installed.";
+}
+
+// The question before a remove, by scope.
+export function removeQuestion(row, { workspaceName = "", agentName = "" } = {}) {
+  if (row.scope === "agent") return "Remove " + row.name + " from " + (agentName || "this agent") + "? It stops loading at the next start.";
+  return "Remove " + row.name + " from " + (row.scope === "workspace" ? (workspaceName || "this workspace") : "this computer") + "? Every CLI that reads this folder loses it.";
 }

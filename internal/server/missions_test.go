@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cfpperche/picode/internal/apps"
+	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -84,6 +85,69 @@ func TestMissionHTTPRoundTripAndIdentity(t *testing.T) {
 	action("accept", map[string]any{"sourceStopped": true})
 	if v.State != "completed" || v.Assignment.Reserved {
 		t.Fatal(v)
+	}
+}
+
+func TestMissionFirstNativeSessionBindsFromPiCodeState(t *testing.T) {
+	ts, s := newInboxServer(t)
+	previousRoot := session.TestRoot
+	session.TestRoot = t.TempDir()
+	t.Cleanup(func() { session.TestRoot = previousRoot })
+	dir := t.TempDir()
+	w, _ := s.AddWorkspace("First session", dir)
+	a, _ := s.AddAgent(w.ID, "Pi", "")
+	v := missionResult(t, missionPost(t, ts, "/api/missions", store.MissionMutation{RequestID: "native-create", WorkspaceID: w.ID, Title: "Native session", Objective: "Bind first Pi session", Criteria: []store.MissionCriterion{{Text: "Bound"}}}, 200))
+	v = missionResult(t, missionPost(t, ts, "/api/missions/"+v.ID+"/actions", store.MissionMutation{Action: "assign", RequestID: "native-assign", ExpectedVersion: v.Version, AgentID: a.ID, TargetReady: true}, 200))
+	if v.Assignment.Session != "" {
+		t.Fatalf("pre-start assignment session = %q", v.Assignment.Session)
+	}
+	for _, action := range []string{"show", "context"} {
+		missionPost(t, ts, "/api/missions/tool", map[string]any{"action": action, "id": v.ID, "agent": a.ID}, 200)
+	}
+	sid := s.NewPendingAgentSession(a.ID)
+	path := filepath.Join(session.AgentDir(a.ID), sid+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"type":"session","id":"`+sid+`","cwd":"`+dir+`"}`+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	request := map[string]any{"action": "acknowledge", "id": v.ID, "agent": a.ID, "generation": v.Assignment.Generation, "expectedVersion": v.Version, "requestId": "native-ack"}
+	v = missionResult(t, missionPost(t, ts, "/api/missions/tool", request, 200))
+	if v.Assignment.Session != "pi:"+path || v.Assignment.Delivery != "acknowledged" {
+		t.Fatalf("first native session was not bound: %+v", v.Assignment)
+	}
+	other := filepath.Join(dir, "stale-session.jsonl")
+	if err := os.WriteFile(other, []byte("{}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateAgent(a.ID, store.AgentPatch{SessionPath: &other}); err != nil {
+		t.Fatal(err)
+	}
+	request["action"], request["requestId"], request["expectedVersion"] = "report", "stale-report", v.Version
+	request["note"] = "should be refused"
+	missionPost(t, ts, "/api/missions/tool", request, 409)
+}
+
+func TestMissionTerminalSessionUsesPiCodeRuntimeAndRefusesStaleBinding(t *testing.T) {
+	_, s := newInboxServer(t)
+	dir := t.TempDir()
+	w, _ := s.AddWorkspace("Terminal session", dir)
+	a, _ := s.AddAgent(w.ID, "Pi", "")
+	a, err := s.EnsureAgentTerminal(a.ID, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := Deps{Store: s, TermRuntimes: NewTermRuntimes()}
+	deps.TermRuntimes.Start(*a.TerminalID, TermRuntime{CLI: "pi", RunID: "run-1", SessionID: "native-current", SessionPath: filepath.Join(dir, "native-current.jsonl")})
+	v := store.Mission{Assignment: &store.MissionAssignment{AgentID: a.ID}}
+	got, err := assignedMissionSession(deps, a, v)
+	if err != nil || got != "pi:native-current" {
+		t.Fatalf("current terminal session = %q, %v", got, err)
+	}
+	v.Assignment.Session = "pi:native-old"
+	if _, err := assignedMissionSession(deps, a, v); err == nil || !strings.Contains(err.Error(), "session changed") {
+		t.Fatalf("stale terminal binding error = %v", err)
 	}
 }
 func TestMissionEvidenceConfinement(t *testing.T) {

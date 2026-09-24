@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
@@ -37,22 +40,34 @@ type Agent struct {
 	WorkPath         *string  `json:"workPath"`
 	Packages         []string `json:"packages"`
 	PackagesIsolated bool     `json:"packagesIsolated"`
-	TerminalID       *string  `json:"terminalId,omitempty"`
+	// Skills are this agent's own (ADR-0196 slice 4), passed at launch.
+	Skills     []AgentSkill `json:"skills"`
+	TerminalID *string      `json:"terminalId,omitempty"`
 }
 
-const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist, cli, terminal_id`
+// AgentSkill is one skill the agent loads alone: a copy in PiCode's
+// digest-addressed cache, named by the folder the CLI receives.
+type AgentSkill struct {
+	Name   string `json:"name"`
+	Digest string `json:"digest"`
+	Source string `json:"source,omitempty"` // where it was added from, as the person typed it
+	Dir    string `json:"dir"`              // the cached folder
+}
+
+const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist, cli, terminal_id, skills`
 
 func scanAgent(row interface{ Scan(...any) error }, a *Agent) error {
-	var pkgs string
+	var pkgs, skills string
 	var isolated int
 	var termID sql.NullString
 	err := row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated, &a.Checklist, &a.CLI, &termID)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated, &a.Checklist, &a.CLI, &termID, &skills)
 	if err != nil {
 		return err
 	}
 	a.Packages = decodePackages(pkgs)
 	a.PackagesIsolated = isolated != 0
+	a.Skills = decodeAgentSkills(skills)
 	if strings.TrimSpace(a.CLI) == "" {
 		a.CLI = CLIPi
 	}
@@ -94,6 +109,14 @@ func decodePackages(raw string) []string {
 	var out []string
 	if json.Unmarshal([]byte(raw), &out) != nil || out == nil {
 		return []string{}
+	}
+	return out
+}
+
+func decodeAgentSkills(raw string) []AgentSkill {
+	out := []AgentSkill{}
+	if json.Unmarshal([]byte(strings.TrimSpace(raw)), &out) != nil || out == nil {
+		return []AgentSkill{}
 	}
 	return out
 }
@@ -381,6 +404,11 @@ func (a Agent) CLIFlags() []string {
 			args = append(args, "-e", src)
 		}
 	}
+	// Measured on pi 0.7x: an explicit --skill loads even with --no-skills,
+	// and a folder skill of the same name wins over it.
+	for _, dir := range a.SkillDirs() {
+		args = append(args, "--skill", dir)
+	}
 	if id := strings.TrimSpace(a.ID); id != "" {
 		// ADR-0040: every spawn gets a private lookup/storage root, keyed
 		// by agent id rather than cwd — this is what makes pi's OWN
@@ -459,6 +487,60 @@ func (s *Store) SetAgentPackages(id string, srcs []string) (Agent, error) {
 	_, err := s.db.Exec(`UPDATE agents SET packages=? WHERE id=?`, encodePackages(out), id)
 	if err != nil {
 		return Agent{}, fmt.Errorf("store: agent packages: %w", err)
+	}
+	return s.agentChanged(id)
+}
+
+// SkillDirs are the agent's cached skill folders that still exist, in its
+// order; a folder gone from the cache is left out of the launch (the Skills
+// tab names it as missing).
+func (a Agent) SkillDirs() []string {
+	var out []string
+	for _, sk := range a.Skills {
+		if sk.Dir == "" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(sk.Dir, "SKILL.md")); err == nil {
+			out = append(out, sk.Dir)
+		}
+	}
+	return out
+}
+
+var agentSkillName = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$`)
+
+// SetAgentSkills replaces the agent's own skills (ADR-0196 slice 4). A name
+// appears once: a later entry of the same name replaces the earlier one.
+func (s *Store) SetAgentSkills(id string, list []AgentSkill) (Agent, error) {
+	if _, err := s.GetAgent(id); err != nil {
+		return Agent{}, err
+	}
+	out := make([]AgentSkill, 0, len(list))
+	at := map[string]int{}
+	for _, sk := range list {
+		sk.Name = strings.TrimSpace(sk.Name)
+		if !agentSkillName.MatchString(sk.Name) || strings.Contains(sk.Name, "--") {
+			return Agent{}, invalidError{"A skill name is lowercase letters, digits and single hyphens."}
+		}
+		if sk.Dir == "" || !filepath.IsAbs(sk.Dir) {
+			return Agent{}, invalidError{"A skill needs its cached folder."}
+		}
+		if i, ok := at[sk.Name]; ok {
+			out[i] = sk
+			continue
+		}
+		at[sk.Name] = len(out)
+		out = append(out, sk)
+	}
+	if len(out) > 32 {
+		return Agent{}, invalidError{"An agent carries at most 32 skills of its own."}
+	}
+	raw, err := json.Marshal(out)
+	if err != nil {
+		return Agent{}, err
+	}
+	if _, err := s.db.Exec(`UPDATE agents SET skills=? WHERE id=?`, string(raw), id); err != nil {
+		return Agent{}, fmt.Errorf("store: agent skills: %w", err)
 	}
 	return s.agentChanged(id)
 }

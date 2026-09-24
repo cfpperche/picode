@@ -119,12 +119,21 @@ selects a conversation through a native user-message hook or exact connected
 resume; background session activity cannot replace it.
 
 Terminal window titles were measured as a candidate delivery signal
-(2026-09-14): at these vendor versions none of the six CLIs publishes
-working/idle in the pane title — Codex sets the folder name, Claude keeps a
-topic label through turns, Grok/OpenCode echo the last prompt. The composer
-frame and the native hooks remain the delivery evidence; the title tiers are
-worth re-measuring when a vendor actually emits status (Orca's stack depends
-on exactly that).
+(2026-09-14): then, none of the six CLIs published working/idle in the pane
+title. Re-measured 2026-09-24, three of them do:
+
+| CLI | Idle title | Busy title |
+|---|---|---|
+| Claude Code 2.1.281 | `✳ Claude Code` | `◐`/`◑` + the topic |
+| Codex 0.156.1 | the folder name | a braille spinner prefix |
+| Grok 1.0.41 | — | a braille spinner prefix |
+
+The busy title holds both during a turn and during a `!` command.
+
+The composer frame and the native hooks remain the delivery evidence.
+ADR-0212 chose the process tree over the title for shell-command activity,
+because title formats are vendor-private and miss Hermes, OpenCode and Muse.
+The title stays a secondary candidate.
 
 
 ## Workspace onboarding (ADR-0110)

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import {
   agentScopeLine, alsoLoadedLine, canRemoveSkill, skillScopes, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
-  skillsSummary, skillTargetBody, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
+  skillsSummary, skillTargetBody, installedLine, removeQuestion, noAgentScopeLine, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
 } from "@picode/shared/domain/cliSkills.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
@@ -86,8 +86,11 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
       onClose={() => setAdding(false)}
       workspaceId={workspaceId}
       workspaceName={workspaceName}
-      onDone={(res) => {
-        toast.ok(res.status === "already" ? res.name + " is already installed." : res.status === "adopted" ? "Recorded where " + res.name + " came from." : res.name + " installed.");
+      agentId={data?.agent ? agentId : ""}
+      agentName={data?.agent?.name || ""}
+      initialScope={current}
+      onDone={(res, where) => {
+        toast.ok(installedLine(res, where, data?.agent?.name));
         (res.notes || []).forEach((n) => toast.info(n));
         setReload((n) => n + 1);
       }}
@@ -111,7 +114,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
   const act = async (row, verb, extra = {}) => {
     setRowBusy(row.dir);
     setAsk(null);
-    const body = { ...skillTargetBody(row, workspaceId), ...extra };
+    const body = { ...skillTargetBody(row, workspaceId, agentId), ...extra };
     try {
       if (verb === "remove") {
         await api("/api/skills", { method: "DELETE", body: JSON.stringify(body) });
@@ -132,13 +135,16 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
     }
   };
 
-  if (!rows.length) {
+  // With an agent chip, the pane stays up even with no skill anywhere: that
+  // chip is where the agent's own list starts.
+  if (!rows.length && !data?.agent) {
     return (
       <>
         <div className="cli-notice" role="status">
           <span>{skillsEmptyLine(cli, { workspaceName, hasWorkspace })}</span>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>Add skill</button>
         </div>
+        {noAgentScopeLine(data, cli, agentId) ? <p className="cli-memory-note">{noAgentScopeLine(data, cli, agentId)}</p> : null}
         {dialog}
       </>
     );
@@ -171,10 +177,10 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
         <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>Add skill</button>
       </div>
       {updates ? <p className="cli-memory-note">{updatesSummary(updates)}</p> : null}
-      <p className="cli-memory-note">
+      {summary.total ? <p className="cli-memory-note">
         {summary.loaded} of {summary.total} load in {terminalCliLabel(cli)}
         {summary.tokens ? <> · {tokensLabel(summary.tokens)} at every start</> : null}
-      </p>
+      </p> : null}
       {trust ? (
         <div className="cli-notice" role="status">
           <span>{trust.text}</span>
@@ -184,14 +190,17 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
       {agentLine ? (
         <div className="cli-notice" role="status">
           <span>{agentLine}</span>
-          <a className="btn btn-ghost btn-sm" href={cliPackagesHash(cli, { workspaceId, agentId, scope: "agent" })}>Open its packages</a>
+          {cli === "pi" || cli === "omp" ? <a className="btn btn-ghost btn-sm" href={cliPackagesHash(cli, { workspaceId, agentId, scope: "agent" })}>Open its packages</a> : null}
         </div>
       ) : null}
       {(data?.notes || []).map((n) => <p key={n} className="cli-memory-note is-warn">{n}</p>)}
+      {noAgentScopeLine(data, cli, agentId) ? <p className="cli-memory-note">{noAgentScopeLine(data, cli, agentId)}</p> : null}
       {!shown.length ? (
         <div className="cli-notice" role="status">
           <span>{filter.trim() ? "No skill matches this filter." : scope === "agent" ? "Nothing here loads for this agent." : "No skills in this scope."}</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setFilter("")}>Clear the filter</button>
+          {filter.trim()
+            ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => setFilter("")}>Clear the filter</button>
+            : <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>Add skill</button>}
         </div>
       ) : (
         <ul className="cli-skills-list">
@@ -220,7 +229,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
                       <div className="cli-skills-actions" data-align-row>
                         {updateOf[row.scope + ":" + row.name]?.status === "behind"
                           ? <button type="button" className="btn btn-primary btn-sm" disabled={rowBusy === row.dir} onClick={() => act(row, "update")}>Update</button> : null}
-                        <button type="button" className="btn btn-ghost btn-danger btn-sm" disabled={rowBusy === row.dir} onClick={() => setAsk({ key: row.dir, text: "Remove " + row.name + "? Every CLI that reads this folder loses it.", verb: "remove", extra: {} })}>Remove</button>
+                        <button type="button" className="btn btn-ghost btn-danger btn-sm" disabled={rowBusy === row.dir} onClick={() => setAsk({ key: row.dir, text: removeQuestion(row, { workspaceName, agentName: data?.agent?.name }), verb: "remove", extra: {} })}>Remove</button>
                       </div>
                     ))
  : <p>{terminalCliLabel(cli)} manages this folder itself; PiCode removes only what lives in .agents/skills.</p>}

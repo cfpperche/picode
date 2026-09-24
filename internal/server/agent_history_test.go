@@ -43,6 +43,11 @@ func TestAgentHistoryPiRestoreAndRefusals(t *testing.T) {
 	// points at the newest file in its private folder.
 	path := seedPiSession(t, session.AgentDir(id), "s-1", folder)
 	cliRequest(t, ts, "PATCH", "/api/agents/"+id, map[string]any{"model": "sonnet", "provider": "anthropic", "checklist": "always"}, 200)
+	// The agent's own skills (ADR-0196 slice 4) come back with it.
+	own := store.AgentSkill{Name: "review", Digest: "d", Dir: filepath.Join(t.TempDir(), "d", "review")}
+	if _, err := deps.Store.SetAgentSkills(id, []store.AgentSkill{own}); err != nil {
+		t.Fatal(err)
+	}
 	if res := sendJSON(t, ts, "DELETE", "/api/agents/"+id, nil); res.StatusCode != http.StatusOK {
 		t.Fatalf("delete = %d", res.StatusCode)
 	}
@@ -64,6 +69,9 @@ func TestAgentHistoryPiRestoreAndRefusals(t *testing.T) {
 	// (ADR-0040) is its own again and nothing moves.
 	if back["id"] != id || back["name"] != "fixer" || back["sessionPath"] != path || back["model"] != "sonnet" || back["checklist"] != "always" || res["resume"] != false {
 		t.Fatalf("restored = %v", res)
+	}
+	if got, _ := deps.Store.GetAgent(id); len(got.Skills) != 1 || got.Skills[0] != own {
+		t.Fatalf("restored skills = %+v", got.Skills)
 	}
 	if got, _ := deps.Store.GetAgentExit(exitID); got.UndoneAt == nil || got.RestoredAgentID != back["id"] {
 		t.Fatalf("exit not linked to the restored agent: %+v", got)

@@ -24,6 +24,7 @@ import (
 	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/communication"
 	"github.com/cfpperche/picode/internal/credentials"
+	"github.com/cfpperche/picode/internal/pimission"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -1124,7 +1125,13 @@ func ompAgentSessionDir(dataDir, agentID string) string {
 func agentOmpScopeFlags(a store.Agent) []string {
 	var args []string
 	if a.PackagesIsolated {
-		args = append(args, "--no-extensions", "--no-skills")
+		args = append(args, "--no-extensions")
+		// --no-skills also drops skills.customDirectories (measured on
+		// 18.2.11): an isolated agent with skills of its own gets an overlay
+		// that turns the folders off instead (agentOmpSkillFlags).
+		if len(a.SkillDirs()) == 0 {
+			args = append(args, "--no-skills")
+		}
 	}
 	for _, src := range a.Packages {
 		if src = strings.TrimSpace(src); src != "" {
@@ -1174,14 +1181,24 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		}
 	}
 	var piAgent *store.Agent
-	piFingerprint := ""
+	agentFingerprint := ""
+	// An agent's own scope (packages, isolation, skills) is launch
+	// configuration too: a change to it is a restart the pane announces, for
+	// every CLI that takes one (ADR-0196 slice 4). Read before any injection.
+	var agent *store.Agent
+	if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil {
+		agent = &a
+		agentFingerprint = agentLaunchFingerprint(c, a)
+	}
 	if cli.ID == "pi" {
 		if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil && a.IsPi() {
 			if err := validatePiAgentArgs(c.Args); err != nil {
 				return nil, err
 			}
+			if _, err := pimission.Ensure(deps.DataDir); err != nil {
+				return nil, fmt.Errorf("prepare native mission extension: %w", err)
+			}
 			piAgent = &a
-			piFingerprint = piAgentLaunchFingerprint(c, a)
 			flags := deps.piSpawnFlags(a, !c.Integration)
 			c.Args = append(c.Args, flags...)
 			for _, entry := range a.SpawnEnv() {
@@ -1209,8 +1226,13 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			// after that guard runs, so they are checked here — omp refuses a
 			// run outright when --trusted-extension meets any -e, and a launch
 			// that cannot run is not worth starting.
+			skillFlags, err := agentOmpSkillFlags(deps.DataDir, a)
+			if err != nil {
+				return nil, err
+			}
+			c.Args = append(c.Args, skillFlags...)
 			if flags := agentOmpScopeFlags(a); len(flags) > 0 {
-				if ompTrustedExtensionConflict(c) {
+				if slices.Contains(flags, "-e") && ompTrustedExtensionConflict(c) {
 					return nil, errors.New("Your --trusted-extension argument conflicts with this agent's own extensions. Drop the flag, or remove the entries in the agent's package scope.")
 				}
 				c.Args = append(c.Args, flags...)
@@ -1259,6 +1281,18 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			_ = os.RemoveAll(dir)
 		}
 	}()
+	// Claude Code takes an agent's own skills as a session-only plugin
+	// folder (measured on 2.1.281: no manifest needed, skills invoked as
+	// /picode-agent:<name>).
+	if cli.ID == "claude-code" && agent != nil && agent.CLI == "claude-code" {
+		plugin, err := writeClaudeAgentPlugin(dir, *agent)
+		if err != nil {
+			return nil, err
+		}
+		if plugin != "" {
+			c.Args = append(c.Args, "--plugin-dir", plugin)
+		}
+	}
 	command := binary
 	// Wrapper-less reporters (agy: settings.json title command) need no
 	// PATH shadow; the switch below only writes intercept wrappers.
@@ -1447,8 +1481,8 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		return nil, err
 	}
 	snapshot := clilaunch.Describe(c, binary, "")
-	if piFingerprint != "" {
-		snapshot.Fingerprint = piFingerprint
+	if agentFingerprint != "" {
+		snapshot.Fingerprint = agentFingerprint
 	}
 	snapshot.CLI = cli.ID
 	snapshot.Identity = executableIdentity(binary)
@@ -1531,8 +1565,8 @@ func applyTerminalLaunch(deps Deps, view map[string]any, id string) {
 	_, effective, binary, err := resolvedTerminalLaunch(deps, v)
 	if err == nil && v.Applied != nil {
 		fingerprint := clilaunch.Fingerprint(effective)
-		if a, e := deps.Store.AgentByTerminal(id); e == nil && a.IsPi() {
-			fingerprint = piAgentLaunchFingerprint(effective, a)
+		if a, e := deps.Store.AgentByTerminal(id); e == nil {
+			fingerprint = agentLaunchFingerprint(effective, a)
 		}
 		view["launchPending"] = v.Applied.CLI != v.CLI || v.Applied.Fingerprint != fingerprint || binary != v.Applied.Executable || (v.Applied.Identity != "" && v.Applied.Identity != executableIdentity(binary))
 	}
