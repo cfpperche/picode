@@ -53,7 +53,23 @@ func canonDir(p string) string {
 	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
 		return resolved
 	}
-	return abs
+	// Resolve the deepest part that exists and re-append the rest: the caller
+	// may name a folder that is gone (a session's old cwd), and on macOS /var
+	// symlinks to /private/var — an unresolved path then never matches a
+	// resolved workspace root (measured 2026-09-24: the macOS leg's
+	// TestWorkspaceForCwd, the same shape as the instructions' tilde).
+	dir, rest := abs, ""
+	for {
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			return filepath.Join(resolved, rest)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return abs
+		}
+		rest = filepath.Join(filepath.Base(dir), rest)
+		dir = parent
+	}
 }
 
 func sameDir(a, b string) bool {

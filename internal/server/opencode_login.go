@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/cfpperche/picode/internal/clicreds"
@@ -65,7 +64,7 @@ func (s *opencodeServe) ensure() (string, error) {
 	if home, err := os.UserHomeDir(); err == nil {
 		cmd.Dir = home
 	}
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setLoginPgroup(cmd)
 	if err := cmd.Start(); err != nil {
 		return "", err
 	}
@@ -88,7 +87,7 @@ func (s *opencodeServe) ensure() (string, error) {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	killLoginTree(cmd.Process.Pid)
 	return "", errors.New("OpenCode's server did not start.")
 }
 
@@ -107,7 +106,7 @@ func (s *opencodeServe) stop() {
 		s.idle.Stop()
 	}
 	if s.cmd != nil && s.cmd.Process != nil {
-		_ = syscall.Kill(-s.cmd.Process.Pid, syscall.SIGKILL)
+		killLoginTree(s.cmd.Process.Pid)
 	}
 	s.cmd, s.base, s.cache = nil, "", nil
 }

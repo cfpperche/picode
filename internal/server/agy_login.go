@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/cfpperche/picode/internal/clicreds"
@@ -135,7 +134,7 @@ func handleAgyLoginStart(deps Deps) http.HandlerFunc {
 		if dir, err := agyNoOpenDir(deps.DataDir); err == nil {
 			cmd.Env = append(cmd.Env, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 		}
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		setLoginPgroup(cmd)
 		cmd.Cancel = func() error { killAgyTree(cmd.Process.Pid); return nil }
 		stdin, err := cmd.StdinPipe()
 		if err != nil {
@@ -325,10 +324,10 @@ func killAgyTree(scriptPid int) {
 		return
 	}
 	for _, child := range childPids(scriptPid) {
-		_ = syscall.Kill(-child, syscall.SIGKILL)
-		_ = syscall.Kill(child, syscall.SIGKILL)
+		killLoginTree(child)
+		killLoginProcess(child)
 	}
-	_ = syscall.Kill(-scriptPid, syscall.SIGKILL)
+	killLoginTree(scriptPid)
 }
 
 // childPids lists the processes whose parent is pid, from /proc.
