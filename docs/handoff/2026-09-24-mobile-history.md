@@ -12,3 +12,4 @@ Merge: fast-forward ready.
 ## Next up
 
 - Known nit: the app-wide toast briefly covers the agent composer on the phone.
+Confirmed live 2026-09-24: after the owner's deploy the served mobile bundle carries the screen, and the owner opened More ▸ Agent history on the phone.
