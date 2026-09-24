@@ -43,7 +43,7 @@ function Notice({ children, action, onAction, danger = false }) {
   return <div className={"cli-notice" + (danger ? " is-error" : "")} role={danger ? "alert" : "status"}><span>{children}</span>{action ? <button type="button" className="btn btn-ghost btn-sm" onClick={onAction}>{action}</button> : null}</div>;
 }
 
-export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, packageUpdates = [], onPackageUpdates, onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {}, onRenameTerm, onReloadAgent, onContinueTerm }) {
+export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", skillsAgentId = "", legacyPackageContext = {}, legacyContextReady = true, packageUpdates = [], onPackageUpdates, onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {}, onRenameTerm, onReloadAgent, onContinueTerm }) {
   const [hash, setHash] = useState(location.hash);
   const route = cliLocation(hash, { packageContext: legacyPackageContext, agentId: legacyAgentId });
   const setupCtx = cliPaneSetupContext(route, { workspaceId: legacyPackageContext.workspaceId || "", agentId: legacyPackageContext.agentId || legacyAgentId || "" });
@@ -262,7 +262,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
         {pane === "models" ? <CliModels cli={route.id} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
         {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
         {pane === "memory" ? <CliMemory route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} workspaceName={wsCtxName} /> : null}
-        {pane === "skills" ? <CliSkills key={route.id + ":" + (route.workspaceId || setupCtx.workspaceId || "") + ":" + (route.agentId || setupCtx.agentId || "")} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} agentId={route.agentId || setupCtx.agentId || ""} workspaceName={wsCtxName} /> : null}
+        {pane === "skills" ? <CliSkills key={route.id + ":" + (route.workspaceId || setupCtx.workspaceId || "") + ":" + (route.agentId || setupCtx.agentId || skillsAgentId)} route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} agentId={route.agentId || setupCtx.agentId || skillsAgentId} workspaceName={wsCtxName} /> : null}
         {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} describe={new URLSearchParams((hash || "").split("?")[1] || "").get("describe") === "1"} /> : null}
         {pane === "connectors" ? <ConnectorsPane route={route} onReload={onReloadAgent} /> : null}
       </div>
