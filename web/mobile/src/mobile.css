@@ -190,7 +190,7 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
   flex: none; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 99px;
   border: 1px solid var(--border); color: var(--text-secondary); white-space: nowrap;
 }
-.m-state.is-working { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.m-state.is-working, .m-state.is-compacting { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .m-state.is-needs-you, .m-state.is-waiting { color: #fff; background: var(--accent); border-color: var(--accent); }
 .m-state.is-ready, .m-state.is-open { color: var(--text-secondary); }
 .m-state.is-interactive { color: var(--text-primary); }

@@ -25,6 +25,7 @@ const wiringMarker = "picode-hook"
 // approved tool's completion is what returns the terminal to working.
 var claudeHookEvents = []string{
 	"UserPromptSubmit", "SessionStart",
+	"PreCompact", "PostCompact",
 	"Stop", "SessionEnd",
 	"Notification",
 	"PostToolUse", "PostToolUseFailure",
@@ -147,7 +148,13 @@ tool_activity = {"PreToolUse", "pre_tool_use", "PostToolUse", "post_tool_use", "
 idle = {"SessionStart", "session_start", "Stop", "SessionEnd", "Interrupt", "stop", "session_end", "interrupt", "StopCancelled", "on_session_start", "on_session_end", "on_session_reset", "post_llm_call"}
 needs_you = {"PermissionRequest", "permission_request", "pre_approval_request"}
 if ev in ("SessionStart", "session_start") and d.get("source") == "compact":
-    report("working")
+    # This event follows PostCompact. Re-reporting working here would leave
+    # a manual /compact looking busy after PostCompact returned to idle.
+    sys.exit(0)
+elif ev in ("PreCompact", "pre_compact"):
+    report("compacting")
+elif ev in ("PostCompact", "post_compact"):
+    report("working" if d.get("trigger") == "auto" else "idle")
 elif ev in working:
     report("working")
 elif ev in tool_activity:

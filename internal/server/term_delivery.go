@@ -135,7 +135,7 @@ func doorDeliverAs(deps Deps, ctx context.Context, t store.Terminal, payload, mo
 	}
 	st, ok := deps.TermStates.Get(t.ID)
 	if !ok || st.State != TermWorking {
-		if ok && st.State == TermNeedsYou {
+		if ok && (st.State == TermNeedsYou || st.State == TermCompacting) {
 			return http.StatusConflict, workingRefusal(cli, st.State)
 		}
 		return doorDeliver(deps, ctx, t, payload)

@@ -3,7 +3,7 @@
 // the same way. `live` carries what the fleet row does not: the id the
 // desktop is streaming for, the ids tmux reports as working (agent.tui),
 // the id whose dialog is on screen.
-//   agentRowStatus(agent, live) -> "needs-you" | "working" | "interactive" | "stopped" | "ready"
+//   agentRowStatus(agent, live) -> "needs-you" | "compacting" | "working" | "interactive" | "stopped" | "ready"
 //   agentStatusLabel(status)    -> the chip's copy
 import { terminalActivityStamp, terminalStatus } from "./terminalCli.js";
 
@@ -43,6 +43,7 @@ export function agentStatusStamp(status, ag, term) {
 export function agentStatusLabel(status) {
   if (status === "needs-you") return "Needs you";
   if (status === "working") return "Working";
+  if (status === "compacting") return "Compacting";
   if (status === "interactive") return "In terminal";
   if (status === "open") return "Open";
   if (status === "stopped") return "Stopped";
@@ -65,7 +66,7 @@ export function agentTerm(ag, terms) {
 // only when their state changes, never when a timestamp ticks. Empty buckets
 // are absent, never zero-count labels, and a status outside the vocabulary
 // still renders its rows at the end: the view may reorder, never lose.
-export const STATE_BUCKET_ORDER = ["needs-you", "working", "interactive", "open", "ready", "stopped"];
+export const STATE_BUCKET_ORDER = ["needs-you", "compacting", "working", "interactive", "open", "ready", "stopped"];
 
 export function bucketAgentsByState(agents, statusOf) {
   const by = new Map();

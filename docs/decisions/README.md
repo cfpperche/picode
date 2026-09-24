@@ -213,3 +213,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0206](0206-attach-delivery-modes.md) | Attach delivery modes — steer and follow-up into a working CLI through per-CLI adapters; `queued` receipt; needs-you, drafts and automations unchanged | accepted, amends 0089 and 0160 |
 | [0207](0207-workspace-dashboard-scope.md) | Workspace overview scopes recorded activity by folder; amends 0127 for a separate route | accepted (owner, 2026-09-23) |
 | [0208](0208-inbox-core-surface.md) | Inbox is a core PiCode surface with its own route, badge and API; old app links stay compatible | accepted (owner direction, 2026-09-23; amends 0036 and 0037) |
+| [0209](0209-terminal-compaction-phase.md) | Native compacting phase on a terminal only from CLI lifecycle signals | accepted, amends 0056 and 0062 |

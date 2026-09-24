@@ -139,6 +139,7 @@ def register(ctx):
 // hook file loads unchanged but must not be relied on here.
 var nativeGrokHookEvents = []string{
 	"SessionStart", "UserPromptSubmit", "Notification",
+	"PreCompact", "PostCompact",
 	"PostToolUse", "PostToolUseFailure",
 }
 

@@ -32,7 +32,7 @@ func handleTuiWorking(deps Deps) http.HandlerFunc {
 			if a, e := deps.Store.GetAgent(id); e == nil && a.TerminalID != nil && name == tmux.ShellSessionName(*a.TerminalID) {
 				view := map[string]any{}
 				applyTermState(deps, view, *a.TerminalID)
-				if view["state"] == TermWorking && deps.runMode(r, id) == modeInteractive {
+				if (view["state"] == TermWorking || view["state"] == TermCompacting) && deps.runMode(r, id) == modeInteractive {
 					out = append(out, id)
 				}
 				continue

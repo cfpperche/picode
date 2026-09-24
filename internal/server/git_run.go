@@ -117,7 +117,7 @@ func agentBusy(ctx context.Context, deps Deps, a store.Agent) (bool, string) {
 // holds the foreground (a paused rebase, an editor, a long command).
 func terminalBusy(ctx context.Context, deps Deps, t store.Terminal) (bool, string) {
 	if deps.TermStates != nil {
-		if st, ok := deps.TermStates.Get(t.ID); ok && st.State == TermWorking {
+		if st, ok := deps.TermStates.Get(t.ID); ok && (st.State == TermWorking || st.State == TermCompacting) {
 			return true, "working"
 		}
 	}

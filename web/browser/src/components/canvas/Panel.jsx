@@ -60,7 +60,7 @@ export function PanelHead({ model, loaded, maximized, handlers, fixed, note, con
       {model.hint ? <span className="cv-hint">{model.hint}</span> : null}
       {note ? <span className="cv-note">{note}</span> : null}
       <span className={"ws-status is-" + model.status}>
-        {loaded && model.status === "working" ? <PiSpinner title="Working" /> : null}
+        {loaded && (model.status === "working" || model.status === "compacting") ? <PiSpinner title={model.status === "compacting" ? "Compacting" : "Working"} /> : null}
         <span>{model.label}</span>
       </span>
       {links && links.count ? (

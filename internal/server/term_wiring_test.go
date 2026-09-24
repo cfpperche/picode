@@ -66,7 +66,7 @@ func TestInterceptDoesNotWriteUserClaudeSettings(t *testing.T) {
 	if strings.Contains(string(rawSettings), "TaskCompleted") || strings.Contains(string(rawSettings), "SubagentStop") || !strings.Contains(string(rawSettings), "Stop") || !strings.Contains(string(rawSettings), " auto claude-code") {
 		t.Fatalf("settings should map parent Stop via auto:\n%s", rawSettings)
 	}
-	for _, want := range []string{"PostToolUse", "PostToolUseFailure"} {
+	for _, want := range []string{"PostToolUse", "PostToolUseFailure", "PreCompact", "PostCompact"} {
 		if !strings.Contains(string(rawSettings), want) {
 			t.Fatalf("settings must resume an approved turn via tool hooks, missing %s:\n%s", want, rawSettings)
 		}
@@ -143,7 +143,7 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 		t.Fatalf("codex enable = %d", res.StatusCode)
 	}
 	body, _ := os.ReadFile(wrapperPath(dataDir, "codex"))
-	for _, want := range []string{"hooks.SessionStart", "hooks.UserPromptSubmit", "hooks.PermissionRequest", "hooks.PostToolUse", "hooks.Interrupt", "hooks.state=", "notify="} {
+	for _, want := range []string{"hooks.SessionStart", "hooks.UserPromptSubmit", "hooks.PreCompact", "hooks.PostCompact", "hooks.PermissionRequest", "hooks.PostToolUse", "hooks.Interrupt", "hooks.state=", "notify="} {
 		if !strings.Contains(string(body), want) {
 			t.Fatalf("codex wrapper missing %q:\n%s", want, body)
 		}
@@ -163,7 +163,7 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grok hooks missing: %v", err)
 	}
-	for _, want := range []string{"SessionStart", "UserPromptSubmit", "Notification", "PostToolUse", "PostToolUseFailure", "timeout\":10"} {
+	for _, want := range []string{"SessionStart", "UserPromptSubmit", "Notification", "PreCompact", "PostCompact", "PostToolUse", "PostToolUseFailure", "timeout\":10"} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("grok hooks missing %s: %s", want, raw)
 		}
@@ -445,6 +445,10 @@ await handler({}, { mode, isIdle: () => idle === "true", sessionManager: { getSe
 		{name: "JSON stream", event: "agent_start", mode: "json", hasTerm: true},
 		{name: "session starts quiet", event: "session_start", mode: "tui", hasTerm: true, want: "idle|pi\n"},
 		{name: "agent starts working", event: "agent_start", mode: "tui", hasTerm: true, want: "working|pi\n"},
+		{name: "compaction starts", event: "session_before_compact", mode: "tui", hasTerm: true, want: "compacting|pi\n"},
+		{name: "manual compaction ends idle", event: "session_compact", mode: "tui", hasTerm: true, idle: true, want: "idle|pi\n"},
+		{name: "auto compaction resumes work", event: "session_compact", mode: "tui", hasTerm: true, want: "working|pi\n"},
+		{name: "failed compaction returns idle", event: "session_compact_failed", mode: "tui", hasTerm: true, idle: true, want: "idle|pi\n"},
 		{name: "UI prompt needs user", event: "ui_prompt_start", mode: "tui", hasTerm: true, want: "needs-you|pi\n"},
 		{name: "UI prompt returns to work", event: "ui_prompt_end", mode: "tui", hasTerm: true, want: "working|pi\n"},
 		{name: "idle UI prompt stays idle", event: "ui_prompt_end", mode: "tui", hasTerm: true, idle: true, want: "idle|pi\n"},
@@ -555,7 +559,12 @@ func TestHookMapPy(t *testing.T) {
 	}{
 		{`{"hook_event_name":"UserPromptSubmit"}`, "", "working\n"},
 		{`{"hook_event_name":"SessionStart"}`, "", "idle\n"},
-		{`{"hook_event_name":"SessionStart","source":"compact"}`, "", "working\n"},
+		{`{"hook_event_name":"SessionStart","source":"compact"}`, "", ""},
+		{`{"hook_event_name":"PreCompact","trigger":"manual"}`, "codex", "compacting\n"},
+		{`{"hook_event_name":"PostCompact","trigger":"manual"}`, "codex", "idle\n"},
+		{`{"hook_event_name":"PreCompact","trigger":"auto"}`, "claude-code", "compacting\n"},
+		{`{"hook_event_name":"PostCompact","trigger":"auto"}`, "claude-code", "working\n"},
+		{`{"hook_event_name":"PreCompact","trigger":"manual"}`, "grok", "compacting\n"},
 		{`{"hook_event_name":"Stop"}`, "", "idle\n"},
 		{`{"hook_event_name":"TaskCompleted"}`, "", ""},
 		{`{"type":"agent-turn-complete"}`, "", "idle\n"},

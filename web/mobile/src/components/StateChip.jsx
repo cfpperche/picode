@@ -1,5 +1,5 @@
 import { agentRowStatus } from "@picode/shared/domain/agentStatus.js";
-const LABEL = { working: "Working", waiting: "Needs you", idle: "Idle", stopped: "Stopped", interactive: "In terminal", open: "Open" };
+const LABEL = { working: "Working", compacting: "Compacting", waiting: "Needs you", idle: "Idle", stopped: "Stopped", interactive: "In terminal", open: "Open" };
 
 // One word per state; waiting alone takes the accent, since it is the
 // only one that is the user's move. `age` rides along so a working chip

@@ -380,3 +380,23 @@ func TestList(t *testing.T) {
 		}
 	}
 }
+
+// A home behind a symlink is one directory with two spellings: the report
+// abbreviates the resolved paths it found, so the home it compares against has
+// to be resolved too. On macOS `/var` points at `/private/var`, which is how
+// the first run of the macOS leg on a push found this (2026-09-24).
+func TestAHomeBehindASymlinkStillAbbreviates(t *testing.T) {
+	real := t.TempDir()
+	link := filepath.Join(t.TempDir(), "home")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip("this filesystem has no symlinks")
+	}
+	root := filepath.Join(real, "notes")
+	write(t, root, map[string]string{"AGENTS.md": "a\n"})
+	write(t, real, map[string]string{"AGENTS.md": "home\n"})
+	rep := resolve(t, Env{Home: link, Root: root})
+	check(t, rep, []want{
+		{"~/AGENTS.md", "pi", StatusReads, ""},  // Pi walks up to /
+		{"~/AGENTS.md", "omp", StatusReads, ""}, // outside a repository Omp's walk ends at home
+	})
+}

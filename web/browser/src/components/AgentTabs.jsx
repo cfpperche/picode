@@ -94,7 +94,7 @@ function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, weba
     icon: <ProviderFace agent={ag} />,
     label: displayAgentName(ag, loc.workspace),
     title: "",
-    status: status === "needs-you" ? "attn" : status === "working" ? "running" : null,
+    status: status === "needs-you" ? "attn" : status === "working" || status === "compacting" ? "running" : null,
     closeTitle: "Close tab (agent keeps running)",
   };
 }
