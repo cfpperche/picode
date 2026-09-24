@@ -102,7 +102,7 @@ func newCliAcc(req Request, cli string) *cliAcc {
 // window gets breakdowns; the prior one exists solely for the headline
 // delta, exactly as pi's own scan does it.
 func (a *cliAcc) add(e cliEntry) {
-	if e.at.IsZero() {
+	if e.at.IsZero() || (a.req.KeepCwd != nil && !a.req.KeepCwd(e.cwd)) {
 		return
 	}
 	var est float64

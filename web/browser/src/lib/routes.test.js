@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appPath, isAgentTab } from "./routes.js";
+import { workspaceOverviewHash, workspaceOverviewRoute } from "./routes.js";
+
+test("workspace overview is a page route, not an editor tab", () => {
+  const hash = workspaceOverviewHash("ws/one");
+  assert.equal(workspaceOverviewRoute(hash), "ws/one");
+  assert.equal(parseRoute(hash), "workspaceOverview");
+  assert.equal(workspaceOverviewRoute("#/workspaces/%ZZ/overview"), null);
+});
 
 test("integrations deep links remain reload-safe", () => {
   assert.equal(parseRoute("#/integrations/webhooks"), "integrations");

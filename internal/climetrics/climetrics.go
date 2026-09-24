@@ -185,6 +185,9 @@ type Request struct {
 	From, To, PriorFrom time.Time
 	Loc                 *time.Location
 	Billing             map[string]Billing // per-CLI, from the operator's cli_configs
+	// KeepCwd scopes a separate consumer to session entries whose recorded
+	// folder belongs to it. Nil preserves the machine-wide dashboard.
+	KeepCwd func(string) bool
 
 	// Hourly buckets the series by clock hour instead of by calendar day.
 	// range=today is why it exists: one bar per day over a one-day window is a

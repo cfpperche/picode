@@ -211,3 +211,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0204](0204-instruction-file-writes.md) | The Instructions tab proposes instruction-file fixes and writes them only on confirmation | accepted |
 | [0205](0205-agent-history-from-exits.md) | A removed agent stays restorable while its transcript is on disk: the history is the exits a locator still finds; restore creates the agent from the exit and resumes the session (any workspace, same folder); forget hides, deletes only Pi files; amends ADR-0194 | accepted (owner direction, 2026-09-23) |
 | [0206](0206-attach-delivery-modes.md) | Attach delivery modes — steer and follow-up into a working CLI through per-CLI adapters; `queued` receipt; needs-you, drafts and automations unchanged | accepted, amends 0089 and 0160 |
+| [0207](0207-workspace-dashboard-scope.md) | Workspace overview scopes recorded activity by folder; amends 0127 for a separate route | accepted (owner, 2026-09-23) |
