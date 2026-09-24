@@ -111,7 +111,9 @@ width on the phone and in narrow windows.
 
 ## Agent history (ADR-0205)
 
-`#/history` (desktop; user menu ▸ Tools, and the palette) lists the removed
+`#/history` (desktop: user menu ▸ Tools, and the palette; phone: More ▸ Tools ▸
+Agent history, `#/more/history`, `web/mobile/src/screens/HistoryList.jsx`,
+without the filters) lists the removed
 agents that can come back. There is no table: `GET /api/agent-history` reads
 `Store.AgentHistoryCandidates` (not undone, not forgotten, points at a
 session) and keeps the exits a `clisession.Locator` still finds on disk —
@@ -160,4 +162,3 @@ joins. Code: `internal/server/agent_history.go`, `internal/clisession/locate.go`
   `web/mobile/src/screens/OutcomesList.jsx`) lists records, answers later,
   deletes and carries the switch; the numbers' breakdowns and the filters
   stay on the desktop page.
-- The agent history has no phone screen yet.
