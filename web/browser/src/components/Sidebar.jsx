@@ -8,7 +8,7 @@ import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconChevron
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
-import { agentRowStatus, agentStatusLabel, agentTerm, bucketAgentsByState } from "@picode/shared/domain/agentStatus.js";
+import { agentRowStatus, agentStatusLabel, agentStatusStamp, agentTerm, bucketAgentsByState } from "@picode/shared/domain/agentStatus.js";
 import { freeTerminals, workspaceTerminals, FREE_WS } from "../lib/termGroups.js";
 import { moveId, movePhrase, sameIds, sortIdsBy } from "../lib/sidebarOrder.js";
 import { sidebarBody } from "../lib/sidebarBody.js";
@@ -176,6 +176,12 @@ export default function Sidebar({
   // disagree about which bucket a row belongs to.
   function statusOf(ag) {
     return agentRowStatus(ag, { workingId, workingIds, waitingId, term: agentTerm(ag, terminals) });
+  }
+
+  // The same stamp the row's age pill renders, so the park-time ranking
+  // (below) and the pill can never disagree about an age.
+  function statusStampOf(ag) {
+    return agentStatusStamp(statusOf(ag), ag, agentTerm(ag, terminals));
   }
 
   // "Sort agents by name" (ADR-0173): a one-shot reorder, not a view — the
@@ -369,7 +375,7 @@ export default function Sidebar({
                     {wsAgents.length ? (
                       stateFirst ? (
                         <ul className="ws-list tree-children">
-                          {bucketAgentsByState(wsAgents, statusOf).map((b) => (
+                          {bucketAgentsByState(wsAgents, statusOf, statusStampOf).map((b) => (
                             <Fragment key={b.status}>
                               <li className="ws-state-head">
                                 <span className={"ws-state-dot is-" + b.status} aria-hidden="true" />

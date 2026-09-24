@@ -62,13 +62,20 @@ export function agentTerm(ag, terms) {
 // The sidebar's "Working first" view (ADR-0173 amendment, 2026-09-23): one
 // presentation-only pass over a container's stored positions. Buckets rank
 // by who needs the reader first — the dashboard's fleet ranking, carried to
-// the row list — and inside a bucket the stored position rules, so rows move
-// only when their state changes, never when a timestamp ticks. Empty buckets
-// are absent, never zero-count labels, and a status outside the vocabulary
-// still renders its rows at the end: the view may reorder, never lose.
+// the row list. Empty buckets are absent, never zero-count labels, and a
+// status outside the vocabulary still renders its rows at the end: the view
+// may reorder, never lose.
+//
+// With `stampOf` (ADR-0173 amendment, 2026-09-24) the buckets whose rows are
+// not working rank by how long each agent has been parked in its status,
+// shortest park first — the same truthful stamp the row pill shows, so the
+// bucket order and a pill's age can never disagree. Rows without a stamp
+// keep the stored order after the stamped ones (no invented clock). The
+// working bucket always keeps the stored position: its rows churn with the
+// feed already, and the user asked for park-time ranking only outside it.
 export const STATE_BUCKET_ORDER = ["needs-you", "compacting", "working", "interactive", "open", "ready", "stopped"];
 
-export function bucketAgentsByState(agents, statusOf) {
+export function bucketAgentsByState(agents, statusOf, stampOf) {
   const by = new Map();
   for (const a of agents || []) {
     const s = statusOf(a);
@@ -77,5 +84,17 @@ export function bucketAgentsByState(agents, statusOf) {
   }
   const known = STATE_BUCKET_ORDER.filter((s) => by.has(s));
   const rest = [...by.keys()].filter((s) => !STATE_BUCKET_ORDER.includes(s));
-  return [...known, ...rest].map((s) => ({ status: s, agents: by.get(s) }));
+  return [...known, ...rest].map((s) => {
+    const rows = by.get(s);
+    if (!stampOf || s === "working") return { status: s, agents: rows };
+    const stamped = [];
+    const plain = [];
+    for (const a of rows) {
+      const t = Date.parse(stampOf(a) || "");
+      if (t) stamped.push([t, a]);
+      else plain.push(a);
+    }
+    stamped.sort((x, y) => y[0] - x[0]); // newest transition first = shortest park
+    return { status: s, agents: stamped.map(([, a]) => a).concat(plain) };
+  });
 }
