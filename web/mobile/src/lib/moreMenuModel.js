@@ -9,6 +9,7 @@ export const MORE_SECTIONS = [
   ["pins", "Pins", "Notes, files and reminders"],
   ["snippets", "Snippets", "Reusable prompts and commands"],
   ["outcomes", "Outcomes", "How removed agents ended"],
+  ["history", "Agent history", "Bring back removed agents"],
   ["automations", "Automations", "Scheduled and triggered work"],
   ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"],
   ["apps", "Apps", "Docker and other tools"],
@@ -26,7 +27,7 @@ export const MORE_SECTIONS = [
 export const MORE_TITLES = { ...Object.fromEntries(MORE_SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
 
 export const MORE_GROUPS = [
-  ["Tools", ["missions", "pins", "snippets", "outcomes", "clis", "automations", "apps", "llama"]],
+  ["Tools", ["missions", "pins", "snippets", "outcomes", "history", "clis", "automations", "apps", "llama"]],
   ["PiCode", ["preferences", "notifications", "devices", "system", "integrations"]],
 ];
 

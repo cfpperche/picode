@@ -12,7 +12,7 @@ import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { formatTokens as formatTokensShort } from "@picode/shared/domain/dashboardStats.js";
 import { checklistLevelLabel } from "@picode/shared/domain/checklist.js";
 import {
-  choiceLabel, emptyExitDraft, exitHeadline, fmtExitCost, fmtLifetime, fmtTurns, outcomeRows, pickOutcome, reasonRows, takesReasons, toggleReason,
+  choiceLabel, emptyExitDraft, exitHeadline, fmtExitCost, fmtLifetime, fmtTurns, instructionsLine, outcomeRows, pickOutcome, reasonRows, takesReasons, toggleReason,
 } from "@picode/shared/domain/agentExit.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -308,6 +308,7 @@ function ExitDetail({ ex, tax, onLabel, onDelete }) {
   const answer = ex.outcome ? choiceLabel(tax && tax.outcomes, ex.outcome) : ex.askSkip === "workspace" ? "No answer — removed with its workspace" : "No answer";
   const neededYou = !sig.inboxItems ? "Never" : `${sig.inboxBlocking || 0} ${sig.inboxBlocking === 1 ? "time" : "times"}${sig.inboxItems > (sig.inboxBlocking || 0) ? ` · ${sig.inboxItems} Inbox items in all` : ""}`;
   const where = ex.sessions && (ex.sessions.piSessionPath || ex.sessions.cliSessionPath);
+  const instr = instructionsLine(c.instructions);
   return (
     <>
       <div className="outc-group">
@@ -345,6 +346,7 @@ function ExitDetail({ ex, tax, onLabel, onDelete }) {
         <dl className="outc-facts">
           {setup.map(([k, v, mono]) => <Fact key={k} label={k}>{mono ? <span className="outc-mono">{v}</span> : v}</Fact>)}
           {c.extraPrompt ? <Fact label="Extra prompt"><span className="outc-note">{c.extraPrompt}</span></Fact> : null}
+          {instr ? <Fact label="Instructions"><span className="outc-mono">{instr.text}</span><span className="outc-sub"> — {instr.source}</span></Fact> : null}
         </dl>
       </div>
       <div className="outc-actions">
