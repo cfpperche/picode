@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis } from "recharts";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
-import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
-import { agentRowStatus, agentStatusLabel, agentTerm } from "@picode/shared/domain/agentStatus.js";
-import { terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
+import { agentsOf } from "@picode/shared/domain/tree.js";
+import { agentRowStatus, agentStatusStamp, agentTerm } from "@picode/shared/domain/agentStatus.js";
 import { formatMoney } from "@picode/shared/domain/providerUsage.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
-import { activeMissions, activityLabel, attentionItems, recentActivity } from "../lib/workspaceOverviewModel.js";
+import { activeMissions, activityLabel, agentSummaryRows, attentionItems, recentActivity } from "../lib/workspaceOverviewModel.js";
 import PageFrame from "./PageFrame.jsx";
 import DateRangePicker from "./DateRangePicker.jsx";
+import WorkspaceAgents from "./WorkspaceAgents.jsx";
 import "../styles/workspace-overview.css";
 
 const empty = { git: null, graph: null, pr: null, inbox: null, missions: null, stats: null, activity: null };
@@ -32,7 +32,7 @@ function Block({ title, href, action, pending, error, retry, children }) {
   </section>;
 }
 
-export default function WorkspaceOverview({ id, workspaces, terminals, loaded, workingIds, waitingId, onOpenAgent, onOpenTerm, onOpenTree, onOpenGit, onNewAgent }) {
+export default function WorkspaceOverview({ id, workspaces, terminals, checklists, loaded, workingIds, waitingId, fullAgents = false, onOpenAgent, onOpenTerm, onOpenTree, onOpenGit, onNewAgent }) {
   const ws = workspaces.find((w) => w.id === id);
   const [range, setRange] = useState("7d");
   const [data, setData] = useState(empty);
@@ -89,24 +89,29 @@ export default function WorkspaceOverview({ id, workspaces, terminals, loaded, w
   const pr = data.pr?.status === "ok" ? data.pr.pr : null;
   const stats = data.stats;
   const statusOf = (agent) => agentRowStatus(agent, { workingIds, waitingId, term: agentTerm(agent, terminals) });
+  const agentRows = agentSummaryRows({ agents, missions, checklists, inbox, statusOf, stampOf: (agent, status) => agentStatusStamp(status, agent, agentTerm(agent, terminals)) });
   const attention = attentionItems({ workspaceId: id, inbox, missions, agents, statusOf, pr });
   const activity = recentActivity(data.activity?.items || [], data.graph?.commits || [], lastVisit);
   const visitWithinRetention = lastVisit && lastVisit > Date.now() - 7 * 86400_000;
   const activityHref = (item) => item.kind === "mission" ? `#/mission/${encodeURIComponent(item.entityId)}`
-    : item.kind === "inbox" ? `#/app/inbox/item/${encodeURIComponent(item.entityId)}`
+    : item.kind === "inbox" ? `#/inbox/${encodeURIComponent(item.entityId)}`
       : null;
+
+  if (fullAgents) return <PageFrame id="workspace-agents" title={`${ws.name} agents`} context={ws.path}>
+    <div className="wo-content"><WorkspaceAgents workspace={ws} rows={agentRows} shells={shells} full missionsError={errors.missions} retry={retry} onOpenAgent={onOpenAgent} onOpenTerm={onOpenTerm} onNewAgent={onNewAgent} /></div>
+  </PageFrame>;
 
   return <PageFrame id="workspace-overview" title={ws.name} context={ws.path}>
     <div className="wo-content">
       <section className="wo-focus" aria-label="Needs you">
-        <div className="wo-block-head"><h3>Needs you</h3><a href="#/app/inbox">Open Inbox</a></div>
+        <div className="wo-block-head"><h3>Needs you</h3><a href="#/inbox">Open Inbox</a></div>
         {!data.inbox && !data.missions && !errors.inbox && !errors.missions ? <div className="wo-skeleton" aria-label="Loading attention"><span /><span /></div>
           : attention.length ? <ul className="wo-list">{attention.slice(0, 5).map((item) => <li key={item.key}>
             {item.href ? <a href={item.href} target={item.href.startsWith("http") ? "_blank" : undefined} rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}><strong>{item.label}</strong><small>{item.detail}</small></a>
               : <button type="button" onClick={() => onOpenAgent(item.agentId)}><strong>{item.label}</strong><small>{item.detail}</small></button>}
           </li>)}</ul>
             : !data.inbox && !data.missions ? <p className="wo-empty">Could not load attention. <button type="button" onClick={retry}>Retry</button></p>
-            : <p className="wo-empty">Nothing needs your answer. <a href="#/app/inbox">Open Inbox</a></p>}
+            : <p className="wo-empty">Nothing needs your answer. <a href="#/inbox">Open Inbox</a></p>}
         {(errors.inbox || errors.missions) && (data.inbox || data.missions) ? <p className="wo-note">Some updates are unavailable. <button type="button" onClick={retry}>Retry</button></p> : null}
       </section>
       <div className="wo-grid">
@@ -119,14 +124,7 @@ export default function WorkspaceOverview({ id, workspaces, terminals, loaded, w
             <div className="wo-actions"><button type="button" onClick={() => onOpenGit(id, ws.name)}>Open Git</button><button type="button" onClick={() => onOpenTree(id, ws.name)}>Open files</button></div>
           </div> : <p className="wo-empty">No Git repository here. <button type="button" onClick={() => onOpenTree(id, ws.name)}>Open files</button></p>}
         </Block>
-        <Block title="Agents" pending={false} href={null}>
-          {agents.length || shells.length ? <ul className="wo-list">{agents.map((agent) => {
-            const term = agentTerm(agent, terminals);
-            const status = statusOf(agent);
-            return <li key={agent.id}><button type="button" onClick={() => onOpenAgent(agent.id)}><strong>{displayAgentName(agent, ws)}</strong><small>{agent.cli || "Pi"} · {agentStatusLabel(status)}</small></button></li>;
-          })}{shells.map((term) => <li key={term.id}><button type="button" onClick={() => onOpenTerm(term.id)}><strong>{term.name || "Terminal"}</strong><small>{terminalStatusLabel(term) || terminalStatus(term)}</small></button></li>)}</ul>
-            : <p className="wo-empty">No agents here yet. <button type="button" onClick={() => onNewAgent(id)}>Create agent</button></p>}
-        </Block>
+        <WorkspaceAgents workspace={ws} rows={agentRows} shells={shells} missionsError={errors.missions} retry={retry} onOpenAgent={onOpenAgent} onOpenTerm={onOpenTerm} onNewAgent={onNewAgent} />
         <Block title="Missions" href={`#/missions?workspace=${encodeURIComponent(id)}`} pending={!data.missions && !errors.missions} error={errors.missions} retry={retry}>
           {missions.length ? <ul className="wo-list">{missions.slice(0, 3).map((m) => <li key={m.id}><a href={`#/mission/${encodeURIComponent(m.id)}`}><span className="wo-mission"><strong>{m.title}</strong>{m.nextAction ? <span>{m.nextAction}</span> : null}</span><small>{m.state === "in-review" ? "Review" : m.state === "blocked" ? "Blocked" : m.assignment?.agentName || m.state}</small></a></li>)}</ul>
             : <p className="wo-empty">No active missions. <a href={`#/missions?workspace=${encodeURIComponent(id)}`}>Open Missions</a></p>}

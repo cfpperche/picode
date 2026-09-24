@@ -1,6 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { activeMissions, attentionItems, activityLabel, recentActivity } from "./workspaceOverviewModel.js";
+import { activeMissions, agentSummaryRows, attentionItems, activityLabel, recentActivity } from "./workspaceOverviewModel.js";
+
+test("agent summary prioritizes attention and uses only assigned work for actions", () => {
+  const agents = [{ id: "idle" }, { id: "working" }, { id: "waiting" }, { id: "review" }, { id: "blocked" }, { id: "waiting-no-question" }];
+  const rows = agentSummaryRows({ agents,
+    missions: [{ id: "m1", title: "Check the change", state: "in-review", assignment: { agentId: "review", reserved: true } },
+      { id: "m3", title: "Need a decision", state: "blocked", assignment: { agentId: "blocked", reserved: true } },
+      { id: "m2", title: "Old assignment", state: "in-progress", assignment: { agentId: "idle", reserved: false } }],
+    checklists: { working: { items: [{ text: "Inspect files", status: "in-progress" }] } },
+    inbox: [{ id: "q1", sourceId: "waiting", state: "unread" }],
+    statusOf: (agent) => ({ waiting: "needs-you", "waiting-no-question": "needs-you", working: "working" })[agent.id] || "ready",
+    stampOf: (agent) => agent.id === "working" ? "2026-09-24T12:00:00Z" : "",
+  });
+  assert.deepEqual(rows.map((row) => row.agent.id), ["waiting", "waiting-no-question", "working", "blocked", "review", "idle"]);
+  assert.deepEqual(rows.map((row) => row.action.label), ["Answer", "Open agent", "Open agent", "Open mission", "Review mission", "Open agent"]);
+  assert.equal(rows[2].detail, "Inspect files");
+  assert.equal(rows[4].detail, "Check the change");
+  assert.equal(rows[5].detail, "");
+});
 
 test("attention favors scoped questions, review and blocked missions without duplicate agent asks", () => {
   const rows = attentionItems({ workspaceId: "w1", inbox: [

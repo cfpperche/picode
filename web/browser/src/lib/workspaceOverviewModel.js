@@ -1,4 +1,31 @@
 const priority = { blocked: 0, "in-review": 1, "in-progress": 2, ready: 3, paused: 4, completed: 5, cancelled: 6 };
+const agentPriority = { "needs-you": 0, compacting: 1, working: 2, interactive: 3, open: 4, ready: 5, stopped: 6 };
+
+export function agentSummaryRows({ agents = [], missions = [], checklists = {}, inbox = [], statusOf = () => "ready", stampOf = () => "" }) {
+  const assigned = new Map();
+  for (const mission of activeMissions(missions)) {
+    if (mission.assignment?.reserved && mission.assignment.agentId && !assigned.has(mission.assignment.agentId)) {
+      assigned.set(mission.assignment.agentId, mission);
+    }
+  }
+  const questions = new Map(inbox.filter((item) => item.state !== "done" && item.sourceId).map((item) => [item.sourceId, item]));
+  return agents.map((agent, index) => {
+    const status = statusOf(agent);
+    const mission = assigned.get(agent.id) || null;
+    const items = checklists[agent.id]?.items || [];
+    const step = items.find((item) => item?.status === "in-progress") || items.find((item) => item?.status === "pending");
+    const detail = mission?.title || (step?.text || "").trim();
+    const question = questions.get(agent.id) || null;
+    const action = status === "needs-you" ? (question ? { label: "Answer", href: `#/inbox/${encodeURIComponent(question.id)}` } : { label: "Open agent", agentId: agent.id })
+      : mission?.state === "in-review" ? { label: "Review mission", href: `#/mission/${encodeURIComponent(mission.id)}` }
+        : mission?.state === "blocked" ? { label: "Open mission", href: `#/mission/${encodeURIComponent(mission.id)}` }
+          : { label: "Open agent", agentId: agent.id };
+    return { agent, status, stamp: stampOf(agent, status), mission, detail, action, index };
+  }).sort((a, b) => (agentPriority[a.status] ?? 7) - (agentPriority[b.status] ?? 7)
+    || Number(!!b.mission) - Number(!!a.mission)
+    || (priority[a.mission?.state] ?? 7) - (priority[b.mission?.state] ?? 7)
+    || String(b.stamp || "").localeCompare(String(a.stamp || "")) || a.index - b.index);
+}
 
 export function activeMissions(rows = []) {
   return rows.filter((m) => !m.archived && m.state !== "completed" && m.state !== "cancelled" && m.state !== "accepted")
@@ -8,7 +35,7 @@ export function activeMissions(rows = []) {
 export function attentionItems({ workspaceId, inbox = [], missions = [], agents = [], statusOf = () => "ready", pr = null }) {
   const items = [];
   const questions = inbox.filter((it) => it.workspaceId === workspaceId && it.state !== "done");
-  for (const it of questions) items.push({ key: `inbox:${it.id}`, label: it.title, detail: "Question", href: `#/app/inbox/item/${encodeURIComponent(it.id)}` });
+  for (const it of questions) items.push({ key: `inbox:${it.id}`, label: it.title, detail: "Question", href: `#/inbox/${encodeURIComponent(it.id)}` });
   for (const m of activeMissions(missions)) {
     if (m.state === "blocked" || m.state === "in-review") items.push({ key: `mission:${m.id}`, label: m.title, detail: m.state === "blocked" ? "Blocked mission" : "Ready for review", href: `#/mission/${encodeURIComponent(m.id)}` });
   }

@@ -131,6 +131,24 @@ test("fleet: terminal.state (CLI, ADR-0056 tier 1)", () => {
   assert.equal(applyFleet(s, { type: "terminal.state", data: {} }), s);
 });
 
+test("fleet: terminal.command (shell command seen in the process tree, ADR-0212)", () => {
+  let s = { workspaces: [], freeAgents: [{ id: "a", cli: "codex", terminalId: "t1", mode: "interactive" }], terminals: [{ id: "t1", name: "T", state: "idle" }] };
+  s = applyFleet(s, { type: "terminal.command", data: { termId: "t1", command: { name: "make", since: "2026-09-24T10:00:00Z" } } });
+  assert.deepEqual(s.terminals[0].command, { name: "make", since: "2026-09-24T10:00:00Z" });
+  assert.deepEqual(s.freeAgents[0].terminal.command, { name: "make", since: "2026-09-24T10:00:00Z" });
+  // The hook state stays what the CLI said; the command sits beside it.
+  assert.equal(s.terminals[0].state, "idle");
+  s = applyFleet(s, { type: "terminal.command", data: { termId: "t1", command: null } });
+  assert.equal("command" in s.terminals[0], false);
+  // A runtime end takes the command with it.
+  s = applyFleet(s, { type: "terminal.command", data: { termId: "t1", command: { name: "sleep" } } });
+  s = { ...s, terminals: [{ ...s.terminals[0], tui: { runId: "r1" } }] };
+  s = applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "ended", runId: "r1" } });
+  assert.equal(s.terminals[0].command, undefined);
+  assert.equal(applyFleet(s, { type: "terminal.command", data: { termId: "zz", command: { name: "x" } } }), s);
+  assert.equal(applyFleet(s, { type: "terminal.command", data: {} }), s);
+});
+
 test("fleet: terminal.checklist (the plan of the pi inside the terminal, ADR-0055)", () => {
   let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
   s = applyFleet(s, { type: "terminal.checklist", data: { termId: "t1", items: [{ text: "explore", status: "completed" }, { text: "edit", status: "in-progress" }], updatedAt: "2026-09-06T10:00:00Z" } });

@@ -165,14 +165,31 @@ export function terminalStatus(term) {
   if (state === "needs-you") return "needs-you";
   if (state === "compacting") return "compacting";
   if (state === "working") return "working";
+  // A shell command the CLI runs ("!make deploy") fires no hook in most
+  // CLIs; the server sees it in the process tree (ADR-0212). It counts as
+  // work without ever being a turn.
+  if (terminalCommand(term)) return "working";
   if (terminalCli(term)) return state === "idle" ? "ready" : "open";
   return "open";
+}
+
+// terminalCommand -> { name, since } of the shell command the terminal's CLI
+// is running, or null. Observed beside the hook state, never instead of it.
+export function terminalCommand(term) {
+  const cmd = term && term.command;
+  return cmd && cmd.name ? cmd : null;
+}
+
+// terminalCommandTitle: the pill's tooltip naming the command, "" when none.
+export function terminalCommandTitle(term) {
+  const cmd = terminalCommand(term);
+  return cmd ? "Running " + cmd.name : "";
 }
 
 export function terminalStatusLabel(term) {
   const status = terminalStatus(term);
   if (status === "needs-you") return "Needs you";
-  if (status === "working") return "Working";
+  if (status === "working") return String(term.state || "") !== "working" && terminalCommand(term) ? "Running" : "Working";
   if (status === "compacting") return "Compacting";
   if (status === "ready") return "Ready";
   // "Open" is the CLI's terminal with no activity to report (a CLI without
@@ -185,5 +202,7 @@ export function terminalStatusLabel(term) {
 export function terminalActivityStamp(term) {
   const runtime = term && term.tui;
   const stateMatchesRuntime = !runtime || !term.runId || !runtime.runId || term.runId === runtime.runId;
+  const cmd = terminalCommand(term);
+  if (cmd && cmd.since && terminalStatusLabel(term) === "Running") return cmd.since;
   return (stateMatchesRuntime && term && term.stateAt) || (runtime && runtime.startedAt) || "";
 }
