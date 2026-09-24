@@ -5,3 +5,4 @@ Verified: `make ci-scoped` passed; `node scripts/docs-check.mjs --strict` passed
 visual-review: PASS — read empty and fetch-error Inbox screenshots plus the Agent CLIs Back reference. Back alignment, one-line error, and Try again were readable without clipping; scratch overlay audit was ok. Recaptured Canvas and mobile Inbox docs images were read and showed no visual defect.
 Limit: scratch Chromium review does not establish native Windows shell behavior.
 Deploy: none; deployment remains the owner's call.
+Merge: `make close` passed; `make land` fast-forwarded `main` to `d52eb2d8f` and full CI passed (81 Go packages).
