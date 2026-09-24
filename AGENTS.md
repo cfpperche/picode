@@ -100,10 +100,11 @@ Where things live: [docs/agents/repo-map.md](docs/agents/repo-map.md).
    `--force` is the owner's deliberate one-off, never an agent's shortcut.
    Verify UI work on a scratch instance (`scripts/qa-scratch.sh`), not on
    production.
-8. **One branch, one session (ADR-0105).** The session that did the work
-   ends at the fast-forward; the next task starts in a new terminal. The
-   closing docs are written from `make close-summary` in a subagent or a
-   fresh session, never at the peak context of the working session.
+8. **One branch at a time; the owner ends the session (ADR-0105).** A
+   session works one branch through its fast-forward before the next; it may
+   go on to another task when the owner asks, and the owner says when to
+   switch terminals. The closing docs are written from `make close-summary`
+   in a subagent, never at the peak context of the working session.
    Screenshots for visual-review are read in a subagent, so images never sit
    in the main context.
 

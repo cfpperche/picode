@@ -2964,6 +2964,30 @@ export default function App({ shellChrome = false } = {}) {
   // Per-agent package selection rides the packages surface, not PATCH, so
   // it is the one setting this cannot carry over.
   async function undoRemoveAgent(snap) {
+    // With its exit, Undo is a restore (ADR-0205): the agent comes back as
+    // itself — same id, so its Pi session folder, automations and pins are
+    // its own again — with its setup, and a CLI agent resumes its
+    // conversation. The snapshot below is only for a removal whose answer
+    // did not carry the exit.
+    if (snap.exitId) {
+      try {
+        const res = await api("/api/agent-history/" + encodeURIComponent(snap.exitId) + "/restore", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspaceId: snap.workspaceId || "ws_free", undo: true }),
+        });
+        if (res.resume && res.terminalId) {
+          try {
+            await api("/api/terminals/" + encodeURIComponent(res.terminalId) + "/launch/start", {
+              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: false, resume: true }),
+            });
+          } catch (err) { toastError(err); }
+        }
+        const list = await loadWorkspaces();
+        openTab(res.agent.id, list);
+        toast.ok(`"${snap.name}" is back.`);
+      } catch (err) { toastError(err); }
+      return;
+    }
     try {
       let created;
       if (snap.workspaceId && snap.workspaceId !== "ws_free") {
@@ -2997,12 +3021,6 @@ export default function App({ shellChrome = false } = {}) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(patch),
         });
-      }
-      // The exit stays for the record and leaves every count (ADR-0194).
-      if (snap.exitId) {
-        api("/api/agent-exits/" + encodeURIComponent(snap.exitId) + "/undo", {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: created.id }),
-        }).catch(() => { /* the agent is back either way */ });
       }
       // The feed may not have delivered the brand-new row yet (and
       // refreshFleetFallback returns nothing when it is live), so undo

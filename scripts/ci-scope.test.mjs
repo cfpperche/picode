@@ -117,10 +117,15 @@ test("hosted workflow preserves the optimized platform decision table", () => {
   const workflow = readFileSync(join(root, ".github", "workflows", "ci.yml"), "utf8");
   const makefile = readFileSync(join(root, "Makefile"), "utf8");
   const goStart = workflow.indexOf("\n  go:\n");
+  const heavyStart = workflow.indexOf("\n  go-heavy:\n");
   const embeddedStart = workflow.indexOf("\n  embedded:\n");
 
-  assert.ok(goStart > 0 && embeddedStart > goStart, "go and embedded jobs must remain distinct");
-  const goJob = workflow.slice(goStart, embeddedStart);
+  assert.ok(
+    goStart > 0 && heavyStart > goStart && embeddedStart > heavyStart,
+    "go, go-heavy and embedded jobs must remain distinct",
+  );
+  const goJob = workflow.slice(goStart, heavyStart);
+  const heavyJob = workflow.slice(heavyStart, embeddedStart);
   assert.doesNotMatch(goJob, /setup-node|make web|make docs|npm ci/);
   // ADR-0105, amended 2026-09-23: Ubuntu on every push, macOS when the diff
   // can break it, Windows only for a tag or a manual run. The `changes` job
@@ -135,11 +140,22 @@ test("hosted workflow preserves the optimized platform decision table", () => {
   assert.match(goJob, /actions\/cache@v4/);
   assert.match(goJob, /go test -race -run '\^\$' \.\/\.\.\./);
   assert.match(goJob, /matrix\.os != 'windows-latest'/);
+  assert.match(goJob, /GO_TEST_EXCLUDE_HEAVY=1/);
+  assert.match(goJob, /GO_TEST_FLAGS="-race -timeout \d+m"/);
+  // ADR-0105, amended 2026-09-24: the heavy packages run in a job of their
+  // own — the same platform list, the same Windows skip, the same race
+  // toolchain — so a ~26-minute package cannot take the rest of the suite
+  // past a shared ceiling (docs/handoff/open/process.md).
+  assert.match(heavyJob, /os: \$\{\{ fromJSON\(needs\.changes\.outputs\.os\) \}\}/);
+  assert.match(heavyJob, /matrix\.os != 'windows-latest'/);
+  assert.doesNotMatch(heavyJob, /GO_TEST_EXCLUDE_HEAVY/);
+  assert.match(heavyJob, /GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout \d+m"/);
+  assert.match(heavyJob, /go-test\.sh \.\/internal\/server \.\/internal\/store/);
   assert.equal((workflow.match(/run: make web/g) ?? []).length, 1);
   assert.match(workflow, /actions\/upload-artifact@v7/);
   assert.match(workflow, /actions\/download-artifact@v8/);
   assert.match(workflow, /cancel-in-progress: true/);
-  assert.match(workflow, /needs: \[changes, frontend, docs, go, embedded, desktop\]/);
+  assert.match(workflow, /needs: \[changes, frontend, docs, go, go-heavy, embedded, desktop\]/);
 
   // The shell job host-tests the pure crate with plain rustc; cargo xwin
   // stays local (scoped gates) and at release — never on these runners.

@@ -68,12 +68,25 @@ func locateExit(l *clisession.Locator, ex store.AgentExit) *clisession.Summary {
 // historyFolder is where a restored agent works: the folder its session
 // ran in, else the one the exit recorded.
 func historyFolder(ex store.AgentExit, sum *clisession.Summary) string {
-	for _, f := range []string{sum.Cwd, ex.Sessions.Cwd, ex.Config.WorkPath} {
+	first := ""
+	if sum != nil {
+		first = sum.Cwd
+	}
+	for _, f := range []string{first, ex.Sessions.Cwd, ex.Config.WorkPath} {
 		if f = strings.TrimSpace(f); f != "" {
 			return f
 		}
 	}
 	return ""
+}
+
+// underDir reports whether p is root or inside it.
+func underDir(root, p string) bool {
+	if root == "" || p == "" {
+		return false
+	}
+	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(p))
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func dirExists(p string) bool {
@@ -124,6 +137,10 @@ func handleAgentHistory(deps Deps) http.HandlerFunc {
 type restoreRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	Name        string `json:"name"`
+	// Undo is the removal toast's Undo: the agent comes back even with no
+	// conversation to resume (it may never have had one), and a work
+	// folder the removal purged is made again.
+	Undo bool `json:"undo"`
 }
 
 // restoredOverrides rebuilds a CLI agent's launch from its exit. Values of
@@ -159,7 +176,9 @@ func restoredOverrides(l *store.ExitLaunch) (clilaunch.Overrides, []string) {
 
 // handleRestoreAgent brings a removed agent back (ADR-0205's table):
 //
-//	restored already                 → 409
+//	restored already, or its id taken → 409
+//	undo (the removal toast)          → as below, and with no transcript
+//	                                    the agent comes back without one
 //	transcript not on disk           → 410
 //	workspace gone, none chosen      → 409 workspace_gone
 //	folder gone                      → 409 folder_gone
@@ -187,8 +206,14 @@ func handleRestoreAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		sum := locateExit(clisession.NewLocator(), ex)
-		if sum == nil {
+		if sum == nil && !req.Undo {
 			writeErr(w, http.StatusGone, "Its conversation is no longer on disk, so there is nothing to resume.")
+			return
+		}
+		// It comes back as itself (ADR-0205): what still names the id — its
+		// Pi session folder, automations, pins — points at it again.
+		if _, err := deps.Store.GetAgent(ex.AgentID); err == nil {
+			writeErr(w, http.StatusConflict, "An agent with its id is already here.")
 			return
 		}
 		wsID := strings.TrimSpace(req.WorkspaceID)
@@ -204,6 +229,14 @@ func handleRestoreAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		folder := historyFolder(ex, sum)
+		if folder == "" && req.Undo {
+			folder = store.AgentCwd(wk, store.Agent{ID: ex.AgentID})
+		}
+		if !dirExists(folder) && req.Undo && underDir(filepath.Join(deps.DataDir, "work"), folder) {
+			// The removal purged the agent's private folder; Undo brings
+			// back the agent, and it needs somewhere to work.
+			_ = os.MkdirAll(folder, 0o755)
+		}
 		if !dirExists(folder) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "The folder it worked in is gone: " + folder, "code": "folder_gone"})
 			return
@@ -232,7 +265,7 @@ func handleRestoreAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, status, err.Error())
 			return
 		}
-		agent, status, err := newLaunchAgent(deps, wk.ID, folder, cli, name, work, ov)
+		agent, status, err := newLaunchAgentAs(deps, ex.AgentID, wk.ID, folder, cli, name, work, ov)
 		if err != nil {
 			writeErr(w, status, err.Error())
 			return
@@ -240,13 +273,10 @@ func handleRestoreAgent(deps Deps) http.HandlerFunc {
 		resume := false
 		if agent.IsPi() {
 			c := ex.Config
-			path := sum.Path
-			if moved, merr := adoptPiAgentDir(ex.AgentID, agent.ID, path); merr != nil {
-				err = merr
-			} else {
-				path = moved
+			patch := store.AgentPatch{Checklist: &c.Checklist}
+			if sum != nil {
+				patch.SessionPath = &sum.Path
 			}
-			patch := store.AgentPatch{SessionPath: &path, Checklist: &c.Checklist}
 			for _, f := range []struct {
 				dst **string
 				v   string
@@ -260,10 +290,8 @@ func handleRestoreAgent(deps Deps) http.HandlerFunc {
 				iso := true
 				patch.PackagesIsolated = &iso
 			}
-			if err == nil {
-				agent, err = deps.Store.UpdateAgent(agent.ID, patch)
-			}
-		} else if agent.TerminalID != nil {
+			agent, err = deps.Store.UpdateAgent(agent.ID, patch)
+		} else if agent.TerminalID != nil && sum != nil {
 			err = deps.Store.SetTerminalLastSession(*agent.TerminalID, store.TerminalLastSession{
 				CLI: cli, SessionID: sum.ID, Path: sum.Path, Cwd: folder, Name: sum.Name,
 				UpdatedAt: sum.UpdatedAt, Preview: sum.Preview, ResumeArgs: sum.ResumeArgs,
@@ -334,41 +362,6 @@ func handleForgetAgentHistory(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, ex)
 	}
-}
-
-// adoptPiAgentDir hands a removed Pi agent's private session folder
-// (ADR-0040) to the agent that replaces it: the chat and its session list
-// read the new id's folder, so a file left under the old id would resume
-// in Pi and show nowhere. Every file moves, not only the one resumed — they
-// are all that agent's conversations. A file in the shared folder bucket
-// is left where it is; it is already visible. Returns the resumed file's
-// new path.
-func adoptPiAgentDir(oldID, newID, path string) (string, error) {
-	oldDir, newDir := session.AgentDir(oldID), session.AgentDir(newID)
-	if oldID == "" || filepath.Dir(filepath.Clean(path)) != filepath.Clean(oldDir) {
-		return path, nil
-	}
-	entries, err := os.ReadDir(oldDir)
-	if err != nil {
-		return path, err
-	}
-	if err := os.MkdirAll(newDir, 0o700); err != nil {
-		return path, err
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		dst := filepath.Join(newDir, e.Name())
-		if _, err := os.Stat(dst); err == nil {
-			continue // never overwrite; the new agent has not written yet
-		}
-		if err := os.Rename(filepath.Join(oldDir, e.Name()), dst); err != nil {
-			return path, err
-		}
-	}
-	_ = os.Remove(oldDir) // only when empty
-	return filepath.Join(newDir, filepath.Base(path)), nil
 }
 
 // piSessionFallback is the newest session in a Pi agent's private folder,

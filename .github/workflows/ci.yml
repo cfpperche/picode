@@ -14,6 +14,13 @@ concurrency:
 permissions:
   contents: read
 
+# Ubuntu 24.04 packages tmux 3.4 and PiCode's extended-keys-format contract
+# starts at 3.5, so the daemon suites build the declared minimum. The version
+# and its checksum live here so the two jobs that need it cannot drift apart.
+env:
+  TMUX_MIN: "3.5a"
+  TMUX_MIN_SHA: 16216bd0877170dfcc64157085ba9013610b12b082548c7c9542cc0103198951
+
 jobs:
   changes:
     name: Classify changes
@@ -146,33 +153,33 @@ jobs:
       # contract starts at 3.5. Test the declared minimum instead of silently
       # skipping that integration path. The release tarball is checksum-pinned;
       # the built tree is cached so the compile runs once per runner image.
-      - name: Cache the tmux 3.5a build
+      - name: Cache the tmux ${{ env.TMUX_MIN }} build
         if: matrix.os == 'ubuntu-latest'
         id: tmux-cache
         uses: actions/cache@v4
         with:
-          path: /tmp/tmux-3.5a
-          key: tmux-3.5a-${{ runner.os }}-${{ runner.arch }}-v1
-      - name: Build tmux 3.5a
+          path: /tmp/tmux-${{ env.TMUX_MIN }}
+          key: tmux-${{ env.TMUX_MIN }}-${{ runner.os }}-${{ runner.arch }}-v1
+      - name: Build tmux ${{ env.TMUX_MIN }}
         if: matrix.os == 'ubuntu-latest' && steps.tmux-cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y bison libevent-dev libncurses-dev
           curl -fsSL --retry 3 \
-            https://github.com/tmux/tmux/releases/download/3.5a/tmux-3.5a.tar.gz \
-            -o /tmp/tmux-3.5a.tar.gz
-          echo "16216bd0877170dfcc64157085ba9013610b12b082548c7c9542cc0103198951  /tmp/tmux-3.5a.tar.gz" | sha256sum -c -
-          tar -xzf /tmp/tmux-3.5a.tar.gz -C /tmp
-          cd /tmp/tmux-3.5a
+            https://github.com/tmux/tmux/releases/download/$TMUX_MIN/tmux-$TMUX_MIN.tar.gz \
+            -o /tmp/tmux-$TMUX_MIN.tar.gz
+          echo "$TMUX_MIN_SHA  /tmp/tmux-$TMUX_MIN.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/tmux-$TMUX_MIN.tar.gz -C /tmp
+          cd /tmp/tmux-$TMUX_MIN
           ./configure
           make -j2
-      - name: Install tmux 3.5a (integration tests)
+      - name: Install tmux ${{ env.TMUX_MIN }} (integration tests)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libevent-dev libncurses-dev
-          cd /tmp/tmux-3.5a && sudo make install
-          test "$(tmux -V)" = "tmux 3.5a"
+          cd /tmp/tmux-$TMUX_MIN && sudo make install
+          test "$(tmux -V)" = "tmux $TMUX_MIN"
 
       # The daemon runs on macOS too; Homebrew's tmux satisfies the >= 3.5
       # contract, so the handoff and terminal suites run for real there
@@ -215,16 +222,15 @@ jobs:
       # the native tray/native-host boundary. Running the Linux daemon suite
       # against Windows path and permission semantics tests an unsupported
       # topology rather than the shipped Windows product (ADR-0020).
-      # The race detector puts internal/server and internal/store past
-      # `go test`'s 10-minute default in a single process, so the timeout is
-      # raised rather than left to kill the gate. Raised again on 2026-09-23:
-      # the package sat at 1691 s on the 0.5.0-era suite — 94% of the 30m
-      # ceiling — and ADR-0184's launch tests, which spawn real terminals,
-      # took it over: `FAIL github.com/cfpperche/picode/internal/server
-      # 1800.070s`, a red gate with no failing test to read. A bigger number
-      # is not the structural fix; see docs/handoff/open/process.md (the heavy
-      # packages in a job of their own, or sharding revisited now that the
-      # tmux tests keep to their own servers).
+      # The race detector puts a package this size past `go test`'s 10-minute
+      # default, so the timeout is raised rather than left to kill the gate.
+      #
+      # This step covers every package except the two in the `go-heavy` job
+      # below (2026-09-24, owner approved), so its ceiling is its own: a slow
+      # package can no longer push the rest of the suite past a shared
+      # timeout — the run of 2026-09-22 died as `FAIL internal/server
+      # 1800.070s` with no failing test to read, and the measurements behind
+      # that are in docs/handoff/open/process.md.
       #
       # Sharding is off here on purpose, after trying it: a hosted runner has
       # two cores, so four shards of a CPU-bound package buy no wall clock —
@@ -234,7 +240,7 @@ jobs:
       # spend.
       - name: Test daemon
         if: matrix.os != 'windows-latest'
-        run: GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 50m" ./scripts/go-test.sh ./...
+        run: GO_TEST_EXCLUDE_HEAVY=1 GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 25m" ./scripts/go-test.sh ./...
 
       - name: Compile Windows packages and tests
         if: matrix.os == 'windows-latest'
@@ -243,6 +249,78 @@ jobs:
       - name: Test Windows host boundary
         if: matrix.os == 'windows-latest'
         run: go test -race ./cmd/picode ./cmd/picode-desktop ./internal/binwatch ./internal/browserhost ./internal/desktop ./internal/osopen ./internal/version
+
+  # The two heavy packages in a job of their own (2026-09-24, owner approved).
+  # internal/server and internal/store are ~26 minutes of `-race` on a
+  # two-core runner: 365 serial tests by design (ADR-0086) plus launch tests
+  # that spawn real terminals (ADR-0184). Sharing a job with the other ~300
+  # packages gave them one shared ceiling and one shared verdict. Here their
+  # ceiling is theirs, the rest of the suite gets a runner of its own, and a
+  # red check says which half failed. Sharding stays off for the reason
+  # measured next door: two cores buy nothing from four shards.
+  go-heavy:
+    name: Go heavy (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The same list the go job consumes, so the heavy suite runs on
+        # exactly the platforms everything else does — the macOS defects
+        # this leg exists to catch live in internal/server.
+        os: ${{ fromJSON(needs.changes.outputs.os) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Mirrors the go job's setup: the heavy suite is the one that drives
+      # real terminals, so it needs a real tmux ${{ env.TMUX_MIN }} just as much.
+      - name: Cache the tmux ${{ env.TMUX_MIN }} build
+        if: matrix.os == 'ubuntu-latest'
+        id: tmux-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/tmux-${{ env.TMUX_MIN }}
+          key: tmux-${{ env.TMUX_MIN }}-${{ runner.os }}-${{ runner.arch }}-v1
+      - name: Build tmux ${{ env.TMUX_MIN }}
+        if: matrix.os == 'ubuntu-latest' && steps.tmux-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bison libevent-dev libncurses-dev
+          curl -fsSL --retry 3 \
+            https://github.com/tmux/tmux/releases/download/$TMUX_MIN/tmux-$TMUX_MIN.tar.gz \
+            -o /tmp/tmux-$TMUX_MIN.tar.gz
+          echo "$TMUX_MIN_SHA  /tmp/tmux-$TMUX_MIN.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/tmux-$TMUX_MIN.tar.gz -C /tmp
+          cd /tmp/tmux-$TMUX_MIN
+          ./configure
+          make -j2
+      - name: Install tmux ${{ env.TMUX_MIN }} (integration tests)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libevent-dev libncurses-dev
+          cd /tmp/tmux-$TMUX_MIN && sudo make install
+          test "$(tmux -V)" = "tmux $TMUX_MIN"
+      - name: Install tmux (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install tmux && tmux -V
+      - name: Keep a tmux server alive for the daemon suite
+        if: matrix.os != 'windows-latest'
+        run: tmux new-session -d -s ci-keepalive && tmux list-sessions
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "stable"
+          cache: true
+
+      # Windows compiles every package and test in the go job and executes
+      # its native boundary there; the daemon suites do not run on Windows
+      # (ADR-0020), so this job's Windows leg is a compile-only no-op that
+      # still reports success.
+      - name: Test the heavy packages
+        if: matrix.os != 'windows-latest'
+        run: GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 40m" ./scripts/go-test.sh ./internal/server ./internal/store
 
   embedded:
     name: Embedded UI build
@@ -287,7 +365,7 @@ jobs:
   gate:
     name: CI gate
     if: always()
-    needs: [changes, frontend, docs, go, embedded, desktop]
+    needs: [changes, frontend, docs, go, go-heavy, embedded, desktop]
     runs-on: ubuntu-latest
     steps:
       - name: Require every applicable gate
@@ -297,11 +375,12 @@ jobs:
           FRONTEND: ${{ needs.frontend.result }}
           DOCS: ${{ needs.docs.result }}
           GO: ${{ needs.go.result }}
+          GO_HEAVY: ${{ needs.go-heavy.result }}
           EMBEDDED: ${{ needs.embedded.result }}
           DESKTOP: ${{ needs.desktop.result }}
         run: |
           failed=0
-          for gate in CHANGES FRONTEND DOCS GO EMBEDDED DESKTOP; do
+          for gate in CHANGES FRONTEND DOCS GO GO_HEAVY EMBEDDED DESKTOP; do
             result="${!gate}"
             printf '%-10s %s\n' "$gate" "$result"
             case "$result" in

@@ -35,9 +35,10 @@ test("agentStatusLabel: the chip's five words", () => {
   assert.equal(agentStatusLabel("compacting"), "Compacting");
 });
 
-// The "Working first" view: buckets rank by who needs the reader, rows keep
-// their stored position inside a bucket, and the view may reorder but never
-// lose a row — a status outside the vocabulary still renders.
+// The "Working first" view without a stamp: buckets rank by who needs the
+// reader, rows keep their stored position inside a bucket, and the view may
+// reorder but never lose a row — a status outside the vocabulary still
+// renders.
 test("bucketAgentsByState ranks who needs the reader first", () => {
   const agents = [
     { id: "r", mode: "managed" },
@@ -54,6 +55,38 @@ test("bucketAgentsByState ranks who needs the reader first", () => {
   const odd = bucketAgentsByState([{ id: "o" }], () => "mystery");
   assert.deepEqual(odd.map((b) => b.status), ["mystery"]);
   assert.deepEqual(odd[0].agents.map((a) => a.id), ["o"]);
+});
+
+// The "Working first" view with the park-time ranking (ADR-0173 amendment,
+// 2026-09-24): every bucket whose rows are not working sorts by how long an
+// agent has been parked in its status, shortest park first — the same stamp
+// the pill shows. The working bucket keeps the stored order, rows without a
+// truthful stamp keep theirs after the stamped ones, and equal stamps stay
+// in the stored order.
+test("bucketAgentsByState sorts the not-working buckets by park time", () => {
+  const agents = [
+    { id: "old", mode: "managed", lastStatusAt: "2026-09-23T09:00:00Z" },
+    { id: "w1", mode: "managed", streaming: true, lastStartedAt: "2026-09-23T10:00:00Z" },
+    { id: "fresh", mode: "managed", lastStatusAt: "2026-09-23T10:05:00Z" },
+    { id: "w2", mode: "managed", streaming: true, lastStartedAt: "2026-09-23T09:30:00Z" },
+    { id: "nostamp", mode: "managed" },
+    { id: "stopped", mode: "stopped", lastStatusAt: "2026-09-23T10:00:00Z" },
+  ];
+  const stampOf = (a) => agentStatusStamp(agentRowStatus(a), a, null);
+  const buckets = bucketAgentsByState(agents, (a) => agentRowStatus(a), stampOf);
+  assert.deepEqual(buckets.map((b) => b.status), ["working", "ready", "stopped"]);
+  assert.deepEqual(buckets[0].agents.map((a) => a.id), ["w1", "w2"], "working keeps the stored order, not park time");
+  assert.deepEqual(buckets[1].agents.map((a) => a.id), ["fresh", "old", "nostamp"], "shortest park first, unstamped keeps its place last");
+  assert.deepEqual(buckets[2].agents.map((a) => a.id), ["stopped"]);
+  const tied = [
+    { id: "a", mode: "managed", lastStatusAt: "2026-09-23T10:00:00Z" },
+    { id: "b", mode: "managed", lastStatusAt: "2026-09-23T10:00:00Z" },
+  ];
+  assert.deepEqual(
+    bucketAgentsByState(tied, (a) => agentRowStatus(a), stampOf)[0].agents.map((a) => a.id),
+    ["a", "b"],
+    "equal parks keep the stored order",
+  );
 });
 
 // The pill's age, one stamp per status: the terminal hook's stateAt for

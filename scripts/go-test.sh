@@ -46,6 +46,13 @@ HEAVY=${GO_TEST_HEAVY:-github.com/cfpperche/picode/internal/server github.com/cf
 
 pkgs=$(go list "$@") || exit 1
 heavy_re=$(printf '%s\n' $HEAVY | paste -sd'|')
+# CI runs the heavy packages in a job of their own (2026-09-24, owner
+# approved): the job that covers everything else drops them from its list
+# rather than sharding them, so each half of the suite keeps its own ceiling
+# and its own verdict. `make ci` and local runs keep them here.
+if [ "${GO_TEST_EXCLUDE_HEAVY:-}" = "1" ]; then
+  pkgs=$(printf '%s\n' "$pkgs" | grep -vxE "$heavy_re" || true)
+fi
 rest=$(printf '%s\n' $pkgs | grep -vxE "$heavy_re" || true)
 heavy=$(printf '%s\n' $pkgs | grep -xE "$heavy_re" || true)
 

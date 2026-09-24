@@ -1,7 +1,10 @@
 package server
 
 import (
+	"encoding/json"
+	"github.com/cfpperche/picode/internal/rpc"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -57,19 +60,11 @@ func TestAgentHistoryPiRestoreAndRefusals(t *testing.T) {
 
 	res := cliRequest(t, ts, "POST", "/api/agent-history/"+exitID+"/restore", map[string]any{}, 201)
 	back := res["agent"].(map[string]any)
-	// The conversation moves into the new agent's private folder, where
-	// its chat and session list read (ADR-0040).
-	moved := filepath.Join(session.AgentDir(back["id"].(string)), filepath.Base(path))
-	if back["name"] != "fixer" || back["sessionPath"] != moved || back["model"] != "sonnet" || back["checklist"] != "always" || res["resume"] != false {
+	// It comes back as itself: same id, so its private session folder
+	// (ADR-0040) is its own again and nothing moves.
+	if back["id"] != id || back["name"] != "fixer" || back["sessionPath"] != path || back["model"] != "sonnet" || back["checklist"] != "always" || res["resume"] != false {
 		t.Fatalf("restored = %v", res)
 	}
-	if _, err := os.Stat(moved); err != nil {
-		t.Fatalf("session not moved: %v", err)
-	}
-	if _, err := os.Stat(session.AgentDir(id)); !os.IsNotExist(err) {
-		t.Fatalf("old private folder left behind: %v", err)
-	}
-	path = moved
 	if got, _ := deps.Store.GetAgentExit(exitID); got.UndoneAt == nil || got.RestoredAgentID != back["id"] {
 		t.Fatalf("exit not linked to the restored agent: %+v", got)
 	}
@@ -126,7 +121,7 @@ func TestAgentHistoryWorkspaceAndFolderGone(t *testing.T) {
 	other := cliRequest(t, ts, "POST", "/api/workspaces", map[string]any{"name": "other", "path": t.TempDir()}, 201)
 	res = cliRequest(t, ts, "POST", "/api/agent-history/"+exitID+"/restore", map[string]any{"workspaceId": other["id"]}, 201)
 	back := res["agent"].(map[string]any)
-	if back["workspaceId"] != other["id"] || back["workPath"] != proj || back["sessionPath"] != filepath.Join(session.AgentDir(back["id"].(string)), filepath.Base(path)) {
+	if back["workspaceId"] != other["id"] || back["workPath"] != proj || back["sessionPath"] != path || back["id"] != ag["id"] {
 		t.Fatalf("restored elsewhere = %v", back)
 	}
 
@@ -230,4 +225,46 @@ func TestAgentHistoryCLIRestoreResumesTheSession(t *testing.T) {
 	if len(argv) < 2 || !reflect.DeepEqual(argv[:2], []string{"--resume", "cc-1"}) {
 		t.Fatalf("claude launched with %q", argv)
 	}
+}
+
+// The removal toast's Undo goes through restore: an agent that never had a
+// conversation comes back as itself, and its purged private folder is made
+// again. Without undo, the same exit is refused — nothing to resume.
+func TestAgentHistoryUndoWithoutTranscript(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	// Production's layout: a free agent's private folder is under the
+	// data dir's work/, which is what a removal may purge.
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat", DataDir: filepath.Join(home, ".picode")}).Handler)
+	t.Cleanup(ts.Close)
+	ag := cliRequest(t, ts, "POST", "/api/agents", map[string]any{"name": "fresh"}, 201)
+	id := ag["id"].(string)
+	folder := ag["workPath"].(string)
+	res := sendJSON(t, ts, "DELETE", "/api/agents/"+id+"?work=1", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("delete = %d", res.StatusCode)
+	}
+	if dirExists(folder) {
+		t.Fatalf("the removal did not purge %s; the test proves nothing", folder)
+	}
+	var body struct {
+		Exit store.AgentExit `json:"exit"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "POST", "/api/agent-history/"+body.Exit.ID+"/restore", map[string]any{}, 410)
+	back := cliRequest(t, ts, "POST", "/api/agent-history/"+body.Exit.ID+"/restore", map[string]any{"undo": true}, 201)["agent"].(map[string]any)
+	if back["id"] != id || back["name"] != "fresh" {
+		t.Fatalf("undo = %v", back)
+	}
+	if !dirExists(folder) {
+		t.Fatalf("purged folder not made again: %s", folder)
+	}
+	cliRequest(t, ts, "POST", "/api/agent-history/"+body.Exit.ID+"/restore", map[string]any{"undo": true}, 409)
 }

@@ -511,6 +511,27 @@ func (s *Store) AddAgent(workspaceID, name, workPath string) (Agent, error) {
 // AddAgentWithCLI creates an agent for a launchable catalog CLI (ADR-0160).
 // Empty cli is Pi. Name may be empty: the catalog name is used.
 func (s *Store) AddAgentWithCLI(workspaceID, cli, name, workPath string) (Agent, error) {
+	return s.addAgent("", workspaceID, cli, name, workPath)
+}
+
+// AddAgentAs creates an agent under a chosen id: a removed agent brought
+// back keeps the id it had (ADR-0205), so what still names it — its Pi
+// session folder, automations, pins — points at it again. The id must be
+// free: ErrConflict when a living agent holds it.
+func (s *Store) AddAgentAs(id, workspaceID, cli, name, workPath string) (Agent, error) {
+	id = stringsTrimSpace(id)
+	if id == "" {
+		return Agent{}, invalid("an agent id is required")
+	}
+	if _, err := s.GetAgent(id); err == nil {
+		return Agent{}, fmt.Errorf("%w: agent %s exists", ErrConflict, id)
+	} else if !errors.Is(err, ErrNotFound) {
+		return Agent{}, err
+	}
+	return s.addAgent(id, workspaceID, cli, name, workPath)
+}
+
+func (s *Store) addAgent(id, workspaceID, cli, name, workPath string) (Agent, error) {
 	cli, err := normalizeAgentCLI(cli)
 	if err != nil {
 		return Agent{}, err
@@ -530,8 +551,11 @@ func (s *Store) AddAgentWithCLI(workspaceID, cli, name, workPath string) (Agent,
 	if _, err := s.GetWorkspace(workspaceID); err != nil {
 		return Agent{}, err
 	}
+	if id == "" {
+		id = newID(name, "agent")
+	}
 	a := Agent{
-		ID:          newID(name, "agent"),
+		ID:          id,
 		WorkspaceID: workspaceID,
 		Name:        name,
 		CLI:         cli,
