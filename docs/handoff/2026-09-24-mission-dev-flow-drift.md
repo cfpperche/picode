@@ -17,9 +17,9 @@ Shipped:
   fragment docs/changelog.d/mission-dev-flow-drift.md.
 
 Not checked exactly: example values ("codex" working, .worktrees/x, 1/N counts); Vale card checked
-against styles/PiCode/Spelling.yml, not Vale; dead-link card against ignoreDeadLinks in
-docs-site/.vitepress/config.mjs, not the VitePress build; "Nothing prints" prose unchecked.
+against styles/PiCode/Spelling.yml, dead-link card against VitePress config, and "Nothing prints" prose unchecked.
 
 Verified: docs-quotes.test.mjs 10/10 (real tree + 8 drift cases). Live: "merged already"→"was" in
 the guide made `node scripts/docs-check.mjs` exit 1 at dev-flow.md:134; restored. ci-scoped PASS
-(fmt, vet, hooks, test-js, docs); make close PASS; main merged in after (6156338f3). Not landed, not deployed; awaiting owner review.
+(fmt, vet, hooks, test-js, docs); make close PASS; landed at `da5e10929`, full `make ci` PASS.
+Mission accepted at v19 after Claude stopped; worktree cleaned. Codex's first report omitted `generation`, got a generic forbidden error, then succeeded on retry.
