@@ -16,5 +16,4 @@ Trade noted: while working the chip takes 91–151px from the field; at 900px
 wide the field keeps ~227px. An icon-only chip on narrow windows is the
 option if that proves tight.
 
-## Next up
-- Owner confirms the new position live after deploy.
+Confirmed live by the owner after deploy, 2026-09-24 ("ficou bom").
