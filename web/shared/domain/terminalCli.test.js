@@ -66,12 +66,13 @@ test("supported runtimes use their official favicons, best first", () => {
     "https://omp.sh/favicon.svg",
     "https://omp.sh/favicon.ico",
   ]);
-  // pi's mark is local and theme-neutral: pi.dev's favicon follows the OS
-  // scheme, not the app's theme.
+  // pi's mark is pi.dev's own art inlined at the official light ink: the
+  // served favicon follows the OS scheme, not the app's theme, and the
+  // inlined copy must stay theme-static (dark recolours it in CSS).
   const [piMark] = terminalCliFaviconUrls("pi");
   assert.equal(terminalCliFaviconUrls("pi").length, 1);
   assert.ok(piMark.startsWith("data:image/svg+xml,"));
-  assert.ok(decodeURIComponent(piMark).includes('fill="#8a8a96"'));
+  assert.ok(decodeURIComponent(piMark).includes('fill="#111111"'));
   assert.ok(!decodeURIComponent(piMark).includes("prefers-color-scheme"));
   assert.deepEqual(terminalCliFaviconUrls("shell"), []);
 });

@@ -708,8 +708,11 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 .ws-face-more { font-size: 8px; padding: 0 3px; width: auto; min-width: 16px; background: var(--bg-hover); }
 /* Transparent monochrome vendor SVGs (claude, openai, grok, …) need a light
    face on dark panels everywhere they render — rows, notices, the CLI
-   catalog. Pi and colored raster fallbacks keep their native colors. */
+   catalog. Pi's inlined pi.dev art (a data: URI, the only one) carries the
+   official light ink and inverts to the mark's own dark ink; colored raster
+   fallbacks keep their native colors. */
 :root:not([data-theme="light"]) img.term-cli-face[src*="/icons/"],
+:root:not([data-theme="light"]) img.term-cli-face[src^="data:image/svg+xml,"],
 :root:not([data-theme="light"]) img.term-cli-face[src="https://grok.com/images/favicon.svg"] { filter: invert(1); }
 @keyframes pulse { 50% { opacity: .35; } }
 .ws-row-menu {

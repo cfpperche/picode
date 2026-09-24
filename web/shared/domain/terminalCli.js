@@ -42,8 +42,13 @@ const CLI_MARKS = Object.freeze({
 // card (vendor .ico/.png files are opaque white).
 const CLI_ICON_BASE = "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/";
 
+// pi.dev's own favicon.svg art — the same three paths and the official
+// light ink (#111111). Inlined because the served SVG recolours itself from
+// the OS scheme (prefers-color-scheme), not the app's theme; the dark theme
+// recolours it instead with the shared term-cli-face invert, which lands
+// within a step of pi.dev's own dark ink (#eee vs #f6f6f6).
 const PI_MARK = "data:image/svg+xml," + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 560"><g fill="#8a8a96">'
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 560"><g fill="#111111">'
   + '<path d="M420 280H280V140H0V0H420V280Z"/><path d="M560 560H420V280H560V560Z"/>'
   + '<path d="M140 560H0V140H140V280H280V420H140V560Z"/></g></svg>',
 );
@@ -97,11 +102,12 @@ const CLI_FAVICONS = Object.freeze({
     "https://omp.sh/favicon.svg",
     "https://omp.sh/favicon.ico",
   ]),
-  // pi has no lobehub mark, and pi.dev's favicon colours itself from the OS
-  // scheme (prefers-color-scheme), not the app's theme: a light OS drew a
+  // pi has no lobehub mark and pi.dev's own favicon colours itself from the
+  // OS scheme (prefers-color-scheme), not the app's theme: a light OS drew a
   // near-black mark on the dark app, a dark OS a near-white block on the
-  // light one. The same three paths, inlined in one neutral ink that holds
-  // ≥3:1 on both grounds (#8a8a96: ~5.3:1 on #16161c, ~3.4:1 on #fff).
+  // light one. pi.dev's art inlined at its official light ink; the dark
+  // theme recolours it with the term-cli-face invert like every other
+  // monochrome mark (both apps' styles/app.css).
   pi: Object.freeze([PI_MARK]),
 });
 
