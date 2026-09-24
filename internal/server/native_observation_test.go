@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -73,6 +74,21 @@ func TestNativeObservationRestartRecovery(t *testing.T) {
 	for _, cli := range []string{"pi", "grok", "opencode", "hermes", "codex", "claude-code"} {
 		t.Run(cli, func(t *testing.T) {
 			deps, id, emit := observationFixture(t, cli)
+			if cli == "codex" {
+				before := clisession.CodexTestRoot
+				clisession.CodexTestRoot = filepath.Join(deps.DataDir, "codex-sessions")
+				t.Cleanup(func() { clisession.CodexTestRoot = before })
+				if err := os.MkdirAll(clisession.CodexTestRoot, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				for _, sessionID := range []string{"native-A", "native-B"} {
+					path := filepath.Join(clisession.CodexTestRoot, "rollout-2026-09-24T00-00-00-"+sessionID+".jsonl")
+					body := `{"type":"session_meta","payload":{"id":"` + sessionID + `","cwd":"` + deps.DataDir + `"}}` + "\n"
+					if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
 			seq := time.Now().UnixNano()
 			emit(TermIdle, "native-A", seq)
 			reconcileNativeObservation(t.Context(), deps, id)
