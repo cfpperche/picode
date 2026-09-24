@@ -3762,7 +3762,7 @@ export default function App({ shellChrome = false } = {}) {
               <span className="shell-mark"><IconBrandMark /></span>
               <span className="shell-name">PiCode</span>
             </button>
-            <RailTabs tab={sideTab} selectTab={selectSideTab} apps={apps} inboxBadge={inboxBadge} pkgUpdates={pkgUpdates} onOpenInbox={() => { go("inbox"); setNavigationOpen(false); }} onOpenClis={() => { go("clis"); setNavigationOpen(false); }} />
+            <RailTabs tab={sideTab} selectTab={selectSideTab} apps={apps} inboxBadge={inboxBadge} pkgUpdates={pkgUpdates} onOpenInbox={() => { go("inbox"); setNavigationOpen(false); }} onOpenClis={() => { go("clis", ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); setNavigationOpen(false); }} />
           </div>
           {tabsStrip}
           <WindowControls />
@@ -3831,7 +3831,7 @@ export default function App({ shellChrome = false } = {}) {
         onInstructions={openInstructions}
         onOpenDashboard={openDashboard}
         onOpenInbox={() => { go("inbox"); setNavigationOpen(false); }}
-        onOpenClis={() => { go("clis"); setNavigationOpen(false); }}
+        onOpenClis={() => { go("clis", ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); setNavigationOpen(false); }}
         inboxBadge={inboxBadge}
         apps={apps}
         nativeApps={NATIVE_APPS}

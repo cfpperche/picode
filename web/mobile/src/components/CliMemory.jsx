@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import ScopeIcon from "./ScopeIcon.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
@@ -159,7 +160,7 @@ export default function CliMemory({ route, workspaceId = "", workspaceName = "" 
                 aria-checked={s.scope === active?.scope}
                 href={cliMemoryHash(cli, { workspaceId, scope: s.scope })}
                 onClick={() => { setScope(s.scope); setOpen(""); leaveSelect(); }}
-              >{s.label}</a>
+              ><ScopeIcon scope={s.scope} />{s.label}</a>
             ))}
           </div>
         </div>

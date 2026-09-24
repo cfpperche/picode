@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
+import ScopeIcon from "./ScopeIcon.jsx";
 import { api } from "@picode/shared/client/api.js";
 import {
   agentScopeLine, alsoLoadedLine, canRemoveSkill, skillScopes, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
@@ -179,7 +180,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
             aria-checked={(scopes.some((x) => x.id === scope) ? scope : "machine") === s.id}
             href={cliSkillsHash(cli, { workspaceId, agentId, scope: s.id })}
             onClick={() => { setScope(s.id); setOpen(""); }}
-          >{s.label}</a>
+          ><ScopeIcon scope={s.id} />{s.label}</a>
         ))}
       </div>
       <input

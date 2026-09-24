@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ScopeIcon from "./ScopeIcon.jsx";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { fileHash } from "../lib/routes.js";
@@ -257,9 +258,9 @@ export default function PackagesConfig({ hidden, embedded = false, pkg, workspac
         <a className="pkg-back" href={backHash}>← All packages</a>
         <span className="pkg-foot-spacer" />
         <div className="pkg-scope" role="radiogroup" aria-label="Which roles file to edit">
-          <button type="button" role="radio" className="pkg-scope-btn" disabled={saving} aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}>Workspace — shared</button>
+          <button type="button" role="radio" className="pkg-scope-btn" disabled={saving} aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}><ScopeIcon scope="workspace" />Workspace — shared</button>
           {hasAgentLayer ? (
-            <button type="button" role="radio" className="pkg-scope-btn" disabled={saving} aria-checked={scope === "agent"} onClick={() => setScope("agent")}>{agentName || "This agent"} — overrides</button>
+            <button type="button" role="radio" className="pkg-scope-btn" disabled={saving} aria-checked={scope === "agent"} onClick={() => setScope("agent")}><ScopeIcon scope="agent" />{agentName || "This agent"} — overrides</button>
           ) : null}
         </div>
       </div>

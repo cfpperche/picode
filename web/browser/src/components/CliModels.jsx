@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ScopeIcon from "./ScopeIcon.jsx";
 import * as Switch from "@radix-ui/react-switch";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -189,7 +190,7 @@ export default function CliModels({ cli, route = {}, workspaceId = "", workspace
                 role="radio"
                 aria-checked={l.scope === current?.scope}
                 href={cliModelsHash(cli, { workspaceId, layer: scopeToLayer(l.scope) })}
-              >{l.label}</a>
+              ><ScopeIcon scope={l.scope} />{l.label}</a>
             ))}
           </div>
         </div>

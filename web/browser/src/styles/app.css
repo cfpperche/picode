@@ -788,6 +788,7 @@ body {
   color: var(--accent); border-color: var(--border-strong); background: var(--bg-base);
 }
 .pkg-scope-btn:disabled { opacity: 0.45; cursor: default; }
+.pkg-scope-icon { display: inline-block; flex: none; margin-right: 5px; vertical-align: -2px; opacity: 0.85; }
 .mcp-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .mcp-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

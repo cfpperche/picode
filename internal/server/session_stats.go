@@ -87,6 +87,16 @@ type statsEntry struct {
 
 var sessionStats statsCache
 
+// meterWindows is the per-meter layer below sessionStats: when the fleet
+// fingerprint moves because one CLI wrote a line, only that CLI's window is
+// recomputed (climetrics.WindowCache).
+var meterWindows climetrics.WindowCache
+
+// statsFlight serialises aggregation per window key: two polls that miss
+// together (the desktop and the phone) compute once; the second reads the
+// entry the first stored.
+var statsFlight sync.Map // key → *sync.Mutex
+
 func (c *statsCache) get(key, fp string, from, to time.Time) (climetrics.FleetStats, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -112,6 +122,7 @@ func (c *statsCache) reset() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.entries = nil
+	meterWindows.Reset()
 }
 
 func handleSessionStats(deps Deps) http.HandlerFunc {
@@ -146,14 +157,20 @@ func statsForRange(rng string) climetrics.FleetStats {
 	if st, hit := sessionStats.get(key, fp, from, to); hit {
 		return st
 	}
-	st := climetrics.Aggregate(climetrics.Request{
+	mu, _ := statsFlight.LoadOrStore(key, &sync.Mutex{})
+	mu.(*sync.Mutex).Lock()
+	defer mu.(*sync.Mutex).Unlock()
+	if st, hit := sessionStats.get(key, fp, from, to); hit {
+		return st
+	}
+	st := climetrics.AggregateCached(climetrics.Request{
 		From: from, To: to, PriorFrom: priorFrom,
 		Loc: time.Local,
 		// A day window draws one bar if it is bucketed by day, which is
 		// the whole chart (2026-09-13). Hours are what "today" asks.
 		Hourly: rng == "today",
 		Prices: prices,
-	}, meters)
+	}, meters, &meterWindows, key)
 	sessionStats.put(key, fp, from, to, st)
 	return st
 }

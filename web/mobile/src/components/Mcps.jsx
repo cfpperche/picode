@@ -1,4 +1,5 @@
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
+import ScopeIcon from "./ScopeIcon.jsx";
 import { Fragment, useEffect, useRef, useState } from "react";
 import * as Dialog from "./MobileSheet.jsx";
 import * as Switch from "@radix-ui/react-switch";
@@ -520,7 +521,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                   <div className="connector-scope">
                     <span className="mcp-group-label">Save to</span>
                     <div className="pkg-scope" role="radiogroup" aria-label="Save to">
-                      <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>Global</button>
+                      <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}><ScopeIcon scope="user" />Global</button>
                       {canProject ? (
                         <button
                           type="button"
@@ -529,7 +530,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                           aria-checked={scope === "project"}
                           title={"Saves in " + (workspaceName || "this folder")}
                           onClick={() => setScope("project")}
-                        >{workspaceName || "This workspace"}</button>
+                        ><ScopeIcon scope="project" />{workspaceName || "This workspace"}</button>
                       ) : null}
                       {canAgent && !cliScoped ? (
                         <button
@@ -539,7 +540,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                           aria-checked={scope === "agent"}
                           title={"Saves with " + (agentName || "this agent")}
                           onClick={() => setScope("agent")}
-                        >This agent</button>
+                        ><ScopeIcon scope="agent" />This agent</button>
                       ) : null}
                     </div>
                   </div>

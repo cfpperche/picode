@@ -141,6 +141,23 @@ Above it, `internal/server/session_stats.go` caches the finished
 component forces a miss: a meter that cannot describe its own state must
 not be served from a cache that assumes it can.
 
+Between the two, `WindowCache` (`window_cache.go`, `AggregateCached`) keeps
+each meter's last `Window` per `root|range`, reused while that meter's own
+fingerprint and the whole request (bounds, bucketing, location, price table)
+still match. Agents write constantly, so the fleet fingerprint moves on
+almost every poll; before this layer every such poll re-metered all nine
+CLIs — 275 ms warm on the owner's machine (2026-09-24), ~270 ms of it
+OpenCode's database, unchanged. With it a poll re-meters only the CLIs that
+moved: ~14 ms, ~190 ms when a large transcript changed. A failed meter is not
+cached, and a folder-filtered request (`KeepCwd`) bypasses the layer.
+Concurrent misses for one range compute once (`statsFlight`).
+
+Stale-while-revalidate was planned with it (Fase 2) and left out: with the
+per-meter layer a dirty poll costs tens of milliseconds, so serving a
+previous number to save them would trade accuracy for nothing measurable.
+The cold cost (6–13 s after boot, or the first `30d`/`all`) is the boot
+warmup's to hide, as before.
+
 ## Estimates: list price for what a CLI left unpriced (ADR-0185)
 
 `Request.Prices` is LiteLLM's price table (`internal/pricing`), loaded by
