@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +49,9 @@ func hermetic(t *testing.T, home, shellBody string) {
 //	no           | none         | none                | banner+path | login shell's last line
 //	no           | none         | none                | silent      | ""
 func TestToolPathWidensLikeTheTerminal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the clean path reads systemd drop-ins, unit files and Unix PATH shapes; on Windows the CLI's story is WSL, where they exist")
+	}
 	const silent = "#!/bin/sh\n"
 	cases := []struct {
 		name      string
