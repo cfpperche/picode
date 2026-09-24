@@ -4,7 +4,7 @@ import { api } from "@picode/shared/client/api.js";
 import { focusPane } from "../lib/termActions.js";
 import { toast } from "../lib/toast.js";
 import { createUseDeliveryModes } from "@picode/shared/client/useDeliveryModes.js";
-import { deliveryNotice, deliveryPlaceholder, deliverySendLabel } from "@picode/shared/domain/deliveryModes.js";
+import { deliveryBusyText, deliveryNotice, deliveryPlaceholder, deliverySendLabel } from "@picode/shared/domain/deliveryModes.js";
 
 const useDeliveryModes = createUseDeliveryModes({ useEffect, useState });
 
@@ -32,6 +32,7 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
   async function send() {
     if (busy || (!text.trim() && !items.length)) return;
     setBusy(true);
+    setSendError("");
     try {
       const paths = [];
       for (const it of items) {
@@ -81,6 +82,7 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
       onDelivery={setDelivery}
       placeholder={deliveryPlaceholder(delivery, "Message the terminal")}
       sendLabel={deliverySendLabel(delivery)}
+      status={busy ? deliveryBusyText(delivery) : ""}
     />
   );
 }

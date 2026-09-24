@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deliveryOptions, pickDelivery, deliveryPlaceholder, deliveryNotice, deliverySendLabel } from "./deliveryModes.js";
+import { deliveryOptions, pickDelivery, deliveryPlaceholder, deliveryNotice, deliverySendLabel, deliveryBusyText } from "./deliveryModes.js";
 
 test("idle hides the selector; working offers the busy modes the CLI has", () => {
   assert.deepEqual(deliveryOptions(["prompt", "steer", "follow_up"], "idle"), []);
@@ -38,4 +38,9 @@ test("stop and send is offered while working but never the default", () => {
   assert.equal(deliverySendLabel("interrupt"), "Stop and send");
   assert.equal(deliverySendLabel("follow_up"), "Queue");
   assert.equal(deliveryPlaceholder("interrupt", "x"), "Stop the agent and send this");
+});
+
+test("busy copy names the stop wait", () => {
+  assert.equal(deliveryBusyText("interrupt"), "Stopping the agent…");
+  assert.equal(deliveryBusyText("steer"), "Sending…");
 });

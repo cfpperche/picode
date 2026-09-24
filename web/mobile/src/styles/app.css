@@ -1501,6 +1501,9 @@ img.ws-face.term-cli-face {
 }
 .composer-attach { flex: none; width: 28px; height: 28px; }
 .term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
+.term-attach-status { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
+.term-attach-status::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--accent); animation: app-operation-pulse 1s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .term-attach-status::before { animation: none; } }
 .term-attach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .term-attach-form { display: flex; flex-direction: column; gap: 8px; }
 /* The message field grows with the text (shared/domain/attachText.js): one

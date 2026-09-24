@@ -13,7 +13,7 @@ const LABELS = Object.freeze({ prompt: "Prompt", steer: "Steer", follow_up: "Fol
 const HINTS = Object.freeze({
   steer: "Reaches the agent in this turn",
   follow_up: "Sent when this turn ends",
-  interrupt: "Stops the agent now, then sends",
+  interrupt: "Stops the agent, then sends",
 });
 
 // Placeholder per mode: what Send will do, in the words a person uses.
@@ -59,4 +59,10 @@ export function deliveryNotice(res, delivery) {
   return delivery === "steer" || delivery === "follow_up" || delivery === "interrupt"
     ? "Sent, but PiCode could not confirm the CLI took it. Check the terminal."
     : "Sent, but PiCode could not confirm it left the composer. Check the terminal.";
+}
+
+// What the composer says while a send is in flight: Stop and send waits for
+// the CLI to stop (up to a few seconds), so it names that wait.
+export function deliveryBusyText(delivery) {
+  return delivery === "interrupt" ? "Stopping the agent…" : "Sending…";
 }

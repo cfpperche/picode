@@ -42,6 +42,7 @@ export default function AttachComposer({
   hideSend = false,
   autoFocus = true,
   deliveryOptions = [],
+  status = "",
   delivery = "prompt",
   onDelivery,
 }) {
@@ -189,6 +190,7 @@ export default function AttachComposer({
       {/* Not a [data-align-row]: the field grows by design (overlayAudit's
           equal-height rule is for fixed controls). The row is bottom-aligned. */}
       {error ? <p className="term-attach-error" role="alert">{error}</p> : null}
+      {!error && status ? <p className="term-attach-status" role="status">{status}</p> : null}
       <div className="term-attach-row">
         <input ref={imgPick} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
         <input ref={filePick} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />

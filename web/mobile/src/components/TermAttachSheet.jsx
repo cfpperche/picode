@@ -10,7 +10,7 @@ import { terminalOwnerBase } from "@picode/shared/domain/agentTerminal.js";
 import { isSubmitKey } from "../lib/agentDrafts.js";
 import { toast, toastError } from "../lib/toast.js";
 import { createUseDeliveryModes } from "@picode/shared/client/useDeliveryModes.js";
-import { deliveryNotice, deliveryPlaceholder, deliverySendLabel } from "@picode/shared/domain/deliveryModes.js";
+import { deliveryBusyText, deliveryNotice, deliveryPlaceholder, deliverySendLabel } from "@picode/shared/domain/deliveryModes.js";
 
 const useDeliveryModes = createUseDeliveryModes({ useEffect, useState });
 
@@ -92,6 +92,7 @@ export default function TermAttachSheet({ term, owner = { kind: "term", id: term
   async function send() {
     if (busy || (!text.trim() && !items.length)) return;
     setBusy(true);
+    setSendError("");
     try {
       const paths = [];
       for (const it of items) {
@@ -133,6 +134,7 @@ export default function TermAttachSheet({ term, owner = { kind: "term", id: term
             <button type="button" className="m-tool-icon" aria-label="Close attachments" title="Close attachments" onClick={onClose}><IconX size={16} /></button>
           </div>
           {sendError ? <p className="dlg-body" role="alert" style={{ color: "var(--danger)", margin: "0 0 8px" }}>{sendError}</p> : null}
+          {!sendError && busy ? <p className="term-attach-status" role="status">{deliveryBusyText(delivery)}</p> : null}
           <WorkspaceAttach open={pick} termId={owner.kind === "term" ? owner.id : undefined} agentId={owner.kind === "agent" ? owner.id : undefined} onPick={addWorkspace} onClose={() => setPick(false)} />
           {items.length ? (
             <div className="term-attach-chips">

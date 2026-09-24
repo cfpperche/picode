@@ -3937,6 +3937,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 .search-combo-pop [cmdk-root], .search-combo-pop .combo-list { min-height: 0; }
 .search-combo-pop .cockpit-opt { display: flex; align-items: center; gap: 8px; }
+/* The label never wraps; a long hint yields the width instead. */
+.search-combo-pop .combo-opt-label { flex: none; white-space: nowrap; }
+.search-combo-pop .combo-hint { min-width: 0; text-align: right; }
 .combo-opt-icon { flex: none; display: inline-flex; align-items: center; }
 /* Fixed-width slot so rows align whether or not the checkmark renders. */
 .combo-opt-check { width: 14px; flex: none; display: inline-flex; align-items: center; color: var(--accent); }
@@ -6960,6 +6963,15 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   color: var(--danger);
 }
 .term-attach-error::before { content: "⚠ "; }
+/* In flight: a pulsing dot and the words for the wait (Stop and send can
+   take a few seconds while the CLI stops). */
+.term-attach-status { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
+.term-attach-status::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px;
+  border-radius: 50%; background: var(--accent);
+  animation: app-operation-pulse 1s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) { .term-attach-status::before { animation: none; } }
 
 /* Make agent (ADR-0184): one line over the shell, state + the one action. */
 .term-adopt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px; margin-bottom: 6px; border-radius: var(--radius-ctl); background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); font-size: 12px; }
