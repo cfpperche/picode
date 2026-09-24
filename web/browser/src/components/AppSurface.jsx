@@ -8,7 +8,7 @@ import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { filterListBlocks, countListItems } from "@picode/shared/domain/appSearch.js";
-import { IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconTrash, IconPackage } from "./Icons.jsx";
+import { IconBack, IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconTrash, IconPackage } from "./Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { surfaceLinkClick } from "@picode/shared/client/surfaceLinks.js";
 import { touches } from "@picode/shared/domain/feedReducers.js";
@@ -50,7 +50,7 @@ const LIST_KEY = "picode-app-split-w";
 // the shell opens it as a work-browser tab (2026-09-20/21: an Inbox github
 // link navigated this whole document and took the shell with it; an app
 // surface never navigates its host).
-export default function AppSurface({ appId, apiBase, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, nativeSurfaces, onOpenUrl }) {
+export default function AppSurface({ appId, apiBase, backHref, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, nativeSurfaces, onOpenUrl }) {
   // initialPath (ADR-0044): a deep link — the phone's #/inbox/<id> — lands
   // on that item instead of the list. Later changes to it navigate too.
   const [path, setPath] = useState(initialPath || "");
@@ -312,13 +312,14 @@ export default function AppSurface({ appId, apiBase, hidden, manifest, onClose, 
     <section className={"app-surface" + (split && !listOnly ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef} onClickCapture={onSurfaceLinkClick}>
       <div className="settings-wrap">
         <header className="settings-head">
+          {backHref ? <a href={backHref} className="btn btn-ghost btn-sm"><IconBack />Back</a> : null}
           <h2 className="app-page-title" title={title}>{title}</h2>
           <span className="ft-spacer" />
           <div className="app-page-actions" data-align-row>
             <button type="button" className="btn btn-sm btn-ghost" onClick={() => load(path)} disabled={busy}>
               Refresh
             </button>
-            {onClose ? (
+            {onClose && !backHref ? (
               <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>
                 Close
               </button>
