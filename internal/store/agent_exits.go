@@ -225,14 +225,16 @@ type ExitLaunch struct {
 
 // ExitConfig is the frozen setup beside the promoted provider/model.
 type ExitConfig struct {
-	Thinking         string      `json:"thinking,omitempty"`
-	OpMode           string      `json:"opMode,omitempty"`
-	Checklist        string      `json:"checklist,omitempty"`
-	Packages         []string    `json:"packages"`
-	PackagesIsolated bool        `json:"packagesIsolated"`
-	ExtraPrompt      string      `json:"extraPrompt,omitempty"`
-	WorkPath         string      `json:"workPath,omitempty"`
-	Launch           *ExitLaunch `json:"launch,omitempty"`
+	Thinking         string   `json:"thinking,omitempty"`
+	OpMode           string   `json:"opMode,omitempty"`
+	Checklist        string   `json:"checklist,omitempty"`
+	Packages         []string `json:"packages"`
+	PackagesIsolated bool     `json:"packagesIsolated"`
+	// Skills: the agent's own (ADR-0196 slice 4); a restore puts them back.
+	Skills      []AgentSkill `json:"skills,omitempty"`
+	ExtraPrompt string       `json:"extraPrompt,omitempty"`
+	WorkPath    string       `json:"workPath,omitempty"`
+	Launch      *ExitLaunch  `json:"launch,omitempty"`
 	// Instructions: nil on exits written before 2026-09-24, or when neither
 	// the CLI's record nor the rules could answer.
 	Instructions *ExitInstructions `json:"instructions,omitempty"`
@@ -511,6 +513,7 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 		Checklist:        a.Checklist,
 		Packages:         append([]string{}, a.Packages...),
 		PackagesIsolated: a.PackagesIsolated,
+		Skills:           append([]AgentSkill(nil), a.Skills...),
 		ExtraPrompt:      deref(a.ExtraPrompt),
 		WorkPath:         deref(a.WorkPath),
 	}

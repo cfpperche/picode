@@ -6,15 +6,18 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/cfpperche/picode/internal/pisettings"
 	"github.com/cfpperche/picode/internal/skills"
+	"github.com/cfpperche/picode/internal/store"
 )
 
 // registerSkillRoutes serves the Skills tab (ADR-0196, docs/plans/skills.md).
 // Slice 1 is read-only: what one CLI loads, from which folder, and why.
 func registerSkillRoutes(mux Registrar, deps Deps) {
 	mgr := skills.NewManager(filepath.Join(deps.DataDir, "skills", "stage"))
+	mgr.CacheRoot = filepath.Join(deps.DataDir, "skills", "cache")
 	mux.HandleFunc("GET /api/skills/report", handleSkillsReport(deps))
 	// Slice 2: install, remove, update, check — PiCode's own writes into the
 	// CLIs' folders and the skills CLI's locks (ADR-0196).
@@ -67,6 +70,90 @@ func skillsTarget(deps Deps, scope, workspaceID string) (skills.Scope, string, e
 	return "", "", &skills.Conflict{Code: "invalid", Message: "scope is machine or workspace"}
 }
 
+// skillsAgent resolves the agent an agent-scope write names: it exists and
+// its CLI takes an agent's own skills at launch.
+func skillsAgent(deps Deps, id string) (store.Agent, error) {
+	if id == "" || deps.Store == nil {
+		return store.Agent{}, &skills.Conflict{Code: "invalid", Message: "an agent install names its agent"}
+	}
+	a, err := deps.Store.GetAgent(id)
+	if err != nil {
+		return store.Agent{}, &skills.Conflict{Code: "invalid", Message: "agent not found"}
+	}
+	if spec, ok := skills.For(a.CLI); !ok || !spec.AgentScope {
+		return store.Agent{}, &skills.Conflict{Code: "invalid", Message: "this agent's CLI cannot take skills of its own at launch"}
+	}
+	return a, nil
+}
+
+func agentSkillsOf(a store.Agent) []skills.AgentSkill {
+	out := make([]skills.AgentSkill, 0, len(a.Skills))
+	for _, sk := range a.Skills {
+		out = append(out, skills.AgentSkill{Name: sk.Name, Digest: sk.Digest, Source: sk.Source, Dir: sk.Dir})
+	}
+	return out
+}
+
+// agentSkillsMu serializes read-modify-write of an agent's list.
+var agentSkillsMu sync.Mutex
+
+// installForAgent caches the staged skill and adds it to the agent's list;
+// a skill of the same name is replaced (the list holds one per name).
+func installForAgent(deps Deps, mgr *skills.Manager, in skills.InstallReq, agentID string) (skills.Result, error) {
+	agentSkillsMu.Lock()
+	defer agentSkillsMu.Unlock()
+	a, err := skillsAgent(deps, agentID)
+	if err != nil {
+		return skills.Result{}, err
+	}
+	in.Scope = skills.Agent
+	res, err := mgr.Install(in)
+	if err != nil {
+		return res, err
+	}
+	for _, sk := range a.Skills {
+		if sk.Name == res.Name && sk.Digest == res.Digest {
+			res.Status = "already"
+			return res, nil
+		}
+		if sk.Name == res.Name {
+			res.Status = "replaced"
+		}
+	}
+	next := append(append([]store.AgentSkill{}, a.Skills...), store.AgentSkill{Name: res.Name, Digest: res.Digest, Source: res.Source, Dir: res.Dir})
+	if _, err := deps.Store.SetAgentSkills(a.ID, next); err != nil {
+		return res, err
+	}
+	return res, nil
+}
+
+// removeForAgent drops the skill from the agent's list. The cached copy
+// stays: another agent or a restored one may name it.
+func removeForAgent(deps Deps, name, agentID string) (skills.Result, error) {
+	agentSkillsMu.Lock()
+	defer agentSkillsMu.Unlock()
+	a, err := skillsAgent(deps, agentID)
+	if err != nil {
+		return skills.Result{}, err
+	}
+	next := make([]store.AgentSkill, 0, len(a.Skills))
+	found := false
+	for _, sk := range a.Skills {
+		if sk.Name == name {
+			found = true
+			continue
+		}
+		next = append(next, sk)
+	}
+	if !found {
+		return skills.Result{}, skills.ErrNotInstalled
+	}
+	if _, err := deps.Store.SetAgentSkills(a.ID, next); err != nil {
+		return skills.Result{}, err
+	}
+	return skills.Result{Name: name, Status: "removed"}, nil
+}
+
 func announceSkills(deps Deps, action, name string) {
 	if deps.Feed != nil {
 		deps.Feed.Ephemeral("skills.changed", map[string]any{"action": action, "name": name})
@@ -97,9 +184,20 @@ func handleSkillsInstall(deps Deps, mgr *skills.Manager) http.HandlerFunc {
 			skills.InstallReq
 			Scope     string `json:"scope"`
 			Workspace string `json:"workspace"`
+			Agent     string `json:"agent"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "bad request")
+			return
+		}
+		if req.Scope == string(skills.Agent) {
+			res, err := installForAgent(deps, mgr, req.InstallReq, req.Agent)
+			if err != nil {
+				skillsError(w, err)
+				return
+			}
+			announceSkills(deps, res.Status, res.Name)
+			writeJSON(w, http.StatusOK, res)
 			return
 		}
 		scope, path, err := skillsTarget(deps, req.Scope, req.Workspace)
@@ -125,10 +223,21 @@ func handleSkillsRemove(deps Deps, mgr *skills.Manager) http.HandlerFunc {
 			Name      string `json:"name"`
 			Scope     string `json:"scope"`
 			Workspace string `json:"workspace"`
+			Agent     string `json:"agent"`
 			Confirm   bool   `json:"confirm"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "bad request")
+			return
+		}
+		if req.Scope == string(skills.Agent) {
+			res, err := removeForAgent(deps, req.Name, req.Agent)
+			if err != nil {
+				skillsError(w, err)
+				return
+			}
+			announceSkills(deps, "removed", req.Name)
+			writeJSON(w, http.StatusOK, res)
 			return
 		}
 		scope, path, err := skillsTarget(deps, req.Scope, req.Workspace)
@@ -226,10 +335,12 @@ func handleSkillsReport(deps Deps) http.HandlerFunc {
 				return
 			}
 			q.Workspace = ws.Path
-			// The agent scope (Pi, Omp): an agent of this CLI in that workspace.
+			// The agent scope (Pi, Omp, Claude Code): an agent of this CLI in
+			// that workspace. Isolation is Pi's and Omp's (their packages).
 			if id := strings.TrimSpace(r.URL.Query().Get("agent")); id != "" {
 				if a, err := deps.Store.GetAgent(id); err == nil && a.WorkspaceID == ws.ID && (a.CLI == cli || (a.CLI == "" && cli == "pi")) {
-					q.Agent = &skills.AgentInfo{ID: a.ID, Name: agentLayerName(a, ws), Isolated: a.PackagesIsolated}
+					isolated := a.PackagesIsolated && (cli == "pi" || cli == "omp")
+					q.Agent = &skills.AgentInfo{ID: a.ID, Name: agentLayerName(a, ws), Isolated: isolated, Skills: agentSkillsOf(a)}
 				}
 			}
 		}

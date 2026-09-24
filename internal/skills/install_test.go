@@ -155,6 +155,38 @@ func TestInstallWorkspace(t *testing.T) {
 	}
 }
 
+// An agent install writes the digest-addressed cache only: no lock, no
+// canonical folder, no link; the same content twice is one folder.
+func TestInstallAgentCache(t *testing.T) {
+	m, _, wsDir := newManager(t)
+	m.CacheRoot = filepath.Join(t.TempDir(), "cache")
+	src := localSource(t, map[string]string{"pdf/SKILL.md": skillMD("pdf", "PDF tools")})
+	p := previewOne(t, m, src)
+	res, err := m.Install(InstallReq{Preview: p.ID, Path: "pdf", Scope: Agent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(m.CacheRoot, p.Candidates[0].Digest, "pdf")
+	if res.Dir != want || res.Digest != p.Candidates[0].Digest || res.Source != src {
+		t.Fatalf("%+v, want dir %s", res, want)
+	}
+	if d, _ := Digest(want); d != res.Digest {
+		t.Fatalf("cached digest %s", d)
+	}
+	for _, p := range []string{filepath.Join(wsDir, "skills-lock.json"), filepath.Join(m.Home, ".agents"), filepath.Join(wsDir, ".agents")} {
+		if _, err := os.Stat(p); err == nil {
+			t.Fatalf("an agent install wrote %s", p)
+		}
+	}
+	p = previewOne(t, m, src)
+	if again, err := m.Install(InstallReq{Preview: p.ID, Path: "pdf", Scope: Agent}); err != nil || again.Dir != want {
+		t.Fatalf("again: %+v %v", again, err)
+	}
+	if _, err := CacheDir(m.CacheRoot, "../../etc", "pdf"); err == nil {
+		t.Fatal("a digest that is not hex reached the file system")
+	}
+}
+
 func TestInstallRefusals(t *testing.T) {
 	m, _, wsDir := newManager(t)
 	// A folder no installer recorded: refuse, or adopt without touching it.

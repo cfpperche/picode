@@ -142,6 +142,42 @@ findings and files, asks for the second confirmation on a critical finding and
 turns a 409 into its choices; **Check for updates** marks rows, and a row in
 `.agents/skills` offers **Update** and **Remove** with an inline confirmation.
 
+## The agent scope (slice 4)
+
+An agent's own skills are a list on its row (`agents.skills`, migration 073:
+`{name, digest, source, dir}`), written by `Store.SetAgentSkills`, which
+announces `agent.updated`. The content is a copy in PiCode's cache,
+`<data>/skills/cache/<digest>/<name>`, written by `Manager.Install` with
+`scope=agent` (`cache` in `install.go`): no lock, no link, nothing in the
+workspace or the home folder. One copy serves every agent with that content.
+The cache is never swept, so a restored agent (ADR-0205) finds its folders;
+`ExitConfig.Skills` carries the list across the exit.
+
+Each CLI receives the list its own way, measured on 2026-09-24 with the CLI's
+own command list (`get_commands` over RPC, `claude plugin details`):
+
+| CLI | At launch | Isolated agent | Same name as a folder skill |
+|---|---|---|---|
+| Pi | `--skill <folder>` per skill (`store.Agent.CLIFlags`) | `--no-skills` stays; `--skill` still loads | the folder's copy wins |
+| Omp | `--config <data>/skills/agents/<id>/omp.yml` with `skills.customDirectories` (`agentOmpSkillFlags`) | the overlay turns every `skills.enable*` source off instead of `--no-skills`, which also drops custom folders | the agent's copy wins |
+| Claude Code | `--plugin-dir <run>/picode-agent`, a copy of each skill under `skills/` (`writeClaudeAgentPlugin`); no manifest needed | — | none: plugin skills are `/picode-agent:<name>` |
+
+Codex, Grok, Hermes, OpenCode, Muse and Antigravity have no per-launch way to
+add a folder (Hermes `--skills` preloads an installed skill; OpenCode's
+`permission.skill` filters), so their report has no agent and the pane says
+so in one line. A skill whose cached folder is gone is left out of the launch
+(`Agent.SkillDirs`) and reported as `missing`.
+
+The reader (`agentRows`) lists the agent's skills with scope `agent` and root
+`This agent only`, in the precedence above (`Spec.AgentOrder`). Routes:
+`POST /api/skills` and `DELETE /api/skills` take `scope=agent` with `agent`;
+`GET /api/skills/report?agent=` fills them in. The launch fingerprint of an
+agent terminal now folds in the agent's own scope for every CLI
+(`agentLaunchFingerprint`): Pi's flags as before, and for Omp and Claude Code a
+marker of packages, isolation and skill digests, computed before any
+injection, so the terminal view's "Launch changes pending" follows a skill
+added or removed while it runs.
+
 ## Live parity
 
 `internal/skills/live_test.go` runs the real `muse` against a fixture in a
