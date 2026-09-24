@@ -45,6 +45,30 @@ export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
   return cliPaneHash(cli, pane, pane === "sessions" ? workspace : "");
 }
 
+// Bring the selected tab fully into the strip without scrolling the page.
+// A tab that is only partly in the rail is hidden so a deep link never shows
+// a clipped label like "nch" from Launch (visual review, 2026-09-24).
+function maskPartialTabs(nav) {
+  if (!nav) return;
+  const rail = nav.getBoundingClientRect();
+  for (const el of nav.querySelectorAll("[role=tab]")) {
+    const box = el.getBoundingClientRect();
+    const inView = box.right > rail.left + 1 && box.left < rail.right - 1;
+    const fully = box.left >= rail.left - 1 && box.right <= rail.right + 1;
+    el.style.visibility = inView && !fully ? "hidden" : "";
+  }
+}
+
+function revealPaneTab(tab) {
+  const nav = tab && tab.closest(".cli-pane-tabs");
+  if (!nav || !tab) return;
+  const rail = nav.getBoundingClientRect();
+  const item = tab.getBoundingClientRect();
+  if (item.left < rail.left) nav.scrollLeft += item.left - rail.left;
+  else if (item.right > rail.right) nav.scrollLeft += item.right - rail.right;
+  maskPartialTabs(nav);
+}
+
 function Tab({ cli, pane, workspace, ctx, item, extra, activeRef }) {
   const selected = pane === item.id;
   return (
@@ -70,7 +94,13 @@ export default function CliPaneTabs({ cli, pane = "launch", panes = null, worksp
   // e.g. Packages has to bring its own tab into view — otherwise the panel
   // says "Packages …" while the reader sees Launch…Sessions.
   const active = useRef(null);
-  useEffect(() => { active.current?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [pane, cli]);
+  useEffect(() => {
+    const nav = active.current && active.current.closest(".cli-pane-tabs");
+    const frame = requestAnimationFrame(() => revealPaneTab(active.current));
+    const onScroll = () => maskPartialTabs(nav);
+    if (nav) nav.addEventListener("scroll", onScroll, { passive: true });
+    return () => { cancelAnimationFrame(frame); if (nav) nav.removeEventListener("scroll", onScroll); };
+  }, [pane, cli]);
   return (
     <div className="cli-pane-bar">
       <nav className="cli-pane-tabs" role="tablist" aria-label="CLI sections">
