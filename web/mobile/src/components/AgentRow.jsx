@@ -59,7 +59,7 @@ export default function AgentRow({ agent, workspace, workingIds, checklist, busy
           <span className="m-row-sub">{check && check.kind === "step" ? check.position + "/" + check.total + " · " + check.text : context || agentSubtitleWithFork(agent)}</span>
           {check && check.kind === "step" ? <span className="m-row-context">{context || agentSubtitleWithFork(agent)}</span> : null}
         </span>
-        <StateChip state={status} age={age} />
+        <StateChip state={status} age={age} term={term} />
         <IconChevronRight size={16} className="m-row-chev" />
       </button>
       <DropdownMenu.Root>

@@ -132,6 +132,7 @@ func termViewWith(deps Deps, r *http.Request, t store.Terminal, session string, 
 	// Terminal CLI presence is independent from lifecycle activity (ADR-0062).
 	// The runtime is applied first, then a state report may add activity.
 	applyTermRuntime(deps, view, t.ID)
+	applyTermCommand(deps, view, t.ID)
 	applyTermState(deps, view, t.ID)
 	applyTerminalLaunch(deps, view, t.ID)
 	applyTerminalChecklist(deps, view, t.ID)

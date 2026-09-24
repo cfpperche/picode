@@ -88,6 +88,29 @@ is confirmed. Codex SessionStart(source=compact) follows PostCompact and
 does not overwrite its resulting state. A vendor hook failure can leave the
 phase until the next lifecycle report or expiry; no pane text is inferred.
 
+A shell command the CLI runs is the one activity read from the process tree
+(ADR-0212). `!make deploy` fires no start hook in Codex, Claude Code, Grok or
+Hermes. The runtime watcher therefore walks each live lease's tree every 3 s.
+A direct child of the CLI chain counts as a command when two things hold:
+
+- it is at least 2 s old;
+- it runs in its own session, as Claude, Codex, Grok, OpenCode, Pi and Omp
+  run commands, or it is `sh -c` on the terminal, which is how Hermes runs
+  them.
+
+MCP servers, LSPs and sidecars stay in the pane's session behind a pipe or
+socket and never count. The oldest command wins. It is published as the
+ephemeral `terminal.command {termId, command: {name, since} | null}` and
+added to the terminal view as `command`. The UI shows **Running**, with a
+"Running make" tooltip, only while the hooks are not already saying working,
+compacting or needs-you. It is never a hook state and never a turn.
+
+The runtime watcher's tree walk does not see:
+
+- Omp shell builtins, which run in-process;
+- Muse and Antigravity, which have no lease;
+- daemons without `/proc`.
+
 Codex hooks are invocation-only `-c` values whose exact SHA-256
 fingerprints are trusted in the same session flags — PiCode never bypasses
 trust and never writes `~/.codex`. On `resume`/`fork`, overrides follow the

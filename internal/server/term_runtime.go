@@ -43,8 +43,9 @@ type TermRuntime struct {
 // not persisted: after a daemon restart the wrapper or the tmux reconciler
 // must prove the process again before the UI calls it a CLI.
 type TermRuntimes struct {
-	mu sync.Mutex
-	m  map[string]TermRuntime
+	mu   sync.Mutex
+	m    map[string]TermRuntime
+	cmds map[string]TermCommand // the command each lease's CLI runs (ADR-0212)
 }
 
 // NewTermRuntimes builds an empty runtime registry.
@@ -98,6 +99,7 @@ func (r *TermRuntimes) End(termID, runID string) (TermRuntime, bool) {
 		return prev, false
 	}
 	delete(r.m, termID)
+	delete(r.cmds, termID)
 	return prev, true
 }
 
@@ -156,6 +158,15 @@ func terminalCLIFromCommand(command string) string {
 type procSnapshot struct {
 	argv map[int][]string
 	ppid map[int]int
+	// sid, start and uptime feed the pane command detector (ADR-0212):
+	// the session each process belongs to, its start in clock ticks since
+	// boot, and the boot clock when the snapshot was read.
+	sid    map[int]int
+	start  map[int]uint64
+	uptime uint64
+	// ttyIn caches whether a process reads a terminal on stdin; tests
+	// prefill it, the live snapshot fills it on first question.
+	ttyIn map[int]bool
 }
 
 func readProcSnapshot() *procSnapshot {
@@ -163,7 +174,11 @@ func readProcSnapshot() *procSnapshot {
 	if err != nil {
 		return &procSnapshot{argv: map[int][]string{}, ppid: map[int]int{}}
 	}
-	snap := &procSnapshot{argv: make(map[int][]string, len(entries)), ppid: make(map[int]int, len(entries))}
+	snap := &procSnapshot{
+		argv: make(map[int][]string, len(entries)), ppid: make(map[int]int, len(entries)),
+		sid: make(map[int]int, len(entries)), start: make(map[int]uint64, len(entries)),
+		uptime: readUptimeTicks(),
+	}
 	for _, entry := range entries {
 		pid, err := strconv.Atoi(entry.Name())
 		if err != nil || pid <= 0 {
@@ -193,6 +208,15 @@ func readProcSnapshot() *procSnapshot {
 				if len(fields) >= 2 {
 					if ppid, err := strconv.Atoi(fields[1]); err == nil {
 						snap.ppid[pid] = ppid
+					}
+				}
+				// After ')': state, ppid, pgrp, session … starttime at 19.
+				if len(fields) > 19 {
+					if sid, err := strconv.Atoi(fields[3]); err == nil {
+						snap.sid[pid] = sid
+					}
+					if start, err := strconv.ParseUint(fields[19], 10, 64); err == nil {
+						snap.start[pid] = start
 					}
 				}
 			}
@@ -361,6 +385,9 @@ func finishTermRuntime(deps Deps, termID, runID string) (TermRuntime, bool) {
 		return current, false
 	}
 	clearRuntimeState(deps, termID, current.RunID)
+	if deps.Feed != nil {
+		deps.Feed.Ephemeral("terminal.command", map[string]any{"termId": termID, "command": nil})
+	}
 	publishTermRuntime(deps, "ended", current, termID)
 	return current, true
 }
@@ -511,6 +538,11 @@ func reconcileTermRuntimes(ctx context.Context, deps Deps) {
 				finishTermRuntime(deps, id, runtime.RunID)
 				continue
 			}
+			if procSnap == nil {
+				procSnap = readProcSnapshot()
+			}
+			cmd, running := runningCommand(runtime.PID, procSnap)
+			observeTermCommand(deps, id, cmd, running)
 			seen[id] = true
 			continue
 		}
