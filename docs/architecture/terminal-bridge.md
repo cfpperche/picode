@@ -71,8 +71,20 @@ lease becomes `terminal.runtime`, while lifecycle reports become
 `terminal.state` feed events. The lease carries a canonical CLI, run id, PID,
 and process start token when available. The server watcher removes a lease
 when its pane or process disappears and may recover older sessions from an
-exact `pane_current_command` plus `pane_pid` match, never from pixels. Codex
-hooks are invocation-only `-c` values whose exact SHA-256
+exact `pane_current_command` plus `pane_pid` match, never from pixels.
+`compacting` is a fourth transient terminal activity value (ADR-0209). The
+sidebar, tabs, mobile and Canvas show it only after a native pre-compaction
+signal; it remains busy for prompt and Git guards and expires on the working
+TTL. Codex, Claude Code and Grok use PreCompact/PostCompact; Pi and Omp use
+session_before_compact/session_compact; Pi also uses session_compact_failed.
+OpenCode uses experimental.session.compacting and session.compacted. Its
+selected root session guard applies to both. Hermes, Muse and Antigravity
+retain their general Working signal because no exact native start/end pair
+is confirmed. Codex SessionStart(source=compact) follows PostCompact and
+does not overwrite its resulting state. A vendor hook failure can leave the
+phase until the next lifecycle report or expiry; no pane text is inferred.
+
+Codex hooks are invocation-only `-c` values whose exact SHA-256
 fingerprints are trusted in the same session flags — PiCode never bypasses
 trust and never writes `~/.codex`. On `resume`/`fork`, overrides follow the
 subcommand arguments because the native subcommand parser discards root overrides. For agent invocations, the Pi wrapper
@@ -88,6 +100,8 @@ is executable in `TestPiTerminalStateExtensionDecisionTable`:
 | present | RPC, print, or JSON | any | no report |
 | present | TUI | `session_start`, `agent_settled`, `session_shutdown` | publish `idle` |
 | present | TUI | `agent_start` | publish `working` |
+| present | TUI | `session_before_compact` | publish `compacting` |
+| present | TUI | `session_compact`, `session_compact_failed` | publish current idle/working state |
 | present | TUI | `ui_prompt_start` | publish `needs-you` |
 | present | TUI | `ui_prompt_end`, `ctx.isIdle() == false` | publish `working` |
 | present | TUI | `ui_prompt_end`, `ctx.isIdle() == true` | publish `idle` |

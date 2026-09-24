@@ -174,7 +174,7 @@ func reconcileNativeObservation(ctx context.Context, deps Deps, id string) {
 	state := deps.TermStates.m[id]
 	if state.RunID == o.RunID && state.SessionSeq == o.SessionSeq {
 		state.At = time.Unix(0, o.SessionSeq)
-		if state.State == TermWorking && time.Since(state.At) > workingTTL {
+		if (state.State == TermWorking || state.State == TermCompacting) && time.Since(state.At) > workingTTL {
 			delete(deps.TermStates.m, id)
 		} else {
 			deps.TermStates.m[id] = state

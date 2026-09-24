@@ -49,7 +49,7 @@ export const FLEET_HINTS = Object.freeze({
 function agentState(ag, live) {
   const status = agentRowStatus(ag, live);
   if (status === "needs-you") return FLEET_NEEDS_YOU;
-  if (status === "working") return FLEET_WORKING;
+  if (status === "working" || status === "compacting") return FLEET_WORKING;
   if (status === "stopped") return "";
   if (status === "open") return FLEET_UNREPORTED;
   // "interactive" is a TUI sitting open with no turn running: ready, the
@@ -60,7 +60,7 @@ function agentState(ag, live) {
 function terminalState(term) {
   const status = terminalStatus(term);
   if (status === "needs-you") return FLEET_NEEDS_YOU;
-  if (status === "working") return FLEET_WORKING;
+  if (status === "working" || status === "compacting") return FLEET_WORKING;
   if (status === "ready") return FLEET_IDLE;
   if (status === "open") return FLEET_UNREPORTED;
   return ""; // stopped

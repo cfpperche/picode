@@ -27,9 +27,10 @@ import (
 // Terminal state vocabulary — the same words agent.state uses, so tier 2
 // (CLI agents, ADR-0056) can re-anchor the UI without a new language.
 const (
-	TermWorking  = "working"
-	TermNeedsYou = "needs-you"
-	TermIdle     = "idle"
+	TermWorking    = "working"
+	TermCompacting = "compacting"
+	TermNeedsYou   = "needs-you"
+	TermIdle       = "idle"
 )
 
 // workingTTL bounds how long a "working" report is trusted without
@@ -75,7 +76,7 @@ func NewTermStates() *TermStates {
 }
 
 func validTermState(s string) bool {
-	return s == TermWorking || s == TermNeedsYou || s == TermIdle
+	return s == TermWorking || s == TermCompacting || s == TermNeedsYou || s == TermIdle
 }
 
 // Set records a report and tells whether anything changed (a repeat of
@@ -160,7 +161,7 @@ func (ts *TermStates) Sweep(now time.Time, ttl time.Duration) []string {
 	defer ts.mu.Unlock()
 	var out []string
 	for id, st := range ts.m {
-		if st.State == TermWorking && now.Sub(st.At) > ttl {
+		if (st.State == TermWorking || st.State == TermCompacting) && now.Sub(st.At) > ttl {
 			delete(ts.m, id)
 			out = append(out, id)
 		}
@@ -255,10 +256,10 @@ func reportTermStateForRun(deps Deps, id, state, cli, runID, attention string, n
 // that follows idle or no state. Work after needs-you is the same turn
 // resuming once the person answered.
 func startsTurn(before TermState, had bool, next string) bool {
-	if next != TermWorking {
+	if next != TermWorking && next != TermCompacting {
 		return false
 	}
-	return !had || (before.State != TermWorking && before.State != TermNeedsYou)
+	return !had || (before.State != TermWorking && before.State != TermCompacting && before.State != TermNeedsYou)
 }
 
 // noteTerminalTurn counts the turn on the agent bound to the terminal; a
@@ -332,7 +333,7 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			return
 		}
 		if !validTermState(req.State) {
-			writeErr(w, http.StatusBadRequest, "state must be working, needs-you or idle")
+			writeErr(w, http.StatusBadRequest, "state must be working, compacting, needs-you or idle")
 			return
 		}
 		runID := strings.TrimSpace(req.RunID)

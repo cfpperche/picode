@@ -124,6 +124,8 @@ test("terminal state table distinguishes presence from activity", () => {
   assert.equal(terminalStatusLabel({ running: true, state: "idle", cli: "grok" }), "Ready");
   assert.equal(terminalStatus({ running: true, state: "needs-you", cli: "grok" }), "needs-you");
   assert.equal(terminalStatus({ running: true, state: "working", cli: "grok" }), "working");
+  assert.equal(terminalStatus({ running: true, state: "compacting", cli: "codex" }), "compacting");
+  assert.equal(terminalStatusLabel({ running: true, state: "compacting", cli: "codex" }), "Compacting");
   assert.equal(terminalStatus({ running: false }), "stopped");
   assert.equal(terminalStatus({ running: false, state: "working", tui: { cli: "pi" } }), "stopped");
 });

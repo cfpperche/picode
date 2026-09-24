@@ -4,7 +4,7 @@ import { agentRowStatus, agentStatusLabel, agentStatusStamp, agentTerm, bucketAg
 
 test("bound Pi uses terminal activity, while RPC ignores it", () => {
   const agent = { id:"pi", cli:"pi", terminalId:"t", mode:"interactive", streaming:true };
-  for (const [state,want] of [["working","working"],["needs-you","needs-you"],["idle","ready"],["","open"]]) {
+  for (const [state,want] of [["working","working"],["compacting","compacting"],["needs-you","needs-you"],["idle","ready"],["","open"]]) {
     const terminal = { id:"t", running:true, cli:"pi", state };
     assert.equal(agentRowStatus({...agent,terminal}),want);
     assert.equal(agentRowStatus({...agent,terminal,mode:"managed"}),"working");
@@ -32,6 +32,7 @@ test("agentRowStatus: needs-you > working > mode", () => {
 test("agentStatusLabel: the chip's five words", () => {
   assert.deepEqual(["needs-you", "working", "interactive", "stopped", "ready"].map(agentStatusLabel), ["Needs you", "Working", "In terminal", "Stopped", "Ready"]);
   assert.equal(agentStatusLabel("anything"), "Ready");
+  assert.equal(agentStatusLabel("compacting"), "Compacting");
 });
 
 // The "Working first" view: buckets rank by who needs the reader, rows keep

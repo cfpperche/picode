@@ -163,6 +163,7 @@ export function terminalStatus(term) {
   const stateMatchesRuntime = !runtime || !term.runId || !runtime.runId || term.runId === runtime.runId;
   const state = stateMatchesRuntime ? String((term && term.state) || "") : "";
   if (state === "needs-you") return "needs-you";
+  if (state === "compacting") return "compacting";
   if (state === "working") return "working";
   if (terminalCli(term)) return state === "idle" ? "ready" : "open";
   return "open";
@@ -172,6 +173,7 @@ export function terminalStatusLabel(term) {
   const status = terminalStatus(term);
   if (status === "needs-you") return "Needs you";
   if (status === "working") return "Working";
+  if (status === "compacting") return "Compacting";
   if (status === "ready") return "Ready";
   // "Open" is the CLI's terminal with no activity to report (a CLI without
   // an adapter never reports); "Terminal open" is a plain shell. Both are

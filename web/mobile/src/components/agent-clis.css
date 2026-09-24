@@ -107,7 +107,7 @@
 .cli-terminal-info p { font-size: 11px; color: var(--text-secondary); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cli-terminal-meta { display: flex; gap: 12px; flex-wrap: wrap; color: var(--text-secondary); font-size: 11px; margin-top: 6px; }
 .cli-state.is-needs-you { color: var(--accent); }
-.cli-state.is-working::before, .cli-terminal-row.is-busy .cli-state::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--accent); animation: cli-pulse 900ms ease-in-out infinite alternate; }
+.cli-state.is-working::before, .cli-state.is-compacting::before, .cli-terminal-row.is-busy .cli-state::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--accent); animation: cli-pulse 900ms ease-in-out infinite alternate; }
 .cli-terminal-row.is-busy { background: var(--accent-soft); }
 .cli-more { width: var(--ctl-h); padding: 0; letter-spacing: 1px; }
 .cli-docs { display: inline-flex; color: var(--text-secondary); font-size: 11px; margin-top: 20px; }

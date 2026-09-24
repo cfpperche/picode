@@ -87,7 +87,7 @@ function AgentStatus({ status, stamp }) {
   const age = stamp ? relTime(stamp) : "";
   return (
     <span className={"ws-status is-" + status}>
-      {status === "working" ? <PiSpinner title="Working" /> : null}
+      {status === "working" || status === "compacting" ? <PiSpinner title={agentStatusLabel(status)} /> : null}
       <span>{agentStatusLabel(status)}</span>
       {age ? <span className="ws-status-age">{age}</span> : null}
     </span>
@@ -100,7 +100,7 @@ function TerminalStatus({ term, agent }) {
   const age = stamp ? relTime(stamp) : "";
   return (
     <span className={"ws-status is-" + status}>
-      {status === "working" ? <PiSpinner title="Working" /> : null}
+      {status === "working" || status === "compacting" ? <PiSpinner title={terminalStatusLabel(term)} /> : null}
       <span>{terminalStatusLabel(term)}</span>
       {age ? <span className="ws-status-age">{age}</span> : null}
     </span>
@@ -206,7 +206,7 @@ export function AgentRow({
         >
           <span className="ws-identity-mark">
             <ProviderFace agent={ag} />
-            {status === "working" ? <span className="ws-activity-dot" aria-hidden="true" /> : null}
+            {status === "working" || status === "compacting" ? <span className="ws-activity-dot" aria-hidden="true" /> : null}
           </span>
           <span className="ws-copy">
             <span className="ws-title" title={title}>{label}</span>
@@ -318,7 +318,7 @@ export function TermRow({
         <div className="ws-row-hit" role="button" tabIndex={0} aria-current={selected ? "page" : undefined} aria-describedby={drag ? drag.describedBy : undefined} aria-label={(t.name || "Terminal") + " — " + cliLabel} onClick={select} onKeyDown={(e) => openRow(e, select)} onPointerDown={drag ? drag.onPointerDown : undefined}>
           <span className="ws-identity-mark">
             <TerminalCliBadge term={t} />
-            {terminalStatus(t) === "working" ? <span className="ws-activity-dot" aria-hidden="true" /> : null}
+            {terminalStatus(t) === "working" || terminalStatus(t) === "compacting" ? <span className="ws-activity-dot" aria-hidden="true" /> : null}
           </span>
           <span className="ws-copy">
             <span className="ws-title" title={t.name || "Terminal"}>{t.name || "Terminal"}</span>

@@ -261,6 +261,8 @@ type codexHookSpec struct {
 
 var codexHookSpecs = []codexHookSpec{
 	{event: "UserPromptSubmit", key: "user_prompt_submit", timeoutSec: 5},
+	{event: "PreCompact", key: "pre_compact", timeoutSec: 5},
+	{event: "PostCompact", key: "post_compact", timeoutSec: 5},
 	{event: "SessionStart", key: "session_start", timeoutSec: 5},
 	{event: "PermissionRequest", key: "permission_request", timeoutSec: 5},
 	// PostToolUse is the permission-resume signal: Codex reports a waiting
@@ -411,6 +413,9 @@ function report(state, ctx) {
 export default function (pi) {
   pi.on("session_start", async (_event, ctx) => report("idle", ctx));
   pi.on("agent_start", async (_event, ctx) => report("working", ctx));
+  pi.on("session_before_compact", async (_event, ctx) => report("compacting", ctx));
+  pi.on("session_compact", async (_event, ctx) => report(ctx.isIdle() ? "idle" : "working", ctx));
+  pi.on("session_compact_failed", async (_event, ctx) => report(ctx.isIdle() ? "idle" : "working", ctx));
   pi.on("ui_prompt_start", async (_event, ctx) => report("needs-you", ctx));
   pi.on("ui_prompt_end", async (_event, ctx) => report(ctx.isIdle() ? "idle" : "working", ctx));
   pi.on("agent_settled", async (_event, ctx) => report("idle", ctx));
@@ -448,6 +453,8 @@ function report(state, ctx) {
 export default function (pi) {
   pi.on("session_start", async (_event, ctx) => report("idle", ctx));
   pi.on("agent_start", async (_event, ctx) => report("working", ctx));
+  pi.on("session_before_compact", async (_event, ctx) => report("compacting", ctx));
+  pi.on("session_compact", async (_event, ctx) => report(ctx.isIdle() ? "idle" : "working", ctx));
   pi.on("tool_approval_requested", async (_event, ctx) => report("needs-you", ctx));
   pi.on("tool_approval_resolved", async (_event, ctx) => report("working", ctx));
   pi.on("tool_execution_start", async (_event, ctx) => {
@@ -687,7 +694,7 @@ let sequence = 0n
 
 function report(state, sessionId) {
   if (!HOOK || !process.env.PICODE_TERM_ID) return
-  if (state !== "working" && state !== "idle" && state !== "needs-you") return
+  if (state !== "working" && state !== "compacting" && state !== "idle" && state !== "needs-you") return
   try {
     const child = spawn(HOOK, [state, "opencode"], { stdio: "ignore", detached: true, env: { ...process.env, PICODE_NATIVE_SESSION_ID: sessionId || "", PICODE_NATIVE_SESSION_SEQ: String(sequence = (BigInt(Date.now()) * 1000000n > sequence ? BigInt(Date.now()) * 1000000n : sequence + 1n)) } })
     child.unref()
@@ -741,6 +748,9 @@ export default async function picodeActivity({ client }) {
     })().catch(() => {})
   }, 0)
   return {
+    "experimental.session.compacting": async ({ sessionID }) => ordered(async () => {
+      if (selected && sessionID === selected && await root(sessionID)) report("compacting", sessionID)
+    }),
     "chat.message": async ({ sessionID }) => {
       activity++
       return ordered(async () => {
@@ -752,9 +762,15 @@ export default async function picodeActivity({ client }) {
     },
     event: async ({ event }) => {
       const id = event?.properties?.sessionID
-      if (id === selected && mapEvent(event?.type, event?.properties?.status?.type)) activity++
+      if (id === selected && (mapEvent(event?.type, event?.properties?.status?.type) || event?.type === "session.compacted")) activity++
       return ordered(async () => {
       if (!selected || id !== selected || !(await root(id))) return
+      if (event?.type === "session.compacted") {
+        const result = await client.session.status()
+        const state = mapEvent("session.status", result?.data?.[id]?.type || "idle")
+        report(state || "idle", id)
+        return
+      }
       const state = mapEvent(event?.type, event?.properties?.status?.type)
       if (state) report(state, id)
       })

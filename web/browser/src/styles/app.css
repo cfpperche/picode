@@ -1161,7 +1161,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ws-state-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: currentcolor; }
 .ws-state-dot.is-needs-you { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.ws-state-dot.is-working { background: var(--accent); }
+.ws-state-dot.is-working, .ws-state-dot.is-compacting { background: var(--accent); }
 .ws-state-dot.is-stopped, .ws-state-dot.is-open { opacity: .7; }
 .ws-state-count { margin-left: auto; font-variant-numeric: tabular-nums; }
 /* While a workspace header is pressed or dragged, sticky stands down for
@@ -1262,6 +1262,17 @@ body.is-row-dragging, body.is-row-dragging * { cursor: grabbing; }
   border-radius: 6px; cursor: pointer; outline: none;
 }
 .ws-row-hit:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+/* "Compacting" is longer than the ordinary state words. Give the name the
+   full first line instead of reducing an agent identity to two letters. */
+.ws-item.is-compacting .ws-row-hit {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  column-gap: 7px;
+  row-gap: 2px;
+}
+.ws-item.is-compacting .ws-row-hit > .ws-identity-mark { grid-column: 1; grid-row: 1; }
+.ws-item.is-compacting .ws-row-hit > .ws-copy { grid-column: 2; grid-row: 1; }
+.ws-item.is-compacting .ws-row-hit > .ws-status { grid-column: 2; grid-row: 2; justify-self: start; }
 .ws-identity-mark {
   position: relative; width: 16px; height: 16px; display: grid; place-items: center;
   align-self: flex-start; flex: none; color: var(--text-secondary);
@@ -1307,7 +1318,7 @@ img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: 
   min-height: 20px; padding: 0 5px; border-radius: 5px;
   color: var(--text-secondary); font-size: 10.5px; white-space: nowrap;
 }
-.ws-status.is-working { color: var(--accent); }
+.ws-status.is-working, .ws-status.is-compacting { color: var(--accent); }
 .ws-status.is-needs-you { color: var(--accent); font-weight: 650; background: var(--accent-soft); }
 .ws-status.is-interactive, .ws-status.is-ready { color: var(--text-secondary); }
 .ws-status.is-stopped { color: var(--text-secondary); opacity: .7; }

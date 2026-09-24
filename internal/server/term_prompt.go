@@ -233,7 +233,7 @@ func doorDeliverMode(deps Deps, ctx context.Context, t store.Terminal, payload s
 	}
 	defer unlockPrompt(t.ID)
 	cli := terminalLaunchCLI(deps, t.ID)
-	if st, ok := deps.TermStates.Get(t.ID); ok && (st.State == TermWorking || st.State == TermNeedsYou) {
+	if st, ok := deps.TermStates.Get(t.ID); ok && (st.State == TermWorking || st.State == TermCompacting || st.State == TermNeedsYou) {
 		if unattended {
 			return http.StatusConflict, map[string]any{
 				"error": "The CLI is " + st.State + ". Try again when it is your turn.", "reason": st.State,

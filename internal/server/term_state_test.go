@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -96,6 +97,7 @@ func TestTermStateRegistrySweep(t *testing.T) {
 	}
 	ts.Set("t2", TermNeedsYou, "codex", now)
 	ts.Set("t3", TermIdle, "claude-code", now)
+	ts.Set("t5", TermCompacting, "codex", now)
 
 	got, ok := ts.Get("t1")
 	if !ok || got.State != TermWorking || got.CLI != "claude-code" {
@@ -105,8 +107,8 @@ func TestTermStateRegistrySweep(t *testing.T) {
 	// Sweep: stale working clears; needs-you and idle never decay
 	// (needs-you waits for the human by definition).
 	changed := ts.Sweep(now.Add(workingTTL+time.Minute), workingTTL)
-	if len(changed) != 1 || changed[0] != "t1" {
-		t.Fatalf("sweep = %v, want [t1]", changed)
+	if len(changed) != 2 || !slices.Contains(changed, "t1") || !slices.Contains(changed, "t5") {
+		t.Fatalf("sweep = %v, want t1 and t5", changed)
 	}
 	if _, ok := ts.Get("t1"); ok {
 		t.Fatal("stale working must be gone")
@@ -222,6 +224,17 @@ func TestTermStateRoundTrip(t *testing.T) {
 	}
 	if found == nil || found["state"] != TermWorking || found["cli"] != "claude-code" {
 		t.Fatalf("list view = %+v, want working/claude-code", found)
+	}
+	// Native compaction is a distinct active phase on the same terminal.
+	for _, state := range []string{TermCompacting, TermIdle} {
+		res := postJSON(t, ts, "/api/terminals/"+id+"/state", map[string]any{"state": state, "cli": "claude-code"})
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("set %s = %d", state, res.StatusCode)
+		}
+		ev := waitForEventType(t, events, "terminal.state")
+		if err := json.Unmarshal(ev.Data, &body); err != nil || body.State != state {
+			t.Fatalf("%s event = %s (%v)", state, ev.Data, err)
+		}
 	}
 
 	// Deleting the terminal drops its state: the next report targets a
