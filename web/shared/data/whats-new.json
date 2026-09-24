@@ -288,7 +288,7 @@
       {
         "icon": "agent",
         "title": "Fork an agent on its own copy of the conversation",
-        "summary": "Fork agent… starts a new agent of the same CLI — Claude Code, Codex, Grok, OpenCode, Omp — on a copy of its chat, with a task you write, in a new worktree on its own branch or in the same folder. The original keeps running, and its row reads fork of &lt;name&gt;."
+        "summary": "Fork agent… starts a new agent of the same CLI — Claude Code, Codex, Grok, OpenCode, Omp — on a copy of its chat, with a task you write, in a new worktree on its own branch or in the same folder. The original keeps running, and its row reads fork of <name>."
       },
       {
         "icon": "agent",
