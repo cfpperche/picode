@@ -923,7 +923,21 @@ func pinCLITerminalLastSession(deps Deps, id string, t store.Terminal) {
 // another's conversation in a shared folder. Best effort by design: a
 // failed pin only costs the resume shortcut, never the terminal.
 func pinTerminalLastSession(deps Deps, termID string, runtime TermRuntime) {
-	if deps.Store == nil || runtime.CLI == "" || runtime.SessionID != "" || runtime.CLI == "grok" || runtime.CLI == "hermes" {
+	if deps.Store == nil || runtime.CLI == "" || runtime.CLI == "grok" || runtime.CLI == "hermes" {
+		return
+	}
+	if runtime.SessionID != "" {
+		if runtime.CLI == "codex" {
+			if terminal, err := deps.Store.GetTerminal(termID); err == nil {
+				if session, err := clisession.CodexByID(terminal.Cwd, runtime.SessionID); err == nil && session != nil {
+					_ = deps.Store.SetTerminalLastSession(termID, store.TerminalLastSession{
+						CLI: session.CLI, SessionID: session.ID, Path: session.Path,
+						Cwd: session.Cwd, Name: session.Name, UpdatedAt: session.UpdatedAt,
+						Preview: session.Preview, ResumeArgs: session.ResumeArgs,
+					})
+				}
+			}
+		}
 		return
 	}
 	// An enrolled mailbox must never change address through a cwd heuristic,
@@ -1153,6 +1167,11 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	cli, c, binary, err := resolvedTerminalLaunch(deps, v)
 	if err != nil {
 		return nil, err
+	}
+	if peerResumeExact(c.Args, v.LastSession) {
+		if err := validatePinnedResume(v.LastSession, cwd); err != nil {
+			return nil, err
+		}
 	}
 	var piAgent *store.Agent
 	piFingerprint := ""
@@ -1527,7 +1546,35 @@ func terminalResumeArgs(ls *store.TerminalLastSession) []string {
 	if ls.CLI == "pi" && ls.Path != "" {
 		return []string{"--session", ls.Path}
 	}
+	if ls.CLI == "omp" && ls.Path != "" {
+		// Omp accepts an exact file path. Its agent sessions live outside
+		// the default home, so resuming by ID alone searches the wrong root.
+		return []string{"--resume", ls.Path}
+	}
 	return append([]string{}, ls.ResumeArgs...)
+}
+
+// Restart prepares before ending the current pane. Check the two native
+// stores whose observed pins can be unusable despite having a resume ID:
+// Codex announces IDs before saving rollouts, and Omp agent files live in a
+// private directory outside its default ID lookup.
+func validatePinnedResume(ls *store.TerminalLastSession, cwd string) error {
+	if ls == nil {
+		return nil
+	}
+	switch ls.CLI {
+	case "codex":
+		session, err := clisession.CodexByID(cwd, ls.SessionID)
+		if err != nil || session == nil {
+			return errors.New("The saved Codex conversation is not available for resume. Choose a saved session or start a new conversation.")
+		}
+	case "omp":
+		info, err := os.Stat(ls.Path)
+		if ls.Path == "" || err != nil || !info.Mode().IsRegular() {
+			return errors.New("The saved Omp conversation is not available for resume. Choose a saved session or start a new conversation.")
+		}
+	}
+	return nil
 }
 
 // launchWithPinnedSession returns a one-shot copy of v whose argument

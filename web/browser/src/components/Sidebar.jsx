@@ -76,7 +76,7 @@ export default function Sidebar({
   useNow(30_000);
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
-    return Number.isFinite(n) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, n)) : 244;
+    return Number.isFinite(n) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, n)) : 280;
   });
   const [resizing, setResizing] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);

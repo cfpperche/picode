@@ -145,6 +145,25 @@ func TestCodexList(t *testing.T) {
 	}
 }
 
+func TestCodexByIDRequiresSavedTopLevelRollout(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	id := "01a0d32f-aabf-7032-ad2b-fc1a08c7f86c"
+	if got, err := CodexByID("/home/goat/picode", id); err != nil || got != nil {
+		t.Fatalf("unwritten ID = %+v, %v", got, err)
+	}
+	name := "rollout-2026-09-24T08-31-53-" + id + ".jsonl"
+	seedCodex(t, home, "2026/09/24", name,
+		`{"type":"session_meta","payload":{"id":"`+id+`","cwd":"/home/goat/picode","timestamp":"2026-09-24T11:31:53Z"}}`)
+	if got, err := CodexByID("/another/folder", id); err != nil || got != nil {
+		t.Fatalf("other folder = %+v, %v", got, err)
+	}
+	got, err := CodexByID("/home/goat/picode", id)
+	if err != nil || got == nil || got.ID != id || got.Path != filepath.Join(home, ".codex", "sessions", "2026/09/24", name) {
+		t.Fatalf("saved rollout = %+v, %v", got, err)
+	}
+}
+
 // TestCodexListSkipsSubagentRollouts pins the incident of 2026-09-11: a
 // multi-agent v2 sub-agent rollout must never be listed or win Latest:
 // `codex resume <subagent-id>` exits 1 ("resume the parent first").

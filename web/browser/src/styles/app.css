@@ -67,7 +67,7 @@ body {
 
 /* ============ sidebar ============ */
 #sidebar {
-  width: 244px; flex: none;
+  width: 280px; flex: none;
   background: var(--bg-panel);
   display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
@@ -1247,6 +1247,7 @@ body.is-row-dragging, body.is-row-dragging * { cursor: grabbing; }
   padding: 7px 4px 7px 6px; margin: 2px 0;
   border-radius: var(--radius-ctl);
   border: 1px solid transparent;
+  container-type: inline-size;
 }
 .ws-item:hover { background: var(--bg-hover); }
 /* Selection reads through the tinted background and the quiet border; the
@@ -1266,17 +1267,6 @@ body.is-row-dragging, body.is-row-dragging * { cursor: grabbing; }
   border-radius: 6px; cursor: pointer; outline: none;
 }
 .ws-row-hit:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
-/* "Compacting" is longer than the ordinary state words. Give the name the
-   full first line instead of reducing an agent identity to two letters. */
-.ws-item.is-compacting .ws-row-hit {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
-  column-gap: 7px;
-  row-gap: 2px;
-}
-.ws-item.is-compacting .ws-row-hit > .ws-identity-mark { grid-column: 1; grid-row: 1; }
-.ws-item.is-compacting .ws-row-hit > .ws-copy { grid-column: 2; grid-row: 1; }
-.ws-item.is-compacting .ws-row-hit > .ws-status { grid-column: 2; grid-row: 2; justify-self: start; }
 .ws-identity-mark {
   position: relative; width: 16px; height: 16px; display: grid; place-items: center;
   align-self: flex-start; flex: none; color: var(--text-secondary);
@@ -1327,6 +1317,12 @@ img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: 
 .ws-status.is-interactive, .ws-status.is-ready { color: var(--text-secondary); }
 .ws-status.is-stopped { color: var(--text-secondary); opacity: .7; }
 .ws-status-age { color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
+@container (max-width: 280px) {
+  .ws-status.is-working .ws-status-age,
+  .ws-status.is-compacting .ws-status-age,
+  .ws-status.is-working .pi-spin,
+  .ws-status.is-compacting .pi-spin { display: none; }
+}
 .ws-menu-tick { width: 16px; height: 16px; display: grid; place-items: center; flex: none; color: var(--accent); }
 .ws-row-menu-trigger {
   width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
@@ -6841,7 +6837,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 .shell-brand-cluster {
   display: flex; align-items: center; min-width: 0;
-  width: var(--shell-nav-w, 244px); flex: none;
+  width: var(--shell-nav-w, 280px); flex: none;
   container-type: inline-size;
 }
 .shell-brand {

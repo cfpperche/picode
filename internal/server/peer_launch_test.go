@@ -8,12 +8,23 @@ import (
 	"testing"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/communication"
 	"github.com/cfpperche/picode/internal/store"
 )
 
 func TestPeerLaunchResumeBoundary(t *testing.T) {
 	data := t.TempDir()
+	before := clisession.CodexTestRoot
+	clisession.CodexTestRoot = filepath.Join(data, "codex-sessions")
+	t.Cleanup(func() { clisession.CodexTestRoot = before })
+	rollout := filepath.Join(clisession.CodexTestRoot, "rollout-2026-09-24T00-00-00-fixture-session.jsonl")
+	if err := os.MkdirAll(filepath.Dir(rollout), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rollout, []byte(`{"type":"session_meta","payload":{"id":"fixture-session","cwd":"`+data+`"}}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	st, err := store.Open(filepath.Join(data, "state.db"))
 	if err != nil {
 		t.Fatal(err)

@@ -3,6 +3,7 @@ package clisession
 import (
 	"bufio"
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,6 +61,37 @@ func (CodexSource) List(cwd string) ([]Summary, error) {
 	}
 	sortNewest(out)
 	return out, nil
+}
+
+// CodexByID resolves one resumable top-level rollout without scanning the
+// contents of every session in the user's Codex history. A hook can announce
+// an ID before Codex has written its rollout; that ID is not resumable yet.
+func CodexByID(cwd, id string) (*Summary, error) {
+	root := CodexSessionsRoot()
+	if root == "" || id == "" {
+		return nil, nil
+	}
+	var found *Summary
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if os.IsNotExist(walkErr) {
+			return nil
+		}
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), "-"+id+".jsonl") {
+			return nil
+		}
+		if s, ok := summarizeCodex(path); ok && s.ID == id && (cwd == "" || s.Cwd == cwd) {
+			found = &s
+			return fs.SkipAll
+		}
+		return nil
+	})
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	return found, err
 }
 
 func summarizeCodex(path string) (Summary, bool) {

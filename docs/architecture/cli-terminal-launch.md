@@ -158,6 +158,22 @@ same one-shot recipe as `start` with `resume: true`); without a pin it
 applies current settings to a fresh conversation. A CLI exit returns to an
 interactive shell; browser/daemon reconnect only reconciles, never restarts
 work automatically.
+Codex can report a native session ID before writing a rollout. PiCode keeps
+that live identity but pins it for resume only after the matching top-level
+rollout exists in the terminal's folder. An older saved pin survives until
+then. A stale Codex pin fails launch preparation before the live pane is
+stopped. Omp restart passes the pinned transcript's exact path to `--resume`,
+because agent-owned sessions live outside Omp's default lookup directory; a
+missing file also fails preparation before stopping the pane.
+
+| Restart condition | Action |
+|---|---|
+| Codex ID announced, rollout not saved, older pin exists | Keep older pin and resume it |
+| Codex pin has no matching saved rollout | Return 400; leave live pane running |
+| Codex rollout exists in this folder | Resume that saved conversation |
+| Omp private session file exists | Resume by exact file path |
+| Omp private session file is missing | Return 400; leave live pane running |
+| No pin | Use current launch settings for a fresh conversation |
 
 Manual CLI commands in ordinary terminals retain session-local wrapper
 instrumentation. Launch defaults apply to the central manager, not to commands

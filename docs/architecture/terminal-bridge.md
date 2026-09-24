@@ -75,8 +75,12 @@ exact `pane_current_command` plus `pane_pid` match, never from pixels.
 `compacting` is a fourth transient terminal activity value (ADR-0209). The
 sidebar, tabs, mobile and Canvas show it only after a native pre-compaction
 signal; it remains busy for prompt and Git guards and expires on the working
-TTL. Codex, Claude Code and Grok use PreCompact/PostCompact; Pi and Omp use
-session_before_compact/session_compact; Pi also uses session_compact_failed.
+TTL. In the sidebar it uses the same first-line status slot as Working, beside
+the agent name. The default 280px sidebar shows both; narrow resized rows
+keep the status word and omit its spinner and age. Codex, Claude Code and
+Grok use PreCompact/PostCompact; Pi and
+Omp use session_before_compact/session_compact; Pi also uses
+session_compact_failed.
 OpenCode uses experimental.session.compacting and session.compacted. Its
 selected root session guard applies to both. Hermes, Muse and Antigravity
 retain their general Working signal because no exact native start/end pair

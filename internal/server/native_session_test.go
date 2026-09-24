@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/store"
 
 	"github.com/cfpperche/picode/internal/tmux"
@@ -68,6 +69,60 @@ func TestNativeSessionReportBinding(t *testing.T) {
 	live, _ := deps.TermRuntimes.Get(term.ID)
 	if live.SessionID != "" {
 		t.Fatal("new process inherited identity")
+	}
+}
+
+func TestCodexNativeIDDoesNotReplaceResumablePinBeforeRolloutExists(t *testing.T) {
+	data := t.TempDir()
+	root := filepath.Join(data, "codex-sessions")
+	before := clisession.CodexTestRoot
+	clisession.CodexTestRoot = root
+	t.Cleanup(func() { clisession.CodexTestRoot = before })
+	s, err := store.Open(filepath.Join(data, "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	w, _ := s.AddWorkspace("fixture", data)
+	term, _ := s.CreateTerminalIn(w.ID, "Codex", data)
+	if err := s.SetTerminalLaunch(term.ID, "codex", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	previous := store.TerminalLastSession{CLI: "codex", SessionID: "saved", Path: filepath.Join(root, "saved.jsonl"), ResumeArgs: []string{"resume", "saved"}}
+	if err := s.SetTerminalLastSession(term.ID, previous); err != nil {
+		t.Fatal(err)
+	}
+	deps := Deps{Store: s, TermRuntimes: NewTermRuntimes()}
+	deps.TermRuntimes.Start(term.ID, TermRuntime{CLI: "codex", RunID: "run-1", PID: os.Getpid()})
+	id := "01a0d32f-aabf-7032-ad2b-fc1a08c7f86c"
+	seq := time.Now().UnixNano()
+	if err := recordNativeTerminalSession(deps, term.ID, "codex", "run-1", id, "", seq); err != nil {
+		t.Fatal(err)
+	}
+	launch, _ := s.TerminalLaunch(term.ID)
+	if launch.LastSession.SessionID != "saved" {
+		t.Fatalf("unwritten ID replaced pin: %+v", launch.LastSession)
+	}
+	if err := recordNativeTerminalSession(deps, term.ID, "codex", "run-1", id, filepath.Join(root, "missing.jsonl"), seq+1); err != nil {
+		t.Fatal(err)
+	}
+	launch, _ = s.TerminalLaunch(term.ID)
+	if launch.LastSession.SessionID != "saved" {
+		t.Fatalf("unverified path replaced pin: %+v", launch.LastSession)
+	}
+	path := filepath.Join(root, "2026", "09", "24", "rollout-2026-09-24T08-31-53-"+id+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"type":"session_meta","payload":{"id":"`+id+`","cwd":"`+data+`","timestamp":"2026-09-24T11:31:53Z"}}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordNativeTerminalSession(deps, term.ID, "codex", "run-1", id, "", seq+2); err != nil {
+		t.Fatal(err)
+	}
+	launch, _ = s.TerminalLaunch(term.ID)
+	if launch.LastSession.SessionID != id || launch.LastSession.Path != path {
+		t.Fatalf("saved rollout was not pinned: %+v", launch.LastSession)
 	}
 }
 

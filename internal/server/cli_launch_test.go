@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -81,6 +82,48 @@ func TestLaunchWithPinnedSession(t *testing.T) {
 	}
 	if !reflect.DeepEqual(*cc.Overrides.Args, []string{"--default"}) {
 		t.Fatal("mutated original claude args")
+	}
+	omp := &store.TerminalLaunch{CLI: "omp", LastSession: &store.TerminalLastSession{
+		CLI: "omp", SessionID: "session-1", Path: "/private/agent/session-1.jsonl", ResumeArgs: []string{"--resume", "session-1"},
+	}}
+	got = launchWithPinnedSession(omp)
+	if got == omp || got.Overrides.Args == nil || !reflect.DeepEqual(*got.Overrides.Args, []string{"--resume", "/private/agent/session-1.jsonl"}) {
+		t.Fatalf("omp must resume from its private file: %+v", got)
+	}
+}
+
+func TestPinnedResumePreflight(t *testing.T) {
+	data := t.TempDir()
+	root := filepath.Join(data, "codex-sessions")
+	before := clisession.CodexTestRoot
+	clisession.CodexTestRoot = root
+	t.Cleanup(func() { clisession.CodexTestRoot = before })
+	id := "01a0d32f-aabf-7032-ad2b-fc1a08c7f86c"
+	if err := validatePinnedResume(&store.TerminalLastSession{CLI: "codex", SessionID: id}, data); err == nil {
+		t.Fatal("accepted Codex ID without a saved rollout")
+	}
+	path := filepath.Join(root, "2026", "09", "24", "rollout-2026-09-24T08-31-53-"+id+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"type":"session_meta","payload":{"id":"`+id+`","cwd":"`+data+`"}}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validatePinnedResume(&store.TerminalLastSession{CLI: "codex", SessionID: id}, data); err != nil {
+		t.Fatal(err)
+	}
+	omp := &store.TerminalLastSession{CLI: "omp", SessionID: "session-1", Path: filepath.Join(data, "private", "session-1.jsonl")}
+	if err := validatePinnedResume(omp, data); err == nil {
+		t.Fatal("accepted missing Omp file")
+	}
+	if err := os.MkdirAll(filepath.Dir(omp.Path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(omp.Path, []byte("fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validatePinnedResume(omp, data); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -554,6 +597,82 @@ exec cat
 	}
 	if restarted["lastSession"] == nil {
 		t.Fatal("restart dropped the pin")
+	}
+}
+
+func TestRestartRejectsUnsavedCodexPinWithoutStoppingPane(t *testing.T) {
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	ts, dataDir, home := cleanupServer(t)
+	t.Setenv("SHELL", "/bin/bash")
+	cliRequest(t, ts, "PUT", "/api/clis/codex", clilaunch.Config{Executable: "/bin/cat"}, 200)
+	created := launchFixture(t, ts, "codex", map[string]any{"name": "Codex restart", "cwd": home}, 201)
+	id := created["id"].(string)
+	name := tmux.ShellSessionName(id)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), name) })
+	pid := panePIDSoon(t, name)
+	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.SetTerminalLastSession(id, store.TerminalLastSession{
+		CLI: "codex", SessionID: "missing-rollout", ResumeArgs: []string{"resume", "missing-rollout"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	res := cliRequestFull(t, ts, "POST", "/api/terminals/"+id+"/launch/restart", map[string]any{"confirm": true})
+	if res["status"] != "400" || !strings.Contains(res["body"].(map[string]any)["error"].(string), "saved Codex conversation") {
+		t.Fatalf("missing rollout response: %v", res)
+	}
+	if got := panePIDSoon(t, name); got != pid {
+		t.Fatalf("restart stopped live pane: before=%d after=%d", pid, got)
+	}
+}
+
+func TestRestartOmpUsesPinnedPrivateFile(t *testing.T) {
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	ts, dataDir, home := cleanupServer(t)
+	t.Setenv("SHELL", "/bin/bash")
+	output := filepath.Join(home, "omp-args")
+	binary := filepath.Join(home, "fake-omp")
+	script := "#!/bin/sh\nprintf '%s\\000' \"$@\" > \"$QA_OUTPUT\"\nexec cat\n"
+	if err := os.WriteFile(binary, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "PUT", "/api/clis/omp", clilaunch.Config{Executable: binary, Env: map[string]string{"QA_OUTPUT": output}}, 200)
+	created := launchFixture(t, ts, "omp", map[string]any{"name": "Omp restart", "cwd": home}, 201)
+	id := created["id"].(string)
+	name := tmux.ShellSessionName(id)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), name) })
+	_ = waitCLIFile(t, output)
+	path := filepath.Join(dataDir, "omp-sessions", "agent", "saved.jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("saved\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.SetTerminalLastSession(id, store.TerminalLastSession{
+		CLI: "omp", SessionID: "saved", Path: path, ResumeArgs: []string{"--resume", "saved"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(output); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "POST", "/api/terminals/"+id+"/launch/restart", map[string]any{"confirm": true}, 200)
+	got := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, output)), "\x00"), "\x00")
+	if !reflect.DeepEqual(got, []string{"--resume", path}) {
+		t.Fatalf("Omp resumed with %q, want exact file %q", got, path)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -60,6 +61,16 @@ func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string,
 	if cli == "pi" && path == "" {
 		return errors.New("missing Pi session path")
 	}
+	if cli == "codex" {
+		// The native report identifies the conversation, but only a saved
+		// top-level rollout can be resumed. Resolve the path ourselves.
+		path = ""
+		if terminal, err := deps.Store.GetTerminal(term); err == nil {
+			if session, err := clisession.CodexByID(terminal.Cwd, id); err == nil && session != nil {
+				path = session.Path
+			}
+		}
+	}
 	if !stale {
 		if live.SessionID != id || live.SessionPath != path {
 			launch, err := deps.Store.TerminalLaunch(term)
@@ -84,8 +95,13 @@ func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string,
 					last.Path = path
 				}
 			}
-			if err := deps.Store.SetTerminalLastSession(term, last); err != nil {
-				return err
+			// Codex hooks can announce a new session before any rollout is
+			// written. Keep its live identity, but do not replace the last
+			// resumable pin with an ID that `codex resume` will reject.
+			if cli != "codex" || path != "" {
+				if err := deps.Store.SetTerminalLastSession(term, last); err != nil {
+					return err
+				}
 			}
 			if cli == "pi" {
 				if a, e := deps.Store.AgentByTerminal(term); e == nil && a.IsPi() && (a.SessionPath == nil || *a.SessionPath != path) {
