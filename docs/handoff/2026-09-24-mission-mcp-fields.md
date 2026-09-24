@@ -10,5 +10,7 @@
 
 ## Next up
 
-- Request review. Once approved, the owner may land this branch and run main CI.
+- Owner accepted mission `mission_6S3Q5CSTFZIZ4R2MNPTSQSJZCE` at version 13 after stopping Codex; reviewed revision `b1a004710`.
+- Landed `b1a004710` on `main`; full `make ci` PASS, including 81 Go packages. Branch and worktree removed.
+- Accepted record retained under `var/qa/missions-pilot/`. After cleanup, the completed mission again reports `the working folder is unavailable`; durable evidence/history remains open.
 - No deployment was performed; deployment remains the owner's action.
