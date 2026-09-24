@@ -2,6 +2,8 @@ import { adoptOffer, terminalLaunchAgent } from "@picode/shared/domain/cliLaunch
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
+import { restoredToast } from "@picode/shared/domain/agentHistory.js";
+import { restoreAgent } from "@picode/shared/client/launchAgent.js";
 import { OPEN_LINK_EVENT } from "./lib/externalLinks.js";
 import { installOpenUrlFeed } from "./lib/openUrlFeed.js";
 import { bootReads } from "./lib/bootReads.js";
@@ -2971,20 +2973,12 @@ export default function App({ shellChrome = false } = {}) {
     // did not carry the exit.
     if (snap.exitId) {
       try {
-        const res = await api("/api/agent-history/" + encodeURIComponent(snap.exitId) + "/restore", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ workspaceId: snap.workspaceId || "ws_free", undo: true }),
-        });
-        if (res.resume && res.terminalId) {
-          try {
-            await api("/api/terminals/" + encodeURIComponent(res.terminalId) + "/launch/start", {
-              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: false, resume: true }),
-            });
-          } catch (err) { toastError(err); }
-        }
+        // Same as Bring back on the history page: back as itself, started.
+        const out = await restoreAgent(snap.exitId, { workspaceId: snap.workspaceId || "ws_free", undo: true });
         const list = await loadWorkspaces();
-        openTab(res.agent.id, list);
-        toast.ok(`"${snap.name}" is back.`);
+        openTab(out.agent.id, list);
+        const msg = restoredToast(snap.name, out);
+        if (msg.ok) toast.ok(msg.text); else toast.error(msg.text);
       } catch (err) { toastError(err); }
       return;
     }

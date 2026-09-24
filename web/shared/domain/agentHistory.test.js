@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { historyWorkspaceChoice, historyWorkspaceOptions } from "./agentHistory.js";
+import { historyWorkspaceChoice, historyWorkspaceOptions, restoredToast } from "./agentHistory.js";
 
 test("options list living workspaces, then the free list once", () => {
   assert.deepEqual(
@@ -17,4 +17,10 @@ test("the target is the pick, else its own workspace while it exists, else none"
   assert.equal(historyWorkspaceChoice(alive, "w2"), "w2");
   assert.equal(historyWorkspaceChoice(gone, ""), "");
   assert.equal(historyWorkspaceChoice(gone, "ws_free"), "ws_free");
+});
+
+test("one message for every restore", () => {
+  assert.deepEqual(restoredToast("Nova", { envKeys: [] }), { ok: true, text: `"Nova" is back.` });
+  assert.deepEqual(restoredToast("C", { envKeys: ["A", "B"] }), { ok: true, text: `"C" is back. Set A, B again in its launch settings.` });
+  assert.deepEqual(restoredToast("C", { startError: "no tmux" }), { ok: false, text: `"C" is back, but it didn't start: no tmux.` });
 });
