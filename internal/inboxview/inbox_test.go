@@ -1,4 +1,4 @@
-package apps
+package inboxview
 
 import (
 	"context"
@@ -31,7 +31,7 @@ func mustItem(t *testing.T, h Host, p store.InboxItemParams) store.InboxItem {
 
 func TestInboxBadgeApp(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	b, err := app.Badge(context.Background(), h)
 	if err != nil || b.Count != 0 || b.Dot {
 		t.Fatalf("empty badge = %+v %v", b, err)
@@ -46,7 +46,7 @@ func TestInboxBadgeApp(t *testing.T) {
 
 func TestInboxRootView(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 
 	v, err := app.View(context.Background(), h, "")
 	if err != nil {
@@ -103,7 +103,7 @@ func TestInboxRootView(t *testing.T) {
 // without it (ui-chrome debt, 2026-09-21).
 func TestInboxEmptyActiveNamesDone(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ctx := context.Background()
 	done := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "r", Title: "q", Body: "?"})
 	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + done.ID, Args: map[string]string{"item": done.ID, "reply": "yes"}}); err != nil {
@@ -138,7 +138,7 @@ func TestInboxEmptyActiveNamesDone(t *testing.T) {
 
 func TestInboxItemViews(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "needs input", Title: "q", Body: "pick a db"})
 	n := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "heads up", Title: "note", Body: "text"})
 
@@ -192,7 +192,7 @@ func TestInboxItemViews(t *testing.T) {
 
 func TestInboxActions(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ctx := context.Background()
 
 	n := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "note"})
@@ -275,7 +275,7 @@ func TestInboxActions(t *testing.T) {
 
 func TestInboxDoneView(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 
 	// Empty Done: blankslate, tabs still present with a zero (omitted) badge.
 	v, err := app.View(context.Background(), h, "done")
@@ -350,7 +350,7 @@ func TestInboxDoneView(t *testing.T) {
 
 func TestInboxAllView(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 
 	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "r", Title: "needs you", Body: "?"})
 	f := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "feed item"})
@@ -387,7 +387,7 @@ func TestInboxAllView(t *testing.T) {
 
 func TestInboxItemViewMirrorsDoneList(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 
 	active := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "active"})
 	done := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "done"})
@@ -462,7 +462,7 @@ func TestInboxItemViewMirrorsDoneList(t *testing.T) {
 
 func TestInboxDeleteAction(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ctx := context.Background()
 
 	done := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "gone"})
@@ -508,7 +508,7 @@ func TestInboxDeleteAction(t *testing.T) {
 // too broad. It must stay on the open item's detail instead.
 func TestInboxDeleteSiblingRowWhileDetailOpen(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ctx := context.Background()
 
 	viewing := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "currently open"})
@@ -553,7 +553,7 @@ func TestInboxDeleteSiblingRowWhileDetailOpen(t *testing.T) {
 
 func TestInboxClearDoneAction(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ctx := context.Background()
 
 	d1 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "d1"})
@@ -591,7 +591,7 @@ func TestInboxClearDoneAction(t *testing.T) {
 
 func TestInboxRecoveredReplyIsPrefilled(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "r", Title: "q", Body: "?"})
 	if _, err := h.Store.RespondInboxItem(q.ID, store.VerbRespond, "keep this answer"); err != nil {
 		t.Fatal(err)
@@ -618,7 +618,7 @@ func TestInboxRecoveredReplyIsPrefilled(t *testing.T) {
 // host's DeliverReply; deliverable agents keep the ordinary durable forward.
 func TestInboxDeliverReply(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ctx := context.Background()
 	ws, _ := h.Store.AddWorkspace("wsx", t.TempDir())
 	ag, _ := h.Store.AddAgent(ws.ID, "tui", "")
@@ -694,7 +694,7 @@ func TestInboxDeliverReply(t *testing.T) {
 // agent task queue. A channelless source refuses visibly and stays open.
 func TestInboxTerminalSourcedReplyRoutesToTheTerminal(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ctx := context.Background()
 	var calls []string
 	h.DeliverTerminalReply = func(itemID, verb, text string) (string, error) {
@@ -772,7 +772,7 @@ func TestInboxTerminalSourcedReplyRoutesToTheTerminal(t *testing.T) {
 // hatch, the reply goes through the agent's own surface.
 func TestInboxCliAgentItemOpensTheAgentTerminal(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ctx := context.Background()
 	ws, _ := h.Store.AddWorkspace("ws", t.TempDir())
 
@@ -847,7 +847,7 @@ func TestInboxCliAgentItemOpensTheAgentTerminal(t *testing.T) {
 // still closes the item locally and never reaches it.
 func TestInboxAnswerAgentQuestionHook(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ctx := context.Background()
 	ws, _ := h.Store.AddWorkspace("wsx", t.TempDir())
 	ag, _ := h.Store.AddAgentWithCLI(ws.ID, "claude-code", "cc", "")
@@ -893,7 +893,7 @@ func TestInboxAnswerAgentQuestionHook(t *testing.T) {
 // nothing, so the terminal delivery (and its session check) never runs.
 func TestInboxIgnoreInteractiveAgentClosesLocally(t *testing.T) {
 	h := inboxHost(t)
-	app := inboxApp{}
+	app := Inbox{}
 	ws, _ := h.Store.AddWorkspace("wsx", t.TempDir())
 	ag, _ := h.Store.AddAgentWithCLI(ws.ID, "claude-code", "cc", "")
 	h.AgentDeliverable = func(string) bool { return false }

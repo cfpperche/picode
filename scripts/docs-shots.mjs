@@ -83,8 +83,8 @@ const surfaces = [
   // `pi --list-models --offline`, so these settle longer.
   { name: "app-providers-pi", profile: DOC_SCREENSHOT_SURFACES["app-providers-pi"], path: "/browser/", w: 1440, h: 900, settle: 8000, waitText: "Add provider",
     hashEval: "(async () => { location.hash = '#/clis/pi/providers'; for (let i = 0; i < 40; i++) { await new Promise(r => setTimeout(r, 500)); if ([...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Add provider')) return 'READY'; } return 'TIMEOUT'; })()" },
-  { name: "app-providers", profile: DOC_SCREENSHOT_SURFACES["app-providers"], path: "/browser/", w: 1440, h: 900, settle: 6000, waitText: "Add provider",
-    hashEval: "(async () => { location.hash = '#/clis/claude-code/providers'; for (let i = 0; i < 40; i++) { await new Promise(r => setTimeout(r, 500)); if ([...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Add API key')) return 'READY'; } return 'TIMEOUT'; })()",
+  { name: "app-providers", profile: DOC_SCREENSHOT_SURFACES["app-providers"], path: "/browser/", w: 1440, h: 900, settle: 6000, waitText: "Open terminal",
+    hashEval: "(async () => { location.hash = '#/clis/claude-code/providers'; for (let i = 0; i < 40; i++) { await new Promise(r => setTimeout(r, 500)); if ([...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Open terminal')) return 'READY'; } return 'TIMEOUT'; })()",
     rehash: "#/clis/claude-code/providers" },
   // The transient sign-in strip: the fixture pre-creates a live "Claude Code
   // sign-in" terminal, so clicking Sign in reuses it (no CLI spawns) and the
@@ -109,7 +109,7 @@ const surfaces = [
   // the app loads — the same trick the inspector uses for its agent.
   { name: "app-canvas", profile: DOC_SCREENSHOT_SURFACES["app-canvas"], path: "/browser/", w: 1440, h: 900, settle: 5000, waitText: "Release day",
     hashEval: "fetch('/api/canvases').then(r => r.json()).then(j => { const c = (j.canvases || [])[0]; if (c) location.hash = '#/app/canvas/' + c.id; return c ? 'HASH_OK' : 'HASH_NO'; })" },
-  { name: "app-mobile-inbox", profile: DOC_SCREENSHOT_SURFACES["app-mobile-inbox"], path: "/mobile/#/app/inbox", w: 390, h: 844, settle: 4000, waitText: "Bump the Go toolchain", scope: ".m-inbox" },
+  { name: "app-mobile-inbox", profile: DOC_SCREENSHOT_SURFACES["app-mobile-inbox"], path: "/mobile/#/inbox", w: 390, h: 844, settle: 4000, waitText: "Bump the Go toolchain", scope: ".m-inbox" },
   { name: "app-mobile", profile: DOC_SCREENSHOT_SURFACES["app-mobile"], path: "/mobile/", w: 390, h: 844, settle: 4000, waitText: "Bump the Go toolchain", scope: ".m-screen" },
 ];
 

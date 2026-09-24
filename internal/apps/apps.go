@@ -42,8 +42,7 @@ type Manifest struct {
 }
 
 // Host is the deliberately minimal slice of server dependencies an app
-// may touch. Defined here so apps never import internal/server; later
-// apps (ADR-0037's Inbox) grow Host, not server.Deps.
+// may touch. Defined here so apps never import internal/server.
 type Host struct {
 	Store   *store.Store
 	DataDir string
@@ -56,31 +55,6 @@ type Host struct {
 	LoopbackURL string
 	Docker      *docker.Service
 	Actor       string
-	// AgentDeliverable answers whether a reply queued for this agent will
-	// be drained automatically — false only when the agent is currently
-	// running in a TUI/tmux session, which nothing watches for follow_up
-	// tasks (ADR-0037's Inbox). Same type and same polarity as
-	// store.AgentDeliverable on purpose: two names for one true/false
-	// meaning is how this got inverted the first time. Optional — nil
-	// means "assume yes" (tests, the demo app).
-	AgentDeliverable store.AgentDeliverable
-	// DeliverReply sends an Inbox reply directly into the agent's running
-	// terminal TUI (ADR-0060): receiver extension, tmux paste fallback, and
-	// durable JSONL proof with reopen-on-failure. It returns the source
-	// agent. Optional means this host cannot deliver to a TUI agent.
-	DeliverReply func(itemID, verb, text string) (agentID string, err error)
-	// AnswerAgentQuestion answers an agent-sourced question or approval
-	// through the door that agent listens on — a waiting ask_human, Pi's
-	// receiver, a verified paste into any other CLI's TUI — and returns the
-	// toast naming which one took it. When set it replaces DeliverReply and
-	// the plain forward for those items. Optional: nil keeps the older path
-	// (tests, the demo app).
-	AnswerAgentQuestion func(itemID, verb, text string) (toast string, err error)
-	// DeliverTerminalReply sends an Inbox reply into a pi running in an
-	// Agent CLI terminal (sourceKind "terminal", ADR-0089's amendment)
-	// through that terminal's receiver. It returns the source terminal.
-	// Optional means this host cannot deliver to terminals.
-	DeliverTerminalReply func(itemID, verb, text string) (termID string, err error)
 	// Tmux is the tmux server this daemon talks to (the tmux app's read
 	// model, ADR-0133). Optional — nil means the app answers its honest
 	// "not available" screen. An interface, not the concrete manager, so a
@@ -132,13 +106,13 @@ func (r *Registry) Find(id string) (App, bool) {
 	return nil, false
 }
 
-// BuiltIns assembles the first-party apps — Inbox, Docker, the Canvas
+// BuiltIns assembles the first-party apps — Docker, the Canvas
 // (a native surface, ADR-0109) and the tmux app (a native surface too).
 // demo adds the hidden QA apps — the
 // primitives demo and the native-surface demo (the caller reads
 // PICODE_DEMO_APP; env never reaches this package).
 func BuiltIns(demo bool) []App {
-	list := []App{inboxApp{}, dockerApp{}, canvasApp{}, tmuxApp{}}
+	list := []App{dockerApp{}, canvasApp{}, tmuxApp{}}
 	if demo {
 		list = append(list, demoApp{}, nativeDemoApp{})
 	}

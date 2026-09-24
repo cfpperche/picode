@@ -77,7 +77,7 @@ import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
 import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, instructionsTabId, isInstructionsTab, instructionsTabWorkspace } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, inboxHash, inboxPath, legacyInboxHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, instructionsTabId, isInstructionsTab, instructionsTabWorkspace } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
@@ -132,7 +132,7 @@ import { extraSlash } from "@picode/shared/domain/slash.js";
 import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/automateDraft.js";
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, pickNextTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits, readWebTabUrls, writeWebTabUrls, readFileWorktrees, writeFileWorktrees } from "./lib/openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, restorableAppTab, moveTab, pickNextTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits, readWebTabUrls, writeWebTabUrls, readFileWorktrees, writeFileWorktrees } from "./lib/openTabs.js";
 import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs, INSPECTOR_MIN, maxInspectorWidth } from "./lib/inspector.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
@@ -362,6 +362,7 @@ export default function App({ shellChrome = false } = {}) {
   const [termFind, setTermFind] = useState(""); // the pane whose find field is open (one at a time)
   // Apps host (ADR-0036): manifests + badges from GET /api/apps.
   const [apps, setApps] = useState([]);
+  const [inboxBadge, setInboxBadge] = useState({ count: 0, dot: false });
   const [appsLoaded, setAppsLoaded] = useState(false);
   // A graph tab is named by its repository, but only an owner can be asked for
   // it, so remember which owner opened each one (ADR-0022).
@@ -863,7 +864,7 @@ export default function App({ shellChrome = false } = {}) {
         const exists = (id) => {
           if (isTermTab(id)) return terms.some((t) => t.id === tabTermId(id));
           // A failed /api/apps fetch must not wipe persisted app tabs.
-          if (isAppTab(id)) return appsOk ? appList.some((a) => a.id === tabAppId(id)) : true;
+          if (isAppTab(id)) return restorableAppTab(id, appsOk, appList);
           if (isGitTab(id)) return ownerAlive(owners[id]);
           if (isTreeTab(id)) return ownerAlive(towners[id]);
           if (isInstructionsTab(id)) return list.some((w) => w && w.id === instructionsTabWorkspace(id));
@@ -903,7 +904,7 @@ export default function App({ shellChrome = false } = {}) {
         // already canonical here; reading through it costs nothing and makes
         // that independent of which resolves first.
         const fromApp = parseRoute() === "workspace" ? appRoute(renamedAppHash() || location.hash) : null;
-        if (fromApp) {
+        if (fromApp && fromApp !== "inbox") {
           if (appList.some((a) => a.id === fromApp) || !appsOk) openTab(appTabId(fromApp));
           else { setGoneId(appTabId(fromApp)); setSelectedId(null); }
         } else if (fromInstr) {
@@ -940,7 +941,6 @@ export default function App({ shellChrome = false } = {}) {
 
   const whatsNewCurrent = semver || version;
   const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
-  const inboxBadge = (apps.find((app) => app.id === "inbox") || {}).badge || {};
   const inboxNeedsYou = Number(inboxBadge.count) > 0 || !!inboxBadge.dot;
   // The dashboard's attention line wants the count, not the boolean: it is the
   // only place on the desktop that says how many questions are waiting.
@@ -1017,11 +1017,14 @@ export default function App({ shellChrome = false } = {}) {
     async function poll(force) {
       if (document.hidden) return;
       if (!force && feedConnected()) return;
-      try {
-        const d = await api("/api/apps");
-        if (!stop) { setApps(normalizeManifests(d)); setAppsLoaded(true); }
-      } catch { /* transient */ }
+      const [appResult, badgeResult] = await Promise.allSettled([api("/api/apps"), api("/api/inbox/badge")]);
+      if (stop) return;
+      if (appResult.status === "fulfilled") {
+        try { setApps(normalizeManifests(appResult.value)); setAppsLoaded(true); } catch { /* keep last known list */ }
+      }
+      if (badgeResult.status === "fulfilled") setInboxBadge(badgeResult.value);
     }
+    api("/api/inbox/badge").then((badge) => { if (!stop) setInboxBadge(badge); }).catch(() => {});
     const t = setInterval(() => poll(false), 15000);
     // Change feed (ADR-0048): badges follow inbox changes at once.
     const unsub = subscribeFeed((ev) => {
@@ -1122,7 +1125,7 @@ export default function App({ shellChrome = false } = {}) {
   useEffect(() => watchReminders({
     notify, dismiss: dismissNotice,
     pinHash: (id) => "#/pins/" + encodeURIComponent(id),
-    inboxHash: "#/app/inbox",
+    inboxHash: "#/inbox",
   }), []);
 
   useEffect(() => startReconnectWatch({
@@ -1146,7 +1149,7 @@ export default function App({ shellChrome = false } = {}) {
   // now. It is its own effect, declared before the one that resolves a hash
   // into a tab, so the old id never reaches the "that app is gone" branch.
   useEffect(() => {
-    const next = renamedAppHash(hash);
+    const next = legacyInboxHash(hash) || renamedAppHash(hash);
     if (next) location.replace(next);
   }, [hash]);
   useEffect(() => {
@@ -1154,7 +1157,7 @@ export default function App({ shellChrome = false } = {}) {
     if (parseRoute(hash) !== "workspace") return;
     // The effect above is replacing this hash; resolving it would flash the
     // gone tab for the one commit before `hashchange` arrives.
-    if (renamedAppHash(hash)) return;
+    if (legacyInboxHash(hash) || renamedAppHash(hash)) return;
     const fromWeb = webRoute(hash);
     if (fromWeb) {
       // A web tab address selects (or restores) that tab. The id may exceed
@@ -3768,7 +3771,7 @@ export default function App({ shellChrome = false } = {}) {
               <span className="shell-mark"><IconBrandMark /></span>
               <span className="shell-name">PiCode</span>
             </button>
-            <RailTabs tab={sideTab} selectTab={selectSideTab} apps={apps} pkgUpdates={pkgUpdates} onOpenClis={() => { go("clis"); setNavigationOpen(false); }} />
+            <RailTabs tab={sideTab} selectTab={selectSideTab} apps={apps} inboxBadge={inboxBadge} pkgUpdates={pkgUpdates} onOpenInbox={() => { go("inbox"); setNavigationOpen(false); }} onOpenClis={() => { go("clis"); setNavigationOpen(false); }} />
           </div>
           {tabsStrip}
           <WindowControls />
@@ -3836,7 +3839,9 @@ export default function App({ shellChrome = false } = {}) {
         onFileTree={openTreeTab}
         onInstructions={openInstructionsTab}
         onOpenDashboard={openDashboard}
+        onOpenInbox={() => { go("inbox"); setNavigationOpen(false); }}
         onOpenClis={() => { go("clis"); setNavigationOpen(false); }}
+        inboxBadge={inboxBadge}
         apps={apps}
         nativeApps={NATIVE_APPS}
         onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}
@@ -3913,7 +3918,7 @@ export default function App({ shellChrome = false } = {}) {
             </div>
           </div>
 
-          {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} onOpen={(id) => openTab(id)} inboxWaiting={inboxWaiting} onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }} /> : null}
+          {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} onOpen={(id) => openTab(id)} inboxWaiting={inboxWaiting} onOpenApp={(id) => { if (id === "inbox") go("inbox"); else { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); } }} /> : null}
 
           {tabs.filter(isTermTab).map((id) => {
             const tid = tabTermId(id);
@@ -4420,6 +4425,24 @@ export default function App({ shellChrome = false } = {}) {
         <Devices hidden={route !== "devices"} />
         <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
         <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setCliPrincipalWs({ free: true }); }} />
+        {route === "inbox" ? <AppSurface
+          appId="inbox"
+          apiBase="/api/inbox"
+          manifest={{ id: "inbox", name: "Inbox", icon: "inbox", apiVersion: 1 }}
+          hidden={false}
+          initialPath={inboxPath(hash)}
+          onPathChange={(path) => {
+            const next = inboxHash(path);
+            if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
+          }}
+          onClose={() => go("workspace")}
+          onOpenUrl={openWebTab}
+          onGoto={(target) => {
+            if (target.startsWith("agent:")) openInteractive(target.slice(6));
+            if (target.startsWith("pin:")) location.hash = "#/pins/" + encodeURIComponent(target.slice(4));
+            if (target.startsWith("term:")) { const id = target.slice(5); openTermTab(id); location.hash = termHash(id); }
+          }}
+        /> : null}
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} clis={clis} clisLoaded={clisState === "ok"} />
         <Snippets hidden={route !== "snippets"} />
         <Outcomes hidden={route !== "outcomes"} workspaces={workspaces} />
@@ -4496,7 +4519,7 @@ export default function App({ shellChrome = false } = {}) {
             return;
           }
           if (a.kind === "missions") { go("missions"); return; }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "skills" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets" || a.kind === "outcomes" || a.kind === "history") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "inbox" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "skills" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets" || a.kind === "outcomes" || a.kind === "history") { go(a.kind, ctxAgent?.id, { workspaceId: paneWs?.id, cli: ctxAgent?.cli }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
             const via = loc && loc.agent && loc.agent.mode === "interactive" ? "tui" : undefined;

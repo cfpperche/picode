@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/cfpperche/picode/internal/apps"
+	"github.com/cfpperche/picode/internal/inboxview"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -94,6 +95,32 @@ func TestInboxCreateAndList(t *testing.T) {
 	}
 }
 
+func TestInboxCoreSurfaceWithoutAppsRegistry(t *testing.T) {
+	ts, st := newInboxServer(t)
+	item, err := st.CreateInboxItem(store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "needs input", Title: "Which port?", Body: "Choose a port"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var badge struct {
+		Count int  `json:"count"`
+		Dot   bool `json:"dot"`
+	}
+	if code := getJSON(t, ts, "/api/inbox/badge", &badge); code != http.StatusOK || badge.Count != 1 {
+		t.Fatalf("core badge = %d %+v", code, badge)
+	}
+	var view apps.View
+	if code := getJSON(t, ts, "/api/inbox/view?path=item/"+item.ID, &view); code != http.StatusOK || view.Title != "Which port?" {
+		t.Fatalf("core item view = %d %+v", code, view)
+	}
+	if code := getJSON(t, ts, "/api/apps/inbox/view?path=item/"+item.ID, &view); code != http.StatusOK {
+		t.Fatalf("legacy app view = %d", code)
+	}
+	res, out := inboxPost(t, ts, "/api/inbox/action", `{"action":"open-done"}`)
+	if res.StatusCode != http.StatusOK || out["path"] != "done" {
+		t.Fatalf("core action = %d %+v", res.StatusCode, out)
+	}
+}
+
 func TestInboxRespondForwardsToAgent(t *testing.T) {
 	ts, st := newInboxServer(t)
 	ws, _ := st.AddWorkspace("wsx", t.TempDir())
@@ -147,14 +174,14 @@ func TestInboxRespondRecordsForChannelLessSource(t *testing.T) {
 	if after.State != store.InboxDone || after.Response == nil || !strings.Contains(*after.Response, "sqlite is fine") {
 		t.Fatalf("item after respond = %+v, want the answer recorded and done", after)
 	}
-	if !strings.Contains(after.Body, apps.InboxAnswerRecordedNote) {
+	if !strings.Contains(after.Body, inboxview.InboxAnswerRecordedNote) {
 		t.Fatalf("body = %q, want the record note", after.Body)
 	}
 	// The note must stay honest for askers that cannot poll: a plain `ask`
 	// and an unmanaged pi never read the item, so a note that only promised
 	// a pickup would be a lie the human acts on. It names both paths.
-	if !strings.Contains(apps.InboxAnswerRecordedNote, "--wait") || !strings.Contains(apps.InboxAnswerRecordedNote, "not polling") {
-		t.Fatalf("record note = %q, want the polling and non-polling clauses", apps.InboxAnswerRecordedNote)
+	if !strings.Contains(inboxview.InboxAnswerRecordedNote, "--wait") || !strings.Contains(inboxview.InboxAnswerRecordedNote, "not polling") {
+		t.Fatalf("record note = %q, want the polling and non-polling clauses", inboxview.InboxAnswerRecordedNote)
 	}
 	// An ignored channel-less item closes without a response, as before.
 	_, out2 := inboxPost(t, ts, "/api/inbox",

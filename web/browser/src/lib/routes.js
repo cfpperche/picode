@@ -23,6 +23,7 @@ export const ROUTES = {
   browser: "/browser",
   computer: "/computer",
   pins: "/pins",
+  inbox: "/inbox",
   termset: "/termset",
   automations: "/automations",
   snippets: "/snippets",
@@ -58,6 +59,7 @@ export function parseRoute(hash) {
   if (h === "/browser") return "browser";
   if (h === "/computer") return "computer";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
+  if (h === "/inbox" || h.startsWith("/inbox/")) return "inbox";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
   if (h === "/automations" || h.startsWith("/automations/")) return "automations";
   if (h === "/snippets" || h.startsWith("/snippets/")) return "snippets";
@@ -425,6 +427,28 @@ export function isAgentTab(id) {
 
 export function appHash(id, path = "") {
   return id ? "#/app/" + encodeURIComponent(id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : "") : "#/";
+}
+
+// The mailbox is a PiCode page. Keep the same item address the phone and
+// push notifications use; the view's internal path remains item/<id>.
+export function inboxHash(path = "") {
+  const tail = path.startsWith("item/") ? path.slice(5) : path;
+  return "#/inbox" + (tail ? "/" + tail.split("/").map(encodeURIComponent).join("/") : "");
+}
+
+export function inboxPath(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const m = /^\/inbox(?:\/(.+))?$/.exec(h);
+  if (!m || !m[1]) return "";
+  try {
+    const tail = m[1].split("/").map(decodeURIComponent).join("/");
+    return tail === "done" || tail === "all" ? tail : "item/" + tail.replace(/^item\//, "");
+  } catch { return ""; }
+}
+
+export function legacyInboxHash(hash) {
+  if (appRoute(hash) !== "inbox") return "";
+  return inboxHash(appPath(hash));
 }
 
 // ADR-0118: the Matrix app became Canvas — id, hash and tab id. One map,

@@ -50,7 +50,7 @@ const LIST_KEY = "picode-app-split-w";
 // the shell opens it as a work-browser tab (2026-09-20/21: an Inbox github
 // link navigated this whole document and took the shell with it; an app
 // surface never navigates its host).
-export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, nativeSurfaces, onOpenUrl }) {
+export default function AppSurface({ appId, apiBase, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, nativeSurfaces, onOpenUrl }) {
   // initialPath (ADR-0044): a deep link — the phone's #/inbox/<id> — lands
   // on that item instead of the list. Later changes to it navigate too.
   const [path, setPath] = useState(initialPath || "");
@@ -96,7 +96,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
     const seq = ++seqRef.current;
     setBusy(true);
     try {
-      const raw = await api("/api/apps/" + encodeURIComponent(appId) + "/view" + (p ? "?path=" + encodeURIComponent(p) : ""));
+      const raw = await api((apiBase || "/api/apps/" + encodeURIComponent(appId)) + "/view" + (p ? "?path=" + encodeURIComponent(p) : ""));
       if (seq !== seqRef.current) return; // a newer load superseded this one
       const v = normalizeView(raw);
       if (v) { setView(v); setUnsupported(false); setError(""); setMissing(false); }
@@ -120,7 +120,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
         lastLoadRef.current = Date.now();
       }
     }
-  }, [appId]);
+  }, [appId, apiBase]);
 
   useEffect(() => { load(path); }, [path, load]);
   // refreshKey (ADR-0044 phase 3): the phone's pull-to-refresh bumps it.
@@ -199,7 +199,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
     actionRef.current = true;
     setPending(action.label + " in progress…");
     try {
-      const res = await api("/api/apps/" + encodeURIComponent(appId) + "/action", {
+      const res = await api((apiBase || "/api/apps/" + encodeURIComponent(appId)) + "/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: action.id, path, args: { requestKey: crypto.randomUUID(), ...(action.args || {}), ...(args || {}) } }),

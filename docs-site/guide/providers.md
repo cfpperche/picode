@@ -77,7 +77,7 @@ naming, and the CLI's file still holds one login at a time.
 The pane looks like this — the bar on top, and one row per account under its
 provider:
 
-![Claude Code's Providers pane: its own login waiting to be imported, and the vault row with Usage — with the sign-in strip offering Name and add, or Keep both](../img/app-providers.png)
+![Claude Code's Providers pane while sign-in is in progress: Open terminal, Check now and Cancel are available](../img/app-providers.png)
 
 ![The sign-in strip: Open terminal, Name and add, Keep both](../img/app-providers-signin.png)
 

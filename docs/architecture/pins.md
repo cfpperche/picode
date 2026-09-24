@@ -65,7 +65,7 @@ interval from completion → nothing until the item goes `done`, then close
 acknowledgement state; deleting the pin or the rule closes its open item.
 `inbox_items` was rebuilt (as 017) to admit the two enumerations. Push:
 `pin.reminded` → tag `reminder:<inboxId>` under the `reminders`
-preference, `requireInteraction` in `sw.js` where honoured. The Inbox app
+preference, `requireInteraction` in `sw.js` where honoured. Inbox
 gives the kind an "Open pin" action (`goto: pin:<id>`; both shells resolve
 it to the pin) and labels the source "Pin".
 

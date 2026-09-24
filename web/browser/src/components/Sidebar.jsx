@@ -4,7 +4,7 @@ import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import RailTabs from "./RailTabs.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./ShareDrawer.jsx";
-import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconChevronRight, IconPin, IconGrid } from "./Icons.jsx";
+import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconChevronRight, IconPin, IconGrid, IconBrandMark } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
@@ -65,7 +65,9 @@ export default function Sidebar({
   onFileTree,
   onInstructions,
   onOpenDashboard,
+  onOpenInbox,
   onOpenClis,
+  inboxBadge,
   apps, nativeApps, onOpenApp, webapps, webappsErr, webappsLoaded, onRetryWebapps, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, onClearWebappData, desktop,
 }) {
   // The status pills' ages tick on this clock (display-only — no API
@@ -263,9 +265,9 @@ export default function Sidebar({
           top row (ADR-0122); the sidebar starts at its own content. */}
       {!inShell && <header className="brand">
         <span className="brand-title">
-          <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>
+          <button type="button" className="brand-name" title="Dashboard" aria-label="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}><span className="brand-name-label">PiCode</span><span className="brand-name-mark"><IconBrandMark size={16} /></span></button>
         </span>
-        <RailTabs tab={tab} selectTab={selectTab} apps={apps} pkgUpdates={userMenu?.pkgUpdates} tight={width < 260} onOpenClis={onOpenClis} />
+        <RailTabs tab={tab} selectTab={selectTab} apps={apps} inboxBadge={inboxBadge} pkgUpdates={userMenu?.pkgUpdates} tight={width < 260} onOpenInbox={onOpenInbox} onOpenClis={onOpenClis} />
       </header>
       }
 

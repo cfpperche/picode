@@ -1,6 +1,6 @@
 # ADR-0036: Extensions host — apps on schema-driven primitives, launched from an Apps tab
 
-- **Status**: accepted (amends ADR-0026's four-tab sidebar; complements ADR-0010 —
+- **Status**: accepted (Inbox-first clause amended by ADR-0208; amends ADR-0026's four-tab sidebar; complements ADR-0010 —
   pi packages stay the surface for agent capabilities)
 - **Date**: 2026-08-31
 

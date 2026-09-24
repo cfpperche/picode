@@ -1,4 +1,4 @@
-import { renamedTabId } from "./routes.js";
+import { renamedTabId, isAppTab, tabAppId } from "./routes.js";
 
 const KEY = "picode-tabs";
 
@@ -43,6 +43,13 @@ export function filterOpenTabs(saved, exists) {
   const ids = (saved.ids || []).filter(exists);
   const selected = saved.selected && ids.includes(saved.selected) ? saved.selected : (ids[0] || null);
   return { ids, selected };
+}
+
+// Inbox left the apps registry (ADR-0208). Drop its saved app tab even when
+// /api/apps is offline; other app tabs retain the old offline fallback.
+export function restorableAppTab(id, appsOk, apps) {
+  if (id === "x:inbox") return false;
+  return isAppTab(id) && (!appsOk || (apps || []).some((app) => app.id === tabAppId(id)));
 }
 
 // The tab a reader lands on when `removed` leaves the strip: the neighbour

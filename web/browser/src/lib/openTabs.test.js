@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readChatWanted, writeChatWanted } from "./openTabs.js";
-import { filterAgentSplits, filterOpenTabs, moveTab, pickNextTab, readAgentSplits, readFileWorktrees, readGitOwners, readOpenTabs, readTermWanted, readWebTabUrls, writeAgentSplitUrls, writeAgentSplits, writeFileWorktrees, writeGitOwners, writeOpenTabs, writeTermWanted, writeWebTabUrls } from "./openTabs.js";
+import { filterAgentSplits, filterOpenTabs, restorableAppTab, moveTab, pickNextTab, readAgentSplits, readFileWorktrees, readGitOwners, readOpenTabs, readTermWanted, readWebTabUrls, writeAgentSplitUrls, writeAgentSplits, writeFileWorktrees, writeGitOwners, writeOpenTabs, writeTermWanted, writeWebTabUrls } from "./openTabs.js";
+
+test("Inbox leaves saved app tabs even when the apps catalog is offline", () => {
+  assert.equal(restorableAppTab("x:inbox", false, null), false);
+  assert.equal(restorableAppTab("x:inbox", true, [{ id: "inbox" }]), false);
+  assert.equal(restorableAppTab("x:docker", false, null), true);
+  assert.equal(restorableAppTab("x:docker", true, [{ id: "docker" }]), true);
+  assert.equal(restorableAppTab("x:docker", true, []), false);
+});
 
 test("filterOpenTabs drops missing agents", () => {
   const got = filterOpenTabs(

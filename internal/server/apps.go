@@ -29,23 +29,6 @@ func appsHost(deps Deps, r *http.Request) apps.Host {
 		Docker:      deps.Docker, Actor: dockerActor(r),
 		Tmux:         deps.Tmux,
 		LostSessions: deps.LostSessions,
-		// Negate once, right here, matching handleRespondInbox's own
-		// wiring (internal/server/inbox.go) — deliverable, not interactive.
-		AgentDeliverable: func(agentID string) bool { return !deps.agentInteractive(r.Context(), agentID) },
-		DeliverReply: func(itemID, verb, text string) (string, error) {
-			return deps.DeliverReply(r.Context(), itemID, verb, text)
-		},
-		AnswerAgentQuestion: func(itemID, verb, text string) (string, error) {
-			answer, err := deps.AnswerAgentQuestion(r.Context(), itemID, verb, text)
-			return answer.Toast(), err
-		},
-		// The same rule as the inbox route: pi terminals get the reply
-		// delivered, any other terminal gets the answer recorded on the
-		// item (ADR-0154, N1) — the Inbox app must not refuse what the
-		// route accepts (2026-09-19, the first live ask_human from Claude Code).
-		DeliverTerminalReply: func(itemID, verb, text string) (string, error) {
-			return deps.AnswerTerminalQuestion(itemID, verb, text)
-		},
 	}
 }
 
@@ -78,6 +61,11 @@ func handleListApps(deps Deps) http.HandlerFunc {
 
 func handleAppView(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Old Inbox clients may still hold an app URL after this build lands.
+		if r.PathValue("id") == "inbox" {
+			handleInboxView(deps)(w, r)
+			return
+		}
 		a, ok := deps.Apps.Find(r.PathValue("id"))
 		if !ok {
 			writeErr(w, http.StatusNotFound, "no such app")
@@ -94,6 +82,10 @@ func handleAppView(deps Deps) http.HandlerFunc {
 
 func handleAppAction(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.PathValue("id") == "inbox" {
+			handleInboxAction(deps)(w, r)
+			return
+		}
 		a, ok := deps.Apps.Find(r.PathValue("id"))
 		if !ok {
 			writeErr(w, http.StatusNotFound, "no such app")

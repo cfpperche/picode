@@ -6539,6 +6539,66 @@
         ]
       }
     },
+    "/api/inbox/action": {
+      "post": {
+        "operationId": "postApiInboxAction",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/api/inbox/badge": {
+      "get": {
+        "operationId": "getApiInboxBadge",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/api/inbox/view": {
+      "get": {
+        "operationId": "getApiInboxView",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
     "/api/inbox/{id}": {
       "delete": {
         "operationId": "deleteApiInbox",

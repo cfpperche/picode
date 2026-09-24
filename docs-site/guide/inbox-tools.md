@@ -39,7 +39,7 @@ about.
 | **Pi TUI** (terminal, inside PiCode's machine) | Both tools file into the Inbox; items carry the agent's name — or, for pi launched as a PiCode Agent CLI terminal, the terminal's identity so the Inbox reply reaches that terminal (see below) |
 | **PiCode chat agents** | The same tools on every managed agent |
 | **A `pi` elsewhere** (no reachable PiCode) | The tools return a soft explanatory result; nothing breaks |
-| **PiCode core** | The Inbox app itself — the package only POSTs into it |
+| **PiCode core** | Inbox itself — the package only POSTs into it |
 
 ## Replying to a question from a terminal pi (since 0.2.0)
 

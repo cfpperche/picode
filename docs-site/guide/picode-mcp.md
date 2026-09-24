@@ -115,7 +115,7 @@ picode inbox ask --question "postgres or sqlite for this service?" \
 # The human answered: sqlite is fine                       ← stdout
 ```
 
-Answer in the Inbox app — the item shows the question, the source (the
+Answer in Inbox — the item shows the question, the source (the
 agent's name in a PiCode terminal, otherwise an honest `user@host`), and a
 reply box. The reply is recorded on the item, which is exactly what the
 waiting command picks up.

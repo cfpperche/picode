@@ -65,7 +65,7 @@ package. Guide: [Docker and sysadmin](/guide/docker).
 
 Model roles: install `packages/pi-roles` — an extension, not core — so a session switches to a vision or plan model by content, and stays dormant until a roles file exists. Guide: [Model roles](/guide/roles).
 
-Inbox tools: install `packages/pi-inbox` — an extension, not core — so a plain terminal `pi` can file notifications and blocking questions into the Inbox app. Guide: [Inbox tools for pi](/guide/inbox-tools).
+Inbox tools: install `packages/pi-inbox` — an extension, not core — so a plain terminal `pi` can file notifications and blocking questions into Inbox. Guide: [Inbox tools for pi](/guide/inbox-tools).
 
 Delivery: install `packages/pi-delivery` — an extension, not core — so an agent
 whose CLI is Pi declares a change and asks the human for review in the project's

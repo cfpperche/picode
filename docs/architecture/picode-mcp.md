@@ -86,12 +86,12 @@ own goroutine, sends `notifications/progress` with the client's
 `progressToken` every 15 s while it waits, and honours
 `notifications/cancelled`. Only at the deadline or on a cancel does it
 name the item so the model can call `ask_human` again with `item`. On the daemon, `Deps.AnswerTerminalQuestion` is the one rule for both the
-inbox route and the Inbox app: a terminal running pi gets the reply
+inbox route and the Inbox core view: a terminal running pi gets the reply
 delivered; any other terminal has the answer recorded on the item.
 
 Since ADR-0184 every CLI launch is an agent, so most questions arrive
 agent-sourced, and `Deps.AnswerAgentQuestion` (`internal/server/agent_answer.go`)
-is the matching rule for those — again one rule for the route and the app,
+is the matching rule for those — again one rule for the route and the Inbox view,
 first match wins:
 
 | Condition when the human answers | Door |

@@ -56,6 +56,7 @@ function buildActions(workspaces, apps, focusable, snips, agentId) {
     ...(focusable ? [{ id: "fullscreen", label: "Fullscreen", group: "app", kind: "fullscreen" }] : []),
     { id: "preferences", label: "Preferences", group: "app", kind: "preferences" },
     { id: "clis", label: "Agent CLIs", group: "app", kind: "clis" },
+    { id: "inbox", label: "Inbox", group: "app", kind: "inbox" },
     { id: "cli-new", label: "New agent", group: "app", kind: "cli-new" },
     { id: "system", label: "System", group: "app", kind: "system" },
     { id: "providers", label: "Providers", group: "app", kind: "providers" },
