@@ -43,8 +43,8 @@ export default function CliSettings({ hidden, route, catalog, onAgentConfig, pan
       return <div className="cli-notice" role="status"><span>{"Settings for " + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>;
     }
     if (hidden) return null;
-    if (native) return <CliNativeSettings key={route.id + ":" + route.layer} route={route} workspaceId={workspaceId} workspaceName={workspaceName} />;
-    return <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} pane={pane} />;
+    if (native) return <CliNativeSettings key={route.id + ":" + (route.workspaceId || workspaceId) + ":" + route.layer} route={route} workspaceId={workspaceId} workspaceName={workspaceName} />;
+    return <SettingsEditor key={route.id + ":" + (route.workspaceId || "") + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} pane={pane} />;
   };
   return <section id="cli-settings-view" hidden={hidden}>{body()}</section>;
 }
@@ -52,13 +52,14 @@ export default function CliSettings({ hidden, route, catalog, onAgentConfig, pan
 function SettingsEditor({ route, catalog, onAgentConfig, pane = "settings" }) {
   const [context, setContext] = useState(null);
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(!!route.agentId);
+  const needsContext = !!(route.agentId || route.workspaceId);
+  const [loading, setLoading] = useState(needsContext);
   const [retry, setRetry] = useState(0);
   useEffect(() => {
-    if (!route.agentId) return;
+    if (!route.agentId && !route.workspaceId) return;
     let active = true;
     setLoading(true);
-    EDITORS[route.id].loadContext(route.agentId, api).then(context => {
+    EDITORS[route.id].loadContext(route.agentId, api, route.workspaceId).then(context => {
       if (active) { setContext(context); setError(null); }
     }).catch(error => {
       if (!active) return;
@@ -66,9 +67,9 @@ function SettingsEditor({ route, catalog, onAgentConfig, pane = "settings" }) {
       if (error.status === 404) setContext(null);
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [route.id, route.agentId, retry]);
+  }, [route.id, route.agentId, route.workspaceId, retry]);
   useEffect(() => {
-    if (!route.agentId) return;
+    if (!route.agentId && !route.workspaceId) return;
     let timer;
     const unsubscribe = subscribeFeed(event => {
       if (/^agent\.(updated|deleted|status)$/.test(event.type) && (event.agentId === route.agentId || event.data?.id === route.agentId)
@@ -78,10 +79,10 @@ function SettingsEditor({ route, catalog, onAgentConfig, pane = "settings" }) {
       }
     });
     return () => { clearTimeout(timer); unsubscribe(); };
-  }, [route.agentId]);
+  }, [route.agentId, route.workspaceId]);
   const { Editor } = EDITORS[route.id];
   const notice = error ? <div className="cli-notice is-error" role="alert"><span>{error.message}</span><button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={() => setRetry(value => value + 1)}>{loading ? "Retrying…" : "Try again"}</button><a className="btn btn-ghost btn-sm" href={cliSettingsHash(route.id)}>Global settings</a></div> : null;
-  if (route.agentId && !context) return notice || <div className="cli-loading" aria-label="Loading agent settings"><div /><div /><div /></div>;
+  if (needsContext && !context) return notice || <div className="cli-loading" aria-label="Loading settings"><div /><div /><div /></div>;
   // The layer and the sub-tab live on the route (docs/plans/cli-settings-ux.md):
   // a reload, a bookmark or another pane's link lands on the same view. Moving
   // off a deep link drops its focus — the row has been shown.
@@ -90,13 +91,14 @@ function SettingsEditor({ route, catalog, onAgentConfig, pane = "settings" }) {
     // click, and a tab click in that window must not drop the layer.
     const q = new URLSearchParams(location.hash.split("?")[1] || "");
     location.hash = cliSettingsHash(route.id, {
+      workspaceId: next.workspaceId ?? q.get("workspaceId") ?? route.workspaceId,
       agentId: next.agentId ?? q.get("agentId") ?? route.agentId,
       layer: next.layer ?? q.get("layer") ?? route.layer,
       tab: next.tab ?? q.get("tab") ?? route.tab,
     });
   };
   const saveAgent = async patch => {
-    const current = await EDITORS[route.id].loadContext(route.agentId, api);
+    const current = await EDITORS[route.id].loadContext(route.agentId, api, route.workspaceId);
     try {
       await onAgentConfig(current.agent, patch);
       setContext({ ...current, agent: { ...current.agent, ...patch } });

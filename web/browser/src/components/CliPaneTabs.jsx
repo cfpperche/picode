@@ -33,16 +33,40 @@ export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
   // The layer rides along: this href is written by the pane's "carry the
   // selected agent" rewrite, and dropping the layer there made a layer pill
   // click look like it did nothing (2026-09-12).
-  if (pane === "settings") return cliSettingsHash(cli, { agentId: ctx.agentId || "", focus: ctx.focus || "", layer: ctx.layer || "" });
+  if (pane === "settings") return cliSettingsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", focus: ctx.focus || "", layer: ctx.layer || "" });
   // The keyboard map is machine-wide, but the link keeps the settings context:
-  // going there and back must not move the reader to another agent or layer.
-  if (pane === "keyboard") return cliPaneHash(cli, "keyboard") + cliSettingsQuery({ agentId: ctx.agentId || "", layer: ctx.layer || "" });
+  // going there and back must not move the reader to another agent, workspace or layer.
+  if (pane === "keyboard") return cliPaneHash(cli, "keyboard") + cliSettingsQuery({ workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", layer: ctx.layer || "" });
   if (pane === "models") return cliModelsHash(cli, { workspaceId: ctx.workspaceId || "", layer: ctx.layer || "" });
   if (pane === "memory") return cliMemoryHash(cli, { workspaceId: ctx.workspaceId || "", scope: ctx.scope === "workspace" || ctx.scope === "global" ? ctx.scope : "" });
   if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
   if (pane === "skills") return cliSkillsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "" });
   if (pane === "connectors") return cliConnectorsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
   return cliPaneHash(cli, pane, pane === "sessions" ? workspace : "");
+}
+
+// Bring the selected tab fully into the strip without scrolling the page.
+// A tab that is only partly in the rail is hidden so a deep link never shows
+// a clipped label like "nch" from Launch (visual review, 2026-09-24).
+function maskPartialTabs(nav) {
+  if (!nav) return;
+  const rail = nav.getBoundingClientRect();
+  for (const el of nav.querySelectorAll("[role=tab]")) {
+    const box = el.getBoundingClientRect();
+    const inView = box.right > rail.left + 1 && box.left < rail.right - 1;
+    const fully = box.left >= rail.left - 1 && box.right <= rail.right + 1;
+    el.style.visibility = inView && !fully ? "hidden" : "";
+  }
+}
+
+function revealPaneTab(tab) {
+  const nav = tab && tab.closest(".cli-pane-tabs");
+  if (!nav || !tab) return;
+  const rail = nav.getBoundingClientRect();
+  const item = tab.getBoundingClientRect();
+  if (item.left < rail.left) nav.scrollLeft += item.left - rail.left;
+  else if (item.right > rail.right) nav.scrollLeft += item.right - rail.right;
+  maskPartialTabs(nav);
 }
 
 function Tab({ cli, pane, workspace, ctx, item, extra, activeRef }) {
@@ -70,7 +94,13 @@ export default function CliPaneTabs({ cli, pane = "launch", panes = null, worksp
   // e.g. Packages has to bring its own tab into view — otherwise the panel
   // says "Packages …" while the reader sees Launch…Sessions.
   const active = useRef(null);
-  useEffect(() => { active.current?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [pane, cli]);
+  useEffect(() => {
+    const nav = active.current && active.current.closest(".cli-pane-tabs");
+    const frame = requestAnimationFrame(() => revealPaneTab(active.current));
+    const onScroll = () => maskPartialTabs(nav);
+    if (nav) nav.addEventListener("scroll", onScroll, { passive: true });
+    return () => { cancelAnimationFrame(frame); if (nav) nav.removeEventListener("scroll", onScroll); };
+  }, [pane, cli]);
   return (
     <div className="cli-pane-bar">
       <nav className="cli-pane-tabs" role="tablist" aria-label="CLI sections">

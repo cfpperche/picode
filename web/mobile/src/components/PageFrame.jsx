@@ -17,6 +17,13 @@ export default function PageFrame({ id, title, context, children, hidden, wide, 
           const rail = nav.getBoundingClientRect();
           if (item.left < rail.left) nav.scrollLeft += item.left - rail.left;
           else if (item.right > rail.right) nav.scrollLeft += item.right - rail.right;
+          const next = nav.getBoundingClientRect();
+          for (const el of nav.querySelectorAll('[role="tab"]')) {
+            const box = el.getBoundingClientRect();
+            const inView = box.right > next.left + 1 && box.left < next.right - 1;
+            const fully = box.left >= next.left - 1 && box.right <= next.right + 1;
+            el.style.visibility = inView && !fully ? "hidden" : "";
+          }
         }
       });
     };
