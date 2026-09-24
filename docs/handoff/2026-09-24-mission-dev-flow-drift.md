@@ -13,7 +13,7 @@ Shipped:
 - Sources: land.mjs (cards 1–3), internal/install/readiness.go (deploy), handoff-board.mjs (invisible
   topic, over target, 7-day window), worktree-status.mjs (stalled), .githooks/pre-commit (living doc,
   note on main), worktree-gc.sh (keep), close.sh (over-target still passes close).
-- Guide intro now says make docs-check holds every quote (no "re-grep"); docs-audit.md debt [x];
+- Guide intro states the exact guarantee (script-printed wording matched; examples, Vale/VitePress, prose not); docs-audit.md debt [x];
   fragment docs/changelog.d/mission-dev-flow-drift.md.
 
 Not checked exactly: example values ("codex" working, .worktrees/x, 1/N counts); Vale card checked

@@ -117,10 +117,13 @@ feature, `feat/cascade-delete`, carries through both.
 ## When the flow bends
 
 Every step above can refuse — and a refusal names the state that makes the
-step unsafe, it does not ask to be routed around. Each card quotes the message
-the command actually prints, and `make docs-check` holds every quote to the
-script that prints it: reword a refusal and the check names the card to
-update. Example values such as `codex` or `x` stand in for what your run prints.
+step unsafe, it does not ask to be routed around. Where a repo script prints
+the message, `make docs-check` matches the card's wording against that script
+and names the card when either side changes. The quotes are not verbatim
+output: values such as `codex`, `x`, `1` or `N` stand in for what your run
+prints, and the Vale and dead-link cards describe external tools, so the check
+covers only their settings in this repository (the rule's message and the
+`ignoreDeadLinks` list). The lines with no quote are prose and are not checked.
 
 <div class="bend">
 
