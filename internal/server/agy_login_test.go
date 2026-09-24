@@ -167,3 +167,16 @@ func TestAgyGUILogin(t *testing.T) {
 		t.Fatalf("add = %v", roster["add"])
 	}
 }
+
+// The sign-in runs under a pty, and `script` is not the same program on every
+// platform the daemon runs on: the BSD one answers `-qfec` with its usage line
+// (a macOS runner did exactly that, 2026-09-24). Both shapes are pinned here.
+func TestAgyScriptArgsPerPlatform(t *testing.T) {
+	line := "/usr/bin/agy -p . --print-timeout 1s"
+	if got := strings.Join(agyScriptArgs("darwin", line, "/dev/null"), "|"); got != "-q|/dev/null|sh|-c|"+line {
+		t.Fatalf("darwin args = %q", got)
+	}
+	if got := strings.Join(agyScriptArgs("linux", line, "/dev/null"), "|"); got != "-qfec|"+line+"|/dev/null" {
+		t.Fatalf("linux args = %q", got)
+	}
+}

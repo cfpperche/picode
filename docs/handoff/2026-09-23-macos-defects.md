@@ -1,0 +1,8 @@
+# 2026-09-23 — feat/macos-defects: what the leg found on its first run
+
+The macOS leg ran by rule (not by dispatch) for the first time on the push that introduced that rule, and failed — which is what it exists for. Three real defects, none of them about the workflow that triggered them:
+- **`agy_login` was broken on macOS.** `exec.CommandContext(ctx, script, "-qfec", …)` — `-c` and `-f` are util-linux's; the BSD `script` answers that with its usage line (`script -p [-deq] [-T fmt] [file]`), which the runner reproduced as `POST /api/agy/login: 502`. The grep for `script` also found it, so this was reachable by reading, not only by a runner. `agyScriptArgs(goos, …)` builds the platform's shape; both are pinned by a test.
+- **The `~` abbreviation missed on macOS, and with it Grok's trusted folder.** The scan reports resolved paths while `s.home` was `filepath.Clean`ed only; on macOS `/var` symlinks to `/private/var`, so nothing under the home ever matched. `canon` — which the file already had — is now applied to the home and to both sides of `grokTrusted`'s comparison.
+Reproduced on Linux before fixing: `TMPDIR=/tmp/alias` (a symlink to `/tmp/real`) gives byte-for-byte the runner's failures — `no row "~/AGENTS.md"` and `grok = untrusted … want reads`. A new test (`TestAHomeBehindASymlinkStillAbbreviates`) fails without the fix and passes with it; the older three fail the same way.
+Verified: `make ci-scoped` PASS (fmt,vet,hooks,go[5]; 5 paths), the `internal/cliinstructions` package green under the symlinked `TMPDIR`, and the two `agyScriptArgs` shapes pinned.
+The leg itself is the last word: this push is macOS-relevant, so its own run re-checks all three on the platform that failed.
