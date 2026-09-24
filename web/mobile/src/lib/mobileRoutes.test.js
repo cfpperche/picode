@@ -136,6 +136,8 @@ it("snippets on the phone mirror the pins map (ADR-0130)", () => {
   assert.deepEqual(mobileRoute("#/more/snippets"), { screen: "more", id: "", section: "snippets" });
   assert.deepEqual(mobileRoute("#/more/outcomes"), { screen: "more", id: "", section: "outcomes" });
   assert.deepEqual(mobileRoute("#/outcomes"), { screen: "more", id: "", section: "outcomes" });
+  assert.deepEqual(mobileRoute("#/more/history"), { screen: "more", id: "", section: "history" });
+  assert.deepEqual(mobileRoute("#/history"), { screen: "more", id: "", section: "history" });
   assert.equal(mobileHash("snip", "deploy-abc123"), "#/snippets/deploy-abc123");
   assert.equal(mobileHash("snipEdit", "deploy-abc123"), "#/snippets/deploy-abc123/edit");
   assert.equal(mobileHash("snipEdit", ""), "#/snippets/new");

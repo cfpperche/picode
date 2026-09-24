@@ -9,7 +9,7 @@ import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { checklistLine, checklistProgress, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
-import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
+import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalCommandTitle, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel, agentStatusStamp, agentTerm } from "@picode/shared/domain/agentStatus.js";
 import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMenu.js";
 import { agentSubtitle, forkLine } from "@picode/shared/domain/managedPrincipal.js";
@@ -98,9 +98,10 @@ function TerminalStatus({ term, agent }) {
   const status = terminalStatus(term);
   const stamp = agentStatusStamp(status, agent, term);
   const age = stamp ? relTime(stamp) : "";
+  const running = status === "working" ? terminalCommandTitle(term) : "";
   return (
-    <span className={"ws-status is-" + status}>
-      {status === "working" || status === "compacting" ? <PiSpinner title={terminalStatusLabel(term)} /> : null}
+    <span className={"ws-status is-" + status} title={running || undefined}>
+      {status === "working" || status === "compacting" ? <PiSpinner title={running || terminalStatusLabel(term)} /> : null}
       <span>{terminalStatusLabel(term)}</span>
       {age ? <span className="ws-status-age">{age}</span> : null}
     </span>

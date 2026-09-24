@@ -304,6 +304,7 @@ function applyFleetRaw(state, ev) {
         : (() => {
             const rest = { ...term };
             delete rest.tui;
+            delete rest.command;
             delete rest.cli;
             delete rest.state;
             delete rest.stateAt;
@@ -333,6 +334,22 @@ function applyFleetRaw(state, ev) {
                 })()
             : t,
         ),
+      };
+    }
+    case "terminal.command": {
+      // Ephemeral (id 0): the shell command a terminal's CLI runs, seen in
+      // its process tree (ADR-0212); null clears it. Beside terminal.state,
+      // never instead of it.
+      if (!d.termId || !terminals.some((t) => t.id === d.termId)) return state;
+      return {
+        ...state,
+        terminals: terminals.map((t) => {
+          if (t.id !== d.termId) return t;
+          if (d.command && d.command.name) return { ...t, command: { name: d.command.name, since: d.command.since || undefined } };
+          const rest = { ...t };
+          delete rest.command;
+          return rest;
+        }),
       };
     }
     case "terminal.checklist": {

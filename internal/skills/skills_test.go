@@ -365,3 +365,15 @@ func TestSkillsJSListMatchesTheDeclarations(t *testing.T) {
 		t.Fatalf("js %v, go %v", js, CLIs())
 	}
 }
+
+// The agent scope is offered only where the CLI loads a per-agent list.
+func TestAgentScopeOnlyForPiAndOmp(t *testing.T) {
+	homeDir, _, wsDir := fixture(t)
+	a := &AgentInfo{ID: "a1", Name: "delivery", Isolated: true}
+	for cli, want := range map[string]bool{"pi": true, "omp": true, "codex": false, "claude-code": false} {
+		rep, _ := Read(Query{CLI: cli, Workspace: wsDir, Home: homeDir, Agent: a})
+		if (rep.Agent != nil) != want {
+			t.Errorf("%s: agent scope = %v, want %v", cli, rep.Agent != nil, want)
+		}
+	}
+}

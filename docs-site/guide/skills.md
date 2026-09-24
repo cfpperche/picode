@@ -25,8 +25,11 @@ The **Skills** tab shows what one CLI will actually load.
 | At start | an estimate of what the skill's name and description cost in every session |
 
 Click a row to see its full folder, the reason for its status and the other
-CLIs that read the same folder. **All**, the workspace name and **This
-machine** narrow the list; the filter matches names, descriptions and sources.
+CLIs that read the same folder. The chips run **Global** (this computer), then
+the workspace by its name, then — for Pi and Omp, which load a list per agent —
+the agent by its name, showing everything that agent loads (or, for an agent
+that runs isolated, that it loads only its own packages' skills). The filter
+matches names, descriptions and sources.
 
 ## Trust
 
@@ -58,7 +61,7 @@ scan looks for known risky patterns, such as a script piped into a shell or a
 read of your SSH keys; it is not a review, and PiCode never marks a skill as
 safe. A critical finding asks you to confirm that you read the files.
 
-Pick **This machine** or the workspace. A workspace install goes into
+Pick **Global** or the workspace. A workspace install goes into
 `.agents/skills`, which seven of the nine CLIs read, with a link in
 `.claude/skills` for Claude Code; a machine install goes into `~/.agents/skills`
 with links for Claude Code, Hermes and Antigravity where they are installed.

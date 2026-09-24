@@ -188,6 +188,25 @@ type ExitInput struct {
 	// one (lazy binding): the store never reads session files itself.
 	// Called only when the agent row names none; nil finds nothing.
 	PiSessionFallback func(Agent) string
+	// Instructions lists the instruction files the agent read, as they
+	// stand now (ADR-0194, amended 2026-09-24). root is the workspace
+	// folder; the store reads no files itself. nil records nothing.
+	Instructions func(a Agent, root string, ss ExitSessions) *ExitInstructions
+}
+
+// ExitInstructions is which instruction files the agent read, each with a
+// short hash of its content at removal — never the text. Source is
+// "observed" (the CLI's own session record) or "declared" (PiCode's rules).
+type ExitInstructions struct {
+	Source string                `json:"source"`
+	Files  []ExitInstructionFile `json:"files"`
+}
+
+// ExitInstructionFile is one file; SHA "" means it was gone at removal.
+type ExitInstructionFile struct {
+	Path  string `json:"path"`
+	SHA   string `json:"sha"`
+	Bytes int64  `json:"bytes"`
 }
 
 // ExitLaunch is a CLI agent's terminal launch record, without secrets:
@@ -214,6 +233,9 @@ type ExitConfig struct {
 	ExtraPrompt      string      `json:"extraPrompt,omitempty"`
 	WorkPath         string      `json:"workPath,omitempty"`
 	Launch           *ExitLaunch `json:"launch,omitempty"`
+	// Instructions: nil on exits written before 2026-09-24, or when neither
+	// the CLI's record nor the rules could answer.
+	Instructions *ExitInstructions `json:"instructions,omitempty"`
 }
 
 // ExitSignals is what PiCode observed of the agent's life.
@@ -477,9 +499,11 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 	if born, err := time.Parse(time.RFC3339Nano, a.CreatedAt); err == nil && removed.After(born) {
 		ex.LifetimeS = int64(removed.Sub(born) / time.Second)
 	}
+	root := ""
 	if ws, err := s.GetWorkspace(a.WorkspaceID); err == nil {
 		ex.WorkspaceName = ws.Name
 		ex.Sessions.Cwd = AgentCwd(ws, a)
+		root = ws.Path
 	}
 	ex.Config = ExitConfig{
 		Thinking:         deref(a.Thinking),
@@ -531,6 +555,12 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 	}
 	if in.Meter != nil {
 		ex.Cost = meterExit(a, ex.Sessions, in.Meter)
+	}
+	if in.Instructions != nil {
+		if root == "" {
+			root = ex.Sessions.Cwd
+		}
+		ex.Config.Instructions = in.Instructions(a, root, ex.Sessions)
 	}
 	return ex, nil
 }

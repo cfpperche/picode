@@ -58,17 +58,27 @@ type Trust struct {
 	Trusted *bool `json:"trusted,omitempty"`
 }
 
+// AgentInfo is the agent a report was read for, when the CLI has an agent
+// scope: its name as the pane badges it, and whether it runs isolated (it
+// then loads none of the folder skills, only its own packages').
+type AgentInfo struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Isolated bool   `json:"isolated"`
+}
+
 // Report is one CLI's skills.
 type Report struct {
-	CLI           string   `json:"cli"`
-	Roots         []string `json:"roots"` // the folders read, in precedence order
-	Rows          []Row    `json:"rows"`
-	Trust         Trust    `json:"trust"`
-	Toggle        string   `json:"toggle,omitempty"`
-	Launch        string   `json:"launch,omitempty"`
-	WorkspacePath string   `json:"workspacePath,omitempty"`
-	Notes         []string `json:"notes,omitempty"`
-	ReadAt        string   `json:"readAt"`
+	CLI           string     `json:"cli"`
+	Roots         []string   `json:"roots"` // the folders read, in precedence order
+	Rows          []Row      `json:"rows"`
+	Trust         Trust      `json:"trust"`
+	Toggle        string     `json:"toggle,omitempty"`
+	Launch        string     `json:"launch,omitempty"`
+	WorkspacePath string     `json:"workspacePath,omitempty"`
+	Agent         *AgentInfo `json:"agent,omitempty"`
+	Notes         []string   `json:"notes,omitempty"`
+	ReadAt        string     `json:"readAt"`
 }
 
 // Query is one read. Home defaults to the user's home directory.
@@ -79,6 +89,9 @@ type Query struct {
 	// Trusted answers the CLI's own trust record where PiCode can read it
 	// (Pi's trust.json); nil elsewhere.
 	Trusted func(cli, workspace string) *bool
+	// Agent is set when the pane names an agent of this CLI; a CLI without an
+	// agent scope ignores it.
+	Agent *AgentInfo
 }
 
 // ErrUnknownCLI is a CLI with no declaration.
@@ -208,6 +221,9 @@ func Read(q Query) (Report, error) {
 		ReadAt:        time.Now().UTC().Format(time.RFC3339),
 		Rows:          []Row{},
 		Trust:         Trust{Needed: spec.ProjectTrust, Command: spec.TrustCommand, Note: spec.TrustNote},
+	}
+	if spec.AgentScope && q.Agent != nil {
+		rep.Agent = q.Agent
 	}
 	if spec.ProjectTrust && q.Workspace != "" && q.Trusted != nil {
 		rep.Trust.Trusted = q.Trusted(spec.CLI, q.Workspace)

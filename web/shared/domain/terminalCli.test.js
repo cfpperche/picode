@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark, terminalDisplayCli, terminalIsIdleShellAt, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
+import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark, terminalCommandTitle, terminalDisplayCli, terminalIsIdleShellAt, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
 
 test("terminal CLI aliases use one canonical identity", () => {
   assert.equal(normalizeTerminalCli("claude"), "claude-code");
@@ -146,4 +146,24 @@ test("only a plain idle shell in the folder takes a git command", () => {
   // A row a feed patch stripped of its live fields is still an agent's.
   assert.equal(terminalIsIdleShellAt({ id: "fork-1", cwd: "/r" }, "/r", new Set(["fork-1"])), false);
   assert.equal(terminalIsIdleShellAt({ id: "sh-1", cwd: "/r" }, "/r", new Set(["fork-1"])), true);
+});
+
+test("a running shell command reads as work beside the hook state (ADR-0212)", () => {
+  const since = "2026-09-24T10:00:00Z";
+  const base = { id: "t", running: true, cli: "codex", tui: { cli: "codex", runId: "r" }, runId: "r", stateAt: "2026-09-24T09:00:00Z" };
+  // "!make deploy" after the turn ended: the hook said idle, the tree says make.
+  const bang = { ...base, state: "idle", command: { name: "make", since } };
+  assert.equal(terminalStatus(bang), "working");
+  assert.equal(terminalStatusLabel(bang), "Running");
+  assert.equal(terminalCommandTitle(bang), "Running make");
+  assert.equal(terminalActivityStamp(bang), since);
+  // Inside a turn the hook's word wins; the command only names the tool.
+  const turn = { ...base, state: "working", command: { name: "make", since } };
+  assert.equal(terminalStatusLabel(turn), "Working");
+  assert.equal(terminalActivityStamp(turn), base.stateAt);
+  // Needs you outranks a command still running.
+  assert.equal(terminalStatus({ ...base, state: "needs-you", command: { name: "make", since } }), "needs-you");
+  // No command: nothing changes.
+  assert.equal(terminalStatus({ ...base, state: "idle" }), "ready");
+  assert.equal(terminalCommandTitle({ ...base, state: "idle" }), "");
 });

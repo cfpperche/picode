@@ -48,7 +48,7 @@ setup and the numbers, but nothing can read the conversation afterwards.
 | Part | What |
 |---|---|
 | Answer | The outcome, the reasons and your note |
-| Setup | CLI, provider and model, thinking, tools, checklist, packages, extra prompt, launch arguments. Environment variables are kept by **name only**, never their values |
+| Setup | CLI, provider and model, thinking, tools, checklist, packages, extra prompt, launch arguments. Environment variables are kept by **name only**, never their values. The instruction files it read (AGENTS.md and the like), each with a short fingerprint of its content at removal, never the text |
 | What PiCode saw | How long the agent lived, how many turns it took, how often it asked for you, checklist progress |
 | Sessions | Where the sessions were, and whether the removal deleted them |
 | Cost | What those sessions cost, read before any deletion. A `~` marks a list-price estimate for turns the CLI recorded no price for. For Pi it covers every session of the agent; for other agents, their last session. Grok, Hermes Agent, OpenCode and Antigravity show **—**: PiCode cannot read their sessions as files |

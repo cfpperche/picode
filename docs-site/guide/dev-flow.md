@@ -16,7 +16,7 @@ feature, `feat/cascade-delete`, carries through both.
 <div class="devflow">
 
 <section class="devflow-phase">
-  <h2 class="devflow-head"><span class="devflow-num">1</span> Elaboration <span class="devflow-owner">agent</span></h2>
+  <h2 class="devflow-head" id="elaboration"><span class="devflow-num">1</span> Elaboration <span class="devflow-owner ignore-header">agent</span> <a class="header-anchor" href="#elaboration" aria-label="Permalink to &quot;Elaboration&quot;">&#8203;</a></h2>
   <p class="devflow-sub">Read only what this change touches (ADR-0086) — never the whole handoff archive.</p>
   <div class="devflow-steps">
     <div class="devflow-step"><code>make handoff</code><span class="devflow-note">what is in flight, next up, open debts</span></div>
@@ -31,7 +31,7 @@ feature, `feat/cascade-delete`, carries through both.
 <div class="devflow-arrow" aria-hidden="true"></div>
 
 <section class="devflow-phase">
-  <h2 class="devflow-head"><span class="devflow-num">2</span> Iteration <span class="devflow-owner">agent · isolated worktree</span></h2>
+  <h2 class="devflow-head" id="iteration"><span class="devflow-num">2</span> Iteration <span class="devflow-owner ignore-header">agent · isolated worktree</span> <a class="header-anchor" href="#iteration" aria-label="Permalink to &quot;Iteration&quot;">&#8203;</a></h2>
   <div class="devflow-steps">
     <div class="devflow-step"><code>make worktree NAME=cascade-delete</code><span class="devflow-note">isolated tree, hardlinked <code>node_modules</code>; feature commits on <code>main</code> are refused</span></div>
     <div class="devflow-step"><span class="devflow-kicker">Code and docs in the same commit</span> UI work passes the uiux-review checklist and a visual-review screenshot</div>
@@ -46,7 +46,7 @@ feature, `feat/cascade-delete`, carries through both.
 <div class="devflow-arrow" aria-hidden="true"></div>
 
 <section class="devflow-phase">
-  <h2 class="devflow-head"><span class="devflow-num">3</span> Closing docs <span class="devflow-owner">subagent</span></h2>
+  <h2 class="devflow-head" id="closing-docs"><span class="devflow-num">3</span> Closing docs <span class="devflow-owner ignore-header">subagent</span> <a class="header-anchor" href="#closing-docs" aria-label="Permalink to &quot;Closing docs&quot;">&#8203;</a></h2>
   <p class="devflow-sub">Written from <code>make close-summary</code>, never at the working session's peak context.</p>
   <div class="devflow-steps">
     <div class="devflow-step"><code>docs/changelog.d/cascade-delete.md</code><span class="devflow-note">one Keep-a-Changelog fragment; <code>CHANGELOG.md</code> is assembled on <code>main</code></span></div>
@@ -57,7 +57,7 @@ feature, `feat/cascade-delete`, carries through both.
 <div class="devflow-arrow" aria-hidden="true"></div>
 
 <section class="devflow-phase">
-  <h2 class="devflow-head"><span class="devflow-num">4</span> Landing <span class="devflow-owner">owner · from the root</span></h2>
+  <h2 class="devflow-head" id="landing"><span class="devflow-num">4</span> Landing <span class="devflow-owner ignore-header">owner · from the root</span> <a class="header-anchor" href="#landing" aria-label="Permalink to &quot;Landing&quot;">&#8203;</a></h2>
   <div class="devflow-steps">
     <div class="devflow-step"><code>make land BRANCH=feat/cascade-delete</code><span class="devflow-note">fast-forward <code>main</code> to the branch, then <code>make ci</code>; never commits, refuses an overlapping dirty tree</span></div>
     <div class="devflow-decide"><span class="devflow-q">Main moved</span> while the branch cooked?</div>
@@ -69,7 +69,7 @@ feature, `feat/cascade-delete`, carries through both.
 <div class="devflow-arrow" aria-hidden="true"></div>
 
 <section class="devflow-phase">
-  <h2 class="devflow-head"><span class="devflow-num">5</span> Deploy <span class="devflow-owner">owner only</span></h2>
+  <h2 class="devflow-head" id="deploy"><span class="devflow-num">5</span> Deploy <span class="devflow-owner ignore-header">owner only</span> <a class="header-anchor" href="#deploy" aria-label="Permalink to &quot;Deploy&quot;">&#8203;</a></h2>
   <div class="devflow-steps">
     <div class="devflow-step"><code>make deploy</code><span class="devflow-note">rebuild, refresh stale captures, restart the service — serialized on <code>/tmp/picode-mutate.lock</code>; refuses while an agent or terminal is mid-turn</span></div>
     <div class="devflow-step"><span class="devflow-kicker">Verified before anything else mutates</span> daemon health checked after the restart</div>
@@ -80,7 +80,7 @@ feature, `feat/cascade-delete`, carries through both.
 <div class="devflow-arrow" aria-hidden="true"></div>
 
 <section class="devflow-phase">
-  <h2 class="devflow-head"><span class="devflow-num">6</span> After deploy <span class="devflow-owner">agent · next session</span></h2>
+  <h2 class="devflow-head" id="after-deploy"><span class="devflow-num">6</span> After deploy <span class="devflow-owner ignore-header">agent · next session</span> <a class="header-anchor" href="#after-deploy" aria-label="Permalink to &quot;After deploy&quot;">&#8203;</a></h2>
   <div class="devflow-steps">
     <div class="devflow-step"><code>scripts/qa-scratch.sh</code><span class="devflow-note">UI verified on a scratch instance, never on production</span></div>
     <div class="devflow-step"><span class="devflow-kicker">A fact that only exists after the merge</span> — the owner confirming it live, a debt observed paid — is one commit on <code>main</code> amending the note (ADR-0149)</div>
@@ -262,6 +262,7 @@ commit that contradicts one silently.
   background: var(--vp-c-brand-1); color: var(--vp-c-bg);
   font-size: 13px; font-weight: 600;
 }
+.vp-doc .devflow-head .header-anchor { top: 0; }
 .vp-doc .devflow-owner {
   margin-left: auto;
   font-size: 12px; font-weight: 500; letter-spacing: 0.02em;

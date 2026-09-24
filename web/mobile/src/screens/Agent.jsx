@@ -133,7 +133,7 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
 
   return (
     <div className="m-screen m-agent">
-      <ScreenHeader title={name} sub={<><StateChip state={state} /><span className="m-agent-meta" title={meta}>{meta}</span></>} onBack={onBack} right={right} />
+      <ScreenHeader title={name} sub={<><StateChip state={state} term={terminal || agent?.terminal} /><span className="m-agent-meta" title={meta}>{meta}</span></>} onBack={onBack} right={right} />
         <div className="m-chat chat-body">
           <div className="chat-main">
             {interactive ? (
