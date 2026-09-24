@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { locate, displayAgentName } from "@picode/shared/domain/tree.js";
-import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot, isAppTab, tabAppId, isWebTab, tabWebId, isInstructionsTab, instructionsTabWorkspace } from "../lib/routes.js";
+import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot, isAppTab, tabAppId, isWebTab, tabWebId } from "../lib/routes.js";
 import { repoNameFromKey } from "../lib/gitgraph.js";
 import { revealLeft } from "../lib/tabStrip.js";
 import { useTabStrip } from "../lib/useTabStrip.js";
 import { matchAction } from "../lib/appKeys.js";
 import { webappIdFromTab } from "../lib/webapps.js";
-import { IconFile, IconGit, IconFolders, IconInstructions, IconChevronLeft, IconChevronRight, IconList, IconCheck } from "./Icons.jsx";
+import { IconFile, IconGit, IconFolders, IconChevronLeft, IconChevronRight, IconList, IconCheck } from "./Icons.jsx";
 import AppIcon from "./AppIcon.jsx";
 import { IconGlobe } from "./Icons.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
@@ -68,12 +68,6 @@ function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, weba
     const root = treeTabRoot(id);
     const name = root.startsWith("@") ? "Files" : root.split("/").filter(Boolean).pop() || root;
     return { icon: <IconFolders size={13} />, label: name, title: root, status: null, closeTitle: "Close tab" };
-  }
-  if (isInstructionsTab(id)) {
-    // One tab per workspace; its name is the workspace's.
-    const ws = workspaces.find((w) => w && w.id === instructionsTabWorkspace(id));
-    if (!ws) return null;
-    return { icon: <IconInstructions size={13} />, label: "Instructions · " + ws.name, title: "Instructions in " + (ws.path || ws.name), status: null, closeTitle: "Close tab" };
   }
   if (isAppTab(id)) {
     // The manifest may not have arrived yet — render the raw id rather
@@ -271,7 +265,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
       ) : null}
       {endSlot ? <div className="main-tabs-end" data-align-row>{endSlot}</div> : null}
     </div>
-    {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isInstructionsTab(selectedId) && !isAppTab(selectedId) ? sessionSlot : null}
+    {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? sessionSlot : null}
     </>
   );
 }

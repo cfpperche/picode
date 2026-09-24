@@ -73,7 +73,7 @@ export function parseRoute(hash) {
   if (h.startsWith("/file/")) return "workspace";
   if (h.startsWith("/git/")) return "workspace";
   if (h.startsWith("/tree/")) return "workspace";
-  if (h.startsWith("/instructions/")) return "workspace";
+  if (h.startsWith("/instructions/")) return "instructions";
   if (h.startsWith("/app/")) return "workspace";
   return "workspace";
 }
@@ -355,9 +355,9 @@ export function treeTabRoot(id) {
   return isTreeTab(id) ? String(id).slice(2) : "";
 }
 
-// Instructions (docs/architecture/cli-instructions.md): one tab per
-// workspace, which instruction files each agent CLI reads there. The id is
-// the workspace's own, so there is no provisional id to rename.
+// Instructions (docs/architecture/cli-instructions.md): a page route over the
+// tabs, like Agent CLIs, whose address names the workspace it reads. The i:
+// tab helpers remain only so a tab saved before 2026-09-24 is dropped.
 export function instructionsHash(wsId) {
   return "#/instructions/" + encodeURIComponent(wsId || "");
 }

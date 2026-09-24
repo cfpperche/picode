@@ -4,7 +4,7 @@
 
 All nine agent CLIs read `AGENTS.md`, and no two decide the same way which
 file wins, how far up the tree they look, which personal file counts, or how
-much of a long file survives. The **Instructions** tab (`#/instructions/<workspaceId>`)
+much of a long file survives. The **Instructions** page (`#/instructions/<workspaceId>`)
 answers, per workspace, what each CLI reads for a session started there and
 why it leaves the rest out. The study that measured every rule is
 [docs/benchmarks/2026-09-23-agents-md.md](../benchmarks/2026-09-23-agents-md.md);
@@ -85,7 +85,7 @@ never run: the change waits in the Git tab.
 
 | Place | What |
 |---|---|
-| Workspace `…` menu ▸ **Instructions** | the tab: findings, then the matrix of files × CLIs; a cell's reason below the table |
+| Workspace `…` menu ▸ **Instructions** | the page `#/instructions/<workspaceId>`, over the tabs like Agent CLIs: findings, then the matrix of files × CLIs; a cell's reason below the table |
 | **New agent** dialog | one line for the picked CLI (`createLine`, `web/shared/domain/instructions.js`) |
 
 | CLI page ▸ **Settings** ▸ Instructions | the settings that change what a CLI reads: Claude Code's Project instructions mode (user layer only — Claude ignores it in project settings), Codex's `project_doc_fallback_filenames` and `project_doc_max_bytes`, Hermes's `context_file_max_chars`, OpenCode's `instructions`. Declared in `internal/clisettings/specs.go` like every other row; a finding whose fix is one of them links there |

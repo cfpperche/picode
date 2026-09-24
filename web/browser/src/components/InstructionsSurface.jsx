@@ -1,18 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import InstructionsFix from "./InstructionsFix.jsx";
+import PageFrame from "./PageFrame.jsx";
+import { IconFolder } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { STATUS_LABEL, cellTitle, groupFiles, rowMatters, shortPath, sizeLabel, visibleClis } from "@picode/shared/domain/instructions.js";
 import "../styles/instructions.css";
 
 // Instructions: which instruction files each agent CLI reads for a session
-// started in this workspace (docs/architecture/cli-instructions.md). A
-// workspace tab that draws the page frame every system route draws
-// (.settings-wrap + .settings-head + .settings-card, ADR-0103), like Git ▸
-// Delivery. Read-only: a finding opens the file in the editor, nothing here
-// writes. Files change outside PiCode's store, so the view re-reads when it
-// is shown and on Refresh — no feed event covers them and no timer polls.
-export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
+// started in this workspace (docs/architecture/cli-instructions.md). A page
+// route over the tabs (#/instructions/<workspace>), like Agent CLIs: the
+// address names the workspace, PageFrame draws Back and the title, and the
+// context line names the folder. Files change outside PiCode's store, so the
+// page reads them when it opens and on Refresh — no feed event covers them
+// and no timer polls. Writes happen only through a reviewed fix (ADR-0204).
+export default function InstructionsSurface({ workspace, loaded, onOpenFile }) {
+  const context = workspace ? workspace.name + (workspace.path ? " · " + workspace.path : "") : "";
+  return (
+    <PageFrame id="instructions-view" title="Instructions" className="instr-page" context={context} contextIcon={<IconFolder />}>
+      {workspace ? (
+        <InstructionsBody workspace={workspace} onOpenFile={(p) => onOpenFile && onOpenFile(workspace.id, p)} />
+      ) : loaded ? (
+        <div className="mcp-empty">
+          <p>That workspace is gone.</p>
+          <a className="btn" href="#/">Back to workspaces</a>
+        </div>
+      ) : (
+        <div className="instr-skeleton" aria-label="Reading instruction files">{[1, 2, 3, 4].map((n) => <div key={n} />)}</div>
+      )}
+    </PageFrame>
+  );
+}
+
+function InstructionsBody({ workspace, onOpenFile }) {
   const [start, setStart] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [picked, setPicked] = useState(null);
@@ -32,8 +52,8 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
   }
 
   useEffect(() => {
-    if (!hidden) load();
-  }, [hidden, workspace.id, start]);
+    load();
+  }, [workspace.id, start]);
 
   // Whether the matrix is wider than the card: then one line says so and the
   // right edge fades until the last column is in view.
@@ -62,10 +82,7 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
   const pickedCell = pickedFile && pickedCli ? pickedFile.cells[pickedCli.id] : null;
 
   return (
-    <section className="instr-page" aria-label="Instructions" hidden={!!hidden}>
-      <div className="settings-wrap">
-        <header className="settings-head"><h2>Instructions</h2></header>
-        <div className="settings-card">
+    <>
           <div className="instr-toolbar" data-align-row>
             {data && data.folders.length > 1 ? (
               <label data-align-row>
@@ -217,14 +234,12 @@ export default function InstructionsSurface({ workspace, hidden, onOpenFile }) {
           ) : data && groups.length > 0 ? (
             <p className="instr-detail instr-muted" role="status">Pick a cell to see why.</p>
           ) : null}
-        </div>
-      </div>
       <InstructionsFix
         workspaceId={workspace.id}
         fixId={fixId}
         onClose={() => setFixId("")}
         onWritten={() => { setFixId(""); load(); }}
       />
-    </section>
+    </>
   );
 }

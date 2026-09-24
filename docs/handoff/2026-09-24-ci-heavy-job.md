@@ -1,0 +1,7 @@
+# 2026-09-24 — feat/ci-heavy-job: the heavy packages get a job of their own
+
+`.github/workflows/ci.yml` had one Go job under one 50-minute ceiling for ~300 packages plus `internal/server` and `internal/store` — the pair that measures ~26 minutes of `-race` on a two-core runner (365 serial tests by design, ADR-0086, and launch tests that spawn real terminals, ADR-0184). The run of 2026-09-22 died as `FAIL internal/server 1800.070s` with no failing test to read; the raise that followed bought time, not structure.
+`go-heavy` runs the pair on the same platform list and with the same Windows skip (the macOS defects the leg exists to catch live in `internal/server`), `GO_TEST_EXCLUDE_HEAVY=1` drops them from the main job's list, and each job's ceiling is now its own. Sharding stays off for the measured reason (two cores buy nothing from four shards).
+What it does not claim: speed. The 275-385 s shard timings were a 16-core machine's; whether the split buys wall clock on the runner is what the verifying dispatch measures, not an assumption.
+Verified: `node --test scripts/ci-scope.test.mjs` (the guard slices `goJob` and `heavyJob` and asserts the list, the Windows skip, the exclusion in one job only, and a ceiling in each); `yaml.safe_load` on the workflow; `bash -n scripts/go-test.sh`; and the exclusion run for real — `GO_TEST_EXCLUDE_HEAVY=1 ./scripts/go-test.sh ./internal/llama ./internal/store` ran 1 package and left `store` out.
+The tmux version and checksum moved to a workflow-level `env` so the two jobs cannot drift; it was one pin written twice.

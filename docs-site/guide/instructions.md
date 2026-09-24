@@ -7,13 +7,13 @@ description: See which instruction files (AGENTS.md, CLAUDE.md and their kin) ea
 Every agent CLI PiCode runs reads `AGENTS.md`, but each one decides differently
 which file wins. Claude Code reads `CLAUDE.md` instead of `AGENTS.md` when both
 exist; Codex, Pi, OpenCode, Hermes and Muse Code read `AGENTS.md`; Grok reads
-both. The **Instructions** tab shows, for one workspace, what each installed
+both. The **Instructions** page shows, for one workspace, what each installed
 CLI will read and what it leaves out.
 
 ## Open it
 
-Open the **…** menu of a workspace in the sidebar and choose **Instructions**. The
-tab lists the instruction files it finds: in the workspace and the folders
+Open the **…** menu of a workspace in the sidebar and choose **Instructions**.
+The page opens over your tabs, like Agent CLIs, and **Back** returns to them. It lists the instruction files it finds: in the workspace and the folders
 inside it, in the folders above it, and your personal files (such as
 `~/.claude/CLAUDE.md`). Each column is one CLI; each cell says what that CLI
 does with the file:
@@ -69,7 +69,7 @@ same answer in one line for the CLI you pick.
 
 ## What it is not
 
-The tab writes only the changes listed above, and only after you confirm
+The page writes only the changes listed above, and only after you confirm
 them; anything else is fixed in the editor. It shows what each CLI's rules say for the version PiCode measured;
 a CLI that changes its rules later can differ until PiCode catches up.
 Hermes also refuses a file its prompt-injection scan flags, which PiCode

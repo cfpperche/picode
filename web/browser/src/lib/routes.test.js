@@ -302,7 +302,7 @@ test("delivery links keep owner identity separate from view",()=>{
 import { instructionsHash, instructionsRoute, instructionsTabId, isInstructionsTab, instructionsTabWorkspace } from "./routes.js";
 
 test("instructions: one tab per workspace, round-tripped through the hash", () => {
-  assert.equal(parseRoute("#/instructions/ws_1"), "workspace");
+  assert.equal(parseRoute("#/instructions/ws_1"), "instructions");
   assert.equal(instructionsHash("ws 1"), "#/instructions/ws%201");
   assert.equal(instructionsRoute("#/instructions/ws%201"), "ws 1");
   assert.equal(instructionsRoute("#/instructions/"), null);
