@@ -1,6 +1,7 @@
 package cliinstructions
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,6 +46,13 @@ func repo(t *testing.T, files map[string]string) (home, root string) {
 	write(t, root, files)
 	git(t, root, "init", "-q")
 	return home, root
+}
+
+// agyTrust writes Antigravity's trust list with exactly these folders.
+func agyTrust(t *testing.T, home string, folders ...string) {
+	t.Helper()
+	b, _ := json.Marshal(map[string]any{"trustedWorkspaces": folders})
+	write(t, home, map[string]string{".gemini/antigravity-cli/settings.json": string(b)})
 }
 
 func resolve(t *testing.T, env Env) *Report {
@@ -102,6 +110,7 @@ func check(t *testing.T, rep *Report, rows []want) {
 func TestBothFilesInOneFolder(t *testing.T) {
 	home, root := repo(t, map[string]string{"AGENTS.md": "a\n", "CLAUDE.md": "claude rules\n"})
 	write(t, home, map[string]string{".grok/trusted_folders.toml": `[folders."` + root + `"]` + "\ntrusted = true\n"})
+	agyTrust(t, home, root)
 	rep := resolve(t, Env{Home: home, Root: root})
 	check(t, rep, []want{
 		{"CLAUDE.md", "claude-code", StatusReads, ""},
@@ -120,7 +129,7 @@ func TestBothFilesInOneFolder(t *testing.T) {
 		{"CLAUDE.md", "codex", StatusNotRead, ""},
 		{"AGENTS.md", "muse", StatusReads, ""},
 		{"CLAUDE.md", "muse", StatusShadowed, "AGENTS.md"},
-		{"AGENTS.md", "agy", StatusUnknown, ""}, // docs say reads; runs of 1.2.10 found none at start
+		{"AGENTS.md", "agy", StatusReads, ""},
 		{"CLAUDE.md", "agy", StatusNotRead, ""},
 	})
 	f := has(rep, "claude-split")
@@ -262,15 +271,34 @@ func TestLimits(t *testing.T) {
 		t.Fatal("hermesCut: the floor and an explicit cap")
 	}
 	home, root := repo(t, map[string]string{"AGENTS.md": strings.Repeat("x", 25000) + "\n"})
+	agyTrust(t, home, root)
 	write(t, home, map[string]string{".codex/config.toml": "project_doc_max_bytes = 10000\n[profiles.x]\nproject_doc_max_bytes = 1\n"})
 	rep := resolve(t, Env{Home: home, Root: root})
-	for cli, fragment := range map[string]string{"hermes": "under 105k tokens", "codex": "10,000 bytes"} {
+	for cli, fragment := range map[string]string{"hermes": "under 105k tokens", "agy": "24,000 bytes", "codex": "10,000 bytes"} {
 		if c := cell(t, rep, "AGENTS.md", cli); !strings.Contains(c.Cut, fragment) {
 			t.Errorf("%s cut = %q, want it to mention %q", cli, c.Cut, fragment)
 		}
 	}
 	if f := has(rep, "limit"); f == nil || !strings.Contains(f.Text, "25,001 bytes") || f.Action == nil || f.Action.Kind != "settings" {
 		t.Fatalf("limit = %+v", f)
+	}
+}
+
+func TestAgyTrust(t *testing.T) {
+	home, root := repo(t, map[string]string{"AGENTS.md": "a\n"})
+	rep := resolve(t, Env{Home: home, Root: root})
+	check(t, rep, []want{{"AGENTS.md", "agy", StatusUntrusted, ""}})
+	if has(rep, "agy-untrusted") == nil {
+		t.Fatal("agy-untrusted missing")
+	}
+	// A trusted parent does not trust the repository (measured with /tmp).
+	agyTrust(t, home, filepath.Dir(root))
+	check(t, resolve(t, Env{Home: home, Root: root}), []want{{"AGENTS.md", "agy", StatusUntrusted, ""}})
+	agyTrust(t, home, root+"/")
+	rep = resolve(t, Env{Home: home, Root: root})
+	check(t, rep, []want{{"AGENTS.md", "agy", StatusReads, ""}})
+	if has(rep, "agy-untrusted") != nil {
+		t.Fatal("agy-untrusted on a trusted folder")
 	}
 }
 
@@ -315,9 +343,19 @@ func TestSubfoldersAndStartFolder(t *testing.T) {
 			}
 		}
 	}
+	// Antigravity: trusting the repository does not trust pkg/; pkg/ itself does.
+	agyTrust(t, home, root)
+	rep = resolve(t, Env{Home: home, Root: root, Start: filepath.Join(root, "pkg")})
 	for _, p := range []string{"AGENTS.md", "pkg/AGENTS.md"} {
-		if c := cell(t, rep, p, "agy"); c.Status != StatusUnknown {
-			t.Errorf("start pkg: %s / agy = %s, want unknown (none loaded at start in PiCode's runs)", p, c.Status)
+		if c := cell(t, rep, p, "agy"); c.Status != StatusUntrusted {
+			t.Errorf("start pkg, root trusted: %s / agy = %s, want untrusted", p, c.Status)
+		}
+	}
+	agyTrust(t, home, filepath.Join(root, "pkg"))
+	rep = resolve(t, Env{Home: home, Root: root, Start: filepath.Join(root, "pkg")})
+	for _, p := range []string{"AGENTS.md", "pkg/AGENTS.md"} {
+		if c := cell(t, rep, p, "agy"); c.Status != StatusReads {
+			t.Errorf("start pkg, pkg trusted: %s / agy = %s (%s), want reads", p, c.Status, c.Why)
 		}
 	}
 	if _, err := Resolve(Env{Home: home, Root: filepath.Join(root, "pkg"), Start: root}); err == nil {
@@ -345,7 +383,7 @@ func TestFindingsSpeakOnlyOfInstalledCLIs(t *testing.T) {
 		return func(cli string) bool { return in(ids, cli) }
 	}
 	rep := resolve(t, Env{Home: home, Root: root, Installed: only("codex")})
-	if has(rep, "hermes-kind") != nil || has(rep, "grok-untrusted") != nil || has(rep, "override-partial") != nil {
+	if has(rep, "hermes-kind") != nil || has(rep, "grok-untrusted") != nil || has(rep, "agy-untrusted") != nil || has(rep, "override-partial") != nil {
 		t.Fatalf("findings about CLIs that are not installed: %+v", rep.Findings)
 	}
 	rep = resolve(t, Env{Home: home, Root: root, Installed: only("codex", "claude-code")})

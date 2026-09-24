@@ -583,32 +583,39 @@ var ruleMuse = &rule{
 	},
 }
 
-// ── Antigravity CLI 1.2.10: its embedded docs say GEMINI.md and AGENTS.md
-// load from the start folder up to the repository root, but four runs on
-// 2026-09-24 (print and interactive, trusted folder, root and subfolder)
-// found none of them in the model's context at a session's start. When they
-// do load was not measured (the probe needs a tool call, which headless mode
-// denies), so the cell says unknown and names both facts. ──
+// ── Antigravity CLI 1.2.10: its embedded docs, measured 2026-09-24 in
+// interactive sessions on fixtures. In a trusted start folder it reads
+// GEMINI.md and AGENTS.md from there up to the repository root at a
+// session's start, keeping the first 24,000 bytes of a file. Trust is per
+// exact folder (~/.gemini/antigravity-cli/settings.json trustedWorkspaces):
+// neither a trusted parent nor a trusted parent's child counts. A session
+// in an untrusted folder, and every headless `agy -p` run, loads none. ──
 
 var ruleAgy = &rule{
-	id: "agy", name: "Antigravity", source: "Antigravity CLI 1.2.10, its docs and four runs (none loaded at start)",
+	id: "agy", name: "Antigravity", source: "Antigravity CLI 1.2.10, measured (interactive runs on fixtures)",
 	names: set("GEMINI.md", "AGENTS.md"),
 	resolve: func(s *scan) {
 		stop := s.top
 		if stop == "" {
 			stop = s.start
 		}
+		trusted := agyTrusted(s.home, s.start)
 		seen := map[[32]byte]*File{}
 		for _, d := range s.dirs(stop, false) {
 			for _, n := range []string{"GEMINI.md", "AGENTS.md"} {
 				f := s.at(d, n)
 				switch {
 				case f == nil:
+				case !trusted:
+					s.put(f, "agy", Cell{Status: StatusUntrusted, Why: "Antigravity reads a project's rules only in a folder you trusted in Antigravity, and only that exact folder counts"})
 				case seen[f.sum] != nil:
 					s.shadow(f, "agy", seen[f.sum], "the same text as a file Antigravity already read")
 				default:
 					seen[f.sum] = f
-					s.put(f, "agy", Cell{Status: StatusUnknown, Why: "Antigravity's docs say it reads GEMINI.md and AGENTS.md from the start folder up to the repository root, but in PiCode's runs of 1.2.10 none was in a new session's context"})
+					s.reads(f, "agy", "Antigravity reads both GEMINI.md and AGENTS.md from the start folder up to the repository root")
+					if f.Bytes > 24000 {
+						s.cut(f, "agy", "Antigravity keeps the first 24,000 bytes")
+					}
 				}
 			}
 		}
@@ -617,6 +624,9 @@ var ruleAgy = &rule{
 		}
 		s.aboveFor("agy", set("GEMINI.md", "AGENTS.md"), stop, "Antigravity stops at the repository root")
 		s.nestedFor("agy", set("GEMINI.md", "AGENTS.md"), Cell{Status: StatusOnDemand, Why: "Antigravity reads a subfolder's file when the agent opens a file there"})
+	},
+	notes: func(s *scan) []string {
+		return []string{"A headless run (agy -p) loads no project rules, even in a trusted folder."}
 	},
 }
 

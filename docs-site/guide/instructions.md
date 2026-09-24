@@ -43,7 +43,8 @@ file to open:
 - a file over a CLI's size limit (Hermes cuts long files on models with a
   small window; Codex keeps a fixed number of bytes);
 - import lines (`@path`) that most CLIs read as plain text;
-- a folder Grok does not trust yet.
+- a folder Grok or Antigravity does not trust yet (Antigravity trusts one
+  exact folder at a time, not the folders inside it).
 
 Some fixes are a setting rather than a file. A CLI's **Settings** page has an
 **Instructions** group: Claude Code's **Project instructions** (read CLAUDE.md,
