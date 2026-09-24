@@ -1,8 +1,7 @@
-/* Instructions — a workspace tab that draws the page frame every system
-   route draws (.settings-wrap + .settings-head + .settings-card, ADR-0103),
-   like Git ▸ Delivery. The view is the only vertical scroll container; the
+/* Instructions — a page route (#/instructions/<workspace>) drawn by PageFrame,
+   like Agent CLIs; .pane-view is the vertical scroll container and the
    matrix scrolls sideways inside the card when nine columns do not fit. */
-.instr-page { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; font-size: 13px; }
+.instr-page { font-size: 13px; }
 
 /* One control row: the start folder and the toggle read left to right,
    Refresh is the row's own action at its end (the .delivery-toolbar rhythm). */
