@@ -41,7 +41,7 @@ file to open:
 - a `CLAUDE.local.md` that turns `AGENTS.md` off for Claude Code;
 - folders where Claude Code and the other CLIs read different files;
 - a file over a CLI's size limit (Hermes cuts long files on models with a
-  small window; Codex and Antigravity keep a fixed number of bytes);
+  small window; Codex keeps a fixed number of bytes);
 - import lines (`@path`) that most CLIs read as plain text;
 - a folder Grok does not trust yet.
 
