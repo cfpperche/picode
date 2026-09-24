@@ -22,3 +22,13 @@ export function historyWorkspaceChoice(entry, picked) {
   if (entry && entry.workspaceExists && entry.exit && entry.exit.workspaceId) return entry.exit.workspaceId;
   return "";
 }
+
+// restoredToast is the one message a restore leaves, from the history page
+// or from Undo: back and running, back but not started (and why), plus the
+// environment variables to set again (their values were never kept).
+export function restoredToast(name, out) {
+  const keys = (out && out.envKeys) || [];
+  const note = keys.length ? ` Set ${keys.join(", ")} again in its launch settings.` : "";
+  if (out && out.startError) return { ok: false, text: `"${name}" is back, but it didn't start: ${out.startError}.` + note };
+  return { ok: true, text: `"${name}" is back.` + note };
+}

@@ -135,7 +135,7 @@ failed refresh keeps the previous results visible with a retry action.
 | Route | Does |
 |---|---|
 | `GET /api/agent-history` | `{entries: [{exit, session, folder, folderExists, workspaceExists, canDeleteFile}]}`, newest removal first, at most 500 exits read |
-| `POST /api/agent-history/{id}/restore` | `{workspaceId?, name?, undo?}` → 201 `{agent, terminalId, resume, envKeys}` under the removed agent's id (ADR-0211); the refusals are ADR-0205's table (409 restored or id taken / `workspace_gone` / `folder_gone`, 410 transcript gone unless `undo`, the launch pre-flight). The removal toast's Undo calls it with `undo: true`: no transcript is needed, and a private folder purged under the data dir's `work/` is made again |
+| `POST /api/agent-history/{id}/restore` | `{workspaceId?, name?, undo?}` → 201 `{agent, terminalId, resume, envKeys}` under the removed agent's id (ADR-0211); the refusals are ADR-0205's table (409 restored or id taken / `workspace_gone` / `folder_gone`, 410 transcript gone unless `undo`, the launch pre-flight). The removal toast's Undo calls it with `undo: true`: no transcript is needed, and a private folder purged under the data dir's `work/` is made again. Both callers go through `restoreAgent` (`web/shared/client/launchAgent.js`), which also starts the agent: a terminal's `launch/start` (with `resume` when a session was pinned), else a Pi agent's `managed/start`, which is what shows its conversation |
 | `POST /api/agent-history/{id}/forget` | `{deleteFile?}` → the exit with `forgottenAt`; `deleteFile` only for a Pi file under Pi's sessions root that no living agent is bound to |
 
 A restored Pi agent gets the exit's provider, model, thinking, tools,
