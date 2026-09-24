@@ -8,4 +8,4 @@ visual-review: n/a
 
 Not done / debts: None identified for this guide correction. No deployment was performed.
 
-Merge: fast-forward ready from `bbf79d724` against `main` at `35d4fce68` when `make close-summary` ran.
+Merge: landed by fast-forward at `ed8ee0c45`; full CI passed. Publication of the public site remains a separate owner action.
