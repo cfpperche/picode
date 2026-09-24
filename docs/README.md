@@ -1,6 +1,6 @@
 # PiCode documentation
 
-Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS.md)).
+Living documentation — evolves with the code, by contract ([AGENTS.md](../AGENTS.md)).
 
 | Doc | What it holds |
 |---|---|
@@ -13,7 +13,7 @@ Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS
 | [benchmarks/](benchmarks/) | **Who we study**: Cursor, t3code, paseo, Herdr, Devin — dated notes |
 | [plans/missions.md](plans/missions.md) | Persistent missions across agents and sessions; approved scope, implementation evidence and future milestones |
 | [benchmark-cursor.md](benchmark-cursor.md) | Cursor product patterns + aesthetic/density north star |
-| [handoff.md](handoff.md) | **Project state right now** — start here (≤ 100 lines by hook) |
+| `handoff.md` (generated, not in git — run `make handoff`) | **Project state right now** — start here (≤ 100 lines by hook) |
 | [handoff/](handoff/) | One short note per session, newest by filename; `make close-summary` says what to write |
 | [design/composer-mcp-roadmap.md](design/composer-mcp-roadmap.md) | `@` / images / `!` then MCP; auth parked |
 | [design/voice-mode.md](design/voice-mode.md) | Dictation + voice composer: V1 shipped, V1.1–V3 phases |

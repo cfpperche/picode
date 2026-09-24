@@ -3,7 +3,8 @@
 **Status:** owner-authorized implementation, 2026-09-04. The three increments
 below are implemented in ADRs [0067](../decisions/0067-docker-maintenance-plans.md)
 and [0068](../decisions/0068-docker-health-monitoring.md), with final acceptance
-recorded in [handoff](../handoff.md). V2's project-operation foundation ships
+recorded in the handoff notes (`make handoff`; `docs/handoff.md` is generated
+and not in git). V2's project-operation foundation ships
 with this work; Compose registration/deployment remains a separate proposal.
 The original scope and acceptance criteria below remain the design reference.
 

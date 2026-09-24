@@ -1,8 +1,8 @@
-# ADR-0152: annotation-delivery
+# ADR-0152: annotation-delivery — one staged file, its path in the prompt door
 
-- **Status**: accepted | accepted | superseded by ADR-XXXX
+- **Status**: accepted (amended 2026-09-19: one note per Send, no cap on pins)
 - **Date**: 2026-09-18
-- **Boundary**: protocol | persistence | security model | process — which one, and what crosses it
+- **Boundary**: persistence (a new table and a staging-folder convention) and the user→agent input contract — what reaches an agent's terminal, and by whose act
 
 ## Boundary
 

@@ -1,7 +1,7 @@
 # Architecture
 
 > Status: v0.1 — evolves with the project. Split into `docs/architecture/` on 2026-09-09 (ADR-0105). Last reviewed: 2026-09-07 (catalog CLI Activity defaults on; OpenCode activity plugin; OpenCode CLI catalog; Hermes Agent CLI catalog; ADRs 0071–0074; mobile IME accessory in 0044).
-> Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
+> Changing anything described here requires updating this file (see [AGENTS.md](../AGENTS.md)).
 
 ## The one-paragraph version
 
