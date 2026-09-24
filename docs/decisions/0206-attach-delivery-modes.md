@@ -67,3 +67,26 @@ agents (receiver path) pass the mode to `pi.sendUserMessage` as
 - **Refuse steer in the UI, queue in PiCode until idle** — a server-side
   queue duplicates what every CLI already does natively and needs its
   own persistence.
+
+## Amendment 2026-09-24 — Stop and send (owner: "aprovado, pode executar")
+
+A fourth mode, **interrupt** ("Stop and send" in the composer), stops the
+running turn and sends the message as a new prompt — the alternative this
+ADR first left out. It does not use each CLI's native "send now" chord:
+the door presses the CLI's measured stop key (Esc; Esc twice for
+OpenCode; Ctrl+C for Grok and Hermes — exactly one, since a second within
+2 s force-exits Hermes), waits up to 3 s for the CLI's own stop line
+(`Interrupted` / `aborted` / `cancelled`) or for its state to leave
+`working`, and only then runs today's verified prompt path. A stop it
+cannot see is refused as `not-stopped` with nothing pasted; a composer the
+stop refilled (Muse gives back a prompt it retracted) is refused as
+`restored` instead of being appended to. needs-you, drafts and automations
+stay as above; an idle CLI gets a plain prompt. The composer never selects
+it by default. Pi agents abort through the receiver (`ctx.abort()`, then
+wait for idle) before `sendUserMessage`.
+
+| CLI state | Mode | Action |
+|---|---|---|
+| idle / unknown | interrupt | prompt door |
+| working | interrupt | stop key → stop seen → verified prompt; not seen → 409 `not-stopped`; field refilled → 409 `restored` |
+| needs-you | interrupt | 409 `needs-you` |

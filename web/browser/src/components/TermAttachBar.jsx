@@ -4,7 +4,7 @@ import { api } from "@picode/shared/client/api.js";
 import { focusPane } from "../lib/termActions.js";
 import { toast } from "../lib/toast.js";
 import { createUseDeliveryModes } from "@picode/shared/client/useDeliveryModes.js";
-import { deliveryNotice, deliveryPlaceholder } from "@picode/shared/domain/deliveryModes.js";
+import { deliveryNotice, deliveryPlaceholder, deliverySendLabel } from "@picode/shared/domain/deliveryModes.js";
 
 const useDeliveryModes = createUseDeliveryModes({ useEffect, useState });
 
@@ -80,7 +80,7 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
       delivery={delivery}
       onDelivery={setDelivery}
       placeholder={deliveryPlaceholder(delivery, "Message the terminal")}
-      sendLabel={delivery === "follow_up" ? "Queue" : "Send"}
+      sendLabel={deliverySendLabel(delivery)}
     />
   );
 }

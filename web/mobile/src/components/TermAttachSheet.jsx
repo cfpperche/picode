@@ -10,7 +10,7 @@ import { terminalOwnerBase } from "@picode/shared/domain/agentTerminal.js";
 import { isSubmitKey } from "../lib/agentDrafts.js";
 import { toast, toastError } from "../lib/toast.js";
 import { createUseDeliveryModes } from "@picode/shared/client/useDeliveryModes.js";
-import { deliveryNotice, deliveryPlaceholder } from "@picode/shared/domain/deliveryModes.js";
+import { deliveryNotice, deliveryPlaceholder, deliverySendLabel } from "@picode/shared/domain/deliveryModes.js";
 
 const useDeliveryModes = createUseDeliveryModes({ useEffect, useState });
 
@@ -186,7 +186,7 @@ export default function TermAttachSheet({ term, owner = { kind: "term", id: term
                 aria-label={placeholder}
                 autoComplete="off"
               />
-              <button type="submit" className="icon-btn icon-btn-send" title="Send · Ctrl/⌘ Enter" disabled={busy || (!text.trim() && !items.length)}><IconSend size={16} /></button>
+              <button type="submit" className="icon-btn icon-btn-send" title={deliverySendLabel(delivery) + " · Ctrl/⌘ Enter"} aria-label={deliverySendLabel(delivery)} disabled={busy || (!text.trim() && !items.length)}><IconSend size={16} /></button>
             </div>
           </form>
         </Dialog.Content>

@@ -7,32 +7,44 @@
 // refuses it mid-turn. A CLI with none of them keeps the plain composer and
 // the server's refusal names why.
 
-const LABELS = Object.freeze({ prompt: "Prompt", steer: "Steer", follow_up: "Follow-up" });
+const LABELS = Object.freeze({ prompt: "Prompt", steer: "Steer", follow_up: "Follow-up", interrupt: "Stop and send" });
 
 // One line per choice, for people who never met the words.
 const HINTS = Object.freeze({
   steer: "Reaches the agent in this turn",
   follow_up: "Sent when this turn ends",
+  interrupt: "Stops the agent now, then sends",
 });
 
 // Placeholder per mode: what Send will do, in the words a person uses.
 const PLACEHOLDERS = Object.freeze({
   steer: "Steer the running turn",
   follow_up: "Queue for after this turn",
+  interrupt: "Stop the agent and send this",
 });
 
 export function deliveryOptions(modes, state) {
   if (state !== "working") return [];
   return (Array.isArray(modes) ? modes : [])
-    .filter((m) => m === "steer" || m === "follow_up")
+    .filter((m) => m === "steer" || m === "follow_up" || m === "interrupt")
     .map((id) => ({ id, label: LABELS[id], hint: HINTS[id] }));
 }
 
 // The mode Send uses: the person's pick while it is still offered, else the
-// first offered one, else a plain prompt.
+// first offered one, else a plain prompt. Stop and send is never the
+// default: it discards the step in flight, so it is always a deliberate pick.
 export function pickDelivery(options, current) {
   if (!options.length) return "prompt";
-  return options.some((o) => o.id === current) ? current : options[0].id;
+  if (options.some((o) => o.id === current)) return current;
+  const safe = options.find((o) => o.id !== "interrupt");
+  return (safe || options[0]).id;
+}
+
+// The Send button's words for a mode.
+export function deliverySendLabel(delivery) {
+  if (delivery === "follow_up") return "Queue";
+  if (delivery === "interrupt") return "Stop and send";
+  return "Send";
 }
 
 export function deliveryPlaceholder(delivery, fallback) {
@@ -44,7 +56,7 @@ export function deliveryPlaceholder(delivery, fallback) {
 // queue render.
 export function deliveryNotice(res, delivery) {
   if (!res || res.delivery !== "unconfirmed") return "";
-  return delivery === "steer" || delivery === "follow_up"
+  return delivery === "steer" || delivery === "follow_up" || delivery === "interrupt"
     ? "Sent, but PiCode could not confirm the CLI took it. Check the terminal."
     : "Sent, but PiCode could not confirm it left the composer. Check the terminal.";
 }

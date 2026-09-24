@@ -110,3 +110,23 @@ follow-up candidate. Captured the pane at +0.5 s (render) and after the
 turn (order): BRAVO before the turn ends = steer; CHARLIE as a separate
 turn = follow-up. Claude Code was also probed during a tool-free
 streaming answer, where Enter waited for the turn end.
+
+## Stop and send — measured 2026-09-24
+
+Same probe (isolated tmux, scratch folder, the owner's config): a long
+turn, the stop key four to six seconds in, then "reply only CHARLIE".
+
+| CLI | Stop key | Stop line seen | Field after the stop |
+|---|---|---|---|
+| Claude Code | Esc | `⎿ Interrupted · What should Claude do instead?` (<0.5 s) | empty |
+| Codex | Esc | `■ Conversation interrupted - tell the model what to do differently.` | empty |
+| Pi | Esc | `Operation aborted` | empty (queued messages would return to it) |
+| Omp | Esc | `Command aborted` in the tool box; no line when stopped before output | empty |
+| OpenCode | Esc, Esc | first `esc again to interrupt`, then `· interrupted` | empty |
+| Muse | Esc | `◆ Interrupted` | empty — **but a prompt stopped before the model started comes back into the field** |
+| Antigravity | Esc | `⎿ Interrupted · What should Antigravity CLI do instead?` | empty |
+| Grok | Ctrl+C (Esc only toasts) | `Turn cancelled by user in 4.0s.` | empty |
+| Hermes | Ctrl+C, once (twice within 2 s exits) | `Operation interrupted: waiting for model response` | italic suggestion only |
+
+In every CLI the stopped request stays in the conversation, so the model
+reads the new message with the old one in view (Omp answered both).

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deliveryOptions, pickDelivery, deliveryPlaceholder, deliveryNotice } from "./deliveryModes.js";
+import { deliveryOptions, pickDelivery, deliveryPlaceholder, deliveryNotice, deliverySendLabel } from "./deliveryModes.js";
 
 test("idle hides the selector; working offers the busy modes the CLI has", () => {
   assert.deepEqual(deliveryOptions(["prompt", "steer", "follow_up"], "idle"), []);
@@ -26,4 +26,16 @@ test("placeholder and receipt copy", () => {
   assert.match(deliveryNotice({ delivery: "unconfirmed" }, "prompt"), /left the composer/);
   assert.equal(deliveryNotice({ delivery: "queued" }, "steer"), "");
   assert.equal(deliveryNotice({ delivery: "verified" }, "prompt"), "");
+});
+
+test("stop and send is offered while working but never the default", () => {
+  const all = deliveryOptions(["prompt", "steer", "follow_up", "interrupt"], "working");
+  assert.deepEqual(all.map((o) => o.id), ["steer", "follow_up", "interrupt"]);
+  assert.equal(pickDelivery(all, ""), "steer");
+  assert.equal(pickDelivery(all, "interrupt"), "interrupt");
+  const agy = deliveryOptions(["prompt", "follow_up", "interrupt"], "working");
+  assert.equal(pickDelivery(agy, ""), "follow_up");
+  assert.equal(deliverySendLabel("interrupt"), "Stop and send");
+  assert.equal(deliverySendLabel("follow_up"), "Queue");
+  assert.equal(deliveryPlaceholder("interrupt", "x"), "Stop the agent and send this");
 });

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -21,20 +23,28 @@ import (
 // a change here is a change to what PiCode types into a working CLI.
 func TestDeliveryModesTable(t *testing.T) {
 	want := map[string][]string{
-		"pi":          {"prompt", "steer", "follow_up"},
-		"omp":         {"prompt", "steer", "follow_up"},
-		"hermes":      {"prompt", "steer", "follow_up"},
-		"muse":        {"prompt", "steer", "follow_up"},
-		"codex":       {"prompt", "steer", "follow_up"},
-		"claude-code": {"prompt", "steer"},
-		"opencode":    {"prompt", "steer"},
-		"agy":         {"prompt", "follow_up"},
-		"grok":        {"prompt", "follow_up"},
+		"pi":          {"prompt", "steer", "follow_up", "interrupt"},
+		"omp":         {"prompt", "steer", "follow_up", "interrupt"},
+		"hermes":      {"prompt", "steer", "follow_up", "interrupt"},
+		"muse":        {"prompt", "steer", "follow_up", "interrupt"},
+		"codex":       {"prompt", "steer", "follow_up", "interrupt"},
+		"claude-code": {"prompt", "steer", "interrupt"},
+		"opencode":    {"prompt", "steer", "interrupt"},
+		"agy":         {"prompt", "follow_up", "interrupt"},
+		"grok":        {"prompt", "follow_up", "interrupt"},
 		"":            {"prompt"},
 	}
 	for cli, modes := range want {
 		if got := deliveryModesFor(cli); !reflect.DeepEqual(got, modes) {
 			t.Errorf("%q: got %v want %v", cli, got, modes)
+		}
+	}
+	// Hermes gets exactly one Ctrl+C (a second within 2 s force-exits it);
+	// Grok's Esc does not cancel; OpenCode confirms with a second Esc.
+	want2 := map[string][]string{"hermes": {"C-c"}, "grok": {"C-c"}, "opencode": {"Escape", "Escape"}, "claude-code": {"Escape"}}
+	for cli, keys := range want2 {
+		if got := deliveryAdapters[cli].interrupt; !reflect.DeepEqual(got, keys) {
+			t.Errorf("%s interrupt keys %v want %v", cli, got, keys)
 		}
 	}
 	// Hermes never gets a bare Enter: with busy_input_mode "interrupt" it
@@ -134,6 +144,8 @@ func TestAttachDeliveryDecisionTable(t *testing.T) {
 		{"needs-you refuses steer", "pi", TermNeedsYou, `{"message":"x","delivery":"steer"}`, http.StatusConflict, TermNeedsYou},
 		{"needs-you refuses follow-up", "codex", TermNeedsYou, `{"message":"x","delivery":"follow_up"}`, http.StatusConflict, TermNeedsYou},
 		{"idle steer is a prompt", "opencode", TermIdle, `{"message":"x","delivery":"steer"}`, http.StatusOK, ""},
+		{"needs-you refuses interrupt", "claude-code", TermNeedsYou, `{"message":"x","delivery":"interrupt"}`, http.StatusConflict, TermNeedsYou},
+		{"idle interrupt is a prompt", "codex", TermIdle, `{"message":"x","delivery":"interrupt"}`, http.StatusOK, ""},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
@@ -178,14 +190,14 @@ func TestAttachDeliveryDecisionTable(t *testing.T) {
 		if err := json.NewDecoder(res.Body).Decode(&page); err != nil {
 			t.Fatal(err)
 		}
-		if page.CLI != "grok" || !reflect.DeepEqual(page.Modes, []string{"prompt", "follow_up"}) || page.State != TermWorking {
+		if page.CLI != "grok" || !reflect.DeepEqual(page.Modes, []string{"prompt", "follow_up", "interrupt"}) || page.State != TermWorking {
 			t.Fatalf("%+v", page)
 		}
 	})
 }
 
 func TestPiDeliverAs(t *testing.T) {
-	for mode, want := range map[string]string{"": "", "prompt": "", "steer": "steer", "follow_up": "followUp"} {
+	for mode, want := range map[string]string{"": "", "prompt": "", "steer": "steer", "follow_up": "followUp", "interrupt": "interrupt"} {
 		if got := piDeliverAs(mode); got != want {
 			t.Errorf("%q: %q want %q", mode, got, want)
 		}
@@ -198,6 +210,9 @@ func TestPiDeliverAs(t *testing.T) {
 	}
 	if !strings.Contains(string(src), `deliverAs: doc.deliverAs === "steer" ? "steer" : "followUp"`) {
 		t.Fatal("receiver no longer honours doc.deliverAs")
+	}
+	if !strings.Contains(string(src), `doc.deliverAs === "interrupt"`) || !strings.Contains(string(src), "latestCtx.abort?.()") {
+		t.Fatal("receiver no longer stops the turn for interrupt")
 	}
 }
 
@@ -234,6 +249,102 @@ func TestAttachDeliveryMidTurnOnTmux(t *testing.T) {
 			code, page := postRaw(t, ts, "/api/terminals/"+term.ID+"/prompt", `{"message":"also write BRAVO at the end","delivery":"steer"}`)
 			if code != http.StatusOK || page["delivery"] != row.want {
 				t.Fatalf("code=%d page=%v want delivery %s", code, page, row.want)
+			}
+		})
+	}
+}
+
+func TestInterruptDetection(t *testing.T) {
+	snap := func(cursor int, lines ...string) tmux.InputSnapshot {
+		return tmux.InputSnapshot{PaneID: "%1", CursorY: cursor, Lines: lines}
+	}
+	// The measured stop lines, one per CLI.
+	for _, line := range []string{
+		"  ⎿  Interrupted · What should Claude do instead?",
+		"■ Conversation interrupted - tell the model what to do differently.",
+		" Operation aborted",
+		"| Command aborted",
+		"     ▣  Build · GLM-5.3-Flash · interrupted",
+		"◆ Interrupted · Report issues with /feedback",
+		"     Turn cancelled by user in 4.0s.",
+		" Operation interrupted: waiting for model response (5.4s elapsed).",
+	} {
+		if markerRows(snap(0, line)) != 1 {
+			t.Errorf("no stop marker in %q", line)
+		}
+	}
+	if markerRows(snap(0, "reading README.md", "writing numbers")) != 0 {
+		t.Error("ordinary rows are not stop markers")
+	}
+
+	cases := []struct {
+		name          string
+		before, after tmux.InputSnapshot
+		refilled      bool
+	}{
+		{"claude empty", snap(0, "❯ "), snap(0, "❯ "), false},
+		{"hermes italic suggestion", snap(0, "❯"),
+			snap(0, "\x1b[38;5;230m❯ \x1b[3m\x1b[38;5;136mSummarize what's in this folder\x1b[0m"), false},
+		{"codex dim placeholder", snap(0, "› \x1b[2mAsk Codex to do anything\x1b[0m"),
+			snap(0, "› \x1b[2mAsk Codex to do anything\x1b[0m"), false},
+		{"muse gave the prompt back", snap(0, "❯"), snap(0, "❯ Read the file README.md three times"), true},
+		{"green text is not a placeholder", snap(0, "❯"), snap(0, "❯ \x1b[32mrestored\x1b[0m"), true},
+		{"same framed row", snap(0, "│ ❯  │"), snap(0, "│ ❯  │"), false},
+	}
+	for _, c := range cases {
+		if got := composerRefilled(c.before, c.after); got != c.refilled {
+			t.Errorf("%s: refilled=%v want %v (text %q)", c.name, got, c.refilled, composerText(c.after))
+		}
+	}
+}
+
+// Stop and send end to end on the suite's isolated tmux: a stand-in CLI
+// that prints "Interrupted" on Esc gets the message; one that ignores the
+// key is refused with not-stopped and receives nothing.
+func TestAttachInterruptOnTmux(t *testing.T) {
+	m := tmux.New()
+	if !m.Available() {
+		t.Skip("tmux not available")
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not available")
+	}
+	prevSettle := interruptSettle
+	interruptSettle = 1500 * time.Millisecond
+	t.Cleanup(func() { interruptSettle = prevSettle })
+	stops := `stty -echo -icanon min 1; while IFS= read -r -s -n1 -d '' c; do if [[ $c == $'\e' ]]; then printf 'Interrupted\n'; else printf '%s' "$c" >> got; fi; done`
+	ignores := `stty -echo -icanon min 1; while IFS= read -r -s -n1 -d '' c; do printf '%s' "$c" >> got; done`
+	rows := []struct {
+		name, script string
+		code         int
+		reason       string
+		sent         bool
+	}{
+		{"stops, then sends", stops, http.StatusOK, "", true},
+		{"never stops, nothing sent", ignores, http.StatusConflict, "not-stopped", false},
+	}
+	for _, row := range rows {
+		t.Run(row.name, func(t *testing.T) {
+			ts, term, states := deliveryHarness(t, "claude-code")
+			name := tmux.ShellSessionName(term.ID)
+			if err := m.NewSession(context.Background(), name, term.Cwd, "bash", "-c", row.script); err != nil {
+				t.Fatalf("fixture session: %v", err)
+			}
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = m.KillSession(ctx, name)
+			})
+			time.Sleep(300 * time.Millisecond)
+			states.Set(term.ID, TermWorking, "claude-code", time.Now())
+			code, page := postRaw(t, ts, "/api/terminals/"+term.ID+"/prompt", `{"message":"use the other file","delivery":"interrupt"}`)
+			if code != row.code || (row.reason != "" && page["reason"] != row.reason) {
+				t.Fatalf("code=%d page=%v want %d %s", code, page, row.code, row.reason)
+			}
+			time.Sleep(300 * time.Millisecond)
+			got, _ := os.ReadFile(filepath.Join(term.Cwd, "got"))
+			if sent := strings.Contains(string(got), "use the other file"); sent != row.sent {
+				t.Fatalf("pane got %q, sent=%v want %v", got, sent, row.sent)
 			}
 		})
 	}

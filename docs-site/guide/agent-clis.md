@@ -86,19 +86,24 @@ of refusing the message:
 - **Steer** — the message reaches the agent inside the running turn, after
   the step it is on.
 - **Follow-up** — the message waits and is sent when the turn ends.
+- **Stop and send** — the agent stops what it is doing right away and the
+  message starts a new turn. Work in progress is cut short, so this choice
+  is never selected for you.
 
 Only the choices that CLI really has are listed:
 
-| CLI | Steer | Follow-up |
-|---|---|---|
-| Pi, Omp, Hermes Agent, Muse Code, Codex | yes | yes |
-| Claude Code, OpenCode | yes | — |
-| Antigravity, Grok | — | yes |
+| CLI | Steer | Follow-up | Stop and send |
+|---|---|---|---|
+| Pi, Omp, Hermes Agent, Muse Code, Codex | yes | yes | yes |
+| Claude Code, OpenCode | yes | — | yes |
+| Antigravity, Grok | — | yes | yes |
 
 When the CLI is waiting for you (an approval or a question), nothing is
 sent: answer it in the terminal first. A draft already typed in the
 terminal is never overwritten. If PiCode cannot see the CLI take the
-message, it says so — check the terminal.
+message, it says so — check the terminal. If the agent does not stop, or
+puts its previous message back in its field, Stop and send sends nothing
+and tells you why.
 
 ## Inside the terminal pane
 

@@ -87,7 +87,7 @@ func (deps Deps) deliverToInteractiveAgentAs(ctx context.Context, agent store.Ag
 	baseline := rpc.CaptureDeliveryBaseline(sessionPath)
 	if sessionPath != "" && deps.Replies.receiverFresh(agent.ID) {
 		err = deps.deliverViaReceiverAs(agent.ID, sessionPath, task, baseline, settle, piDeliverAs(mode))
-	} else if mode == deliverySteer || mode == deliveryFollowUp {
+	} else if mode == deliverySteer || mode == deliveryFollowUp || mode == deliveryInterrupt {
 		settle.failed(task, "no receiver for "+mode)
 		return http.StatusConflict, map[string]any{
 			"error":  deliveryModeLabel(mode) + " needs Pi's PiCode receiver, which has not connected in this terminal yet. Send as Prompt.",
@@ -113,6 +113,8 @@ func piDeliverAs(mode string) string {
 		return "steer"
 	case deliveryFollowUp:
 		return "followUp"
+	case deliveryInterrupt:
+		return "interrupt"
 	}
 	return ""
 }

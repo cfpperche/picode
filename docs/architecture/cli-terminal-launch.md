@@ -436,7 +436,11 @@ now"). The receipt is `queued` only when the payload's head shows on a new
 row outside the input row, else `unconfirmed`. `GET` on the same route
 returns `{cli, modes, state, termId}`; the composer shows the selector only
 while the state is `working`. Interactive Pi agents pass the mode to the
-receiver as `deliverAs`. Automations and the extension stay prompt-only. Automations aimed at a CLI agent deliver through
+receiver as `deliverAs`. Automations and the extension stay prompt-only. A fourth mode, `interrupt` ("Stop and send",
+ADR-0206 amendment), presses the CLI's measured stop key, waits for its
+stop line (or its state leaving `working`) and then runs the verified
+prompt path (`doorPasteVerified`); an unseen stop answers `not-stopped` and
+a refilled field `restored`, with nothing pasted. Automations aimed at a CLI agent deliver through
 this door on the agent's bound terminal and finish with the receipt as
 their reason. A **Sketch** button
 opens `SketchEditor.jsx` (one copy per shell) — an Excalidraw pad that borrows

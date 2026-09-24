@@ -186,6 +186,13 @@ export default function (pi) {
                 }
 
 				try {
+					if (doc.deliverAs === "interrupt" && latestCtx && !latestCtx.isIdle?.()) {
+						// Stop and send (ADR-0206): abort the turn, wait for pi to
+						// settle, then send the message as a fresh prompt.
+						latestCtx.abort?.();
+						for (let i = 0; i < 50 && !latestCtx.isIdle?.(); i++) await new Promise((r) => setTimeout(r, 100));
+						if (!latestCtx.isIdle?.()) throw new Error("the turn did not stop");
+					}
 					await pi.sendUserMessage(doc.payload, { deliverAs: doc.deliverAs === "steer" ? "steer" : "followUp", triggerTurn: true });
 					await ack(true, "");
 				} catch (err) {

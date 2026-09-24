@@ -248,6 +248,14 @@ func doorDeliverMode(deps Deps, ctx context.Context, t store.Terminal, payload s
 		announceDoorPrompt(deps, t.ID, "unverified")
 		return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unverified"}
 	}
+	return doorPasteVerified(deps, ctx, cctx, t, cli, session, payload, unattended)
+}
+
+// doorPasteVerified is the door past its gates, with the per-terminal lock
+// held: read the composer, refuse a recognized draft, paste, Enter, and
+// verify the row empties. The prompt door and the interrupt mode
+// (ADR-0206 amendment) both end here.
+func doorPasteVerified(deps Deps, ctx, cctx context.Context, t store.Terminal, cli, session, payload string, unattended bool) (int, map[string]any) {
 	// Read the composer before touching it. A capture can fail under
 	// transient load, so retry briefly before degrading to the blind paste —
 	// degrading is what skips the occupied gate, and that skip must be rare.
