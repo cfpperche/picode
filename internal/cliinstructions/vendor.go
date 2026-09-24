@@ -115,13 +115,23 @@ func grokTrusted(home, folder string) bool {
 	if err != nil {
 		return false
 	}
+	// Both sides are resolved: the file names folders the way the user typed
+	// them, the scan reports what the kernel resolved, and on macOS those
+	// differ under /var (the aliasing `canon` exists for — measured
+	// 2026-09-24, the first run of the macOS leg on a push).
 	want := filepath.Clean(folder)
+	if resolved, err := canon(want); err == nil {
+		want = resolved
+	}
 	header := regexp.MustCompile(`^\[folders\."(.*)"\]\s*$`)
 	current := ""
 	for _, line := range strings.Split(string(b), "\n") {
 		line = strings.TrimSpace(line)
 		if m := header.FindStringSubmatch(line); m != nil {
 			current = filepath.Clean(strings.ReplaceAll(m[1], `\\`, `\`))
+			if resolved, err := canon(current); err == nil {
+				current = resolved
+			}
 			continue
 		}
 		if strings.HasPrefix(line, "[") {

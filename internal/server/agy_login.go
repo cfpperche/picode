@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,6 +49,19 @@ type agyLoginState struct {
 var agyLogin agyLoginState
 
 func agyTokenPath() string { return clicreds.CredentialPath("agy", "google") }
+
+// agyScriptArgs builds the `script(1)` invocation that runs the sign-in under
+// a pty. util-linux takes the command with -c and flushes with -f; the BSD
+// script on macOS has neither — given `-qfec` it prints its usage line
+// (`script -p [-deq] [-T fmt] [file]`, which is what a macOS runner answered,
+// 2026-09-24) — and takes the command after the file instead, so the shell
+// line is handed to `sh -c` there.
+func agyScriptArgs(goos, cmdline, devNull string) []string {
+	if goos == "darwin" {
+		return []string{"-q", devNull, "sh", "-c", cmdline}
+	}
+	return []string{"-qfec", cmdline, devNull}
+}
 
 func handleAgyLoginStart(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +127,7 @@ func handleAgyLoginStart(deps Deps) http.HandlerFunc {
 		}
 
 		cmdline := shellQuote(bin) + " -p . --print-timeout 1s"
-		cmd := exec.CommandContext(ctx, script, "-qfec", cmdline, "/dev/null")
+		cmd := exec.CommandContext(ctx, script, agyScriptArgs(runtime.GOOS, cmdline, "/dev/null")...)
 		// agy opens the page itself through xdg-open (measured: a real browser
 		// on the machine PiCode runs on); the dialog already opens it where
 		// the person is, so agy gets openers that do nothing.

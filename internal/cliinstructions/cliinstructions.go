@@ -238,7 +238,15 @@ func newScan(env Env) (*scan, error) {
 		}
 		start = st
 	}
-	s := &scan{home: filepath.Clean(home), root: root, start: start, files: map[string]*File{}, personal: map[string]*File{}}
+	// The home is resolved, because everything the scan reports is: on macOS
+	// /var is a symlink to /private/var, so an unresolved home has a second
+	// spelling and `tilde` fails to abbreviate every path under it (measured
+	// 2026-09-24, the first run of the macOS leg on a push).
+	homeDir := filepath.Clean(home)
+	if resolved, err := canon(homeDir); err == nil {
+		homeDir = resolved
+	}
+	s := &scan{home: homeDir, root: root, start: start, files: map[string]*File{}, personal: map[string]*File{}}
 	s.top, s.main = gitFacts(start)
 	for d := start; ; d = filepath.Dir(d) {
 		s.chain = append(s.chain, d)
