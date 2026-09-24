@@ -275,5 +275,56 @@
         "summary": "Workspace settings from the card's menu, Checks and tool approval in Omp's Settings, a Limits card that shows every plan PiCode can read, and `/login` opening where you are looking."
       }
     ]
+  },
+  {
+    "version": "0.7.0",
+    "date": "2026-09-24",
+    "highlights": [
+      {
+        "icon": "workspace",
+        "title": "Missions: work that outlives a session",
+        "summary": "An objective, its criteria, decisions, checkpoints and evidence survive across agent sessions, with browser and mobile views, Inbox answers, explicit executor transfer and owner review. The command line and MCP report on missions too; the native pilot exercised Codex and Claude Code, and other providers have not been validated live."
+      },
+      {
+        "icon": "agent",
+        "title": "Fork an agent on its own copy of the conversation",
+        "summary": "Fork agent… starts a new agent of the same CLI — Claude Code, Codex, Grok, OpenCode, Omp — on a copy of its chat, with a task you write, in a new worktree on its own branch or in the same folder. The original keeps running, and its row reads fork of &lt;name&gt;."
+      },
+      {
+        "icon": "agent",
+        "title": "Agent history brings a removed agent back",
+        "summary": "Every agent whose conversation is still on disk is listed at user menu ▸ Agent history. Bring back restores it with its setup, resumes the same conversation — Pi and every other CLI — and can land it in another workspace. Environment variable values are not restored; the toast names the ones to set again."
+      },
+      {
+        "icon": "terminal",
+        "title": "Skills you can add, check and remove",
+        "summary": "The Skills tab reads a GitHub repository, a site's skills index or a local folder, shows each skill's files, format problems and what the safety scan noticed, then installs the one you pick into the workspace or this computer. Check for updates compares installed skills with their sources; Update and Remove ask before touching your edits."
+      },
+      {
+        "icon": "workspace",
+        "title": "A workspace overview that says what needs you",
+        "summary": "Questions, blocked and review-ready missions, waiting agents and failing pull-request checks, with a seven-day activity summary and recent commits — opened from the workspace card's menu, without taking an editor tab."
+      },
+      {
+        "icon": "terminal",
+        "title": "WSL, managed from the desktop window",
+        "summary": "The Management window's System, Distro and Clean tabs show how much memory WSL may use and is using, edit /etc/wsl.conf as the distro's administrator (keeping the previous file), move or back up the distro's disk, and clean the system's own caches. Restart WSL asks first, refuses while an agent is mid-turn, and says that every session inside ends."
+      },
+      {
+        "icon": "agent",
+        "title": "Status that tells the truth",
+        "summary": "Pills show how long an agent has been in its state — Ready · 5m, Stopped · 3d — and an agent running a shell command, typed with ! or left in the background, reads Running instead of Ready in every CLI. Undo after removing an agent brings back the same agent with its conversation."
+      },
+      {
+        "icon": "terminal",
+        "title": "Sign-in without a terminal",
+        "summary": "OpenCode's Add provider follows its own catalog and methods (ChatGPT, GitHub Copilot, GitLab and more); Muse Code opens its Meta sign-in; Antigravity signs in with your Google account and a pasted code. Each keeps the credential in its own store."
+      },
+      {
+        "icon": "phone",
+        "title": "The phone keeps up",
+        "summary": "Agent history and Outcomes are on the phone — bring an agent back, remove one from history, answer an outcome after the fact, see what each removed agent cost — and status chips no longer clip the age."
+      }
+    ]
   }
 ]
