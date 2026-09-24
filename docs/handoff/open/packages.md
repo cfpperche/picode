@@ -209,3 +209,18 @@
   update, a toggle, a remove, the Omp extension own-write and a refusal); the
   run and its evidence are recorded in
   `docs/handoff/2026-09-22-packages-alias.md`.
+- **The gated live harness was run end to end (2026-09-24).** `PICODE_PKGS_LIVE=1`
+  against all nine CLIs in one sandbox — the test re-points `HOME` at it itself,
+  so the vendors' stores land there; the only reads outside it are the two
+  read-only ones its own header names (one `claude plugin list` to capture a
+  fixture, Muse's feature config copied in so its plugin surface is measurable):
+  **36 pass, 5 skip, 0 fail, 18.3 s, and no `ErrRosterShape`** — no vendor's
+  answer shape had moved since the parsers were written. The non-empty half
+  measured real installs in the sandbox for every guest: Claude Code `1 row(s)`
+  (2 with its marketplace), Codex `1`, Antigravity `1`, Omp
+  `marketplace add: ✔ Added`, OpenCode `store: 2 row(s)`. The reads answered
+  `exit ok` with empty rosters, which is the measurement ADR-0167 turns on: an
+  empty list that is an *answer*, never an empty list standing in for a failed
+  read. The five skips are capability skips — Grok's `--trust` consent refusal
+  is measured as the expected answer, and Hermes, OpenCode and Antigravity
+  offer no such verb, which is why the pane shows no control for it.
