@@ -11952,6 +11952,32 @@
         ]
       }
     },
+    "/api/workspaces/{id}/activity": {
+      "get": {
+        "operationId": "getApiWorkspacesActivity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}/agents": {
       "post": {
         "operationId": "postApiWorkspacesAgents",

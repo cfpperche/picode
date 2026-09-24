@@ -15,7 +15,12 @@ changes nothing in them.
 ## One workspace
 
 Open **Workspaces → workspace menu (⋯) → Overview** for one project's
-questions, agents, Git state, missions and recorded activity. This opens a
+questions, agents, Git state, missions and recorded activity. Questions,
+blocked or review-ready missions, waiting agents and failed PR checks appear
+first. **Recent changes** combines workspace events and Git commits from the
+last seven days; on this browser it says **Since your last visit** when that
+visit falls within the period. It is a short activity summary, not a complete
+audit log. This opens a
 page; your editor tabs stay as they were. Pick Today, 7 days, 30 days or All
 for the activity chart. Each row opens the existing Inbox, agent, Git or
 Missions view where you can act.

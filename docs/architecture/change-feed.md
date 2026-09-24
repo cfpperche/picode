@@ -77,5 +77,9 @@ no subscriber for it) and the ADR-0039 session-identity bookkeeping, whose
 visible change is carried by `agent.updated`.
 
 `mission.changed` identifies the mission, workspace and committed version.
+New rows also carry the action, title and resulting state for the workspace
+overview's bounded activity summary (ADR-0210). The read contract at
+`GET /api/workspaces/{id}/activity` selects only events with durable workspace
+identity from the last seven days and strips raw event data before responding.
 Mission views refetch on this event and feed reconnect/reset. Mission history
 and action receipts have independent retention; see [missions](missions.md).

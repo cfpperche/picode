@@ -18,3 +18,15 @@
 Cursor's density and the existing PiCode `PageFrame` set the chrome. The page
 does not copy Linear's issue model or GitHub's hosted repository analytics.
 It uses local PiCode missions, inbox and Git facts instead.
+
+## V2 adaptation (2026-09-24)
+
+| Reference | PiCode adaptation |
+|---|---|
+| [Linear project updates](https://linear.app/docs/initiative-and-project-updates) place changes and health beside the current project. | Show "Since your last visit" only within PiCode's seven-day event retention; never infer a health score from incomplete signals. |
+| [GitHub Pulse](https://docs.github.com/en/enterprise-server%403.19/repositories/viewing-activity-and-data-for-your-repository/using-pulse-to-view-a-summary-of-repository-activity) combines recent repository actions. | Join recent Git commits with a small, workspace-scoped orchestration event summary. |
+| [GitHub status checks](https://docs.github.com/en/pull-requests/reference/status-checks) distinguish failed, pending and passed validation. | Put failed checks in attention and show current check counts beside the PR link when GitHub data exists. |
+| [Cursor's agent status bar](../benchmark-cursor.md) keeps agent state short and actionable. | Use existing fleet status vocabulary; a waiting agent opens its existing surface. |
+
+Reuse the existing Recharts chart, PageFrame and native controls. The V2 adds
+no presentation dependency and no new editor tab.

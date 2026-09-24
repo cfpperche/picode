@@ -181,6 +181,20 @@ func (s *Store) AgentEvents(agentID string, limit int) ([]Event, error) {
 	return s.queryEvents(`SELECT id, agent_id, workspace_id, type, data, created_at FROM events WHERE agent_id = ? ORDER BY id DESC LIMIT ?`, agentID, limit)
 }
 
+// WorkspaceOverviewEvents reads only durable changes that carry an unambiguous
+// workspace identity. Transient runtime notices and terminal events without a
+// workspace FK are deliberately absent from this history.
+func (s *Store) WorkspaceOverviewEvents(workspaceID string, since time.Time, limit int) ([]Event, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 50
+	}
+	return s.queryEvents(`SELECT id, agent_id, workspace_id, type, data, created_at FROM events
+		WHERE created_at >= ? AND (
+			(type = 'agent.added' AND workspace_id = ?) OR
+			(type IN ('mission.changed', 'inbox.created', 'inbox.updated') AND json_extract(data, '$.workspaceId') = ?)
+		) ORDER BY id DESC LIMIT ?`, since.UTC().Format(time.RFC3339Nano), workspaceID, workspaceID, limit)
+}
+
 func (s *Store) queryEvents(query string, args ...any) ([]Event, error) {
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
