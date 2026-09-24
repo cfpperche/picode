@@ -236,6 +236,7 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		}, []string{"workspace.deleted"}},
 		{"AddAgent", func(s *Store) { _, _ = s.AddAgent(FreeWorkspaceID, "a", "") }, []string{"agent.added"}},
 		{"AddAgentWithCLI", func(s *Store) { _, _ = s.AddAgentWithCLI(FreeWorkspaceID, "claude-code", "c", "") }, []string{"agent.added"}},
+		{"AddAgentAs", func(s *Store) { _, _ = s.AddAgentAs("back-1", FreeWorkspaceID, "pi", "a", "") }, []string{"agent.added"}},
 		{"UpdateAgent", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
 			s.OnEvent = recorder(s)

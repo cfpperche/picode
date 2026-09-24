@@ -215,3 +215,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0208](0208-inbox-core-surface.md) | Inbox is a core PiCode surface with its own route, badge and API; old app links stay compatible | accepted (owner direction, 2026-09-23; amends 0036 and 0037) |
 | [0209](0209-terminal-compaction-phase.md) | Native compacting phase on a terminal only from CLI lifecycle signals | accepted, amends 0056 and 0062 |
 | [0210](0210-workspace-overview-activity.md) | Bounded workspace activity summary for the overview | accepted |
+| [0211](0211-restore-keeps-agent-id.md) | A restored agent keeps its id (its Pi folder, automations and pins follow), and the removal toast's Undo is a restore with `undo: true`; amends ADR-0205 and ADR-0194 | accepted (owner direction, 2026-09-24) |

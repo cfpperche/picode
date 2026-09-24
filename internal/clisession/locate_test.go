@@ -127,3 +127,40 @@ func BenchmarkLocateCodexHistory(b *testing.B) {
 		})
 	}
 }
+
+// A moved or unrecorded file is found by the id in its name, and a deleted
+// one is gone without listing every session on the machine.
+func TestLocateFileBackedByName(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	proj := filepath.Join(home, "proj")
+	day := filepath.Join(home, ".codex", "sessions", "2026", "09", "20")
+	if err := os.MkdirAll(day, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	id := "01a0bebb-3ca2-7833-823e-ee4d052e63f7"
+	rollout := filepath.Join(day, "rollout-2026-09-20T09-12-16-"+id+".jsonl")
+	body := `{"timestamp":"2026-09-20T09:12:16Z","type":"session_meta","payload":{"id":"` + id + `","cwd":"` + proj + `","timestamp":"2026-09-20T09:12:16Z"}}` + "\n" +
+		`{"timestamp":"2026-09-20T09:12:17Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"fix it"}]}}` + "\n"
+	if err := os.WriteFile(rollout, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	l := NewLocator()
+	got, err := l.Locate("codex", id, "", "")
+	if err != nil || got == nil || got.Path != rollout {
+		t.Fatalf("codex by name = %+v, %v", got, err)
+	}
+	got, _ = l.Locate("codex", id, filepath.Join(home, "old", "place.jsonl"), proj)
+	if got == nil || got.Path != rollout {
+		t.Fatalf("moved codex file = %+v", got)
+	}
+	if err := os.Remove(rollout); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := NewLocator().Locate("codex", id, rollout, proj); got != nil {
+		t.Fatalf("deleted transcript still found: %+v", got)
+	}
+	if got, _ := NewLocator().Locate("claude-code", "../x", "", ""); got != nil {
+		t.Fatalf("a path-like id matched: %+v", got)
+	}
+}

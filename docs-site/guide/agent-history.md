@@ -51,8 +51,9 @@ It cannot come back when:
 | The folder it worked in is gone | Recreate the folder, then try again |
 | Its CLI is no longer installed | Install it from **Agent CLIs** |
 
-A brought-back agent is a new agent: automations and pins that pointed at
-the old one do not follow it.
+A brought-back agent is the same agent: automations and pins that pointed
+at it work again. **Undo** on the removal message does the same thing, right
+after you remove it.
 
 ## Remove from history
 
