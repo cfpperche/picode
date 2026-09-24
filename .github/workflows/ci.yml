@@ -238,9 +238,15 @@ jobs:
       # which is what broke internal/tmux on ubuntu the run after sharding
       # landed. `make ci` still shards locally, where there are cores to
       # spend.
+      #
+      # 35m, not 25m: the first run of this split measured 7 minutes for these
+      # packages on ubuntu, and the macOS half of the same run never got the
+      # exclusion (a BSD `paste` in the script made the pattern empty) — so
+      # the macOS figure is still unmeasured, and the ceiling is sized for a
+      # slower runner rather than for the ubuntu number.
       - name: Test daemon
         if: matrix.os != 'windows-latest'
-        run: GO_TEST_EXCLUDE_HEAVY=1 GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 25m" ./scripts/go-test.sh ./...
+        run: GO_TEST_EXCLUDE_HEAVY=1 GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 35m" ./scripts/go-test.sh ./...
 
       - name: Compile Windows packages and tests
         if: matrix.os == 'windows-latest'
