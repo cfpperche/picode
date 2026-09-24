@@ -685,7 +685,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .form-new input:focus { outline: none; border-color: var(--accent); }
 .form-error { color: var(--danger); font-size: 12px; }
-.ws-faces { display: flex; align-items: center; flex: none; }
+.ws-faces { display: flex; align-items: center; flex: none; gap: 2px; }
 .ws-face {
   width: 18px; height: 18px; border-radius: 50%;
   border: 1.5px solid var(--bg-panel); background: #fff;
@@ -694,24 +694,21 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-size: 8px; font-weight: 650; color: var(--text-secondary); flex: none;
   box-sizing: border-box;
 }
-
-/* PiCode's own inline marks (Pi's, terminalCli.js PI_MARK) are drawn in a
-   neutral ink that reads on both grounds: the white plate other faces keep
-   for dark vendor marks turned Pi's block logo into a solid square. */
-img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: transparent; border-radius: 0; }
+/* Favicon images render full bleed — the white plate read as a sticker
+   around the dark marks on dark chrome (owner report 2026-09-24); the
+   plate stays on the letter/glyph fallbacks only. Marks recolor per theme
+   with the term-cli-face invert below. */
+img.ws-face { background: transparent; border: 0; padding: 0; }
 
 .pi-spin {
   width: 16px; height: 16px; display: grid; place-items: center; flex: none;
   font-family: var(--mono); font-size: 13px; line-height: 1; color: currentColor;
 }
-.ws-faces .ws-face:first-child { margin-left: 0; }
+.ws-faces .ws-face { margin-left: 0; }
 .ws-face-more { font-size: 8px; padding: 0 3px; width: auto; min-width: 16px; background: var(--bg-hover); }
-img.ws-face.term-cli-face {
-  background: transparent; border: 0; padding: 0;
-}
 /* Transparent monochrome vendor SVGs (claude, openai, grok, …) need a light
-   face on dark panels everywhere they render — rows, tabs, inspector, the
-   CLI catalog. Pi and colored raster fallbacks keep their native colors. */
+   face on dark panels everywhere they render — rows, notices, the CLI
+   catalog. Pi and colored raster fallbacks keep their native colors. */
 :root:not([data-theme="light"]) img.term-cli-face[src*="/icons/"],
 :root:not([data-theme="light"]) img.term-cli-face[src="https://grok.com/images/favicon.svg"] { filter: invert(1); }
 @keyframes pulse { 50% { opacity: .35; } }

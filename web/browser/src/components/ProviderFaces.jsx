@@ -5,15 +5,17 @@ import { terminalDisplayCli, terminalCliFaviconUrls, terminalCliLabel, terminalC
 import { collapseFaceItems } from "../lib/collapseFaces.js";
 
 // Every agent wears its CLI's favicon (ADR-0160) — pi included, the same
-// art the terminal rows wear — falling back to the vendor mark. The
-// provider face below stays for explicit provider ids.
+// art the terminal rows wear — falling back to the vendor mark. The mark
+// carries term-cli-face so it recolors per theme like every other runtime
+// favicon (rows, tabs, inspector); the provider face below stays for
+// explicit provider ids, whose colored marks keep their native colors.
 function CliAgentFace({ cli, name }) {
   const favicons = terminalCliFaviconUrls(cli);
   const [failed, setFailed] = useState(0);
   const src = failed < favicons.length ? favicons[failed] : "";
   const title = name || terminalCliLabel(cli);
   if (src) {
-    return <img className="ws-face" src={src} alt="" title={title} onError={() => setFailed((n) => n + 1)} />;
+    return <img className="ws-face term-cli-face" src={src} alt="" title={title} onError={() => setFailed((n) => n + 1)} />;
   }
   return <span className="ws-face" title={title}>{terminalCliMark(cli)}</span>;
 }
@@ -38,9 +40,8 @@ export function ProviderFace({ agent, id, name }) {
 
 // Terminal in the collapsed strip: the CLI's own favicon when one loads,
 // otherwise the vendor mark (π, Cl, Cx, G) — plain shells wear ">_".
-// Deliberately the plain ws-face, no term-cli-face override: in the strip
-// agents and terminals are one visual family (same 16px plate, ring and
-// contained art); the full-bleed look stays a row-identity treatment.
+// The image carries term-cli-face like every runtime favicon: one visual
+// family of full-bleed, theme-recolored marks across strip, rows and tabs.
 export function TermFace({ term }) {
   const cli = terminalDisplayCli(term);
   const label = terminalCliLabel(cli);
@@ -51,7 +52,7 @@ export function TermFace({ term }) {
   if (src) {
     return (
       <img
-        className="ws-face" src={src} alt="" title={title}
+        className="ws-face term-cli-face" src={src} alt="" title={title}
         onError={() => setFailed((n) => n + 1)}
       />
     );

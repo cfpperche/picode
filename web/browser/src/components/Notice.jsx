@@ -28,7 +28,7 @@ function ActorFace({ actor }) {
   const src = failed < urls.length ? urls[failed] : "";
   const label = terminalCliLabel(actor.cli) || actor.name;
   if (src) {
-    return <img className="notice-face" src={src} alt="" title={label} onError={() => setFailed((n) => n + 1)} />;
+    return <img className="notice-face term-cli-face" src={src} alt="" title={label} onError={() => setFailed((n) => n + 1)} />;
   }
   return <span className="notice-face is-mark" title={label} aria-hidden="true">{terminalCliMark(actor.cli) || "·"}</span>;
 }

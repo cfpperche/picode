@@ -63,7 +63,7 @@
 .prov-provider, .prov-account, .prov-actions { display: flex; align-items: center; }
 .prov-provider { gap: 8px; }
 .prov-provider .ws-face {
-  width: 24px; height: 24px; margin-left: 0; padding: 2px;
+  width: 24px; height: 24px; margin-left: 0;
   font-size: 11px; border-radius: 4px;
 }
 .prov-provider .prov-id {

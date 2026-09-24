@@ -1222,12 +1222,16 @@ body.is-row-dragging, body.is-row-dragging * { cursor: grabbing; }
   transition: transform .12s;
 }
 .ws-chev.open { transform: rotate(90deg); }
-.ws-faces { display: flex; align-items: center; flex: none; }
+/* Collapsed header strip: full-bleed marks need a slot each — the old
+   -6px overlap assumed chips with plates and now smudges neighbours
+   together (owner report 2026-09-24). */
+.ws-faces { display: flex; align-items: center; flex: none; gap: 2px; }
 /* Agent/terminal faces match the workspace favicon: same 16px box, same
    3px radius, natural image shape (never forced circular). The white
-   plate + ring below only dress the letter/glyph fallbacks for contrast
-   on the dark sidebar; image faces strip both where they render full
-   bleed (identity marks, tabs). */
+   plate + ring dress only the letter/glyph fallbacks; favicon images
+   render full bleed — the plate read as a white sticker around the dark
+   marks on the dark sidebar (owner report 2026-09-24) — and recolor per
+   theme with the term-cli-face invert below, exactly like the tab strip. */
 .ws-face {
   width: 16px; height: 16px; border-radius: 3px;
   border: 1.5px solid var(--bg-panel); background: #fff;
@@ -1236,11 +1240,12 @@ body.is-row-dragging, body.is-row-dragging * { cursor: grabbing; }
   font-size: 8px; font-weight: 650; color: var(--text-secondary); flex: none;
   box-sizing: border-box;
 }
+img.ws-face { background: transparent; border: 0; padding: 0; }
 .pi-spin {
   width: 16px; height: 16px; display: grid; place-items: center; flex: none;
   font-family: var(--mono); font-size: 13px; line-height: 1; color: currentColor;
 }
-.ws-faces .ws-face:first-child { margin-left: 0; }
+.ws-faces .ws-face { margin-left: 0; }
 .ws-face-more { font-size: 8px; padding: 0 3px; width: auto; min-width: 16px; background: var(--bg-hover); }
 .ws-item {
   position: relative;
@@ -1272,26 +1277,11 @@ body.is-row-dragging, body.is-row-dragging * { cursor: grabbing; }
   align-self: flex-start; flex: none; color: var(--text-secondary);
 }
 .ws-identity-mark > .ws-face { margin: 0; }
-/* Runtime favicons fill the same 16px slot as agent faces, but without the
-   white plate and ring — those read as a chip around sparse marks (Claude). */
-img.ws-face.term-cli-face {
-  background: transparent; border: 0; padding: 0;
-}
 /* Transparent monochrome vendor SVGs (claude, openai, grok, …) need a light
    face on dark panels everywhere they render — rows, tabs, inspector, the
    CLI catalog. Pi and colored raster fallbacks keep their native colors. */
 :root:not([data-theme="light"]) img.term-cli-face[src*="/icons/"],
 :root:not([data-theme="light"]) img.term-cli-face[src="https://grok.com/images/favicon.svg"] { filter: invert(1); }
-/* Identity marks (agent + terminal rows) meet at full bleed: the 1.5px ring
-   plus 1px padding shrank the agent art below the workspace favicon's 16px.
-   The white plate stays — dark currentColor marks need it on the dark
-   sidebar, and it is invisible on light chrome. */
-.ws-identity-mark img.ws-face { border: 0; padding: 0; }
-
-/* PiCode's own inline marks (Pi's, terminalCli.js PI_MARK) are drawn in a
-   neutral ink that reads on both grounds: the white plate other faces keep
-   for dark vendor marks turned Pi's block logo into a solid square. */
-img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: transparent; border-radius: 0; }
 .ws-activity-dot {
   position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px;
   border: 2px solid var(--bg-panel); border-radius: 50%; background: var(--accent);
@@ -2055,7 +2045,6 @@ img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: 
   border: 0; background: none; font-size: 8px;
 }
 .mtab-term .ws-face { margin: 0; }
-.mtab-term img.ws-face { border: 0; padding: 0; }
 .mtab-close {
   flex: none; width: 16px; height: 16px; padding: 0;
   display: grid; place-items: center;
@@ -6603,7 +6592,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 #app.app-shell .insp-head { background: var(--bg-panel); }
 .insp-face { width: 18px; height: 18px; display: grid; place-items: center; flex: none; color: var(--text-secondary); }
 .insp-face .ws-face { margin: 0; }
-.insp-face img.ws-face { border: 0; padding: 0; }
 .insp-id { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; }
 .insp-name { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; flex: none; }
 .insp-path { font-size: 11.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }

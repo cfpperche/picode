@@ -4,15 +4,17 @@ import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { terminalCliFaviconUrls, terminalCliLabel, terminalCliMark } from "@picode/shared/domain/terminalCli.js";
 
 // Every agent wears its CLI's favicon (ADR-0160) — pi included, the same
-// art the terminal rows wear — falling back to the vendor mark. The
-// provider face below stays for explicit provider ids.
+// art the terminal rows wear — falling back to the vendor mark. The mark
+// carries term-cli-face so it recolors per theme like every other runtime
+// favicon; the provider face below stays for explicit provider ids, whose
+// colored marks keep their native colors.
 function CliAgentFace({ cli, name }) {
   const favicons = terminalCliFaviconUrls(cli);
   const [failed, setFailed] = useState(0);
   const src = failed < favicons.length ? favicons[failed] : "";
   const title = name || terminalCliLabel(cli);
   if (src) {
-    return <img className="ws-face" src={src} alt="" title={title} onError={() => setFailed((n) => n + 1)} />;
+    return <img className="ws-face term-cli-face" src={src} alt="" title={title} onError={() => setFailed((n) => n + 1)} />;
   }
   return <span className="ws-face" title={title}>{terminalCliMark(cli)}</span>;
 }
