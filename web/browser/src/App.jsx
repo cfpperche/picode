@@ -78,6 +78,7 @@ import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
 import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
+import { DRAFT_TASK } from "@picode/shared/domain/instructions.js";
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, inboxHash, inboxPath, legacyInboxHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, isInstructionsTab } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
@@ -4431,6 +4432,7 @@ export default function App({ shellChrome = false } = {}) {
             workspace={workspaces.find((w) => w && w.id === instructionsRoute(hash)) || null}
             loaded={bootstrapped}
             onOpenFile={(wsId, p) => { openFileTab("workspace", wsId, p); location.hash = fileHash("workspace", wsId, p); }}
+            onDraft={(ws) => setCliPrincipalWs({ ...ws, task: DRAFT_TASK })}
           />
         ) : null}
         <AgentHistory hidden={route !== "history"} workspaces={workspaces} onOpenAgent={(id) => { loadWorkspaces().then((list) => revealAgent(id, list)).catch(() => revealAgent(id)); }} />

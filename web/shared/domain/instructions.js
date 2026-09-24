@@ -115,3 +115,22 @@ export function lineDiff(before = "", after = "", context = 2) {
   if (kept.length > context) out.push({ kind: "…", text: kept.length - context + " unchanged line" + (kept.length - context === 1 ? "" : "s") });
   return out;
 }
+
+// Draft with an agent: the empty Instructions page opens New agent with this
+// first prompt. The agent writes the file itself, visible in Git like any of
+// its work; PiCode writes nothing here (ADR-0204 covers PiCode's own writes).
+export const DRAFT_TASK = {
+  title: "Draft AGENTS.md",
+  prompt:
+    "Read this repository and write an AGENTS.md at its root for coding agents: " +
+    "what the project is, how to build, test and run it, the conventions the code follows, " +
+    "and what an agent must not do. Keep it short and specific to this repository. " +
+    "Do not change any other file.",
+};
+
+// startsWithPrompt: whether a CLI row from /api/clis can be created with a
+// first prompt — the server's session capability, the same one the brief
+// handoff uses.
+export function startsWithPrompt(cli) {
+  return !!(cli && cli.sessions && cli.sessions.prompt);
+}

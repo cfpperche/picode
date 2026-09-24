@@ -67,6 +67,15 @@ change instead of writing.
 When you create an agent from the sidebar, the **New agent** dialog shows the
 same answer in one line for the CLI you pick.
 
+## Draft a first AGENTS.md
+
+When a workspace has no instruction file, the page offers **Draft with an
+agent**. Pick the agent that should write it: the dialog shows the exact
+request it starts with. The agent reads the repository and writes
+`AGENTS.md` at its root like any other change it makes, so you review it in
+the Git tab before you commit. Hermes Agent can't start with a request yet,
+so the dialog leaves it out.
+
 ## What it is not
 
 The page writes only the changes listed above, and only after you confirm

@@ -14,12 +14,12 @@ import "../styles/instructions.css";
 // context line names the folder. Files change outside PiCode's store, so the
 // page reads them when it opens and on Refresh — no feed event covers them
 // and no timer polls. Writes happen only through a reviewed fix (ADR-0204).
-export default function InstructionsSurface({ workspace, loaded, onOpenFile }) {
+export default function InstructionsSurface({ workspace, loaded, onOpenFile, onDraft }) {
   const context = workspace ? workspace.name + (workspace.path ? " · " + workspace.path : "") : "";
   return (
     <PageFrame id="instructions-view" title="Instructions" className="instr-page" context={context} contextIcon={<IconFolder />}>
       {workspace ? (
-        <InstructionsBody workspace={workspace} onOpenFile={(p) => onOpenFile && onOpenFile(workspace.id, p)} />
+        <InstructionsBody workspace={workspace} onOpenFile={(p) => onOpenFile && onOpenFile(workspace.id, p)} onDraft={onDraft ? () => onDraft(workspace) : null} />
       ) : loaded ? (
         <div className="mcp-empty">
           <p>That workspace is gone.</p>
@@ -32,7 +32,7 @@ export default function InstructionsSurface({ workspace, loaded, onOpenFile }) {
   );
 }
 
-function InstructionsBody({ workspace, onOpenFile }) {
+function InstructionsBody({ workspace, onOpenFile, onDraft }) {
   const [start, setStart] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [picked, setPicked] = useState(null);
@@ -129,7 +129,10 @@ function InstructionsBody({ workspace, onOpenFile }) {
           {noProjectFile ? (
             <div className="mcp-empty">
               <p>No instruction files in this workspace.</p>
-              <a className="btn" href="https://agents.md" target="_blank" rel="noreferrer">What is AGENTS.md?</a>
+              <div className="instr-empty-actions" data-align-row>
+                {onDraft ? <button type="button" className="btn btn-primary" onClick={onDraft}>Draft with an agent</button> : null}
+                <a className="btn" href="https://agents.md" target="_blank" rel="noreferrer">What is AGENTS.md?</a>
+              </div>
             </div>
           ) : null}
 
