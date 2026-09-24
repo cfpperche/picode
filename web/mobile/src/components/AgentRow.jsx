@@ -10,7 +10,7 @@ import { shortPath } from "@picode/shared/domain/repoLine.js";
 import StateChip, { agentState } from "./StateChip.jsx";
 import { checklistLine } from "@picode/shared/domain/checklist.js";
 import { agentSubtitleWithFork, forkLine } from "@picode/shared/domain/managedPrincipal.js";
-import { terminalActivityStamp } from "@picode/shared/domain/terminalCli.js";
+import { agentStatusStamp } from "@picode/shared/domain/agentStatus.js";
 import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMenu.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 
@@ -34,8 +34,10 @@ const ICONS = {
 export default function AgentRow({ agent, workspace, workingIds, checklist, busy, terms, clis, onOpen, onAction = () => {} }) {
   const term = (terms || []).find((t) => t.id === agent.terminalId) || agent.terminal || null;
   const status = agentState({ ...agent, terminal: term }, workingIds);
-  const stamp = (term && terminalActivityStamp(term)) || agent.lastStatusAt || agent.lastStartedAt || "";
-  const age = status === "working" && stamp ? " · " + relTime(stamp) : "";
+  // agentState folds to the chip's words (idle/waiting); the stamp resolver
+  // speaks the shared vocabulary (ready/needs-you) — the two map 1:1.
+  const stamp = agentStatusStamp(status === "idle" ? "ready" : status === "waiting" ? "needs-you" : status, agent, term);
+  const age = stamp ? " · " + relTime(stamp) : "";
   const name = displayAgentName(agent, workspace);
   const model = shortModel(agent.model || "");
   const check = checklistLine(checklist);

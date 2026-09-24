@@ -71,7 +71,9 @@ export default function PanelBody({ model, loaded, body = "live", hidden, focuse
     default: break;
   }
   if (model.pending) return <div className="cv-placeholder"><span>Adding…</span></div>;
-  const age = model.status === "working" && model.stamp ? relTime(model.stamp) : "";
+  // The same state age the sidebar pill shows; a note's edit time is not a
+  // state age and never rides here.
+  const age = model.kind !== "note" && model.stamp ? relTime(model.stamp) : "";
   const placeholder = (
     <div className="cv-placeholder" aria-hidden="true">
       <span>{model.label}{age ? " · " + age : ""}</span>

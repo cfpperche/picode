@@ -176,8 +176,8 @@ function applyFleetRaw(state, ev) {
         if (a.id !== d.id) return a;
         found = true;
         return running
-          ? { ...a, running: true, mode, lastStatus: d.lastStatus }
-          : { ...a, running: false, mode: "stopped", streaming: false, waiting: false, dialog: undefined, lastStatus: d.lastStatus };
+          ? { ...a, running: true, mode, lastStatus: d.lastStatus, lastStatusAt: d.lastStatusAt || a.lastStatusAt }
+          : { ...a, running: false, mode: "stopped", streaming: false, waiting: false, dialog: undefined, lastStatus: d.lastStatus, lastStatusAt: d.lastStatusAt || a.lastStatusAt };
       };
       const next = { ...state, workspaces: workspaces.map((w) => ({ ...w, agents: (w.agents || []).map(patch) })), freeAgents: freeAgents.map(patch) };
       return found ? next : state;
@@ -188,6 +188,20 @@ function applyFleetRaw(state, ev) {
         if (a.id !== d.agentId) return a;
         found = true;
         return { ...a, running: true, mode: a.mode === "stopped" ? "managed" : a.mode, streaming: !!d.streaming, waiting: !!d.waiting, dialog: d.dialog || undefined };
+      };
+      const next = { ...state, workspaces: workspaces.map((w) => ({ ...w, agents: (w.agents || []).map(patch) })), freeAgents: freeAgents.map(patch) };
+      return found ? next : state;
+    }
+    case "agent.settled": {
+      // A managed turn finished: the row's ready age starts at the settle
+      // stamp. streaming:false rides along because the ephemeral state
+      // notice can be dropped for a slow consumer — a settle implies not
+      // streaming.
+      let found = false;
+      const patch = (a) => {
+        if (a.id !== d.id) return a;
+        found = true;
+        return { ...a, lastStatusAt: d.lastStatusAt, streaming: false };
       };
       const next = { ...state, workspaces: workspaces.map((w) => ({ ...w, agents: (w.agents || []).map(patch) })), freeAgents: freeAgents.map(patch) };
       return found ? next : state;

@@ -12,6 +12,7 @@ import { agentRowStatus, agentStatusLabel, agentTerm, bucketAgentsByState } from
 import { freeTerminals, workspaceTerminals, FREE_WS } from "../lib/termGroups.js";
 import { moveId, movePhrase, sameIds, sortIdsBy } from "../lib/sidebarOrder.js";
 import { sidebarBody } from "../lib/sidebarBody.js";
+import { useNow } from "../lib/useNow.js";
 import ProviderFaces from "./ProviderFaces.jsx";
 import { AgentRow, TermRow } from "./WorkspaceRows.jsx";
 import WorkspaceMenu from "./WorkspaceMenu.jsx";
@@ -67,6 +68,10 @@ export default function Sidebar({
   onOpenClis,
   apps, nativeApps, onOpenApp, webapps, webappsErr, webappsLoaded, onRetryWebapps, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, onClearWebappData, desktop,
 }) {
+  // The status pills' ages tick on this clock (display-only — no API
+  // traffic; the feed owns state, ADR-0048) so "Ready · now" becomes
+  // "Ready · 1m" without waiting for an unrelated event.
+  useNow(30_000);
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
     return Number.isFinite(n) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, n)) : 244;

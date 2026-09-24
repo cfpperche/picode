@@ -107,6 +107,26 @@ func TestWorkspaceAndAgents(t *testing.T) {
 		t.Errorf("SetAgentRuntime(missing) = %v, want ErrNotFound", err)
 	}
 
+	// Turn settle: the ready age's stamp moves, the runtime stays running.
+	// RFC3339Nano makes "after" strictly greater than "before" deterministic.
+	if err := s.SetAgentTurnSettled(agent.ID); err != nil {
+		t.Fatalf("SetAgentTurnSettled: %v", err)
+	}
+	settled, err := s.GetAgent(agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := a.LastStatusAt
+	if settled.LastStatus != StatusRunning {
+		t.Errorf("last_status after settle = %q, want running", settled.LastStatus)
+	}
+	if settled.LastStatusAt == nil || before == nil || *settled.LastStatusAt <= *before {
+		t.Errorf("last_status_at after settle = %v, want > %v", settled.LastStatusAt, before)
+	}
+	if err := s.SetAgentTurnSettled("missing"); err != ErrNotFound {
+		t.Errorf("SetAgentTurnSettled(missing) = %v, want ErrNotFound", err)
+	}
+
 	// Cascade delete removes agent + tasks + events.
 	if _, err := s.EnqueueTask(agent.ID, TaskPrompt, "do it", "user"); err != nil {
 		t.Fatalf("EnqueueTask: %v", err)

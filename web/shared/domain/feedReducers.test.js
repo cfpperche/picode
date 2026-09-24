@@ -51,9 +51,12 @@ test("fleet: managed CLI principals bind and unbind without touching agents", ()
 test("fleet: status and live state", () => {
   const s = { workspaces: [ws("a", [ag("x", "a", { running: true, mode: "managed", streaming: true })])], freeAgents: [], terminals: [] };
   assert.equal(applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "running" } }), null, "a start without mode → refetch");
-  const started = applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "running", mode: "interactive" } });
+  const started = applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "running", mode: "interactive", lastStatusAt: "2026-09-23T09:30:00Z" } });
   assert.equal(started.workspaces[0].agents[0].mode, "interactive");
   assert.equal(started.workspaces[0].agents[0].running, true);
+  assert.equal(started.workspaces[0].agents[0].lastStatusAt, "2026-09-23T09:30:00Z", "a start stamps the row's state age");
+  const restamped = applyFleet(started, { type: "agent.status", data: { id: "x", lastStatus: "running", mode: "interactive" } });
+  assert.equal(restamped.workspaces[0].agents[0].lastStatusAt, "2026-09-23T09:30:00Z", "an event without a stamp keeps the row's own");
   assert.equal(applyFleet(s, { type: "agent.status", data: { id: "ghost", lastStatus: "running" } }), s, "unknown agent stays untouched");
   const stopped = applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "stopped" } });
   assert.equal(stopped.workspaces[0].agents[0].mode, "stopped");
@@ -65,6 +68,16 @@ test("fleet: status and live state", () => {
   assert.equal(waiting.workspaces[0].agents[0].waiting, true);
   assert.equal(waiting.workspaces[0].agents[0].dialog.id, "d");
   assert.equal(applyFleet(s, { type: "agent.state", data: { agentId: "ghost", streaming: true } }), s);
+});
+
+test("fleet: agent.settled stamps the ready age and clears streaming", () => {
+  const s = { workspaces: [ws("a", [ag("x", "a", { running: true, mode: "managed", streaming: true, lastStatusAt: "2026-09-23T09:00:00Z" })])], freeAgents: [], terminals: [] };
+  const next = applyFleet(s, { type: "agent.settled", data: { id: "x", lastStatusAt: "2026-09-23T10:00:00Z" } });
+  const row = next.workspaces[0].agents[0];
+  assert.equal(row.streaming, false, "a settle implies not streaming");
+  assert.equal(row.lastStatusAt, "2026-09-23T10:00:00Z");
+  assert.equal(row.mode, "managed", "the runtime stays running");
+  assert.equal(applyFleet(s, { type: "agent.settled", data: { id: "ghost", lastStatusAt: "2026-09-23T10:00:00Z" } }), s, "unknown agent stays untouched");
 });
 
 

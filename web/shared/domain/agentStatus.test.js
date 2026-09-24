@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agentRowStatus, agentStatusLabel, agentTerm, bucketAgentsByState } from "./agentStatus.js";
+import { agentRowStatus, agentStatusLabel, agentStatusStamp, agentTerm, bucketAgentsByState } from "./agentStatus.js";
 
 test("bound Pi uses terminal activity, while RPC ignores it", () => {
   const agent = { id:"pi", cli:"pi", terminalId:"t", mode:"interactive", streaming:true };
@@ -53,6 +53,25 @@ test("bucketAgentsByState ranks who needs the reader first", () => {
   const odd = bucketAgentsByState([{ id: "o" }], () => "mystery");
   assert.deepEqual(odd.map((b) => b.status), ["mystery"]);
   assert.deepEqual(odd[0].agents.map((a) => a.id), ["o"]);
+});
+
+// The pill's age, one stamp per status: the terminal hook's stateAt for
+// live states, the store's writes for managed ones, and no invented clock —
+// never createdAt, and stopped never reads the pre-stop terminal state.
+test("agentStatusStamp: the age is when the current state began", () => {
+  const term = (state, extra = {}) => ({ id: "t", state, stateAt: "2026-09-23T10:05:00Z", running: true, ...extra });
+  const ag = { lastStatusAt: "2026-09-23T09:00:00Z", lastStartedAt: "2026-09-23T08:59:00Z", createdAt: "2026-09-01T00:00:00Z" };
+  assert.equal(agentStatusStamp("ready", ag, term("idle")), "2026-09-23T10:05:00Z");
+  assert.equal(agentStatusStamp("working", ag, term("working")), "2026-09-23T10:05:00Z");
+  assert.equal(agentStatusStamp("needs-you", ag, term("needs-you")), "2026-09-23T10:05:00Z");
+  assert.equal(agentStatusStamp("ready", ag, null), "2026-09-23T09:00:00Z", "managed ready reads the settle/stop write");
+  assert.equal(agentStatusStamp("working", ag, null), "2026-09-23T08:59:00Z", "managed working reads the runtime start");
+  assert.equal(agentStatusStamp("needs-you", ag, null), "", "the managed ask has no timestamp on the fleet row yet");
+  assert.equal(agentStatusStamp("stopped", ag, term("idle", { running: false })), "2026-09-23T09:00:00Z", "stopped reads the stop write, not the stale state");
+  assert.equal(agentStatusStamp("stopped", null, null), "");
+  assert.equal(agentStatusStamp("interactive", ag, term("idle")), "");
+  assert.equal(agentStatusStamp("ready", { createdAt: "2026-09-01T00:00:00Z" }, null), "", "createdAt is not a state age");
+  assert.equal(agentStatusStamp("ready", null, null), "");
 });
 
 test("agentTerm reads the bound terminal or the fleet copy", () => {

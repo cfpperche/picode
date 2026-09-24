@@ -252,6 +252,12 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.SetAgentRuntime(a.ID, StatusRunning)
 		}, []string{"agent.status"}},
+		{"SetAgentTurnSettled", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			_ = s.SetAgentRuntime(a.ID, StatusRunning)
+			s.OnEvent = recorder(s)
+			_ = s.SetAgentTurnSettled(a.ID)
+		}, []string{"agent.settled"}},
 		{"DeleteAgent", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
 			s.OnEvent = recorder(s)

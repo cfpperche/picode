@@ -5,7 +5,7 @@
 // the id whose dialog is on screen.
 //   agentRowStatus(agent, live) -> "needs-you" | "working" | "interactive" | "stopped" | "ready"
 //   agentStatusLabel(status)    -> the chip's copy
-import { terminalStatus } from "./terminalCli.js";
+import { terminalActivityStamp, terminalStatus } from "./terminalCli.js";
 
 export function agentRowStatus(ag, live = {}) {
   const mode = (ag && ag.mode) || "stopped";
@@ -18,6 +18,26 @@ export function agentRowStatus(ag, live = {}) {
   if (mode === "interactive") return "interactive";
   if (mode === "stopped") return "stopped";
   return "ready";
+}
+
+// The pill's age: when the agent entered the state it is in now, resolved
+// per status (the sidebar's state-age plan). Terminal-backed rows read the
+// hook's stateAt — TermStates.SetForRun rewrites it only on a real
+// transition, so it is the transition instant, and the TUI's start covers
+// "no report yet" (a terminal has been open since its TUI started).
+// Managed rows read the store's own writes: the settle stamp for ready,
+// the stop write for stopped, the runtime start for working (the turn
+// start itself is not stamped — approximate by design). A stopped row
+// never reads a terminal stamp, or the state that preceded the stop would
+// show. Never createdAt — "created" is not a state age — and "" when
+// nothing truthful exists, so the pill renders the label alone (ADR-0092).
+export function agentStatusStamp(status, ag, term) {
+  if (status === "stopped") return (ag && ag.lastStatusAt) || "";
+  if (status === "interactive") return "";
+  if (status === "needs-you" && !term) return ""; // the ask's timestamp is not on the fleet row yet
+  if (term) return terminalActivityStamp(term);
+  if (status === "working") return (ag && (ag.lastStartedAt || ag.lastStatusAt)) || "";
+  return (ag && ag.lastStatusAt) || ""; // ready, managed
 }
 
 export function agentStatusLabel(status) {

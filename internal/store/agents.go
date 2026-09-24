@@ -215,15 +215,38 @@ func (s *Store) SetAgentRuntimeMode(id, status, mode string) error {
 	if status == StatusRunning {
 		startedAt = nowUTC()
 	}
+	at := nowUTC()
 	res, err := s.db.Exec(`UPDATE agents SET last_status = ?, last_status_at = ?, last_started_at = COALESCE(?, last_started_at) WHERE id = ?`,
-		status, nowUTC(), startedAt, id)
+		status, at, startedAt, id)
 	if err != nil {
 		return fmt.Errorf("store: agent runtime: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
-	s.note("agent.status", &id, nil, map[string]string{"id": id, "lastStatus": status, "mode": mode})
+	// lastStatusAt rides the event so a start/stop patches the row's state
+	// age in place — the pill reads it the moment the state begins.
+	s.note("agent.status", &id, nil, map[string]string{"id": id, "lastStatus": status, "mode": mode, "lastStatusAt": at})
+	return nil
+}
+
+// SetAgentTurnSettled stamps when a managed agent's turn finishes, so the
+// sidebar can say how long the agent has been ready. The runtime stays
+// running — only the timestamp moves — and the agent.settled row patches
+// every open fleet view without a refetch (ADR-0048). The exit path writes
+// its own stop stamp after the settle (pumpEvents reads both on one loop,
+// in order), so there is no status guard here: a settle is the last fact
+// about last_status_at while the process lives.
+func (s *Store) SetAgentTurnSettled(id string) error {
+	at := nowUTC()
+	res, err := s.db.Exec(`UPDATE agents SET last_status_at = ? WHERE id = ?`, at, id)
+	if err != nil {
+		return fmt.Errorf("store: agent turn settled: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	s.note("agent.settled", &id, nil, map[string]string{"id": id, "lastStatusAt": at})
 	return nil
 }
 

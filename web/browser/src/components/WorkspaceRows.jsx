@@ -10,7 +10,7 @@ import PiSpinner from "./PiSpinner.jsx";
 import { checklistLine, checklistProgress, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
-import { agentRowStatus, agentStatusLabel, agentTerm } from "@picode/shared/domain/agentStatus.js";
+import { agentRowStatus, agentStatusLabel, agentStatusStamp, agentTerm } from "@picode/shared/domain/agentStatus.js";
 import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMenu.js";
 import { agentSubtitle, forkLine } from "@picode/shared/domain/managedPrincipal.js";
 import { termRowMenu } from "../lib/termRowMenu.js";
@@ -84,21 +84,20 @@ function openRow(e, onSelect) {
 }
 
 function AgentStatus({ status, stamp }) {
-  const active = status === "working";
-  const age = active && stamp ? relTime(stamp) : "";
+  const age = stamp ? relTime(stamp) : "";
   return (
     <span className={"ws-status is-" + status}>
-      {active ? <PiSpinner title="Working" /> : null}
+      {status === "working" ? <PiSpinner title="Working" /> : null}
       <span>{agentStatusLabel(status)}</span>
       {age ? <span className="ws-status-age">{age}</span> : null}
     </span>
   );
 }
 
-function TerminalStatus({ term }) {
+function TerminalStatus({ term, agent }) {
   const status = terminalStatus(term);
-  const stamp = terminalActivityStamp(term);
-  const age = status === "working" && stamp ? relTime(stamp) : "";
+  const stamp = agentStatusStamp(status, agent, term);
+  const age = stamp ? relTime(stamp) : "";
   return (
     <span className={"ws-status is-" + status}>
       {status === "working" ? <PiSpinner title="Working" /> : null}
@@ -213,7 +212,7 @@ export function AgentRow({
             <span className="ws-title" title={title}>{label}</span>
             <span className="ws-subtitle">{model || agentSubtitle(ag)}</span>
           </span>
-          {term ? <TerminalStatus term={term} /> : <AgentStatus status={status} stamp={stamp} />}
+          {term ? <TerminalStatus term={term} agent={ag} /> : <AgentStatus status={status} stamp={agentStatusStamp(status, ag, null)} />}
         </div>
         {actions ? (
           <RowMenu label={label}>

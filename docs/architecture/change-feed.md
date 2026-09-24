@@ -19,7 +19,9 @@ lists with `lib/feedReducers.js` and refetch when a reducer returns
 also publishes `agent.tui` (tmux watcher, `StartTuiWatch`),
 `agent.usage` (per assistant message, `Runtime.OnUsage`) and
 `device.offline` (`presence.Watch`); `agent.status` carries the run mode
-at every start. Presence invokes its transition callback after releasing the
+at every start, and `agent.settled` stamps a managed turn's finish — the
+sidebar's ready age reads it, so the pill says "Ready · 5m" without a
+refetch. Presence invokes its transition callback after releasing the
 registry lock but before the heartbeat returns, so a sequential expiry cannot
 overtake a detached `online` callback. Rule: a state
 change that is not in `events` did not happen — write through the

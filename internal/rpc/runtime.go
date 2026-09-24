@@ -549,6 +549,11 @@ func (ma *ManagedAgent) pumpEvents(ready chan<- struct{}) {
 			ma.markSettled()
 			ma.refreshCaptureSessionFile()
 			ma.announceState()
+			// The ready age starts here: stamp the settle so the sidebar can
+			// say how long the agent has been idle (agent.settled, ADR-0048).
+			if ma.store != nil {
+				_ = ma.store.SetAgentTurnSettled(ma.AgentID)
+			}
 			if o := ma.runObserver(); o != nil {
 				if o.OnSettled != nil {
 					ma.mu.Lock()

@@ -4,7 +4,7 @@ import { api, humanizeError } from "@picode/shared/client/api.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
-import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
+import { agentRowStatus, agentStatusLabel, agentStatusStamp, agentTerm } from "@picode/shared/domain/agentStatus.js";
 import { EDGE_KINDS, PANEL_DEFAULT_CANVAS, applyCanvasEvent, bindingState, buildRef, layoutDiff, neighborPanel, normalizeCanvasDetail, normalizeCanvasList, panelOrder, parseRef, refOwner, tidyCanvas, validateEdge } from "@picode/shared/domain/canvas.js";
 import { crossFolderConfirm, edgeGrant, enrolOffer, linkChipTitle, linkCounts, peerIndex, removeConfirm } from "@picode/shared/domain/canvasGrants.js";
 import { basename } from "@picode/shared/domain/diff.js";
@@ -242,7 +242,7 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
       cwd = target.workPath || (loc.workspace && loc.workspace.path) || "";
       status = agentRowStatus(target, { workingIds });
       label = agentStatusLabel(status);
-      stamp = target.lastStatusAt || target.lastStartedAt || "";
+      stamp = agentStatusStamp(status, target, agentTerm(target, fleet.terminals));
       // The transcript window is workspace-scoped (the route refuses an
       // agent that is not in the workspace it names), and a free agent's
       // workspace is the reserved one.

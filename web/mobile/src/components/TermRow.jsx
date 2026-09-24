@@ -26,7 +26,7 @@ export default function TermRow({ term, onOpen, onAction = () => {}, busy, clis 
   const cli = terminalDisplayCli(term);
   const status = terminalStatus(term);
   const stamp = terminalActivityStamp(term);
-  const age = status === "working" && stamp ? " · " + relTime(stamp) : "";
+  const age = stamp ? " · " + relTime(stamp) : "";
   const subtitle = [cli ? terminalCliLabel(cli) : "Shell session", line.text].filter(Boolean).join(" · ");
   const rows = termRowMenu(term, { clis, surface: "phone" });
   return (
