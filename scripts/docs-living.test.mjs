@@ -18,7 +18,7 @@ function tree(files) {
 function failures(files) {
   const root = tree(files);
   try {
-    return livingDocsFailures(root);
+    return livingDocsFailures(root, { quotes: false });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

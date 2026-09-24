@@ -118,8 +118,9 @@ feature, `feat/cascade-delete`, carries through both.
 
 Every step above can refuse — and a refusal names the state that makes the
 step unsafe, it does not ask to be routed around. Each card quotes the message
-the command actually prints; when a script is refactored its quote is what
-goes stale first, so re-grep the phrase before trusting a card.
+the command actually prints, and `make docs-check` holds every quote to the
+script that prints it: reword a refusal and the check names the card to
+update. Example values such as `codex` or `x` stand in for what your run prints.
 
 <div class="bend">
 
