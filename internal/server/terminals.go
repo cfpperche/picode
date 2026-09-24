@@ -263,6 +263,9 @@ func handleCreateTerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		if created {
+			go reapIfNeverLived(deps, t.ID, name)
+		}
 		invalidateTerminals(deps)
 		writeJSON(w, http.StatusCreated, termViewForCreation(deps, r, t, name, created))
 	}
@@ -536,6 +539,35 @@ func handlePutTerminalText(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
+}
+
+// shellSurvivalGrace is how long a just-created shell has to still be there
+// before its row is reaped as one that never lived. Nobody is waiting on this
+// one — the create has already answered — so it can afford the time the
+// synchronous check cannot: under load a `sh -c exit 0` outran a 50 ms beat
+// (measured 2026-09-23, four parallel suites), and the terminal survived as a
+// row answering "no server running". A test may shrink it.
+var shellSurvivalGrace = 1500 * time.Millisecond
+
+// reapIfNeverLived is the deferred half of the creation verdict. The
+// synchronous check keeps its beat for the common case — that is what turns a
+// dead shell into a 500 the caller can read — but a death (or a tmux reaping)
+// slower than that beat is only visible later. A shell that is merely slow to
+// start is safe: its session is there when this looks, so only a session that
+// is *gone* is reaped. The delete goes through the store, so the removal is
+// announced like every other mutation (ADR-0048) and the pane refetches.
+func reapIfNeverLived(deps Deps, id, name string) {
+	time.Sleep(shellSurvivalGrace)
+	if deps.Tmux == nil || !deps.Tmux.Available() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if live, err := deps.Tmux.HasSession(ctx, name); err != nil || live {
+		return
+	}
+	_ = deps.Store.DeleteTerminal(id)
+	invalidateTerminals(deps)
 }
 
 // ensureShell makes sure the terminal's session exists, and reports whether

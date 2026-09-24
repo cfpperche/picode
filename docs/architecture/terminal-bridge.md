@@ -35,9 +35,14 @@ Debian-family systems, where the intercept rcfile is not a valid argument:
 (measured 2026-09-20 — dash answered `Illegal option --`, the pane died
 before its first prompt, a server with nothing else on it followed under
 `exit-empty`, and `new-session` still answered 0 while the API reported a
-live terminal). Creation now verifies the session is alive before it
-answers: a shell that exits at once is a 500 naming the shell, not a
-terminal that never lived. Requires tmux ≥ 3.5; **3.7 or newer is
+live terminal). Creation verifies the session is alive before it answers — a
+shell that exits at once is a 500 naming the shell — and a second check nobody
+waits for runs a moment later, because that verdict is a race the machine's load
+can win (measured 2026-09-23: under four parallel suites a `sh -c exit 0`
+outran the synchronous beat and the row survived). A just-created shell whose
+session is gone by then is reaped through the store, so the guarantee is that a
+terminal which never lived *does not survive*, not that it is refused on the
+spot. Requires tmux ≥ 3.5; **3.7 or newer is
 required to overlay anything on the panes** (floating panes; 3.8 adds modal
 ones), and what matters is the *server's* version — `tmux -V` reports the
 client binary, and after an upgrade the old server keeps interpreting the

@@ -554,30 +554,73 @@ func TestTerminalOpensALiveSessionWithoutShell(t *testing.T) {
 	}
 }
 
-// The counterpart: a shell that exits at once is refused loudly. tmux answers
-// 0 for a pane that died in the same breath, so without the verification the
-// row would survive as a terminal that never lived.
-func TestTerminalRefusesAShellThatExitsAtOnce(t *testing.T) {
+// A shell that exits at once must not leave a terminal behind. The promise is
+// not "refused instantly" — no check can be, because a shell has to start
+// before it can exit — but *does not survive*: either the synchronous verdict
+// refuses it, or the deferred one reaps the row. Both satisfy this, which is
+// what makes it a test of the product instead of of the machine's load
+// (measured 2026-09-23: under four parallel suites the synchronous check alone
+// let the row through two runs in four).
+func TestTerminalThatNeverLivedDoesNotSurvive(t *testing.T) {
 	ts, _, home := cleanupServer(t)
 	if !tmux.New().Available() {
 		t.Skip("tmux not installed")
 	}
+	defer func(old time.Duration) { shellSurvivalGrace = old }(shellSurvivalGrace)
+	shellSurvivalGrace = 250 * time.Millisecond
+
 	goner := filepath.Join(t.TempDir(), "goner")
 	if err := os.WriteFile(goner, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("SHELL", goner)
 	res := postJSON(t, ts, "/api/terminals", map[string]any{"cwd": home})
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("create = %d, want 500 — a terminal that never lived is not a terminal", res.StatusCode)
+	status := res.StatusCode
+	res.Body.Close()
+	if status != http.StatusInternalServerError && status != http.StatusCreated {
+		t.Fatalf("create = %d, want 500 (refused) or 201 (reaped below)", status)
 	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		listed := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals"))
+		var bag map[string]any
+		_ = json.NewDecoder(listed.Body).Decode(&bag)
+		listed.Body.Close()
+		rows, _ := bag["terminals"].([]any)
+		if len(rows) == 0 {
+			return // refused, or reaped by the deferred verdict
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("a terminal that never lived survived: %v", rows)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// And the deferred verdict must not touch a terminal that lives — including one
+// whose shell is only slow to start, because its session is there when the
+// reaper looks.
+func TestALivingTerminalSurvivesTheDeferredVerdict(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	defer func(old time.Duration) { shellSurvivalGrace = old }(shellSurvivalGrace)
+	shellSurvivalGrace = 150 * time.Millisecond
+
+	res := postJSON(t, ts, "/api/terminals", map[string]any{"cwd": home})
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create = %d, want 201", res.StatusCode)
+	}
+	res.Body.Close()
+	time.Sleep(700 * time.Millisecond) // well past the grace
 	listed := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals"))
 	var bag map[string]any
 	_ = json.NewDecoder(listed.Body).Decode(&bag)
 	listed.Body.Close()
-	if rows, _ := bag["terminals"].([]any); len(rows) != 0 {
-		t.Fatalf("terminals = %d, want the refused row rolled back", len(rows))
+	rows, _ := bag["terminals"].([]any)
+	if len(rows) != 1 {
+		t.Fatalf("a living terminal was reaped: %d row(s)", len(rows))
 	}
 }
 
