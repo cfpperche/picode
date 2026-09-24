@@ -32,25 +32,45 @@ jobs:
       # Whitespace errors are refused by the local pre-commit hook (ADR-0105);
       # the check that lived here failed whole runs that nobody read.
 
-      # The daemon suite runs on Linux for every push; the macOS and Windows
-      # legs only for a tag or a manual run (ADR-0105) — they were red for
-      # infrastructure reasons and unread for days.
-      - name: Select operating systems
-        id: os
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* || "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
-            echo 'os=["ubuntu-latest","macos-latest","windows-latest"]' >> "$GITHUB_OUTPUT"
-          else
-            echo 'os=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Select required gates
         id: scope
         env:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           CI_HEAD_SHA: ${{ github.sha }}
         run: node scripts/ci-scope.mjs
+
+      # The daemon suite runs on Linux for every push. The macOS leg joins it
+      # when the diff touches a path where macOS has actually broken before
+      # (`macosRelevant` in scripts/ci-scope.mjs: sockets and process
+      # inspection in internal/tmux and internal/server, path resolution in
+      # internal/clicreds and internal/clipkgs, the workflow and that script),
+      # and Windows stays for tags and manual runs: it compiles rather than
+      # executes the daemon (ADR-0020).
+      #
+      # Amended 2026-09-23, ADR-0105: the legs were cut down to tags and
+      # manual runs because they were red for infrastructure reasons and
+      # unread — those defects are fixed, and the last one (two macOS test
+      # bugs) was found only by a manual run, i.e. exactly the late discovery
+      # the ADR's own text names as the cost. The leg still does not run for
+      # every push: a macOS runner costs several times a Linux one, so it is
+      # bought where the history says it earns its keep.
+      - name: Select operating systems
+        id: os
+        shell: bash
+        run: |
+          # Ubuntu always; macOS when the diff can break it (see above);
+          # Windows only for a tag or a manual run — it compiles rather than
+          # executes the daemon (ADR-0020), so a per-push leg would buy little.
+          # The three are built one at a time because a macOS-relevant push
+          # must not quietly buy a Windows runner too.
+          os='"ubuntu-latest"'
+          if [[ "$GITHUB_REF" == refs/tags/* || "$GITHUB_EVENT_NAME" == workflow_dispatch || "${{ steps.scope.outputs.macos }}" == "true" ]]; then
+            os="$os,\"macos-latest\""
+          fi
+          if [[ "$GITHUB_REF" == refs/tags/* || "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            os="$os,\"windows-latest\""
+          fi
+          echo "os=[$os]" >> "$GITHUB_OUTPUT"
 
   frontend:
     name: Frontend

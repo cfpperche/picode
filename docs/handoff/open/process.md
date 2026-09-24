@@ -28,16 +28,14 @@
   a CI job of their own — because it removes the ceiling question without
   betting the gate on how four processes share a two-core runner.
 
-- [ ] **The macOS Go job is red on tests nobody runs.** Found 2026-09-23 by
-  dispatching CI on a branch (main's pushes classify macOS out for most diffs,
-  so these have been unseen): `TestLocateOMPRules` compares a path without
-  resolving `/private/var` (macOS's `/var` is a symlink, `omp_catalog_test.go`),
-  and `TestKillServerThroughAGuardedPath` dies with *"File name too long"*
-  binding its tmux socket under the runner's long `TMPDIR` — the same class the
-  2026-09-23 socket fix handled for PiCode's own sockets, still open in the
-  fixture (`binary_test.go`). Both are test defects, both small; until they are
-  fixed, any PR or dispatched run is red on macOS, and a macOS regression
-  cannot be told apart from this noise.
+- [x] **The macOS Go job is red on tests nobody runs.** Paid 2026-09-23, in two
+  steps: the two defects are fixed (`feat/macos-tests`) and the leg now runs
+  where it matters — a push whose diff touches a path macOS has actually broken
+  on before joins it to the matrix (`macosRelevant` in `scripts/ci-scope.mjs`:
+  `internal/tmux`, `internal/server`, `internal/clicreds`, `internal/clipkgs`,
+  the workflow and that script). ADR-0105's file and its index row carry the
+  amendment, because the reason the leg was cut — red for infrastructure
+  reasons, unread for days — was a fact that had stopped being true.
 
 - [x] **`TestStopIdleFencesConversationAndCommands` fails on the GitHub
   runners and nobody can say why.** Paid 2026-09-22 (`feat/ci-vendor-tests`) —

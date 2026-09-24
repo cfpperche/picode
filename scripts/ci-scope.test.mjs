@@ -25,7 +25,22 @@ const cases = [
   {
     name: "workflow changes prove the complete replacement workflow",
     paths: [".github/workflows/ci.yml"],
-    want: { scope: "full", full: true, docs: true },
+    want: { scope: "full", full: true, docs: true, macos: true },
+  },
+  {
+    name: "a path macOS has broken on before runs the macOS leg",
+    paths: ["internal/tmux/tmux.go"],
+    want: { scope: "full", full: true, docs: true, macos: true },
+  },
+  {
+    name: "frontend code is full but is not macOS-relevant",
+    paths: ["web/src/main.jsx"],
+    want: { scope: "full", full: true, docs: true, macos: false },
+  },
+  {
+    name: "a docs-only push does not buy a macOS runner",
+    paths: ["docs-site/guide/getting-started.md"],
+    want: { scope: "docs", full: false, docs: true, macos: false },
   },
   {
     name: "internal docs need only the always-on scope gate",
@@ -78,10 +93,10 @@ test("CI path decision table", async (t) => {
   for (const tc of cases) {
     await t.test(tc.name, () => {
       const got = classifyPaths(tc.paths);
-      assert.deepEqual(
-        { scope: got.scope, full: got.full, docs: got.docs },
-        tc.want,
-      );
+      // Only the keys a row declares, the way the local-scope table below
+      // asserts — a row that does not care about macOS does not have to name
+      // it, and a row that does, proves it.
+      for (const [k, v] of Object.entries(tc.want)) assert.deepEqual(got[k], v, k);
     });
   }
 });
@@ -107,11 +122,15 @@ test("hosted workflow preserves the optimized platform decision table", () => {
   assert.ok(goStart > 0 && embeddedStart > goStart, "go and embedded jobs must remain distinct");
   const goJob = workflow.slice(goStart, embeddedStart);
   assert.doesNotMatch(goJob, /setup-node|make web|make docs|npm ci/);
-  // ADR-0105: Ubuntu on every push; macOS and Windows only for a tag or a
-  // manual run — the `changes` job picks the list, the go job consumes it.
+  // ADR-0105, amended 2026-09-23: Ubuntu on every push, macOS when the diff
+  // can break it, Windows only for a tag or a manual run. The `changes` job
+  // builds the list one leg at a time — a macOS-relevant push must not quietly
+  // buy a Windows runner — and the go job consumes it.
   assert.match(goJob, /os: \$\{\{ fromJSON\(needs\.changes\.outputs\.os\) \}\}/);
-  assert.match(workflow, /os=\["ubuntu-latest","macos-latest","windows-latest"\]/);
-  assert.match(workflow, /os=\["ubuntu-latest"\]/);
+  assert.match(workflow, /os='"ubuntu-latest"'/);
+  assert.match(workflow, /os="\$os,\\"macos-latest\\""/);
+  assert.match(workflow, /os="\$os,\\"windows-latest\\""/);
+  assert.match(workflow, /steps\.scope\.outputs\.macos/);
   assert.match(workflow, /refs\/tags\/\* \|\| "\$GITHUB_EVENT_NAME" == workflow_dispatch/);
   assert.match(goJob, /actions\/cache@v4/);
   assert.match(goJob, /go test -race -run '\^\$' \.\/\.\.\./);
