@@ -1,0 +1,9 @@
+# 2026-09-23 — feat/ci-macos-leg: the macOS leg joins the pushes that can break it
+
+ADR-0105 cut the macOS and Windows legs to tags and manual runs because they were red for infrastructure reasons and unread for days — and its own text named the cost: an OS-specific regression surfaces late. That fact stopped being true today: the two macOS test defects are fixed, and the last one was found only by a manual run, which is exactly the late discovery the ADR calls the cost.
+`scripts/ci-scope.mjs` now answers `macosRelevant(paths)` from a list of paths where macOS has actually broken, each one a defect this repository hit: `internal/tmux` and `internal/server` (sockets, process inspection), `internal/clicreds` and `internal/clipkgs` (path resolution), the workflow and the script itself.
+`classifyPaths` gained a `macos` field, deliberately *not* the same as `full`: a web-only push is full and platform-neutral (a test row proves the two signals differ), and an untrusted diff fails safe to macOS as well.
+The workflow's `os` step moved after the scope step and reads it. Windows stays on tags and manual runs: it compiles rather than executes the daemon (ADR-0020), so a per-push leg would buy little.
+Proof: `node --test scripts/ci-scope.test.mjs` 29/29, and the predicate live for six paths (tmux/server/clicreds → macOS; web/llama/docs → not). The end-to-end proof is the push that carries this: its own diff touches `.github/`, so the run must list `Go (macos-latest)`.
+Recorded, never silent: ADR-0105's file and its index row carry the amendment, and the debt is paid in `docs/handoff/open/process.md`.
+Blind spot: the path list is the history of *known* macOS breakage; a new class of macOS-only failure elsewhere would still wait for a tag or a manual run.

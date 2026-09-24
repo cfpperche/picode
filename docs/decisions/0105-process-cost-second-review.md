@@ -69,6 +69,16 @@ changes below, with two explicit refusals recorded under *Alternatives*.
    runs in the pre-commit hook; the GitHub step that failed whole runs is
    gone. The Go matrix runs on Ubuntu for every push and adds macOS and
    Windows only for a tag or a manual run; the tmux build is cached.
+   **Amended 2026-09-23:** macOS joins the per-push matrix when the diff
+   touches a path where it has actually broken before — sockets and process
+   inspection in `internal/tmux` and `internal/server`, path resolution in
+   `internal/clicreds` and `internal/clipkgs`, the workflow and
+   `scripts/ci-scope.mjs` itself (`macosRelevant`). The legs were cut down
+   because they were red for infrastructure reasons and unread; those defects
+   are fixed, and the last one (two macOS test bugs) was found only by a
+   manual run, which is the late discovery the paragraph above calls the cost.
+   Windows stays on tags and manual runs: it compiles rather than executes the
+   daemon (ADR-0020), so a per-push leg would buy little.
 6. **Gates.** `scripts/go-test.sh` runs `internal/server` across four
    processes (package globals are per process, so the probe swapping that
    rules out `t.Parallel` is untouched) and unsets `PICODE_TERM_ID` so every

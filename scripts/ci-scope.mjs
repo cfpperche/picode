@@ -43,28 +43,55 @@ export function pathScope(rawPath) {
   return "full";
 }
 
+// macOS-relevant paths: where this repository has actually failed on macOS for
+// macOS reasons, each one a defect it hit rather than a guess — socket paths
+// and process inspection in internal/tmux and internal/server, path resolution
+// in internal/clicreds and internal/clipkgs, and the workflow and the script
+// that decide the matrix at all (a change to those has to be proved on the
+// complete one).
+//
+// ADR-0105 kept the macOS and Windows legs for tags and manual runs because
+// they were red for infrastructure reasons and unread for days (its own text
+// names the cost: an OS-specific regression surfaces late). Those defects are
+// fixed as of 2026-09-23, and the last one was found only by a manual run — so
+// a diff that touches one of these paths runs the leg, and one that does not,
+// does not pay for a macOS runner.
+const MACOS_RELEVANT = [
+  /^\.github\//,
+  /^scripts\/ci-scope\.mjs$/,
+  /^scripts\/go-test\.sh$/,
+  /^internal\/(tmux|server|clicreds|clipkgs)\//,
+];
+
+export function macosRelevant(rawPaths) {
+  return rawPaths.map(normalizePath).some((p) => MACOS_RELEVANT.some((re) => re.test(p)));
+}
+
 export function classifyPaths(rawPaths) {
   const paths = [...new Set(rawPaths.map(normalizePath).filter(Boolean))];
   if (paths.length === 0) {
-    return { scope: "full", full: true, docs: true, paths };
+    return { scope: "full", full: true, docs: true, macos: true, paths };
   }
 
   const scopes = new Set(paths.map(pathScope));
   if (scopes.has("full")) {
-    return { scope: "full", full: true, docs: true, paths };
+    // A path the scope table cannot judge promotes the run to the complete
+    // matrix, but macOS is still bought only where the history says it earns
+    // its keep: `web/` is full and platform-neutral, `internal/tmux/` is not.
+    return { scope: "full", full: true, docs: true, macos: macosRelevant(paths), paths };
   }
   if (scopes.has("docs")) {
-    return { scope: "docs", full: false, docs: true, paths };
+    return { scope: "docs", full: false, docs: true, macos: macosRelevant(paths), paths };
   }
   if (scopes.has("desktop")) {
     // A shell-only change runs the shell job alone; mixed with anything else
     // it fails safe to the complete matrix (whose desktop job runs too).
     if (scopes.size === 1) {
-      return { scope: "desktop", full: false, docs: false, desktop: true, paths };
+      return { scope: "desktop", full: false, docs: false, desktop: true, macos: macosRelevant(paths), paths };
     }
-    return { scope: "full", full: true, docs: true, paths };
+    return { scope: "full", full: true, docs: true, macos: macosRelevant(paths), paths };
   }
-  return { scope: "metadata", full: false, docs: false, paths };
+  return { scope: "metadata", full: false, docs: false, macos: macosRelevant(paths), paths };
 }
 
 // Local scopes (ADR-0086). A worktree iteration runs the gates its diff can
@@ -123,6 +150,7 @@ function localMain() {
   console.log(`SCOPE_DOCS=${flag(s.docs)}`);
   console.log(`SCOPE_METADATA=${flag(s.metadata)}`);
   console.log(`SCOPE_DESKTOP=${flag(s.desktop)}`);
+  console.log(`SCOPE_MACOS=${flag(macosRelevant(s.paths))}`);
   console.log(`SCOPE_GO_PATHS='${s.goPaths.join(" ")}'`);
   console.log(`SCOPE_COUNT=${s.paths.length}`);
 }
@@ -163,7 +191,7 @@ function main() {
 
   const output = process.env.GITHUB_OUTPUT;
   if (output) {
-    appendFileSync(output, `scope=${result.scope}\nfull=${result.full}\ndocs=${result.docs}\ndesktop=${result.desktop ?? false}\n`);
+    appendFileSync(output, `scope=${result.scope}\nfull=${result.full}\ndocs=${result.docs}\ndesktop=${result.desktop ?? false}\nmacos=${result.macos ?? false}\n`);
   }
   const summary = process.env.GITHUB_STEP_SUMMARY;
   if (summary) appendFileSync(summary, markdownSummary(result));

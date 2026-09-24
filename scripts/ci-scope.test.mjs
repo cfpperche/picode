@@ -25,7 +25,22 @@ const cases = [
   {
     name: "workflow changes prove the complete replacement workflow",
     paths: [".github/workflows/ci.yml"],
-    want: { scope: "full", full: true, docs: true },
+    want: { scope: "full", full: true, docs: true, macos: true },
+  },
+  {
+    name: "a path macOS has broken on before runs the macOS leg",
+    paths: ["internal/tmux/tmux.go"],
+    want: { scope: "full", full: true, docs: true, macos: true },
+  },
+  {
+    name: "frontend code is full but is not macOS-relevant",
+    paths: ["web/src/main.jsx"],
+    want: { scope: "full", full: true, docs: true, macos: false },
+  },
+  {
+    name: "a docs-only push does not buy a macOS runner",
+    paths: ["docs-site/guide/getting-started.md"],
+    want: { scope: "docs", full: false, docs: true, macos: false },
   },
   {
     name: "internal docs need only the always-on scope gate",
@@ -78,10 +93,10 @@ test("CI path decision table", async (t) => {
   for (const tc of cases) {
     await t.test(tc.name, () => {
       const got = classifyPaths(tc.paths);
-      assert.deepEqual(
-        { scope: got.scope, full: got.full, docs: got.docs },
-        tc.want,
-      );
+      // Only the keys a row declares, the way the local-scope table below
+      // asserts — a row that does not care about macOS does not have to name
+      // it, and a row that does, proves it.
+      for (const [k, v] of Object.entries(tc.want)) assert.deepEqual(got[k], v, k);
     });
   }
 });
