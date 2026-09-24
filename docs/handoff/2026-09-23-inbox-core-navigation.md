@@ -5,4 +5,4 @@ Docs: architecture, public guide, OpenAPI, changelog fragment, and affected scre
 Verified: `make ci-scoped` passed fmt, vet, hooks, six Go packages, JS tests, build, and docs; strict docs-check passed. One flaky tmux test passed on isolated rerun.
 visual-review: PASS — scratch browser screenshots read for empty, pending, done, error, old link, Apps grid, mobile, and 180px sidebar; overlay audit passed and no horizontal clipping was seen. The docs-site captures were also read; `app-providers` shows the intermediate sign-in step described by its caption.
 Limit: scratch Chromium review does not establish native Windows shell behavior.
-Merge: `make close` and `make land` remain to be run after reconciling the branch with current `main`.
+Merge: `make close` passed after reconciling `main`; `make land` fast-forwarded `main` to `d6f101998` and the full CI passed (81 Go packages).
