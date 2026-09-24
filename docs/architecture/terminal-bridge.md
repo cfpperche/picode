@@ -76,8 +76,8 @@ exact `pane_current_command` plus `pane_pid` match, never from pixels.
 sidebar, tabs, mobile and Canvas show it only after a native pre-compaction
 signal; it remains busy for prompt and Git guards and expires on the working
 TTL. In the sidebar it uses the same first-line status slot as Working, beside
-the agent name. The default 280px sidebar shows both; narrow resized rows
-keep the status word and omit its spinner and age. Codex, Claude Code and
+the agent name. Rows 280px wide or narrower (the default sidebar)
+keep the status word and its spinner and omit only the age. Codex, Claude Code and
 Grok use PreCompact/PostCompact; Pi and
 Omp use session_before_compact/session_compact; Pi also uses
 session_compact_failed.
