@@ -47,7 +47,7 @@ export default function More({ fleetReady = true, section, apps, catalog, clis =
           <ul className="m-list m-menu m-group-list">
           {group.rows.map(([id, title, sub]) => (
             <li key={id} className="m-row">
-              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash(lastCli) : id === "pi-packages" ? cliPackagesHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "pi-skills" ? cliSkillsHash(lastCli, { workspaceId: last?.workspace?.id }) : id === "pi-settings" ? cliSettingsHash(lastCli, { agentId: last?.agent?.id || legacyAgentId }) : id === "connectors" ? cliConnectorsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "integrations" ? "#/integrations/webhooks" : "#/more/" + id}>
+              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash(lastCli) : id === "pi-packages" ? cliPackagesHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "pi-skills" ? cliSkillsHash(lastCli, { workspaceId: last?.workspace?.id }) : id === "pi-settings" ? cliSettingsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "connectors" ? cliConnectorsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "integrations" ? "#/integrations/webhooks" : "#/more/" + id}>
                 <span className="m-row-text">
                   <span className="m-row-title">{title}</span>
                   <span className="m-row-sub">{sub}</span>

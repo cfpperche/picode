@@ -44,12 +44,15 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
     let alive = true;
     setLoadError("");
     setRep(null);
-    const q = agent ? "?agentId=" + encodeURIComponent(agent.id) : "";
-    api("/api/pi-settings" + q).then(data => {
+    const q = new URLSearchParams();
+    if (agent) q.set("agentId", agent.id);
+    else if (workspace && workspace.id) q.set("workspace", workspace.id);
+    const qs = q.toString();
+    api("/api/pi-settings" + (qs ? "?" + qs : "")).then(data => {
       if (alive) setRep(data);
     }).catch(error => { if (alive) setLoadError(error.message); });
     return () => { alive = false; };
-  }, [hidden, agent && agent.id, retry]);
+  }, [hidden, agent && agent.id, workspace && workspace.id, retry]);
 
   useEffect(() => {
     if (hidden || !rep || focus !== "scoped-models") return;
@@ -71,7 +74,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
       const next = await api("/api/pi-settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId: agent ? agent.id : "", layer: layerID, patch }),
+        body: JSON.stringify({ agentId: agent ? agent.id : "", workspaceId: workspace && workspace.id ? workspace.id : "", layer: layerID, patch }),
       });
       setRep(next);
       toast.ok(okMsg);
@@ -174,7 +177,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
           <fieldset className="pi-settings-fields" disabled={!rep || !!loadError} hidden={!rep && !!loadError}>
           <div className="settings-layer-body" data-layer={active.id}>
             {!canProject && active.id === "project" ? (
-              <div className="cli-notice" role="status"><span>This folder is not trusted.</span><a className="btn btn-ghost btn-sm" href={"#/agent/" + encodeURIComponent(agent.id)}>Open agent to trust</a></div>
+              <div className="cli-notice" role="status"><span>This folder is not trusted.</span>{agent ? <a className="btn btn-ghost btn-sm" href={"#/agent/" + encodeURIComponent(agent.id)}>Open agent to trust</a> : <a className="btn btn-ghost btn-sm" href="#/clis/pi/settings">Global settings</a>}</div>
             ) : (
               <LayerKnobs
                 key={active.id}

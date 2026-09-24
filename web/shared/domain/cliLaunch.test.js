@@ -33,7 +33,7 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.equal(cliLocation("#/clis/pi/providers/custom/cheap/extra").invalid, true);
   assert.equal(cliLocation("#/clis/pi/providers/nope").invalid, true);
   assert.equal(cliPaneHash("pi", "providers"), "#/clis/pi/providers");
-  assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", agentId: "", focus: "", layer: "", keysTab: false, legacy: false, redirect: "" });
+  assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", workspaceId: "", agentId: "", focus: "", layer: "", keysTab: false, legacy: false, redirect: "" });
   assert.deepEqual(cliLocation("#/clis/pi/packages"), { view: "clis", pane: "packages", id: "pi", pkg: "", workspaceId: "", agentId: "", scope: "user", legacy: false, invalid: false, redirect: "" });
   assert.equal(cliLocation("#/clis/pi/connectors").pane, "connectors");
   assert.equal(cliPaneHash("pi", "settings"), "#/clis/pi/settings");

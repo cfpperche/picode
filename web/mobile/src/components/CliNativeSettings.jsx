@@ -154,7 +154,7 @@ export default function CliNativeSettings({ route, workspaceId = "", workspaceNa
                 className="pkg-scope-btn"
                 role="radio"
                 aria-checked={l.scope === current.scope}
-                href={cliSettingsHash(cli, { layer: scopeToLayer(l.scope) })}
+                href={cliSettingsHash(cli, { workspaceId, layer: scopeToLayer(l.scope) })}
               >{l.label}</a>
             ))}
           </div>
