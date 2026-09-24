@@ -61,8 +61,8 @@ func TestListAppsWithBadge(t *testing.T) {
 	if code := getJSON(t, ts, "/api/apps", &body); code != http.StatusOK {
 		t.Fatalf("GET /api/apps = %d", code)
 	}
-	// Six: inbox, docker, canvas, tmux, and the two hidden demo apps.
-	if body.APIVersion != apps.APIVersion || len(body.Apps) != 6 {
+	// Five: docker, canvas, tmux, and the two hidden demo apps.
+	if body.APIVersion != apps.APIVersion || len(body.Apps) != 5 {
 		t.Fatalf("list = %+v", body)
 	}
 	byID := map[string]int{}
@@ -77,13 +77,7 @@ func TestListAppsWithBadge(t *testing.T) {
 	if a.Icon == "" || a.APIVersion != apps.APIVersion || a.Badge.Count != 3 {
 		t.Fatalf("demo row = %+v", a)
 	}
-	inboxRow, ok := byID["inbox"]
-	if !ok {
-		t.Fatalf("inbox missing: %+v", body.Apps)
-	}
-	if b := body.Apps[inboxRow].Badge; b.Count != 0 || b.Dot {
-		t.Fatalf("empty inbox badge = %+v", b)
-	}
+
 }
 
 // A native app on the wire (ADR-0109): its manifest row says so, a
@@ -108,9 +102,7 @@ func TestNativeAppOnTheWire(t *testing.T) {
 	if _, has := rows["demo"]["surface"]; has {
 		t.Fatalf("demo row carries a surface key: %v", rows["demo"])
 	}
-	if _, has := rows["inbox"]["surface"]; has {
-		t.Fatalf("inbox row carries a surface key: %v", rows["inbox"])
-	}
+
 	// The Canvas is the shipped native app: listed in every build with its
 	// surface on the wire, the host icon key and no badge.
 	if got := rows["canvas"]["surface"]; got != apps.SurfaceNative {

@@ -141,7 +141,7 @@ export const SURFACE_PROFILES = Object.freeze({
     entries: ["web/browser/src/components/AgentTabs.jsx", "web/browser/src/components/AppSurface.jsx"],
     files: [
       "internal/apps/apps.go",
-      "internal/apps/inbox.go",
+      "internal/inboxview/inbox.go",
       "internal/apps/primitives.go",
       "internal/server/inbox.go",
       "internal/store/inbox.go",
@@ -178,7 +178,7 @@ export const SURFACE_PROFILES = Object.freeze({
     entries: ["web/mobile/src/screens/Inbox.jsx"],
     files: [
       "internal/apps/apps.go",
-      "internal/apps/inbox.go",
+      "internal/inboxview/inbox.go",
       "internal/apps/primitives.go",
       "internal/server/inbox.go",
       "internal/store/inbox.go",

@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appPath, isAgentTab } from "./routes.js";
+import { appPath, isAgentTab, inboxHash, inboxPath, legacyInboxHash } from "./routes.js";
+
+test("Inbox is a core page with stable item links", () => {
+  assert.equal(parseRoute("#/inbox"), "inbox");
+  assert.equal(parseRoute("#/inbox/i-1"), "inbox");
+  assert.equal(inboxHash("item/i-1"), "#/inbox/i-1");
+  assert.equal(inboxPath("#/inbox/i-1"), "item/i-1");
+  assert.equal(inboxPath("#/inbox/done"), "done");
+  assert.equal(legacyInboxHash("#/app/inbox/item/i-1"), "#/inbox/i-1");
+  assert.equal(legacyInboxHash("#/app/docker"), "");
+});
 
 test("integrations deep links remain reload-safe", () => {
   assert.equal(parseRoute("#/integrations/webhooks"), "integrations");

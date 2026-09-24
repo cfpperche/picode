@@ -1,4 +1,4 @@
-package apps
+package inboxview
 
 import (
 	"context"
@@ -7,14 +7,41 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/store"
 )
 
-// inboxApp is the Inbox (ADR-0037) — the first production app on the
-// host. Two zones from the frozen primitives: a needs-me queue (blocking
-// items, each demanding a decision) and the archivable feed. Responding
-// is the done; replies to agent questions ride the durable task queue.
-type inboxApp struct{}
+// Inbox renders the core mailbox (ADR-0037) through the shared
+// primitives contract. Two zones from the frozen primitives: a needs-me
+// queue and the archivable feed. Responding is the done; replies to agent
+// questions ride the durable task queue.
+type Host struct {
+	Store                *store.Store
+	AgentDeliverable     store.AgentDeliverable
+	DeliverReply         func(itemID, verb, text string) (agentID string, err error)
+	AnswerAgentQuestion  func(itemID, verb, text string) (toast string, err error)
+	DeliverTerminalReply func(itemID, verb, text string) (termID string, err error)
+}
+
+// Presentation types are shared with apps; registration and host services
+// are not. Both shells can render the same primitive tree.
+type View = apps.View
+type Tab = apps.Tab
+type Block = apps.Block
+type ListItem = apps.ListItem
+type Field = apps.Field
+type Form = apps.Form
+type Action = apps.Action
+type ActionRequest = apps.ActionRequest
+type ActionResult = apps.ActionResult
+type Badge struct {
+	Count int  `json:"count,omitempty"`
+	Dot   bool `json:"dot,omitempty"`
+}
+
+const APIVersion = apps.APIVersion
+
+type Inbox struct{}
 
 // InboxAnswerRecordedNote is appended when a reply to a channel-less
 // question is recorded on the item instead of delivered. The store has
@@ -29,14 +56,10 @@ type inboxApp struct{}
 const InboxAnswerRecordedNote = "Answer recorded on the item — `picode inbox ask --wait` reads it here. An asker that is not polling (a plain ask, or a pi launched outside the launcher) must be told another way."
 
 // InboxAnswerRecordedToast is the same news in the toast the human sees
-// when they answer from the app.
+// when they answer from the Inbox.
 const InboxAnswerRecordedToast = "Answer recorded — a waiting asker reads it here; a non-polling asker must be told another way."
 
-func (inboxApp) Manifest() Manifest {
-	return Manifest{ID: "inbox", Name: "Inbox", Icon: "inbox", APIVersion: APIVersion}
-}
-
-func (inboxApp) Badge(_ context.Context, h Host) (Badge, error) {
+func (Inbox) Badge(_ context.Context, h Host) (Badge, error) {
 	blocking, other, err := h.Store.CountInboxBadge()
 	if err != nil {
 		return Badge{}, err
@@ -44,7 +67,7 @@ func (inboxApp) Badge(_ context.Context, h Host) (Badge, error) {
 	return Badge{Count: blocking, Dot: other}, nil
 }
 
-func (a inboxApp) View(_ context.Context, h Host, path string) (View, error) {
+func (a Inbox) View(_ context.Context, h Host, path string) (View, error) {
 	if strings.HasPrefix(path, "item/") {
 		return a.itemView(h, strings.TrimPrefix(path, "item/"))
 	}
@@ -63,7 +86,7 @@ func (a inboxApp) View(_ context.Context, h Host, path string) (View, error) {
 // (best-effort on the detail view, so a count query failing there
 // doesn't take the item down with it). Active carries no badge — its
 // sections already show counts the same way Needs-you/Feed do.
-func (inboxApp) tabs(h Host) ([]Tab, error) {
+func (Inbox) tabs(h Host) ([]Tab, error) {
 	doneN, err := h.Store.CountInboxItems(store.InboxDone)
 	if err != nil {
 		return nil, err
@@ -112,7 +135,7 @@ func listPanes(h Host, selected string) ([]Block, error) {
 	return blocks, nil
 }
 
-func (a inboxApp) rootView(h Host) (View, error) {
+func (a Inbox) rootView(h Host) (View, error) {
 	tabs, err := a.tabs(h)
 	if err != nil {
 		return View{}, err
@@ -177,7 +200,7 @@ func donePane(h Host, selected string) ([]Block, error) {
 	return []Block{{Type: "list", Pane: "list", Items: doneRows(h, items)}}, nil
 }
 
-func (a inboxApp) doneView(h Host) (View, error) {
+func (a Inbox) doneView(h Host) (View, error) {
 	tabs, err := a.tabs(h)
 	if err != nil {
 		return View{}, err
@@ -203,7 +226,7 @@ func (a inboxApp) doneView(h Host) (View, error) {
 	return v, nil
 }
 
-func (a inboxApp) allView(h Host) (View, error) {
+func (a Inbox) allView(h Host) (View, error) {
 	tabs, err := a.tabs(h)
 	if err != nil {
 		return View{}, err
@@ -313,7 +336,7 @@ func kindTone(kind string) string {
 	return ""
 }
 
-func (a inboxApp) itemView(h Host, id string) (View, error) {
+func (a Inbox) itemView(h Host, id string) (View, error) {
 	it, err := h.Store.GetInboxItem(id)
 	if err != nil {
 		return View{}, err
@@ -431,7 +454,7 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 	return v, nil
 }
 
-func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionResult, error) {
+func (a Inbox) Action(_ context.Context, h Host, req ActionRequest) (ActionResult, error) {
 	// The next action on an empty Active queue — the same destination the
 	// Done tab names. Item-less, so it is checked before the "no item in
 	// request" guard below has to special-case it.
@@ -638,7 +661,7 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 // user was actually looking at — deleting a Done row keeps you on Done,
 // clearing history from All keeps you on All — instead of always
 // snapping back to Active regardless of where the action fired from.
-func (a inboxApp) backTo(h Host, path, toast string) (ActionResult, error) {
+func (a Inbox) backTo(h Host, path, toast string) (ActionResult, error) {
 	v, err := a.View(context.Background(), h, path)
 	if err != nil {
 		return ActionResult{Toast: toast}, nil

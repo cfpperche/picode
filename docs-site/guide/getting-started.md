@@ -43,7 +43,7 @@ Two kinds of thing run in PiCode. An **agent** is a workspace or free instance o
 
 ## 4. Create an agent
 
-The sidebar has a tab per kind: **Agents** (agents without a project), **Workspaces** (your project folders — each card holds its agents and terminals, and its buttons create them right there), **Terminals** (loose shells), **Apps** (tiles like Inbox and Docker) and **Pins**. Add a workspace, add an agent inside it and pick which CLI runs there — or add a free agent from the **Agents** tab, picking its CLI the same way — then click **Run**. Close the browser tab; the agent keeps running.
+The sidebar has a tab per kind: **Agents** (agents without a project), **Workspaces** (your project folders — each card holds its agents and terminals, and its buttons create them right there), **Terminals** (loose shells), **Apps** (tiles like Docker and Canvas) and **Pins**. The Inbox button in the top row opens questions and results from every agent. Add a workspace, add an agent inside it and pick which CLI runs there — or add a free agent from the **Agents** tab, picking its CLI the same way — then click **Run**. Close the browser tab; the agent keeps running.
 
 ![The desktop shell: workspaces and agents in the sidebar, what needs you first, and today's numbers on the right](../img/app-fleet.png)
 

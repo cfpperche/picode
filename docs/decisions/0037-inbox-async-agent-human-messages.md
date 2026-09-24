@@ -1,9 +1,11 @@
 # ADR-0037: Inbox — async agent↔human messages; data plane in core, view as the first app
 
-- **Status**: accepted (depends on ADR-0036; the Inbox is its first app)
+- **Status**: accepted; view-as-app clause amended by ADR-0208 (the Inbox is a core surface)
 - **Date**: 2026-08-31
 
 ## Context
+
+> The original app hosting choice below records the 2026-08-31 decision. ADR-0208 moves the view, badge and navigation into core while preserving the mailbox and delivery semantics.
 
 Today an agent's question mid-turn is visible only if its session tab is
 open; a finished run announces itself to nobody; terminals have no channel

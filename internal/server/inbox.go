@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cfpperche/picode/internal/apps"
+	"github.com/cfpperche/picode/internal/inboxview"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -15,6 +16,9 @@ import (
 // rendered as markdown by the host, never HTML.
 
 func registerInboxRoutes(mux Registrar, deps Deps) {
+	mux.HandleFunc("GET /api/inbox/badge", handleInboxBadge(deps))
+	mux.HandleFunc("GET /api/inbox/view", handleInboxView(deps))
+	mux.HandleFunc("POST /api/inbox/action", handleInboxAction(deps))
 	mux.HandleFunc("POST /api/inbox", handleCreateInboxItem(deps))
 	mux.HandleFunc("GET /api/inbox", handleListInbox(deps))
 	mux.HandleFunc("GET /api/inbox/{id}", handleGetInboxItem(deps))
@@ -22,6 +26,65 @@ func registerInboxRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/inbox/{id}/state", handleInboxState(deps))
 	mux.HandleFunc("DELETE /api/inbox/{id}", handleDeleteInboxItem(deps))
 	mux.HandleFunc("DELETE /api/inbox", handleClearDoneInbox(deps))
+}
+
+func inboxHost(deps Deps, r *http.Request) inboxview.Host {
+	return inboxview.Host{
+		Store:            deps.Store,
+		AgentDeliverable: func(agentID string) bool { return !deps.agentInteractive(r.Context(), agentID) },
+		DeliverReply: func(itemID, verb, text string) (string, error) {
+			return deps.DeliverReply(r.Context(), itemID, verb, text)
+		},
+		AnswerAgentQuestion: func(itemID, verb, text string) (string, error) {
+			answer, err := deps.AnswerAgentQuestion(r.Context(), itemID, verb, text)
+			return answer.Toast(), err
+		},
+		DeliverTerminalReply: func(itemID, verb, text string) (string, error) {
+			return deps.AnswerTerminalQuestion(itemID, verb, text)
+		},
+	}
+}
+
+func handleInboxBadge(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		badge, err := (inboxview.Inbox{}).Badge(r.Context(), inboxHost(deps, r))
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, badge)
+	}
+}
+
+func handleInboxView(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		v, err := (inboxview.Inbox{}).View(r.Context(), inboxHost(deps, r), r.URL.Query().Get("path"))
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, v)
+	}
+}
+
+func handleInboxAction(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req apps.ActionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.Action == "" {
+			writeErr(w, http.StatusBadRequest, "action is required")
+			return
+		}
+		res, err := (inboxview.Inbox{}).Action(r.Context(), inboxHost(deps, r), req)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, res)
+	}
 }
 
 type inboxCreateReq struct {
@@ -119,7 +182,7 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 		}
 		id := r.PathValue("id")
 		if it, err := deps.Store.GetInboxItem(id); err == nil && it.SourceKind == store.InboxFromSystem && it.Reason == "mission" && req.Verb == store.VerbRespond {
-			if err := apps.RecordMissionAnswer(deps.Store, id, req.Text); err != nil {
+			if err := inboxview.RecordMissionAnswer(deps.Store, id, req.Text); err != nil {
 				missionError(w, err)
 				return
 			}
@@ -146,7 +209,7 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 			return
 		}
 		// An agent's question or approval goes through the door that agent
-		// listens on — the same rule the Inbox app applies, so the mobile
+		// listens on — the same rule the Inbox core view applies, so the mobile
 		// Reply and the desktop one never disagree.
 		if it, err := deps.Store.GetInboxItem(id); err == nil && it.SourceKind == store.InboxFromAgent &&
 			req.Verb != store.VerbIgnore && it.State != store.InboxDone &&
@@ -183,7 +246,7 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 				// appended note names who still must be told another way,
 				// because a plain ask and an unmanaged pi do not poll.
 				if done, rerr := deps.Store.RespondInboxItem(id, req.Verb, req.Text); rerr == nil {
-					_ = deps.Store.AnnotateInboxItem(id, apps.InboxAnswerRecordedNote)
+					_ = deps.Store.AnnotateInboxItem(id, inboxview.InboxAnswerRecordedNote)
 					writeJSON(w, http.StatusOK, done)
 					return
 				}

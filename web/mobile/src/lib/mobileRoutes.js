@@ -104,7 +104,7 @@ export function mobileRoute(hash) {
     const sec = parts[1] ? dec(parts[1]) : "";
     return { screen: "more", id: "", section: MORE_SECTIONS.includes(sec) ? sec : "" };
   }
-  if (head === "app" && parts[1] === "inbox") return { screen: "inbox", id: "", section: "" };
+  if (head === "app" && parts[1] === "inbox") return { screen: "inbox", id: parts[2] === "item" && parts[3] ? dec(parts[3]) : "", section: "" };
   // Pins on the phone: the list lives under More; a pin opens read-only
   // (where a reminder's Open lands), `new` and `<id>/edit` are the form.
   if (head === "pins" && parts[1] === "new") return { screen: "pinEdit", id: "", section: "" };

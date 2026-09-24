@@ -73,6 +73,10 @@ const LAST_AGENT_KEY = "picode-mobile-last-agent";
 export default function MobileApp() {
   useVisualViewport();
   const route = useHashRoute();
+  useEffect(() => {
+    const match = /^#\/app\/inbox(?:\/item\/([^/]+))?$/.exec(location.hash);
+    if (match) location.replace(match[1] ? "#/inbox/" + match[1] : "#/inbox");
+  }, []);
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [catalog, setCatalog] = useState(null);
   const [clis, setClis] = useState([]);
@@ -171,7 +175,7 @@ export default function MobileApp() {
     })();
   }, []);
 
-  // Inbox (blocking items for Now, results for the feed) and app badges.
+  // Inbox (blocking items for Now, results for the feed) and app catalog.
   const loadInbox = useCallback(async () => {
     const [blocking, all, appList] = await Promise.all([
       api("/api/inbox?blocking=1").catch(() => null),
@@ -182,7 +186,7 @@ export default function MobileApp() {
     if (all) setResults((all.items || []).filter((it) => it.kind === "result").slice(0, 5));
     if (appList) setApps(normalizeManifests(appList));
     if (blocking && all) setAttentionReady(true);
-    setAttentionError(blocking && all && appList ? "" : "Couldn’t refresh activity. Try again for the latest updates.");
+    setAttentionError(blocking && all ? "" : "Couldn’t refresh activity. Try again for the latest updates.");
   }, []);
   usePoll(loadInbox, 15000);
   useEffect(() => subscribeFeed((ev) => { if (touches(ev, ["inbox", "docker"])) loadInbox().catch(() => {}); }), [loadInbox]);
@@ -241,8 +245,7 @@ export default function MobileApp() {
   }), []);
 
   const fleetTotal = flatAgents(workspaces, freeAgents).length;
-  const inboxApp = apps.find((a) => a.id === "inbox");
-  const badges = { now: entries.length, inbox: inboxApp && inboxApp.badge ? inboxApp.badge.count || 0 : 0 };
+  const badges = { now: entries.length, inbox: inbox.length };
   const whatsNewCurrent = semver || version;
   const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
   // A fresh install sees What's New too (ADR-0063, amendment 2026-09-11). The
@@ -654,9 +657,9 @@ export default function MobileApp() {
   } else if (route.screen === "snipEdit") {
     body = <SnipEdit key={route.id || "new"} snipId={route.id} onBack={() => goBack(route)} onSaved={(id) => { location.replace(location.pathname + location.search + "#/snippets/" + encodeURIComponent(id)); }} />;
   } else if (route.screen === "inbox" && route.id) {
-    body = <InboxItem manifest={inboxApp} itemId={route.id} onBack={() => goBack(route)} onGoto={onAppGoto} />;
+    body = <InboxItem itemId={route.id} onBack={() => goBack(route)} onGoto={onAppGoto} />;
   } else if (route.screen === "inbox") {
-    body = <Inbox manifest={inboxApp} onOpenItem={(id) => push(mobileHash("inbox", id))} />;
+    body = <Inbox onOpenItem={(id) => push(mobileHash("inbox", id))} />;
   } else if (route.screen === "work") {
     body = (
       <Work section={section} focusWs={section === "workspaces" ? route.id : ""} onSection={setSection} loaded={loaded} error={fleetError} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}

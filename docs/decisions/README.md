@@ -41,7 +41,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0034](0034-clone-remote-repository-workspace.md) | Clone a remote repository into a new workspace | accepted |
 | [0035](0035-remove-workspace-delete-local-data.md) | Remove workspace can delete the local folder — opt-in, typed confirmation | accepted |
 | [0036](0036-extensions-host-and-apps-tab.md) | Extensions host — apps on schema-driven primitives, Apps sidebar tab | accepted, amended 2026-08-31 (iframe first-class in marketplace era; primitives frozen); amended by 0109 (native surface kind for first-party bodies) |
-| [0037](0037-inbox-async-agent-human-messages.md) | Inbox — async agent↔human messages; core data plane, view as first app | accepted, amended 2026-09-02 (consented switch), 2026-09-09 (terminal identity on items; replies ride the terminal's receiver; channelless blocking replies refuse visibly) |
+| [0037](0037-inbox-async-agent-human-messages.md) | Inbox — async agent↔human messages; core mailbox and delivery | accepted, amended 2026-09-02 (consented switch), 2026-09-09 (terminal identity), and by 0208 (core view and navigation) |
 | [0038](0038-git-graph-v2.md) | Git graph v2 — inline detail, uncommitted row, search, token auto-refresh | accepted, amends 0022, supersedes 0030 on refresh for the graph; write refusal amended by 0078 |
 | [0039](0039-per-agent-session-ownership.md) | Per-agent session ownership, tracked in PiCode (`--session-id` for chat attribution; 0040 adds a private dir for pi's own TUI) | accepted, amends 0006, amended by 0040 |
 | [0040](0040-per-agent-session-dir.md) | Per-agent `--session-dir` — extends ownership into pi's own native TUI picker | accepted, amends 0039 |
@@ -211,3 +211,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0204](0204-instruction-file-writes.md) | The Instructions tab proposes instruction-file fixes and writes them only on confirmation | accepted |
 | [0205](0205-agent-history-from-exits.md) | A removed agent stays restorable while its transcript is on disk: the history is the exits a locator still finds; restore creates the agent from the exit and resumes the session (any workspace, same folder); forget hides, deletes only Pi files; amends ADR-0194 | accepted (owner direction, 2026-09-23) |
 | [0206](0206-attach-delivery-modes.md) | Attach delivery modes — steer and follow-up into a working CLI through per-CLI adapters; `queued` receipt; needs-you, drafts and automations unchanged | accepted, amends 0089 and 0160 |
+| [0208](0208-inbox-core-surface.md) | Inbox is a core PiCode surface with its own route, badge and API; old app links stay compatible | accepted (owner direction, 2026-09-23; amends 0036 and 0037) |

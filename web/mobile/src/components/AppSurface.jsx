@@ -39,7 +39,7 @@ const REVEAL_STALE_MS = 10_000;
 // http(s) URL clicked inside the surface; without it — the phone has no
 // work browser — the link opens a new browser tab instead, never a
 // navigation of the hosting document (2026-09-20/21 desktop incident).
-export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, onOpenUrl }) {
+export default function AppSurface({ appId, apiBase, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, onOpenUrl }) {
   // Native radio `name` grouping is document-wide, not component-scoped —
   // without a per-mount id, a second open app (or the same app reopened)
   // would fight this one over which segment shows checked.
@@ -80,7 +80,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
     const seq = ++seqRef.current;
     setBusy(true);
     try {
-      const raw = await api("/api/apps/" + encodeURIComponent(appId) + "/view" + (p ? "?path=" + encodeURIComponent(p) : ""));
+      const raw = await api((apiBase || "/api/apps/" + encodeURIComponent(appId)) + "/view" + (p ? "?path=" + encodeURIComponent(p) : ""));
       if (seq !== seqRef.current) return; // a newer load superseded this one
       const v = normalizeView(raw);
       if (v) { setView(v); setUnsupported(false); setError(""); }
@@ -93,7 +93,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
         lastLoadRef.current = Date.now();
       }
     }
-  }, [appId]);
+  }, [appId, apiBase]);
 
   useEffect(() => { load(path); }, [path, load]);
   // refreshKey (ADR-0044 phase 3): the phone's pull-to-refresh bumps it.
@@ -144,7 +144,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
     actionRef.current = true;
     setPending(action.label + " in progress…");
     try {
-      const res = await api("/api/apps/" + encodeURIComponent(appId) + "/action", {
+      const res = await api((apiBase || "/api/apps/" + encodeURIComponent(appId)) + "/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: action.id, path, args: { requestKey: crypto.randomUUID(), ...(action.args || {}), ...(args || {}) } }),

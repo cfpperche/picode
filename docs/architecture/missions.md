@@ -14,7 +14,7 @@ Git identity, revision, file digests, session identity and detected activity.
 | `cmd/picode/mission.go`, `internal/mcptool/mission.go` | One reporting contract over inherited launch identity |
 | `web/shared/domain/missions.js`, `client/useMissions.js` | Route/draft/action model and injected hook lifecycle, with no React dependency |
 | Browser and mobile Missions views | Independent presentation and navigation using shared contracts |
-| `internal/apps/inbox.go` | Record correlated mission answers through the store; no implicit prompt send to a terminal |
+| `internal/inboxview/inbox.go` | Record correlated mission answers through the store; no implicit prompt send to a terminal |
 
 States are ready, in-progress, blocked, in-review, paused, completed and
 cancelled. The assignment independently records a prompt receipt as prepared,

@@ -96,6 +96,7 @@ body {
 }
 .brand {
   display: flex; align-items: center; gap: 8px;
+  container-type: inline-size;
   padding: 0 8px 0 14px;
   height: var(--chrome-h); min-height: var(--chrome-h);
   /* Frame plane (Chrome tab strip): sidebar head, tab strip and inspector
@@ -113,13 +114,16 @@ body {
 }
 .brand-name:hover { color: var(--accent); }
 .brand-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.brand-name-mark { display: none; }
+@container (max-width: 259px) {
+  .brand-name-label { display: none; }
+  .brand-name-mark { display: block; }
+}
 .brand-tabs { display: flex; margin-left: auto; align-self: stretch; }
 .brand-tablist { display: flex; align-self: stretch; }
 .brand-tab {
   display: grid; place-items: center;
-  /* Five rail tabs plus the Agent CLIs action. 32px each when the sidebar
-     is comfortable; below 260px they tighten to 26px so "PiCode" keeps
-     its room at the 180px minimum. */
+  /* Five rail tabs plus Inbox and Agent CLIs. */
   width: 32px; height: 100%; padding: 0;
   border: 0; background: none; cursor: pointer;
   color: var(--text-secondary);
@@ -130,7 +134,7 @@ body {
   color: var(--text-primary);
   border-bottom-color: var(--accent);
 }
-.brand-clis[aria-current="page"] { color: var(--text-primary); }
+.brand-clis[aria-current="page"], .brand-inbox[aria-current="page"] { color: var(--text-primary); border-bottom-color: var(--accent); }
 
 /* Every sidebar tab is one column: the header and search stay pinned at
    the top and only the `.side-scroll` list area below them scrolls —
@@ -5657,7 +5661,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .termset-seg-sm .termset-seg-face { height: 28px; padding: 0 11px; font-size: 11.5px; }
 
 /* ============ apps host (ADR-0036) ============ */
-.brand-tabs-tight .brand-tab { width: 26px; }
+.brand-tabs-tight .brand-tab { width: 22px; }
 /* Sidebar tab badge: numeric pill for actionable counts, dot for
    activity. The tab is a 32px grid cell, so the badge floats. */
 .brand-tab { position: relative; }
@@ -6838,7 +6842,8 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 /* Same tightening the narrow sidebar applies, driven by the cluster's own
    width so the row follows the sidebar without JavaScript. */
 @container (max-width: 259px) {
-  .shell-brand-cluster .brand-tab { width: 26px; }
+  .shell-brand-cluster .brand-tab { width: 22px; }
+  .shell-brand-cluster .shell-name { display: none; }
 }
 .shell-mark {
   width: 17px; height: 17px; border-radius: 4px; flex: none;

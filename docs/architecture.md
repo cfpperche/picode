@@ -311,6 +311,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | Page or capability | File |
 |---|---|
 | [Application routes](architecture/routes.md) | `docs/architecture/routes.md` |
+| [Inbox (ADR-0037, ADR-0208)](architecture/inbox.md) | `docs/architecture/inbox.md` |
 | [File preview: HTML (ADR-0136)](architecture/file-preview.md) | `docs/architecture/file-preview.md` |
 | [Native CLI settings (ADR-0101, ADR-0163)](architecture/cli-settings.md) | `docs/architecture/cli-settings.md` |
 | [Agent CLI memory (ADR-0163)](architecture/cli-memory.md) | `docs/architecture/cli-memory.md` |

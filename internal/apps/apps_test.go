@@ -17,8 +17,8 @@ func TestRegistry(t *testing.T) {
 	}
 
 	r := NewRegistry(BuiltIns(true)...)
-	if len(r.All()) != 6 {
-		t.Fatalf("demo registry has %d apps, want 6 (inbox + docker + canvas + tmux + demo + demo-native)", len(r.All()))
+	if len(r.All()) != 5 {
+		t.Fatalf("demo registry has %d apps, want 5 (docker + canvas + tmux + demo + demo-native)", len(r.All()))
 	}
 	a, ok := r.Find("demo")
 	if !ok {
@@ -32,8 +32,8 @@ func TestRegistry(t *testing.T) {
 		t.Fatalf("Find(nope) = ok, want miss")
 	}
 	prod := BuiltIns(false)
-	if len(prod) != 4 || prod[0].Manifest().ID != "inbox" || prod[1].Manifest().ID != "docker" || prod[2].Manifest().ID != "canvas" || prod[3].Manifest().ID != "tmux" {
-		t.Fatalf("BuiltIns(false) = %v, want inbox, docker, canvas and tmux (both demos must stay hidden)", prod)
+	if len(prod) != 3 || prod[0].Manifest().ID != "docker" || prod[1].Manifest().ID != "canvas" || prod[2].Manifest().ID != "tmux" {
+		t.Fatalf("BuiltIns(false) = %v, want docker, canvas and tmux (both demos must stay hidden)", prod)
 	}
 }
 
