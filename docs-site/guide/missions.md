@@ -172,13 +172,16 @@ the previous session cannot report for it.
 
 ## Reporting from an agent
 
-Agents use an attributed Mission tool or command in their own PiCode
-session. **Missions** in Agent CLIs enables the optional MCP tool family;
-where available, the launch provides it to the CLI. The tool's `show`
-action, or `picode mission show --id MISSION_ID`, gives the current version,
-assignment generation, and criterion IDs. The agent can then acknowledge,
-report a checkpoint, report a blocker, attach evidence, and request review.
-It cannot assign, transfer, or accept.
+Pi launched by PiCode has a native `mission` tool in managed and interactive
+sessions. It needs no MCP adapter or workspace extension install. Ask the Pi
+agent to use `mission` with the Mission ID: its `show` action gives the current
+version, assignment generation, and criterion IDs. Pi can then acknowledge,
+report a checkpoint or blocker, attach evidence, and request review. The owner
+still assigns, transfers, and accepts.
+
+Other agent CLIs can use the optional MCP tool family enabled under **Agent
+CLIs → Missions**, where their launch supports it, or the `picode mission`
+command in their PiCode session. The command also works as a fallback for Pi:
 
 ```sh
 picode mission show --id MISSION_ID
