@@ -43,6 +43,14 @@
   ceiling killed it. Fixed pasteless (`feat/go-test-portable`), with a guard
   against the silent empty pattern; the macOS figure is still unmeasured, so
   the main job's ceiling is sized for it at 35m.
+  **Settled 2026-09-24**, second run (the first carried the `paste` defect): all
+  three platforms green with the split — Go 7 min on ubuntu and 6 on macOS, Go
+  heavy 36 and 32, wall 37 minutes against 41.5 before. The ceilings are derived
+  from that run: 25m for the rest (three times the slower half, room for a cold
+  build cache) and 50m for the pair, which has measured 26 and 36 minutes on the
+  same runner — a ceiling near the fast run would fail a legitimate slow one.
+  The value is the separate ceiling and the attribution; sharding measures the
+  same either way on two cores.
 
 - [x] **The macOS Go job is red on tests nobody runs.** Paid 2026-09-23, in two
   steps: the two defects are fixed (`feat/macos-tests`) and the leg now runs
