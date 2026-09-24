@@ -118,7 +118,13 @@ session) and keeps the exits a `clisession.Locator` still finds on disk —
 Pi by file, any other CLI by session id in `sessions.cwd`, then machine-wide
 (exits written before `cwd` was recorded). The locator memoizes one listing
 per CLI and folder for the request. An entry answers the session summary,
-the folder, and whether the folder and the workspace still exist.
+the folder, and whether the folder and the workspace still exist. For
+file-backed Codex, Claude Code and Omp sessions, the locator first checks
+the recorded transcript path and session id. It reuses an unchanged file's
+summary across reads (size and modification time validate the cache), then
+falls back to the existing folder and machine-wide listings for older or
+moved transcripts. The page names its first load and later refreshes; a
+failed refresh keeps the previous results visible with a retry action.
 
 | Route | Does |
 |---|---|

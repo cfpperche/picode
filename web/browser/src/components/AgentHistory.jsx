@@ -40,24 +40,44 @@ async function copyText(text) {
 export default function AgentHistory({ hidden, workspaces = [], onOpenAgent }) {
   const [entries, setEntries] = useState(null);
   const [loadErr, setLoadErr] = useState("");
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState("");
   const [ws, setWs] = useState("");
   const [cli, setCli] = useState("");
   const [target, setTarget] = useState({}); // exit id → chosen workspace id
   const [busy, setBusy] = useState(""); // exit id being restored or forgotten
   const seq = useRef(0);
+  const inFlight = useRef(false);
+  const pending = useRef(false);
+  const hasEntries = useRef(false);
+  hasEntries.current = entries !== null;
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
 
-  function load() {
+  function load(changed = false) {
+    if (inFlight.current) {
+      if (changed) pending.current = true;
+      return;
+    }
+    inFlight.current = true;
     const n = ++seq.current;
+    setLoading(true);
+    setLoadErr("");
     api("/api/agent-history").then((res) => {
       if (n !== seq.current) return;
       setEntries(res.entries || []);
       setLoadErr("");
     }).catch(() => {
       if (n !== seq.current) return;
-      setLoadErr("Couldn't load the history.");
+      setLoadErr(hasEntries.current ? "Couldn't refresh agent history. Showing earlier results." : "Couldn't load agent history.");
+    }).finally(() => {
+      if (n !== seq.current) return;
+      inFlight.current = false;
+      setLoading(false);
+      if (pending.current) {
+        pending.current = false;
+        load();
+      }
     });
   }
 
@@ -67,7 +87,7 @@ export default function AgentHistory({ hidden, workspaces = [], onOpenAgent }) {
   useEffect(() => subscribeFeed((ev) => {
     if (hiddenRef.current) return;
     const t = String(ev.type || "");
-    if (t === "feed.open" || t === "feed.reset" || t.startsWith("agent_exit.")) load();
+    if (t === "feed.open" || t === "feed.reset" || t.startsWith("agent_exit.")) load(t.startsWith("agent_exit."));
   }), []);
 
   const wsChoices = useMemo(() => historyWorkspaceOptions(workspaces), [workspaces]);
@@ -151,7 +171,11 @@ export default function AgentHistory({ hidden, workspaces = [], onOpenAgent }) {
       <p className="hist-lede">Removed agents whose conversation is still on disk. Bring one back to pick up where it stopped.</p>
 
       {loadErr ? (
-        <p className="outc-err" role="alert">{loadErr} <button type="button" className="btn-link" onClick={load}>Retry</button></p>
+        <p className="outc-err" role="alert">{loadErr} <button type="button" className="btn-link" onClick={() => load()}>Retry</button></p>
+      ) : null}
+
+      {!loadErr && (firstLoad || loading) ? (
+        <p className="hist-loading" role="status" aria-live="polite">{entries === null ? "Loading agent history…" : "Refreshing agent history…"}</p>
       ) : null}
 
       {entries && entries.length ? (
