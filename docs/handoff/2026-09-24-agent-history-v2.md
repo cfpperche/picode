@@ -11,3 +11,4 @@ Blind spot: one scratch instance and the owner's WSL dataset; not run inside the
 Notes for the owner, not defects: Undo restores the agent stopped while Bring back starts it; Undo switches the view to the restored agent.
 Not done: phone screen and Windows latency stay open in `docs/handoff/open/agent-exits.md`. Not deployed (owner's call).
 Merge: fast-forward ready.
+Confirmed live 2026-09-24 after the owner's deploy: `GET /api/agent-history` answered in 0.02 s, and the owner restored a real removed agent from the history and it worked.
