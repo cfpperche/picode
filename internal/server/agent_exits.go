@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/cliinstructions"
 	"github.com/cfpperche/picode/internal/climetrics"
 	"github.com/cfpperche/picode/internal/pricing"
 	"github.com/cfpperche/picode/internal/store"
@@ -135,7 +137,7 @@ func (deps Deps) exitPreviewFor(agent store.Agent, now time.Time) *exitPreview {
 // the client did not show the question, the skip says why: the server's
 // own reason, or "client" when the server would have asked.
 func (deps Deps) exitInput(agent store.Agent, req exitRequest, purgeSessions, purgeWork bool, now time.Time) store.ExitInput {
-	in := store.ExitInput{Origin: store.ExitFromAPI, SessionsPurged: purgeSessions, WorkPurged: purgeWork, Meter: exitMeter(), PiSessionFallback: piSessionFallback}
+	in := store.ExitInput{Origin: store.ExitFromAPI, SessionsPurged: purgeSessions, WorkPurged: purgeWork, Meter: exitMeter(), PiSessionFallback: piSessionFallback, Instructions: exitInstructions}
 	if b := req.Exit; b != nil {
 		in.Origin = b.Origin
 		in.Asked = b.Asked
@@ -331,4 +333,40 @@ func handleUndoAgentExit(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, ex)
 	}
+}
+
+// exitInstructions is the exit's Instructions hook (ADR-0194, amended
+// 2026-09-24): the files the agent read, from its CLI's own record of the
+// session PiCode pinned, else from the rules for the folder it ran in. An
+// agent working outside its workspace folder (a sibling worktree, a free
+// agent) is resolved from that folder instead.
+func exitInstructions(a store.Agent, root string, ss store.ExitSessions) *store.ExitInstructions {
+	start := strings.TrimSpace(ss.Cwd)
+	if start == "" {
+		start = root
+	}
+	if root == "" || a.WorkspaceID == store.FreeWorkspaceID || !pathWithin(root, start) {
+		root = start
+	}
+	if root == "" {
+		return nil
+	}
+	cli := a.CLI
+	if cli == "" {
+		cli = store.CLIPi
+	}
+	rev := cliinstructions.AgentRevisions(root, start, cli, ss.CLISessionID, ss.CLISessionPath)
+	if rev == nil {
+		return nil
+	}
+	out := &store.ExitInstructions{Source: rev.Source, Files: make([]store.ExitInstructionFile, 0, len(rev.Files))}
+	for _, f := range rev.Files {
+		out.Files = append(out.Files, store.ExitInstructionFile{Path: f.Path, SHA: f.SHA, Bytes: f.Bytes})
+	}
+	return out
+}
+
+func pathWithin(root, p string) bool {
+	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(p))
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, "../")
 }

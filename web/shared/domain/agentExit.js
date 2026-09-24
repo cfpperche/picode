@@ -117,3 +117,15 @@ export function fmtExitCost(cost) {
   if (n > 0 && n < 0.01) return est + "<$0.01";
   return est + "$" + n.toFixed(2);
 }
+
+// instructionsLine: the exit's instruction files (ADR-0194, amended
+// 2026-09-24) as one line — "AGENTS.md @591f4f5c, ~/.claude/CLAUDE.md @…" —
+// and where the list came from. null for exits written before it.
+export function instructionsLine(instr) {
+  if (!instr || !Array.isArray(instr.files)) return null;
+  const text = instr.files.length
+    ? instr.files.map((f) => f.path + (f.sha ? " @" + f.sha.slice(0, 8) : " (gone)")).join(", ")
+    : "None";
+  const source = instr.source === "observed" ? "as the CLI recorded them" : "by PiCode's rules for its CLI";
+  return { text, source };
+}

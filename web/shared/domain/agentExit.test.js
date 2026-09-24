@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   emptyExitDraft, exitHeadline, fmtExitCost, exitRequestBody, fmtLifetime, fmtTurns, outcomeRows,
-  pickOutcome, reasonRows, takesReasons, toggleReason,
+  instructionsLine, pickOutcome, reasonRows, takesReasons, toggleReason,
 } from "./agentExit.js";
 
 const TAX = {
@@ -86,4 +86,11 @@ test("exit cost reads like spend: unknown is a dash, unpriced says so, estimates
   assert.equal(fmtExitCost({ cost: 1.2, estimated: 0.2 }), "~$1.20");
   assert.equal(fmtExitCost({ cost: 0.004, estimated: 0 }), "<$0.01");
   assert.equal(fmtExitCost({ cost: 0, unpriced: 0 }), "$0.00");
+});
+
+test("instructionsLine names each file with its short hash and the source", () => {
+  assert.equal(instructionsLine(undefined), null);
+  assert.deepEqual(instructionsLine({ source: "observed", files: [{ path: "AGENTS.md", sha: "591f4f5c793f" }, { path: "gone.md", sha: "" }] }),
+    { text: "AGENTS.md @591f4f5c, gone.md (gone)", source: "as the CLI recorded them" });
+  assert.equal(instructionsLine({ source: "declared", files: [] }).text, "None");
 });
