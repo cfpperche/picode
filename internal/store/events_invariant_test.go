@@ -248,6 +248,11 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_, _ = s.SetAgentPackages(a.ID, []string{"x"})
 		}, []string{"agent.updated"}},
+		{"SetAgentSkills", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			s.OnEvent = recorder(s)
+			_, _ = s.SetAgentSkills(a.ID, []AgentSkill{{Name: "x", Dir: "/cache/d/x"}})
+		}, []string{"agent.updated"}},
 		{"SetAgentRuntime", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
 			s.OnEvent = recorder(s)

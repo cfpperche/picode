@@ -26,10 +26,10 @@ The **Skills** tab shows what one CLI will actually load.
 
 Click a row to see its full folder, the reason for its status and the other
 CLIs that read the same folder. The chips run **Global** (this computer), then
-the workspace by its name, then — for Pi and Omp, which load a list per agent —
-the agent by its name, showing everything that agent loads (or, for an agent
-that runs isolated, that it loads only its own packages' skills). The filter
-matches names, descriptions and sources.
+the workspace by its name, then — for Pi, Omp and Claude Code — the agent by
+its name, showing everything that agent loads (or, for an agent that runs
+isolated, only its own skills). The filter matches names, descriptions and
+sources.
 
 ## Trust
 
@@ -83,5 +83,23 @@ your changes.
 that reads that folder loses the skill. Skills in a CLI's own folder are that
 CLI's to manage.
 
-Switching a skill off for one CLI and choosing skills per agent come next; see
-the [plan](https://github.com/cfpperche/picode/blob/main/docs/plans/skills.md).
+## Trying a skill in one agent
+
+Open the Skills tab with an agent selected, choose its chip, then **Add skill**:
+the dialog adds the skill to that agent alone. PiCode keeps its own copy and
+hands it to the agent the next time it starts, so the workspace and your home
+folder stay as they were. The agent's terminal shows **Launch changes pending**
+until you restart it.
+
+| CLI | How the agent gets it |
+|---|---|
+| Pi | loaded like any other skill; if a folder has a skill with the same name, the folder's wins |
+| Omp | loaded ahead of the folders' copies |
+| Claude Code | as `/picode-agent:<name>` |
+
+The other CLIs cannot take a skill for one agent when they start, and their tab
+says so. **Remove** on an agent's row takes it off that agent at its next start.
+A row marked **Missing** lost PiCode's copy; add it again.
+
+Switching a skill off for one CLI comes next; see the
+[plan](https://github.com/cfpperche/picode/blob/main/docs/plans/skills.md).

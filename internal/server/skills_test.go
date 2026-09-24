@@ -126,3 +126,85 @@ func TestSkillsInstallRoutes(t *testing.T) {
 		t.Fatalf("bad source: %d", code)
 	}
 }
+
+// The agent scope (ADR-0196 slice 4): an install caches the skill and adds
+// it to the agent's list, which the report shows under the agent; the same
+// content again is "already"; remove drops it from the list and leaves the
+// cached copy; an agent whose CLI takes no skills at launch is refused.
+func TestSkillsAgentRoutes(t *testing.T) {
+	st := testStore(t)
+	proj := t.TempDir()
+	w, err := st.AddWorkspace("Proj", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := st.AddAgentWithCLI(w.ID, "claude-code", "Atlas", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	codex, err := st.AddAgentWithCLI(w.ID, "codex", "Vega", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("---\nname: agent-skill\ndescription: for one agent\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	data := t.TempDir()
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, AgentCmd: "cat", DataDir: data}).Handler)
+	t.Cleanup(ts.Close)
+
+	preview := func() any {
+		_, p := skillsCall(t, "POST", ts.URL+"/api/skills/preview", map[string]string{"source": src})
+		return p["id"]
+	}
+	code, res := skillsCall(t, "POST", ts.URL+"/api/skills", map[string]any{"preview": preview(), "path": "", "scope": "agent", "agent": a.ID})
+	if code != 200 || res["status"] != "installed" {
+		t.Fatalf("install: %d %v", code, res)
+	}
+	got, _ := st.GetAgent(a.ID)
+	if len(got.Skills) != 1 || !strings.HasPrefix(got.Skills[0].Dir, filepath.Join(data, "skills", "cache")) || got.Skills[0].Source != src {
+		t.Fatalf("agent skills %+v", got.Skills)
+	}
+	for _, p := range []string{filepath.Join(proj, ".agents"), filepath.Join(proj, "skills-lock.json")} {
+		if _, err := os.Stat(p); err == nil {
+			t.Fatalf("an agent install wrote %s", p)
+		}
+	}
+	code, res = skillsCall(t, "POST", ts.URL+"/api/skills", map[string]any{"preview": preview(), "path": "", "scope": "agent", "agent": a.ID})
+	if code != 200 || res["status"] != "already" {
+		t.Fatalf("again: %d %v", code, res)
+	}
+
+	r, err := http.Get(ts.URL + "/api/skills/report?cli=claude-code&workspace=" + w.ID + "&agent=" + a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rep skills.Report
+	_ = json.NewDecoder(r.Body).Decode(&rep)
+	r.Body.Close()
+	found := false
+	for _, row := range rep.Rows {
+		found = found || (row.Scope == skills.Agent && row.Name == "agent-skill" && row.Status == skills.StatusLoaded)
+	}
+	if rep.Agent == nil || !found {
+		t.Fatalf("report %+v", rep)
+	}
+
+	code, res = skillsCall(t, "POST", ts.URL+"/api/skills", map[string]any{"preview": preview(), "path": "", "scope": "agent", "agent": codex.ID})
+	if code != http.StatusBadRequest {
+		t.Fatalf("codex agent: %d %v", code, res)
+	}
+
+	code, res = skillsCall(t, "DELETE", ts.URL+"/api/skills", map[string]any{"name": "agent-skill", "scope": "agent", "agent": a.ID})
+	if code != 200 || res["status"] != "removed" {
+		t.Fatalf("remove: %d %v", code, res)
+	}
+	if got, _ := st.GetAgent(a.ID); len(got.Skills) != 0 {
+		t.Fatalf("still listed %+v", got.Skills)
+	}
+	code, _ = skillsCall(t, "DELETE", ts.URL+"/api/skills", map[string]any{"name": "agent-skill", "scope": "agent", "agent": a.ID})
+	if code != http.StatusNotFound {
+		t.Fatalf("second remove: %d", code)
+	}
+}

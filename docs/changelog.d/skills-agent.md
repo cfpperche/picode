@@ -1,0 +1,2 @@
+### Added
+- **Try a skill in one agent.** In the Skills tab, an agent's chip now has **Add skill**: the skill goes to that agent alone, and PiCode hands it over at the agent's next start without touching the workspace or your home folder. Works for Pi, Omp and Claude Code (as `/picode-agent:<name>`); the other CLIs' tabs say they cannot take a skill for one agent. A skill whose copy is gone shows as **Missing**, and adding or removing one marks the agent's terminal **Launch changes pending**.

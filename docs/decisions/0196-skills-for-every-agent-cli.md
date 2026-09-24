@@ -102,7 +102,14 @@ other installed.
 row says so.
 
 **The agent scope** is a PiCode list on the agent row (`agents.skills`). Each
-launch passes it through the CLI's own flag where one exists. Each launch also
+launch passes it through the CLI's own flag where one exists.
+
+> **Measured in slice 4 (2026-09-24), correcting the launch row above:** Omp's
+> `--skills=<globs>` filters the skills it discovers and adds none; an Omp agent
+> gets its folders through `--config <overlay>` with `skills.customDirectories`.
+> Hermes `--skills` preloads a skill that is already installed, and OpenCode's
+> `permission.skill` filters; neither adds a folder for one agent, so the agent
+> scope ships for Pi, Omp and Claude Code. The decision is unchanged. Each launch also
 records its skill set in the launch snapshot, so Outcomes can compare runs with
 and without a skill.
 

@@ -366,14 +366,99 @@ func TestSkillsJSListMatchesTheDeclarations(t *testing.T) {
 	}
 }
 
-// The agent scope is offered only where the CLI loads a per-agent list.
-func TestAgentScopeOnlyForPiAndOmp(t *testing.T) {
+// The agent scope is offered where PiCode can pass an agent's own skills at
+// launch: Pi (--skill), Omp (--config), Claude Code (--plugin-dir).
+func TestAgentScopeWhereTheLaunchCarriesSkills(t *testing.T) {
 	homeDir, _, wsDir := fixture(t)
 	a := &AgentInfo{ID: "a1", Name: "delivery", Isolated: true}
-	for cli, want := range map[string]bool{"pi": true, "omp": true, "codex": false, "claude-code": false} {
+	for cli, want := range map[string]bool{"pi": true, "omp": true, "claude-code": true, "codex": false, "hermes": false, "opencode": false} {
 		rep, _ := Read(Query{CLI: cli, Workspace: wsDir, Home: homeDir, Agent: a})
 		if (rep.Agent != nil) != want {
 			t.Errorf("%s: agent scope = %v, want %v", cli, rep.Agent != nil, want)
 		}
+	}
+}
+
+// Which copy wins a shared name, per CLI (measured 2026-09-24): Pi keeps the
+// folder's, Omp the agent's, Claude Code loads both (plugin:name). A copy
+// gone from the cache is named, never silently dropped.
+func TestAgentRowsPrecedence(t *testing.T) {
+	homeDir, _, wsDir := fixture(t)
+	writeSkill(t, filepath.Join(homeDir, ".agents/skills"), "review", "")
+	writeSkill(t, filepath.Join(homeDir, ".claude/skills"), "review", "")
+	cache := t.TempDir()
+	own := writeSkill(t, filepath.Join(cache, "d1"), "review", "---\nname: review\ndescription: agent copy\n---\n")
+	solo := writeSkill(t, filepath.Join(cache, "d2"), "solo", "")
+	skills := []AgentSkill{
+		{Name: "review", Digest: "d1", Source: "owner/repo", Dir: own},
+		{Name: "solo", Digest: "d2", Dir: solo},
+		{Name: "gone", Digest: "d3", Dir: filepath.Join(cache, "d3", "gone")},
+	}
+	status := func(cli string, isolated bool) map[string]string {
+		rep, err := Read(Query{CLI: cli, Workspace: wsDir, Home: homeDir, Agent: &AgentInfo{ID: "a", Name: "a", Isolated: isolated, Skills: skills}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]string{}
+		for _, r := range rep.Rows {
+			if r.Name == "review" && r.Scope == Machine && r.Root != "~/.agents/skills" && r.Root != "~/.claude/skills" {
+				continue
+			}
+			out[string(r.Scope)+":"+r.Name] = r.Status
+		}
+		return out
+	}
+	cases := []struct {
+		cli      string
+		isolated bool
+		want     map[string]string
+	}{
+		{"pi", false, map[string]string{"machine:review": StatusLoaded, "agent:review": StatusShadowed, "agent:solo": StatusLoaded, "agent:gone": StatusMissing}},
+		{"pi", true, map[string]string{"machine:review": StatusLoaded, "agent:review": StatusLoaded, "agent:solo": StatusLoaded, "agent:gone": StatusMissing}},
+		{"omp", false, map[string]string{"machine:review": StatusShadowed, "agent:review": StatusLoaded, "agent:solo": StatusLoaded, "agent:gone": StatusMissing}},
+		{"claude-code", false, map[string]string{"machine:review": StatusLoaded, "agent:review": StatusLoaded, "agent:solo": StatusLoaded, "agent:gone": StatusMissing}},
+	}
+	for _, c := range cases {
+		got := status(c.cli, c.isolated)
+		for k, v := range c.want {
+			if got[k] != v {
+				t.Errorf("%s isolated=%v %s = %q, want %q (%v)", c.cli, c.isolated, k, got[k], v, got)
+			}
+		}
+	}
+	rep, _ := Read(Query{CLI: "omp", Home: homeDir, Agent: &AgentInfo{Name: "a", Skills: skills}})
+	for _, r := range rep.Rows {
+		if r.Scope == Machine && r.Name == "review" && r.ShadowedBy != AgentRoot {
+			t.Errorf("omp folder copy shadowed by %q", r.ShadowedBy)
+		}
+		if r.Scope == Agent && r.Name == "review" && (r.Provenance == nil || r.Provenance.Source != "owner/repo" || r.Description != "agent copy") {
+			t.Errorf("agent row %+v", r)
+		}
+	}
+}
+
+// The pane's list of CLIs with an agent scope is the declarations' list.
+func TestSkillsAgentCLIsMatch(t *testing.T) {
+	body, err := os.ReadFile("../../web/shared/domain/cliSkills.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`AGENT_SKILL_CLIS = \[([^\]]*)\]`).FindSubmatch(body)
+	if m == nil {
+		t.Fatal("AGENT_SKILL_CLIS not found in cliSkills.js")
+	}
+	var js, goList []string
+	for _, part := range strings.Split(string(m[1]), ",") {
+		if id := strings.Trim(strings.TrimSpace(part), `"`); id != "" {
+			js = append(js, id)
+		}
+	}
+	for _, s := range specs {
+		if s.AgentScope {
+			goList = append(goList, s.CLI)
+		}
+	}
+	if !reflect.DeepEqual(js, goList) {
+		t.Fatalf("js %v, go %v", js, goList)
 	}
 }

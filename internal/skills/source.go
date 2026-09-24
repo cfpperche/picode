@@ -453,6 +453,12 @@ func extractZip(data []byte, dir string) ([]string, error) {
 	return nil, nil
 }
 
+// CopyFolder copies a skill folder (regular files only) to dst.
+func CopyFolder(src, dst string) error {
+	_, err := copyTree(src, dst)
+	return err
+}
+
 // copyTree copies regular files and folders from src into dst; links are
 // skipped, .git and node_modules are not copied.
 func copyTree(src, dst string) ([]string, error) {

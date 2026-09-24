@@ -374,6 +374,67 @@ func TestAgentSpawnEnv(t *testing.T) {
 	}
 }
 
+// ADR-0196 slice 4: the agent's own skills ride --skill, only while the
+// cached folder exists; a repeated name replaces the earlier entry; a bad
+// name or a relative folder is refused.
+func TestAgentSkillsCLIFlags(t *testing.T) {
+	s := openTest(t)
+	_, agent, err := addWorkspaceWithAgent(s, "Sk", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache := t.TempDir()
+	here := filepath.Join(cache, "d1", "review")
+	if err := os.MkdirAll(here, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(here, "SKILL.md"), []byte("---\nname: review\ndescription: x\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gone := filepath.Join(cache, "d2", "gone")
+	got, err := s.SetAgentSkills(agent.ID, []AgentSkill{
+		{Name: "review", Digest: "old", Dir: filepath.Join(cache, "d0", "review")},
+		{Name: "gone", Digest: "d2", Dir: gone},
+		{Name: "review", Digest: "d1", Dir: here},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Skills) != 2 || got.Skills[0].Name != "review" || got.Skills[0].Digest != "d1" {
+		t.Fatalf("%+v", got.Skills)
+	}
+	flags := got.CLIFlags()
+	n := 0
+	for i, f := range flags {
+		if f == "--skill" {
+			n++
+			if flags[i+1] != here {
+				t.Fatalf("%v", flags)
+			}
+		}
+	}
+	if n != 1 {
+		t.Fatalf("a missing cached folder must not ride the launch: %v", flags)
+	}
+	again, err := s.GetAgent(agent.ID)
+	if err != nil || len(again.Skills) != 2 {
+		t.Fatalf("%+v %v", again.Skills, err)
+	}
+	for _, bad := range [][]AgentSkill{
+		{{Name: "Bad Name", Dir: here}},
+		{{Name: "a--b", Dir: here}},
+		{{Name: "ok", Dir: "relative/ok"}},
+	} {
+		if _, err := s.SetAgentSkills(agent.ID, bad); err == nil {
+			t.Fatalf("accepted %+v", bad)
+		}
+	}
+	got, err = s.SetAgentSkills(agent.ID, nil)
+	if err != nil || len(got.Skills) != 0 {
+		t.Fatalf("%+v %v", got.Skills, err)
+	}
+}
+
 func TestAgentPackagesCLIFlags(t *testing.T) {
 	s := openTest(t)
 	_, agent, err := addWorkspaceWithAgent(s, "Pkg", t.TempDir())
