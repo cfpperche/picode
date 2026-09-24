@@ -34,6 +34,15 @@
   run in parallel. The ceiling question is answered by construction. Whether
   the split buys wall clock is not assumed: two cores are still two cores, and
   the 275-385 s shard timings above came from a 16-core machine, not a runner.
+  **Measured 2026-09-24**, first run of the split: the main Go job fell from 41
+  minutes to **7** on ubuntu (it no longer waits behind the pair), the heavy job
+  took **35**, the wall went 41.5 → **35**. The same run went red on macOS
+  because the script built its pattern with `paste -sd'|'` and BSD `paste`
+  answered with its usage line — an empty pattern, a silent no-op, and
+  `internal/server` ran inside the job that had excluded it until its 25m
+  ceiling killed it. Fixed pasteless (`feat/go-test-portable`), with a guard
+  against the silent empty pattern; the macOS figure is still unmeasured, so
+  the main job's ceiling is sized for it at 35m.
 
 - [x] **The macOS Go job is red on tests nobody runs.** Paid 2026-09-23, in two
   steps: the two defects are fixed (`feat/macos-tests`) and the leg now runs

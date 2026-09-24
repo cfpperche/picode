@@ -45,7 +45,17 @@ HEAVY=${GO_TEST_HEAVY:-github.com/cfpperche/picode/internal/server github.com/cf
 [ $# -gt 0 ] || set -- ./...
 
 pkgs=$(go list "$@") || exit 1
-heavy_re=$(printf '%s\n' $HEAVY | paste -sd'|')
+# BSD paste answers `paste -sd'|'` with its usage line, which left this empty
+# and made every downstream match a silent no-op — on macOS the heavy packages
+# ran inside the job that had just excluded them (2026-09-24, `panic: test
+# timed out after 25m0s` in `internal/server`). `tr` is POSIX; nothing here
+# may depend on a GNU-only form.
+heavy_re=$(printf '%s\n' $HEAVY | tr '\n' '|')
+heavy_re=${heavy_re%|}
+if [ -n "$HEAVY" ] && [ -z "$heavy_re" ]; then
+  echo "go-test: GO_TEST_HEAVY is set but produced an empty pattern" >&2
+  exit 1
+fi
 # CI runs the heavy packages in a job of their own (2026-09-24, owner
 # approved): the job that covers everything else drops them from its list
 # rather than sharding them, so each half of the suite keeps its own ceiling
@@ -74,7 +84,7 @@ for pkg in $heavy; do
   else
     echo "$SHARDS" > "$tmp/heavy$h.n"
     for i in $(seq 0 $((SHARDS - 1))); do
-      rx="^($(printf '%s\n' $names | awk -v i="$i" -v n="$SHARDS" 'NR % n == i' | paste -sd'|'))$"
+      rx="^($(printf '%s\n' $names | awk -v i="$i" -v n="$SHARDS" 'NR % n == i' | tr '\n' '|' | sed 's/|$//'))$"
       ( env $(printenv | sed -n "s/^\(PICODE_[A-Z_0-9]*\)=.*/-u \1/p" | tr "\n" " ") go test $FLAGS -trimpath -run "$rx" "$pkg" > "$tmp/heavy$h.shard$i.log" 2>&1; echo $? > "$tmp/heavy$h.shard$i.rc" ) &
     done
   fi
