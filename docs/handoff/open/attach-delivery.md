@@ -4,7 +4,8 @@ Decision: ADR-0206. Study: `docs/benchmarks/2026-09-23-attach-delivery-modes.md`
 
 ## Next
 
-- Interrupt-then-send is not offered (the ADR's rejected-for-now alternative); build it if the owner asks for a "stop and send" mode.
+- Owner live-check of Stop and send after deploy on Claude Code, Codex and Hermes (a working turn is stopped, then the message lands as a new prompt).
+- [x] Interrupt-then-send is not offered (the ADR's rejected-for-now alternative); build it if the owner asks for a "stop and send" mode. Built: ADR-0206 amendment 2026-09-24, feat/attach-interrupt.
 
 ## Debts
 
@@ -13,3 +14,6 @@ Decision: ADR-0206. Study: `docs/benchmarks/2026-09-23-attach-delivery-modes.md`
 - [ ] Grok's steer is not offered until PiCode reads `ui.follow_up_behavior` (the setting that decides what Grok's mid-turn Enter does).
 - [ ] An older Pi receiver ignores `deliverAs` (a steer lands as a follow-up) until the Pi process reloads the receiver.
 - [ ] Omp `/queue` splits a numbered list into several follow-ups, so the payload is flattened to one line for it.
+- [ ] Stop and send has no live run against a real working CLI through PiCode: the stop keys and stop lines rest on the probe measurement (2026-09-24); the end-to-end test drives an inert program in isolated tmux.
+- [ ] Omp stopped before its first output prints no stop line, so Stop and send answers `not-stopped` there (the user retries).
+- [ ] Pi's receiver path for Stop and send (`ctx.abort()`, wait for idle, then `sendUserMessage`) is untested live.
