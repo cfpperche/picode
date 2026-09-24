@@ -548,12 +548,13 @@ var ruleOpenCode = &rule{
 	},
 }
 
-// ── Muse Code 1.3.0: its configuration docs; not run ──
+// ── Muse Code 1.3.0: measured 2026-09-24 (six echo-provider runs; the
+// session record names every rules file it loaded) ──
 
 var museNames = []string{"AGENTS.md", "CLAUDE.md", ".agents/AGENTS.md", ".claude/CLAUDE.md"}
 
 var ruleMuse = &rule{
-	id: "muse", name: "Muse Code", source: "Muse Code 1.3.0, from its docs (not run)",
+	id: "muse", name: "Muse Code", source: "Muse Code 1.3.0, measured (six runs, its session record)",
 	names: set(museNames...),
 	resolve: func(s *scan) {
 		stop := s.top
@@ -582,10 +583,15 @@ var ruleMuse = &rule{
 	},
 }
 
-// ── Antigravity CLI 1.2.9: the docs embedded in its binary; not run ──
+// ── Antigravity CLI 1.2.10: its embedded docs say GEMINI.md and AGENTS.md
+// load from the start folder up to the repository root, but four runs on
+// 2026-09-24 (print and interactive, trusted folder, root and subfolder)
+// found none of them in the model's context at a session's start. When they
+// do load was not measured (the probe needs a tool call, which headless mode
+// denies), so the cell says unknown and names both facts. ──
 
 var ruleAgy = &rule{
-	id: "agy", name: "Antigravity", source: "Antigravity CLI 1.2.9, from the docs inside its binary (not run)",
+	id: "agy", name: "Antigravity", source: "Antigravity CLI 1.2.10, its docs and four runs (none loaded at start)",
 	names: set("GEMINI.md", "AGENTS.md"),
 	resolve: func(s *scan) {
 		stop := s.top
@@ -602,10 +608,7 @@ var ruleAgy = &rule{
 					s.shadow(f, "agy", seen[f.sum], "the same text as a file Antigravity already read")
 				default:
 					seen[f.sum] = f
-					s.reads(f, "agy", "Antigravity reads both GEMINI.md and AGENTS.md from the start folder up to the repository root")
-					if f.Bytes > 24000 {
-						s.cut(f, "agy", "Antigravity keeps the first 24,000 bytes")
-					}
+					s.put(f, "agy", Cell{Status: StatusUnknown, Why: "Antigravity's docs say it reads GEMINI.md and AGENTS.md from the start folder up to the repository root, but in PiCode's runs of 1.2.10 none was in a new session's context"})
 				}
 			}
 		}
@@ -633,7 +636,7 @@ var ompPersonal = []string{
 }
 
 var ruleOmp = &rule{
-	id: "omp", name: "Omp", source: "Omp 18.2.11, measured (its bundle and source, two probes)",
+	id: "omp", name: "Omp", source: "Omp 18.2.11, measured (its bundle and source; every provider run 2026-09-24)",
 	names: set(".omp/AGENTS.md", ".claude/CLAUDE.md", ".agents/AGENTS.md", ".agent/AGENTS.md", ".gemini/GEMINI.md", ".github/copilot-instructions.md", "AGENTS.md", "CLAUDE.md"),
 	resolve: func(s *scan) {
 		var mine *File
@@ -674,8 +677,9 @@ var ruleOmp = &rule{
 		}
 		// .agents/AGENTS.md: every folder up to the repository root.
 		for _, d := range s.dirs(repo, true) {
-			offer(d, ".agents/AGENTS.md")
+			// A tie at priority 70 goes to .agent/ (measured 2026-09-24).
 			offer(d, ".agent/AGENTS.md")
+			offer(d, ".agents/AGENTS.md")
 		}
 		// Plain AGENTS.md and CLAUDE.md: the walk that goes past the repository
 		// root when the repository sits under home, stopping before home itself.

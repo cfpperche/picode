@@ -2560,14 +2560,15 @@ img.ws-face[src^="data:image/svg+xml"] { background: transparent; border-color: 
   background: var(--bg-panel);
 }
 .term-attach { margin-top: 8px; }
-/* One line: the hint (or the chips), the delivery chip, the close. Centered,
-   and one chip tall at rest so the delivery chip appearing mid-turn never
-   moves the card (ADR-0206). */
-.term-attach-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; margin-bottom: 8px; }
+/* One line: the hint (or the chips) and the close, centered. */
+.term-attach-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .term-attach-head .term-attach-empty, .term-attach-head .term-attach-chips { flex: 1; min-width: 0; margin-bottom: 0; }
 .term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
 .term-attach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-.term-attach-head .term-attach-kind { flex: none; }
+/* The delivery chip sits in the field row beside Send (ADR-0206), one
+   control height like its neighbours. */
+.term-attach-row .term-attach-kind { flex: none; display: inline-flex; }
+.term-attach-row .term-attach-kind .cockpit-chip { height: var(--ctl-h); }
 /* The message field grows with the text (shared/domain/attachText.js): one
    line is one control height, four lines is the cap, then it scrolls. The
    row is bottom-aligned and deliberately not [data-align-row] — overlayAudit's

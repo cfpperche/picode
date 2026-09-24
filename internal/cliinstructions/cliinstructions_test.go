@@ -120,7 +120,7 @@ func TestBothFilesInOneFolder(t *testing.T) {
 		{"CLAUDE.md", "codex", StatusNotRead, ""},
 		{"AGENTS.md", "muse", StatusReads, ""},
 		{"CLAUDE.md", "muse", StatusShadowed, "AGENTS.md"},
-		{"AGENTS.md", "agy", StatusReads, ""},
+		{"AGENTS.md", "agy", StatusUnknown, ""}, // docs say reads; runs of 1.2.10 found none at start
 		{"CLAUDE.md", "agy", StatusNotRead, ""},
 	})
 	f := has(rep, "claude-split")
@@ -264,7 +264,7 @@ func TestLimits(t *testing.T) {
 	home, root := repo(t, map[string]string{"AGENTS.md": strings.Repeat("x", 25000) + "\n"})
 	write(t, home, map[string]string{".codex/config.toml": "project_doc_max_bytes = 10000\n[profiles.x]\nproject_doc_max_bytes = 1\n"})
 	rep := resolve(t, Env{Home: home, Root: root})
-	for cli, fragment := range map[string]string{"hermes": "under 105k tokens", "agy": "24,000 bytes", "codex": "10,000 bytes"} {
+	for cli, fragment := range map[string]string{"hermes": "under 105k tokens", "codex": "10,000 bytes"} {
 		if c := cell(t, rep, "AGENTS.md", cli); !strings.Contains(c.Cut, fragment) {
 			t.Errorf("%s cut = %q, want it to mention %q", cli, c.Cut, fragment)
 		}
@@ -308,11 +308,16 @@ func TestSubfoldersAndStartFolder(t *testing.T) {
 	if rep.Start != "pkg" {
 		t.Fatalf("start = %q", rep.Start)
 	}
-	for _, cli := range []string{"codex", "opencode", "hermes", "pi", "claude-code", "agy", "muse", "omp"} {
+	for _, cli := range []string{"codex", "opencode", "hermes", "pi", "claude-code", "muse", "omp"} {
 		for _, p := range []string{"AGENTS.md", "pkg/AGENTS.md"} {
 			if c := cell(t, rep, p, cli); c.Status != StatusReads {
 				t.Errorf("start pkg: %s / %s = %s (%s)", p, cli, c.Status, c.Why)
 			}
+		}
+	}
+	for _, p := range []string{"AGENTS.md", "pkg/AGENTS.md"} {
+		if c := cell(t, rep, p, "agy"); c.Status != StatusUnknown {
+			t.Errorf("start pkg: %s / agy = %s, want unknown (none loaded at start in PiCode's runs)", p, c.Status)
 		}
 	}
 	if _, err := Resolve(Env{Home: home, Root: filepath.Join(root, "pkg"), Start: root}); err == nil {
@@ -399,4 +404,28 @@ func TestAHomeBehindASymlinkStillAbbreviates(t *testing.T) {
 		{"~/AGENTS.md", "pi", StatusReads, ""},  // Pi walks up to /
 		{"~/AGENTS.md", "omp", StatusReads, ""}, // outside a repository Omp's walk ends at home
 	})
+}
+
+// Omp's providers in one folder, measured 2026-09-24 by removing each
+// winner in turn: .omp/ > .claude/ > .agent/ (wins the tie at 70) >
+// .agents/ > .gemini/ > Copilot > AGENTS.md > CLAUDE.md.
+func TestOmpProviderOrder(t *testing.T) {
+	files := map[string]string{}
+	order := []string{".omp/AGENTS.md", ".claude/CLAUDE.md", ".agent/AGENTS.md", ".agents/AGENTS.md", ".gemini/GEMINI.md", ".github/copilot-instructions.md", "AGENTS.md", "CLAUDE.md"}
+	for _, n := range order {
+		files[n] = "rules for " + n + "\n"
+	}
+	for i, want := range order {
+		home, root := repo(t, files)
+		rep := resolve(t, Env{Home: home, Root: root})
+		if c := cell(t, rep, want, "omp"); c.Status != StatusReads {
+			t.Fatalf("step %d: %s / omp = %s (%s), want reads", i, want, c.Status, c.Why)
+		}
+		for _, other := range order[i+1:] {
+			if c := cell(t, rep, other, "omp"); c.Status != StatusShadowed {
+				t.Fatalf("step %d: %s / omp = %s, want shadowed by %s", i, other, c.Status, want)
+			}
+		}
+		delete(files, want)
+	}
 }
