@@ -1,2 +1,0 @@
-### Fixed
-- **Second prose-audit wave (Agent CLIs stack) brings the launch docs back in line with the code.** `cli-terminal-launch.md` no longer teaches the removed `POST /api/clis/<cli>/terminals` route (sessions open through the handoff door or the one agents door), names all five npm-backed installs, describes Muse Code and Antigravity as the full rows they now are, and lists the current pane set — Memory for the six CLIs with a native memory shape and Models for omp.
