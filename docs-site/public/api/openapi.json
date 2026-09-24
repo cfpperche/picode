@@ -12836,6 +12836,32 @@
         ]
       }
     },
+    "/api/workspaces/{id}/stats": {
+      "get": {
+        "operationId": "getApiWorkspacesStats",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}/status": {
       "get": {
         "operationId": "getApiWorkspacesStatus",

@@ -77,13 +77,14 @@ import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
 import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, inboxHash, inboxPath, legacyInboxHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, instructionsTabId, isInstructionsTab, instructionsTabWorkspace } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, inboxHash, inboxPath, legacyInboxHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, instructionsTabId, isInstructionsTab, instructionsTabWorkspace } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const Missions = lazy(() => import("./components/Missions.jsx"));
+const WorkspaceOverview = lazy(() => import("./components/WorkspaceOverview.jsx"));
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
 // The Canvas surface is lazy for the reason ADR-0118 gives: a reader who
 // never opens the app should not carry it. It is a registry entry like any
@@ -4447,6 +4448,13 @@ export default function App({ shellChrome = false } = {}) {
         <Outcomes hidden={route !== "outcomes"} workspaces={workspaces} />
         <AgentHistory hidden={route !== "history"} workspaces={workspaces} onOpenAgent={(id) => { loadWorkspaces().then((list) => revealAgent(id, list)).catch(() => revealAgent(id)); }} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
+        {route === "workspaceOverview" ? <Suspense fallback={<div className="pane-view"><div className="settings-wrap"><div className="skel-line w-70" /><div className="skel-line w-90" /></div></div>}>
+          <WorkspaceOverview key={workspaceOverviewRoute()} id={workspaceOverviewRoute()} workspaces={workspaces} terminals={terminals} loaded={bootstrapped} workingIds={tuiWorking} waitingId={waiting ? selectedId : null}
+            onOpenAgent={revealAgent} onOpenTerm={(id) => { openTermTab(id); location.hash = termHash(id); }}
+            onOpenTree={(id, name) => { openTreeTab("workspace", id, name); location.hash = treeHash("workspace", id); }}
+            onOpenGit={(id, name) => { openGitTab("workspace", id, name); location.hash = gitHash("workspace", id); }}
+            onNewAgent={(id) => { const ws = workspaces.find((w) => w.id === id); if (ws) setCliPrincipalWs(ws); }} />
+        </Suspense> : null}
         {route === "missions" ? <Suspense fallback={<p role="status">Loading missions…</p>}><Missions /></Suspense> : null}
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>

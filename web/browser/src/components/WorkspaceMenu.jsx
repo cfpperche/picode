@@ -7,8 +7,10 @@ import { RowMenu, RowMenuItem, RowMenuSep } from "./WorkspaceRows.jsx";
 import WorkspaceSettings from "./WorkspaceSettings.jsx";
 import { OPEN_WORKSPACE_SETTINGS } from "./LandingWork.jsx";
 import { toast, toastError } from "../lib/toast.js";
+import { workspaceOverviewHash } from "../lib/routes.js";
 
 const ICONS = {
+  overview: <IconFolderOpen size={13} />,
   missions: <IconGit size={13} />,
   communication: <IconCommunication size={13} />,
   files: <IconFolder size={13} />,
@@ -96,6 +98,7 @@ export default function WorkspaceMenu({ ws, onMoveUp, onMoveDown, onSortAgents, 
   function select(r) {
     if (r.url) { window.open(r.url, "_blank", "noopener,noreferrer"); return; }
     switch (r.id) {
+      case "overview": location.hash = workspaceOverviewHash(ws.id); break;
       case "communication": location.hash = "#/clis/messages/" + encodeURIComponent("workspace:" + ws.id); break;
       case "missions": location.hash = "#/missions?workspace=" + encodeURIComponent(ws.id); break;
       case "files": onFileTree && onFileTree("workspace", ws.id, ws.name); break;

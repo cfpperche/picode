@@ -58,11 +58,19 @@ jobs:
         id: os
         shell: bash
         run: |
+          # Ubuntu always; macOS when the diff can break it (see above);
+          # Windows only for a tag or a manual run — it compiles rather than
+          # executes the daemon (ADR-0020), so a per-push leg would buy little.
+          # The three are built one at a time because a macOS-relevant push
+          # must not quietly buy a Windows runner too.
+          os='"ubuntu-latest"'
           if [[ "$GITHUB_REF" == refs/tags/* || "$GITHUB_EVENT_NAME" == workflow_dispatch || "${{ steps.scope.outputs.macos }}" == "true" ]]; then
-            echo 'os=["ubuntu-latest","macos-latest","windows-latest"]' >> "$GITHUB_OUTPUT"
-          else
-            echo 'os=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+            os="$os,\"macos-latest\""
           fi
+          if [[ "$GITHUB_REF" == refs/tags/* || "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            os="$os,\"windows-latest\""
+          fi
+          echo "os=[$os]" >> "$GITHUB_OUTPUT"
 
   frontend:
     name: Frontend

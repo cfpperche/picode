@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appPath, isAgentTab, inboxHash, inboxPath, legacyInboxHash } from "./routes.js";
+import { workspaceOverviewHash, workspaceOverviewRoute } from "./routes.js";
 
 test("Inbox is a core page with stable item links", () => {
   assert.equal(parseRoute("#/inbox"), "inbox");
@@ -10,6 +11,13 @@ test("Inbox is a core page with stable item links", () => {
   assert.equal(inboxPath("#/inbox/done"), "done");
   assert.equal(legacyInboxHash("#/app/inbox/item/i-1"), "#/inbox/i-1");
   assert.equal(legacyInboxHash("#/app/docker"), "");
+});
+
+test("workspace overview is a page route, not an editor tab", () => {
+  const hash = workspaceOverviewHash("ws/one");
+  assert.equal(workspaceOverviewRoute(hash), "ws/one");
+  assert.equal(parseRoute(hash), "workspaceOverview");
+  assert.equal(workspaceOverviewRoute("#/workspaces/%ZZ/overview"), null);
 });
 
 test("integrations deep links remain reload-safe", () => {

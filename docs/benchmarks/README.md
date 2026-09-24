@@ -44,6 +44,8 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-23 — Workspace overview (Linear, GitHub Pulse, Langfuse, Recharts)](2026-09-23-workspace-overview.md)
+
 - [2026-09-23 — AGENTS.md across the nine CLIs: who reads what, and what PiCode can manage](2026-09-23-agents-md.md)
 - [2026-09-23 — Feedback when an agent is removed: catalog, insights, a loop that improves the agents](2026-09-23-agent-exit-feedback.md)
 - [2026-09-22 — omp-specific helpers inside a multi-CLI host: where they live, and what they show](2026-09-22-omp-helpers-placement.md)

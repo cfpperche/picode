@@ -194,9 +194,12 @@ the roster's cache instead of opening a fetch of its own.
 ## What it never does
 
 - **Never writes.** Every store belongs to another vendor's CLI.
-- **Never filters by workspace.** The dashboard measures the whole machine
-  (ADR-0127); labelling which folders a workspace claims is the server
-  layer's job.
+- **The home dashboard never filters by workspace.** It measures the whole
+  machine (ADR-0127). The separate workspace overview route (ADR-0207)
+  passes a cwd predicate into the meters before aggregation. The server
+  assigns each recorded folder to its deepest current registered workspace;
+  missing and ambiguous folders are excluded. This keeps its series and
+  totals in agreement while leaving the home contract unchanged.
 - **Never carries message content.** Meters read counts and figures;
   `TestClaudeCodeNeverCarriesMessageContent` holds that line.
 
