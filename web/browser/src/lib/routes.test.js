@@ -248,6 +248,12 @@ test("provider command navigation opens canonical list or add", () => {
     go("connectors", "C", { workspaceId: "W", cli: "codex" });
     assert.match(location.hash, /^#\/clis\/codex\/connectors/);
     go("providers", "C", { cli: "omp" }); assert.equal(location.hash, "#/clis/omp/providers");
+    // The catalog view follows the same rule: a selected agent opens its own
+    // CLI's page; no agent in context keeps the legacy first-row address.
+    go("clis", "C", { workspaceId: "W", cli: "claude-code" });
+    assert.equal(location.hash, "#/clis/claude-code");
+    go("clis", "C", {});
+    assert.equal(location.hash, "#/clis");
   }
   finally { globalThis.location = previous; }
 });

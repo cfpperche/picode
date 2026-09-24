@@ -269,6 +269,10 @@ export function go(name, agentId, extra = {}) {
   if (name === "packages") { location.hash = cliPackagesHash(cli, ctx); return; }
   if (name === "skills") { location.hash = cliSkillsHash(cli, { workspaceId: ctx.workspaceId }); return; }
   if (name === "mcps" || name === "connectors") { location.hash = cliConnectorsHash(cli, ctx); return; }
+  // The catalog follows the same rule when a CLI rides the context (the rail
+  // button with an agent selected); without one it keeps #/clis, whose first
+  // row is the same Pi the legacy address always showed.
+  if (name === "clis" && extra.cli) { location.hash = cliPaneHash(String(extra.cli).trim() || "pi"); return; }
   if (name === "providers" && extra.cli) { location.hash = cliProvidersHash(cli); return; }
   if (typeof name === "string" && name.startsWith("preferences")) {
     const sec = name === "preferences" ? "" : name.slice("preferences-".length);
