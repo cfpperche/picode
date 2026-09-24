@@ -162,3 +162,17 @@ and `make ci`), `scripts/changelog-assemble.test.mjs`.
   one file per branch is what the branch already owns.
 - **Rewriting git history to drop the committed UI bundles**: still the
   owner's call, outside this ADR.
+
+## Amendment (2026-09-24): the owner decides when a session ends
+
+§1 said the next task starts in a new terminal. The owner overrode it in
+practice — on 2026-09-23/24 one session carried the AGENTS.md study, the
+Instructions page, ADR-0204 and five more branches at the owner's request —
+and a rule nobody keeps teaches agents to discount the others. The session
+may now continue past the fast-forward when the owner asks; the owner, not
+the agent, says when to switch. What stays is the part that bought the
+savings: one branch at a time, the closing docs written from `make
+close-summary` in a subagent, and screenshots read in a subagent, so the
+peak context never carries the rite or the images. The measurement in
+Context remains the trigger for a re-measure if long sessions grow costly
+again.

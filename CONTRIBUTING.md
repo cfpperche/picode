@@ -34,9 +34,10 @@ rules live in [AGENTS.md](AGENTS.md) — this file covers the mechanics.
    in parallel with another agent. After merge, `make worktree-gc`.
 5. **Do not deploy** (ADR-0105): the owner runs `make deploy` when they
    want it; a branch is done when `main` fast-forwards to it.
-6. **One branch, one session** (ADR-0105): end the session at the merge and
-   write the closing docs from `make close-summary` in a subagent or a
-   fresh session, never at the peak context of the working session.
+6. **One branch at a time** (ADR-0105): finish a branch through its merge
+   before starting the next, and write the closing docs from `make
+   close-summary` in a subagent, never at the peak context of the working
+   session. The owner decides when a session ends.
 7. Code under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`,
    `packages/pi-compact/`, and `packages/pi-diff/` is MIT; everything else is PolyForm
    Noncommercial. See [LICENSING.md](LICENSING.md) and ADR-0028.

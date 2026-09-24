@@ -46,7 +46,7 @@ feature, `feat/cascade-delete`, carries through both.
 <div class="devflow-arrow" aria-hidden="true"></div>
 
 <section class="devflow-phase">
-  <h2 class="devflow-head"><span class="devflow-num">3</span> Closing docs <span class="devflow-owner">subagent · fresh session</span></h2>
+  <h2 class="devflow-head"><span class="devflow-num">3</span> Closing docs <span class="devflow-owner">subagent</span></h2>
   <p class="devflow-sub">Written from <code>make close-summary</code>, never at the working session's peak context.</p>
   <div class="devflow-steps">
     <div class="devflow-step"><code>docs/changelog.d/cascade-delete.md</code><span class="devflow-note">one Keep-a-Changelog fragment; <code>CHANGELOG.md</code> is assembled on <code>main</code></span></div>
@@ -96,7 +96,7 @@ feature, `feat/cascade-delete`, carries through both.
 |---|---|
 | No feature work on `main`, no switching the root checkout off it | the `reference-transaction` and `pre-commit` git hooks (`make hooks`) |
 | Code and docs travel together | `make close-summary` flags a missing changelog fragment; the pre-commit hook refuses a direct `CHANGELOG.md` edit (the assembly, a release cut and its preamble are exempt), a fragment written on `main`, and a malformed fragment |
-| One branch, one session | ADR-0105 — the working session ends at the fast-forward |
+| One branch at a time | ADR-0105 — a branch reaches its fast-forward before the next starts; the owner decides when a session ends |
 | Deploy is the owner's call | ADR-0105; `picode deploy` refuses while agents work; `--force` is the owner's deliberate one-off |
 | Owner-grade restarts never overlap | `/tmp/picode-mutate.lock` — deploy, desktop restart, one at a time, each verified before the next |
 
