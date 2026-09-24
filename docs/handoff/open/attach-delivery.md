@@ -5,7 +5,6 @@ Decision: ADR-0206. Study: `docs/benchmarks/2026-09-23-attach-delivery-modes.md`
 ## Next
 
 - Owner live-check of Stop and send after deploy on Claude Code, Codex and Hermes (a working turn is stopped, then the message lands as a new prompt).
-- [x] Interrupt-then-send is not offered (the ADR's rejected-for-now alternative); build it if the owner asks for a "stop and send" mode. Built: ADR-0206 amendment 2026-09-24, feat/attach-interrupt.
 
 ## Debts
 
