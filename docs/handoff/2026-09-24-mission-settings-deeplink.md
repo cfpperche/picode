@@ -6,7 +6,7 @@ Verified: `make close` after the tab-clip fix. Scratch `settings-deeplink` on :8
 
 visual-review: PASS — scratch recapture after hiding partial pane tabs; 5-question card all yes/5.
 
-Merge: fast-forward ready.
+Merge: landed by fast-forward at `f94e54f98`; full CI passed at `9af0093c6` after the post-release changelog preview fix. The five screenshots and accepted Mission v9 are archived under `var/qa/missions-pilot/mission_F73FEWS6TJ277I7S3FYC53XN5W/`.
 
 ## Debts
 

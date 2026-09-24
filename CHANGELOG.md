@@ -14,6 +14,8 @@ edit to the entries here, so the fragment is not a convention — it is the only
 way in. The repository's official language is English (see `AGENTS.md`);
 changelog entries included.
 
+## [Unreleased]
+
 ## [0.7.0] - 2026-09-24
 
 ### Added

@@ -84,8 +84,15 @@ export function normalizeBlock(block) {
 // creating the section (in canonical order) when it is missing.
 export function assemble(changelog, fragments) {
   const lines = changelog.split("\n");
-  const start = lines.findIndex((l) => /^## \[Unreleased\]/.test(l));
-  if (start < 0) throw new Error("CHANGELOG.md has no [Unreleased] section");
+  let start = lines.findIndex((l) => /^## \[Unreleased\]/.test(l));
+  if (start < 0) {
+    const firstRelease = lines.findIndex((l) => /^## \[[^\]]+\]/.test(l));
+    if (firstRelease < 0) throw new Error("CHANGELOG.md has no release section");
+    // A release cut may consume the entire Unreleased block. Recreate it
+    // before the newest release when the next fragment arrives.
+    lines.splice(firstRelease, 0, "## [Unreleased]", "");
+    start = firstRelease;
+  }
   let end = lines.findIndex((l, i) => i > start && /^## \[/.test(l));
   if (end < 0) end = lines.length;
   // Heal first: an inherited duplicate would otherwise swallow this fold's
