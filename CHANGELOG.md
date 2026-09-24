@@ -14,7 +14,261 @@ edit to the entries here, so the fragment is not a convention — it is the only
 way in. The repository's official language is English (see `AGENTS.md`);
 changelog entries included.
 
-## [Unreleased]
+## [0.7.0] - 2026-09-24
+
+### Added
+
+- **Stop and send.** The attach box has a fourth way to deliver a message
+  to a busy agent: it stops what the agent is doing, then sends your
+  message as a new request. It works with all nine agent tools and is never
+  picked for you. If the agent does not stop, nothing is sent and you are
+  told so, so you can try again.
+
+- **Agent history on the phone.** More ▸ Agent history lists removed agents whose conversation is still on disk. Bring back (to any workspace) and Remove from history work there too.
+
+- **Outcomes remember the instructions.** A removed agent's record lists
+  the instruction files it read (AGENTS.md and the like), each with a short
+  fingerprint of its content, so two agents that ran on the same
+  instructions can be told apart from two that did not.
+
+- **Draft with an agent.** A workspace with no instruction file offers to
+  have an agent write its first `AGENTS.md`: the New agent dialog shows the
+  exact request, lists the agents that can start with one, and the file
+  waits in the Git tab for your review.
+
+- The docs site "Development flow" guide lists its six phases — Elaboration, Iteration, Closing docs, Landing, Deploy, After deploy — under "On this page", and each phase heading has a working permalink anchor.
+
+- Workspace overviews now highlight questions, blocked and review-ready missions, waiting agents, and failing pull request checks, with a seven-day activity summary and recent commits.
+
+- Agent rows show Compacting while Codex, Claude Code, Grok, Pi, Omp or OpenCode reports native context compaction.
+
+- Open a workspace overview from its sidebar menu to see requests, agents, project state, missions and activity for that workspace without opening an editor tab.
+
+- **A delivery says which objective it serves.** When a mission cites a change as evidence, the Delivery view's row and detail now name that mission — its title, its own state ("Ready for review") and a link back to it — and the read carries the same map for any surface that needs it. The link is exactly the one Missions stores, read backwards: read-only, no new schema, and it transfers no integration authority.
+- The read reports when the mission list was too long to invert completely, instead of passing a short answer off as a complete one.
+
+- **Steer or follow up while a CLI is working.** The message bar under an
+  agent's terminal (desktop and the phone's sheet) no longer shuts while the
+  CLI is busy: it offers **Steer** (reach the running turn) or **Follow-up**
+  (wait for the turn to end), in whichever of the two the CLI supports. Pi,
+  Omp, Hermes, Muse Code and Codex offer both; Claude Code and OpenCode offer
+  Steer; Antigravity and Grok offer Follow-up. A CLI asking for your answer, or
+  one with a half-typed draft, still refuses. The receipt says **Queued** when
+  the message shows up on the screen, and **Unconfirmed** when PiCode cannot
+  see it yet.
+
+- **Quick sorts in the workspace menu.** "Sort agents by name" puts a workspace's agents in alphabetical order — one saved reorder, the same on every device, and you can still drag rows afterwards. "Working first" is a per-device view that groups the agents of a workspace under what they are doing: Needs you, Working, In terminal, Ready, Stopped — who needs you stays on top while the saved order stays underneath, untouched. Both live in the workspace card's "…" menu and appear once the folder has more than one agent.
+
+- **Add, update and remove skills.** The Skills tab's **Add skill** reads a GitHub repository, a site's skills index or a local folder, shows each skill's files, format problems and what the safety scan noticed, and installs the one you pick into the workspace or this computer, where most agent CLIs read it. **Check for updates** compares installed skills with their sources; **Update** and **Remove** ask before touching your edits. Installs are recorded in the same lock files the `skills` command-line tool uses.
+
+- **New agent on the phone** shows the same line as the desktop: which
+  instruction files the picked CLI reads in that workspace, and which it
+  leaves out.
+
+- **Agent history.** Removed agents whose conversation is still on disk are listed at user menu ▸ Agent history (`#/history`, also in the palette). **Bring back** restores the agent with its setup and resumes the same conversation — Pi and every other CLI — into its workspace or another one, in the folder it worked in. Environment variable values are not restored; the toast names the ones to set again.
+- **Remove from history** hides a removed agent from the list. For a Pi agent you can also delete its conversation file; other CLIs' files are never touched.
+
+- A forked agent's row in the sidebar (and in the phone's Work list) reads **fork of &lt;name&gt;**, and **(removed)** once the original agent is gone.
+
+- Missions preserve objectives, criteria, decisions, checkpoints and evidence across agent sessions, with browser and mobile views, Inbox answers, explicit executor transfer and owner review.
+- Mission reporting is available through the CLI and MCP, with assignment/session checks, durable history, visible submission uncertainty and acceptance tied to current evidence. The native pilot exercised Codex and Claude Code; other providers have not been validated live.
+
+- **Fix instruction files from the Instructions tab.** A `CLAUDE.md` that only
+  tells Claude Code to read `AGENTS.md` gets a **Review change** button that
+  adds an `@AGENTS.md` line, and **Add personal file** creates
+  `CLAUDE.local.md` or `AGENTS.override.md` and adds it to `.gitignore`. Every
+  change is shown as a diff first, is written only when you confirm it, and is
+  never committed.
+
+- **Skills tab for every agent CLI.** Agent CLIs → a CLI → Skills lists the Agent Skills that CLI loads: the folder it found each one in, which copy wins when two share a name, who installed it, what it costs at every start, and whether the workspace must be trusted first. Read-only for now.
+
+- The desktop Management window's Disk tab shows a **History** chart of the Windows drive's free space and the space used inside the distro, one point per day, and lists what grew most in the last seven days. PiCode Desktop records a day on every scan and once a day in the background.
+
+- **Outcomes on the phone.** More ▸ Outcomes lists every removed agent with its answer, lifetime and cost; you can answer later, delete a record, or turn the question off.
+
+- **What agents here read.** The Instructions tab lists, for each Claude Code,
+  Codex and Grok agent in the workspace, the instruction files its latest
+  session actually loaded, read from the CLI's own session record.
+
+- **Outcomes shows what each removed agent cost.** The record keeps its sessions' cost and tokens, read at removal; list-price estimates are marked with `~`, and agents whose CLI PiCode cannot read show "—" rather than $0.00.
+
+- The desktop Management window can move the distro's disk to another drive (**Move here**) or back it up as one `.vhdx` file (**Back up here**), from the System tab. Each drive shows its free space. A drive that cannot take the disk stays listed with the reason. Nothing stops unless the copy fits.
+
+- The Agent CLIs guide explains **Fork agent…**: when to fork into a new worktree or the same folder, and which CLIs can fork.
+
+- **Instructions settings.** The Settings page of Claude Code, Codex, Hermes and
+  OpenCode has an **Instructions** group: which instruction files Claude Code
+  reads (CLAUDE.md, AGENTS.md or both), the extra file names and size limit
+  Codex uses, Hermes's size limit, and OpenCode's extra instruction files. A
+  finding in the Instructions tab whose fix is one of these opens that page.
+
+- OpenCode's **Add provider** follows OpenCode's own sign-in, without a terminal. You pick from OpenCode's catalog of providers, choose one of OpenCode's methods (ChatGPT, GitHub Copilot, GitLab and more), answer its questions, then paste a key or finish on the provider's page. OpenCode keeps the credential in its own store.
+
+- **Abandon** on a llama.cpp operation whose result is unknown: PiCode stops following it and frees the model, without sending anything to the server.
+
+- The desktop Management window has a **Distro** tab for the distro's own settings file, `/etc/wsl.conf`: systemd, the default account, the Windows PATH, drive mounting, the host name and DNS. It saves as the distro's administrator without a password, keeps the previous file as `/etc/wsl.conf.bak`, and offers **Restart WSL to apply**.
+- The Clean tab also lists the system's own caches (apt packages and system logs) and cleans them as the distro's administrator.
+
+- **Agent instructions.** A workspace's `…` menu opens **Instructions**: for
+  every installed agent CLI, which instruction files (`AGENTS.md`, `CLAUDE.md`,
+  `GEMINI.md` and their kin) it reads in that workspace, which it skips and
+  why, with findings such as a `CLAUDE.md` that keeps Claude Code from loading
+  `AGENTS.md`, a file over a CLI's size limit, or a folder Grok does not trust
+  yet. The **New agent** dialog shows the same answer in one line for the CLI
+  you pick.
+
+- Antigravity's **Add provider** signs you in with your Google account from PiCode: open Google's page, then paste back the code it shows, within the minute Antigravity allows. A new link is one click away.
+
+- The desktop Management window has a **System** tab. It shows how much memory WSL may use and is using, what Windows holds for it, swap, and the installed WSL version. A newer WSL release is offered as **Update WSL**, and **Restart WSL** applies saved settings. Both ask first, refuse while an agent is mid-turn, and say that every session inside WSL ends.
+- After saving WSL settings, the Config tab offers **Restart WSL to apply**.
+
+- **Fork agent…** in a CLI agent's sidebar menu starts a new agent of the same CLI on a copy of its conversation (Claude Code, Codex, Grok, OpenCode and Omp, each through its own fork), with a task you write in the attach composer (photos, files, sketches). The copy runs in a new worktree on its own branch or in the same folder, and the original agent keeps running.
+
+- Muse's **Add provider** opens its own sign-in: your Meta account with a one-time code, or a Meta API key. No terminal is needed, though signing in from one is still offered.
+
+### Changed
+
+- **Instructions: Muse Code, Antigravity and Omp measured.** Muse Code's
+  rules are confirmed by a run. Antigravity's cells now say "unknown": in
+  PiCode's runs of 1.2.10 no `GEMINI.md` or `AGENTS.md` was in a new
+  session's context, although its docs say it reads them. Omp's
+  `.agent/AGENTS.md` now wins a tie with `.agents/AGENTS.md`, as Omp does.
+
+- The message bar's **Delivery** choice (Steer, Follow-up, Stop and send) now sits in the message row, right before the send button.
+
+- **The Development flow guide's "When the flow bends" cards are checked against the repo scripts that print them.** `make docs-check` fails when a card's quoted wording and the message in its script no longer match, and names the card and its line in the guide. Example values, and the Vale and dead-link cards, are checked only as far as this repository's own files go; the guide says which parts are not checked.
+
+- Workspace overviews now show a short, prioritized agent summary with current work and contextual actions. A workspace route provides the complete searchable agent list, with unbound terminals shown separately.
+
+- **Skills scopes read like every other setup pane.** The chips run Global, then the workspace by its name, then — for Pi and Omp — the selected agent by its name, which shows what that agent loads. "This machine" is now "Global", in the tab and in Add skill.
+
+- **Undo** after removing an agent and **Bring back** in Agent history now do the same thing: the agent returns running, with its conversation, and the same message.
+
+- **"Working first" also ranks by how long an agent has been waiting.** With the view on, the groups of agents that are not working (Ready, Needs you, In terminal, Stopped) now order by the time in each row's status pill — the agent that just entered its status first, the one parked longest last. Agents in the Working group keep their saved order, and with the view off nothing changes.
+
+- Agent history loads in a fraction of a second even with gigabytes of Claude Code and Codex sessions. A brought-back agent is the same agent: automations and pins that named it work again.
+
+- **Instructions opens as a page, not a tab.** A workspace's **…** menu ▸
+  **Instructions** opens `#/instructions/<workspace>` over your tabs, like
+  Agent CLIs, with **Back** and the workspace named at the top.
+
+- The desktop Inbox page now uses Back beside its title, consistent with Agent CLIs, instead of a Close button.
+
+- Moved Inbox out of Apps into a dedicated desktop sidebar button with its own pending badge; desktop and phone now use the core Inbox API, and old Inbox app links continue to open the same items.
+
+- **Sidebar status pills show how long the agent has been in its state** — `Ready · now`, `Ready · 5m`, `Open · 2h`, `Stopped · 3d` — not only while `Working`. The age is the moment the state actually began: a CLI agent's own hook report for terminal rows, and a managed agent's start/stop and turn settle (a new `agent.settled` update, applied live without a refresh) for the rest. Where no truthful timestamp exists the pill shows the label alone; hover carries the full time. Mobile status chips no longer clip the age text.
+
+- Expand the Missions guide with its lifecycle, every control, evidence rules, transfer checks, and recovery steps.
+
+- Searchable pickers across the desktop app mark the current value with a bar
+  instead of a tint, so the row the keyboard is on stays easy to tell apart; a
+  picker without a search field takes keyboard focus as soon as it opens.
+
+- The Packages menu entry now says "Plugins, extensions, updates"; standalone skills have their own tab, reachable from search as **Skills**.
+
+- **Fork agent…** into a new worktree no longer waits for you to press Enter when other agents are working in the repository: creating a worktree touches none of their files, so PiCode runs that one command right away. Every other git command still waits while agents work.
+
+- Agent CLIs panes name the workspace they are bound to. The layer switcher in Settings, Models and Memory, the "Comes from" column in the Checks card, the scope radios in Packages, the save-to options on setting rows, and the connector-package tags all read the workspace's name — `Global / QA` — where they used to say the generic "This workspace". A pane bound to no workspace keeps the generic word. The guest packages driver now keeps a scope's qualifier when it names the workspace, so Claude Code's uncommitted layer reads `<workspace> (local)` instead of a second bare `<workspace>` radio.
+
+### Fixed
+
+- Mission CLI/MCP writes now name a missing `generation`, `expectedVersion` or `requestId` before contacting the daemon. Read actions remain available without those fields, and stale-generation refusals are unchanged.
+
+- **An agent running a shell command no longer looks Ready.** A command typed with `!` (such as `!make deploy`) or left running in the background now shows **Running** in the sidebar, with the command's name on hover, in Claude Code, Codex, Grok, Hermes Agent, OpenCode, Pi and Omp.
+
+- On the phone's Outcomes, an open record keeps its name visible above the details. Before, long paths squeezed the header away.
+
+- **Undo** after removing an agent now brings back the same agent with its conversation (a Pi agent's chat was empty, and other CLIs came back without their session).
+
+- Agent history shows when it is loading or refreshing and keeps the previous list visible if a refresh fails.
+- Recorded Codex, Claude Code and Omp conversations load faster by checking their saved file before scanning the CLI's session store.
+
+- Keep a live Codex terminal running when its announced session has not been saved, and resume Omp agent sessions from their private files during Restart.
+- Show Compacting beside the agent name in the sidebar, with enough room to read both the name and status at the default width.
+
+- **Windows builds again.** `internal/server` used Unix-only process calls
+  (`Setpgid`, `syscall.Kill`) in the GUI sign-in paths, so it had not compiled
+  for Windows since they landed — the leg that checks that only runs on tags
+  and manual runs. The calls live behind per-platform files now, the way the
+  agent-stop and zombie helpers already do.
+- **A folder that is gone still counts as its workspace's own.** The dashboard
+  attributes a session's recorded folder to a workspace by comparing canonical
+  paths; a folder that no longer exists could not be canonicalised at all, so on
+  macOS — where `/var` symlinks to `/private/var` — it matched nothing. The
+  deepest existing part is resolved and the rest re-appended.
+
+- The public API reference no longer quotes an operation count ("200+") that drifted behind the generated spec (387 paths); the count line is gone and the spec stays described as generated from route registration.
+
+- **The Antigravity sign-in works on macOS.** It runs under a pty through
+  `script(1)`, and the flags it used are util-linux's — macOS's BSD script
+  answers them with its own usage line, so the sign-in answered 502 there. The
+  invocation is platform-aware now.
+- **A home behind a symlink shows as `~/…` again, and Grok's trusted folder is
+  found.** On macOS `/var` points at `/private/var`, so the paths the
+  instructions report (resolved) and the home they were compared against (as
+  typed) disagreed; the abbreviation missed and a trusted folder read as
+  untrusted. Both sides are resolved now.
+
+- **A terminal whose shell was already gone no longer stays in the list.** The
+  creation check races the shell's own start and exit, so under load a dead
+  shell could be accepted and left behind as a row that answers "no server
+  running" to everything. A second check, which nobody waits for, reaps a
+  just-created terminal whose session is gone — the promise is now that a
+  terminal which never lived does not *survive*, not that it is refused on the
+  spot.
+
+- **Dragging a workspace no longer breaks the sidebar.** Pressing a folder header to drag it now collapses the folder for the gesture and releases the pinned headers, so the drag slot stays small and nothing detaches or vanishes mid-drag. On drop the folder re-expands and pinning returns; a plain click still toggles the folder as before.
+
+- Exclude surrounding Markdown punctuation from terminal links opened with Ctrl+click.
+
+- **The workspace header stays put while you scroll.** Scrolling a long folder's agent list no longer carries the folder's name, chevron and actions out of view — the header holds the top of the list until the next folder's header takes over.
+
+- The desktop Management window measures the pnpm store, the Go caches, npm and uv where each tool keeps them. Before, a pnpm store outside `~/.cache/pnpm` showed as a few KB and cleaning it never changed the number.
+- Saving WSL settings in the Config tab no longer leaves two copies of a setting that appeared under both `[wsl2]` and `[experimental]`. It also no longer shows a value from a section WSL does not read.
+- **Give back held space** no longer lets Windows restart the distro during the conversion.
+
+- The desktop Management window uses PiCode's own compact scrollbar instead of Windows' light default with arrow buttons.
+
+- Removing a Claude Code, Codex or Omp agent that did work now asks "How did it go?". Their turns were never counted, so every removal was treated as idle and skipped the question. Removals from before the fix can still be answered from Outcomes.
+
+- While a WSL update, a move or a backup needs the distro stopped, PiCode Desktop no longer starts it again with its keepalive or server discovery.
+
+- Workspace names containing `$` sequences (for example `$&`) now render
+  literally in the Agent CLIs scope labels instead of being read as replace
+  patterns.
+
+- An operation left unknown on PiCode's own llama.cpp service no longer blocks starting that service forever: while the service is not running, its operations end as Interrupted.
+- After PiCode restarts, an unload whose model is still loaded ends as Interrupted instead of waiting forever.
+- Finishing a large download no longer holds up other model operations while PiCode checks the file.
+- Leftovers of an interrupted llama.cpp install are cleaned up at start.
+- A download that started is no longer reported as failed when PiCode could not record its file baseline.
+
+- **Fork agent…**: pasting a screenshot or a file into the task box now attaches it, as in the terminal's attach bar.
+- **Fork agent…**: when another agent is working in the repository, the dialog no longer covers the git terminal where the worktree command waits for Enter; it closes, a message says to press Enter there, and the fork starts as soon as the worktree exists.
+
+- A git command from the graph or from **Fork agent…**'s new worktree no longer picks a stopped or idle agent's terminal as its shell (the server refused it with "This is an Agent CLI"); it goes to a plain shell in the folder, or a new one.
+
+- The llama.cpp page checks a server that does not answer in about 4 seconds instead of 18, and **Save connection** is no longer blocked while it checks.
+- Connection problems now say what they are — nothing listening, name not found, untrusted certificate, no answer in time — instead of one "Cannot reach the server" for all of them.
+- The Models tab says why a configured server cannot be managed, and picking a Hugging Face repo shows that it is being read; a slower earlier pick no longer replaces a later one.
+- A quantization whose size Hugging Face does not report is listed instead of dropped (the recommended Q4_K_M could vanish).
+- Adding llama.cpp no longer says "Signed in" before anything was checked.
+- The download dialog's quantization rows no longer overlap; each row's Download button lines up on the right.
+
+- Model pickers no longer show another llama.cpp server's models, or none, for up to 30 seconds after you change the server address; a model you just loaded or unloaded appears at the next read, and starting or stopping PiCode's own llama.cpp service refreshes the list.
+
+- Cleaning caches from the desktop Management window works when the tool is installed only for your account. Before, the Go build cache, the uv cache and the pnpm store failed with "go is not installed" (or uv, or pnpm), even though your terminal runs these tools fine.
+
+- **Third prose-audit wave (native surfaces and apps): ten stale path references in the Canvas architecture doc now point at the browser bundle** where that code lives (CanvasSurface, PatternSwatch, GrantedContacts, useAgentSocket, fileDocs, nativeApps, routes). work-browser, computer-tool, chrome-extension, file-preview, docker-app, docker-maintenance and tmux-app verified clean — including the 23-action computer catalog, the Docker monitor limits (30/60/300 s cadence, 32 projects, 128 containers, 7/30-day retention) and the preview ticket mechanics.
+
+- The Pi icon no longer shows as a white square in the dark theme or disappears in the light one: PiCode draws Pi's mark itself in a neutral grey instead of loading a favicon that follows the operating system's theme.
+- A notice with an action row (such as "Removed … Undo") keeps its close button in the text row instead of on the divider next to Undo.
+- In dialogs, a Cancel button beside Remove now shows its outline in the dark theme.
+- Destructive buttons' red text in the light theme is darker, so it meets the contrast minimum.
+
+- Choosing a key for Muse no longer loses an account login made in Muse's own terminal. It is kept in the vault first.
+
+- **Second prose-audit wave (Agent CLIs stack) brings the launch docs back in line with the code.** `cli-terminal-launch.md` no longer teaches the removed `POST /api/clis/<cli>/terminals` route (sessions open through the handoff door or the one agents door), names all five npm-backed installs, describes Muse Code and Antigravity as the full rows they now are, and lists the current pane set — Memory for the six CLIs with a native memory shape and Models for omp.
 
 ## [0.6.0] - 2026-09-23
 

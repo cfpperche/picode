@@ -1,3 +1,0 @@
-### Changed
-
-- Agent CLIs panes name the workspace they are bound to. The layer switcher in Settings, Models and Memory, the "Comes from" column in the Checks card, the scope radios in Packages, the save-to options on setting rows, and the connector-package tags all read the workspace's name — `Global / QA` — where they used to say the generic "This workspace". A pane bound to no workspace keeps the generic word. The guest packages driver now keeps a scope's qualifier when it names the workspace, so Claude Code's uncommitted layer reads `<workspace> (local)` instead of a second bare `<workspace>` radio.
