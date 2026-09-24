@@ -2,7 +2,9 @@ package clisession
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/cfpperche/picode/internal/session"
 )
@@ -14,6 +16,20 @@ import (
 // store once.
 type Locator struct {
 	lists map[string][]Summary
+}
+
+// A history refresh checks the file again, but unchanged transcripts need
+// not be parsed again. The bounded cache holds summaries, never file bodies.
+var locatedFiles = struct {
+	sync.Mutex
+	items map[string]locatedFile
+	order []string
+}{items: map[string]locatedFile{}}
+
+type locatedFile struct {
+	size    int64
+	mtime   int64
+	summary Summary
 }
 
 // NewLocator returns an empty Locator; use one per request.
@@ -33,6 +49,9 @@ func (l *Locator) Locate(cli, id, path, cwd string) (*Summary, error) {
 	}
 	if id == "" {
 		return nil, nil
+	}
+	if sum := locateFile(cli, id, path); sum != nil {
+		return sum, nil
 	}
 	src, ok := Get(cli)
 	if !ok {
@@ -55,6 +74,61 @@ func (l *Locator) Locate(cli, id, path, cwd string) (*Summary, error) {
 		}
 	}
 	return nil, nil
+}
+
+// A file-backed CLI records the exact transcript path on removal. Verify the
+// id and root before using it; old exits and moved files keep the listing
+// fallback below. Database paths identify a store, not one conversation.
+func locateFile(cli, id, path string) *Summary {
+	var root string
+	var summarize func(string) (Summary, bool)
+	switch cli {
+	case "codex":
+		root, summarize = CodexSessionsRoot(), summarizeCodex
+	case "claude-code":
+		root, summarize = ClaudeProjectsRoot(), summarizeClaude
+	case "omp":
+		root, summarize = OmpSessionsRoot(), scanOmpFile
+	default:
+		return nil
+	}
+	if root == "" || path == "" || filepath.Ext(path) != ".jsonl" {
+		return nil
+	}
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return nil
+	}
+	st, err := os.Stat(path)
+	if err != nil || !st.Mode().IsRegular() {
+		return nil
+	}
+	key := cli + "\x00" + filepath.Clean(path)
+	locatedFiles.Lock()
+	entry, ok := locatedFiles.items[key]
+	locatedFiles.Unlock()
+	if ok && entry.size == st.Size() && entry.mtime == st.ModTime().UnixNano() {
+		if entry.summary.ID == id {
+			s := entry.summary
+			return &s
+		}
+		return nil
+	}
+	s, ok := summarize(path)
+	if !ok || s.ID != id {
+		return nil
+	}
+	locatedFiles.Lock()
+	if _, exists := locatedFiles.items[key]; !exists {
+		locatedFiles.order = append(locatedFiles.order, key)
+	}
+	locatedFiles.items[key] = locatedFile{size: st.Size(), mtime: st.ModTime().UnixNano(), summary: s}
+	if len(locatedFiles.order) > 256 {
+		delete(locatedFiles.items, locatedFiles.order[0])
+		locatedFiles.order = locatedFiles.order[1:]
+	}
+	locatedFiles.Unlock()
+	return &s
 }
 
 func (l *Locator) list(src Source, cwd string) ([]Summary, error) {

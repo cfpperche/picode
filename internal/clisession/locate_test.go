@@ -3,6 +3,7 @@ package clisession
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -29,6 +30,8 @@ func TestLocate(t *testing.T) {
 		found                    bool
 	}{
 		{"claude in its folder", "claude-code", "cc-9", "", proj, true},
+		{"claude by recorded file", "claude-code", "cc-9", filepath.Join(claudeDir, "cc-9.jsonl"), proj, true},
+		{"claude stale path falls back", "claude-code", "cc-9", filepath.Join(claudeDir, "gone.jsonl"), proj, true},
 		{"claude, folder unknown: machine-wide", "claude-code", "cc-9", "", "", true},
 		{"claude, wrong folder: falls back to machine-wide", "claude-code", "cc-9", "", "/elsewhere", true},
 		{"claude, unknown id", "claude-code", "nope", "", proj, false},
@@ -50,6 +53,77 @@ func TestLocate(t *testing.T) {
 	}
 }
 
+func TestLocateRecordedCodexFileAndChange(t *testing.T) {
+	root := t.TempDir()
+	CodexTestRoot = root
+	t.Cleanup(func() { CodexTestRoot = "" })
+	path := filepath.Join(root, "rollout-test.jsonl")
+	write := func(prompt string) {
+		t.Helper()
+		body := `{"type":"session_meta","payload":{"id":"codex-1","cwd":"/project"}}` + "\n" +
+			`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"` + prompt + `"}]}}` + "\n"
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("first")
+	locate := func() *Summary {
+		t.Helper()
+		got, err := NewLocator().Locate("codex", "codex-1", path, "/project")
+		if err != nil || got == nil {
+			t.Fatalf("locate: %+v, %v", got, err)
+		}
+		return got
+	}
+	if got := locate(); got.Preview != "first" {
+		t.Fatalf("first preview = %q", got.Preview)
+	}
+	write("updated prompt")
+	if got := locate(); got.Preview != "updated prompt" {
+		t.Fatalf("changed file preview = %q", got.Preview)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := NewLocator().Locate("codex", "codex-1", path, "/project"); err != nil || got != nil {
+		t.Fatalf("removed file = %+v, %v", got, err)
+	}
+}
+
 func encodeClaudeTestDir(cwd string) string {
 	return strings.NewReplacer("/", "-", ".", "-").Replace(cwd)
+}
+
+func BenchmarkLocateCodexHistory(b *testing.B) {
+	root := b.TempDir()
+	CodexTestRoot = root
+	b.Cleanup(func() { CodexTestRoot = "" })
+	var target string
+	for i := 0; i < 100; i++ {
+		id := "session-" + strconv.Itoa(i)
+		path := filepath.Join(root, "rollout-"+id+".jsonl")
+		body := `{"type":"session_meta","payload":{"id":"` + id + `","cwd":"/project"}}` + "\n"
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			b.Fatal(err)
+		}
+		if i == 99 {
+			target = path
+		}
+	}
+	for _, tc := range []struct {
+		name, path string
+	}{
+		{"recorded_path", target},
+		{"listing_fallback", ""},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				got, err := NewLocator().Locate("codex", "session-99", tc.path, "/project")
+				if err != nil || got == nil {
+					b.Fatalf("locate = %+v, %v", got, err)
+				}
+			}
+		})
+	}
 }

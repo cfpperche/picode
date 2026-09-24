@@ -18,3 +18,4 @@ Decision: ADR-0194. Study: `docs/benchmarks/2026-09-23-agent-exit-feedback.md` (
 - [ ] Agent history has no phone screen.
 - [ ] Agent history: a restore mints a new agent id, so automations, pins and Canvas edges on the old id stay broken.
 - [ ] Agent history: exits written before ADR-0205 have no `cwd`; their lookup reads the CLI's whole store (slow on a large Codex tree).
+- [ ] Measure real Agent History `GET /api/agent-history` latency on the owner's Windows dataset after deploy; the synthetic fixture benchmark does not establish it.

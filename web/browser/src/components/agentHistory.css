@@ -3,9 +3,10 @@
    restore row are this page's own. */
 
 .hist-lede { margin: 0 0 14px; font-size: 13px; color: var(--text-secondary); }
+.hist-loading { margin: 0 0 10px; font-size: 12px; color: var(--text-secondary); }
 .hist-row-head { grid-template-columns: 14px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.6fr) 64px; }
-.hist-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.hist-name .outc-name { flex: 0 1 auto; }
+.hist-name { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-width: 0; }
+.hist-name .outc-name { flex: 1 1 100%; white-space: normal; overflow: visible; overflow-wrap: anywhere; }
 .hist-name .hist-tag { flex: none; margin-left: 0; }
 .hist-conv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
 .hist-tag {
