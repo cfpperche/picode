@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ScopeIcon from "./ScopeIcon.jsx";
 import * as Dialog from "./MobileSheet.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { skillSourceSchema } from "@picode/shared/contracts/schemas.js";
@@ -93,12 +94,12 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
                 />
               </label>
               <div className="pkg-scope skill-add-scope" role="radiogroup" aria-label="Where to install">
-                <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "machine"} onClick={() => setScope("machine")}>Global</button>
+                <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "machine"} onClick={() => setScope("machine")}><ScopeIcon scope="machine" />Global</button>
                 {workspaceId ? (
-                  <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}>{workspaceName || "This workspace"}</button>
+                  <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}><ScopeIcon scope="workspace" />{workspaceName || "This workspace"}</button>
                 ) : null}
                 {agentId ? (
-                  <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "agent"} onClick={() => setScope("agent")}>{agentName || "This agent"}</button>
+                  <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "agent"} onClick={() => setScope("agent")}><ScopeIcon scope="agent" />{agentName || "This agent"}</button>
                 ) : null}
               </div>
               <p className="skill-add-note">{installLine(scope, workspaceName, agentName)}</p>

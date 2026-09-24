@@ -132,6 +132,7 @@
     "./domain/piRows.js": "./domain/piRows.js",
     "./domain/cliPackages.js": "./domain/cliPackages.js",
     "./domain/cliSkills.js": "./domain/cliSkills.js",
+    "./domain/scopeIcon.js": "./domain/scopeIcon.js",
     "./domain/cliProviders.js": "./domain/cliProviders.js",
     "./domain/credentials.js": "./domain/credentials.js",
     "./styles/credentials.css": "./styles/credentials.css",

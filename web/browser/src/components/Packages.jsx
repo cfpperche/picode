@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ScopeIcon from "./ScopeIcon.jsx";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -581,7 +582,7 @@ export default function Packages({ hidden, route, catalog, describe = false, onP
                     aria-checked={scope === entry.vendor || scope === entry.id}
                     title={entry.note || undefined}
                     onClick={() => { const next = entry.vendor || entry.id; if (scope !== next) goToScope(next); }}
-                  >{namedScope(entry.label, report.workspaceName)}</button>
+                  ><ScopeIcon scope={entry.id} />{namedScope(entry.label, report.workspaceName)}</button>
                 ))}
               </div>
             </div>

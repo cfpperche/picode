@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ScopeIcon from "./ScopeIcon.jsx";
 import * as Switch from "@radix-ui/react-switch";
 import PageFrame from "./PageFrame.jsx";
 import ConfigFields from "./ConfigFields.jsx";
@@ -136,7 +137,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
                   aria-checked={active.id === l.id}
                   disabled={saving || !!pending}
                   onClick={() => onLayerChange(l.id)}
-                >{l.label}</button>
+                ><ScopeIcon scope={l.id} />{l.label}</button>
               ))}
             </div>
           </div> : null}
