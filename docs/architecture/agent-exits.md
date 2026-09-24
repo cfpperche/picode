@@ -121,24 +121,28 @@ per CLI and folder for the request. An entry answers the session summary,
 the folder, and whether the folder and the workspace still exist. For
 file-backed Codex, Claude Code and Omp sessions, the locator first checks
 the recorded transcript path and session id. It reuses an unchanged file's
-summary across reads (size and modification time validate the cache), then
-falls back to the existing folder and machine-wide listings for older or
-moved transcripts. The page names its first load and later refreshes; a
+summary across reads (size and modification time validate the cache). A
+recorded file that is gone, or an exit that recorded none, is looked up by
+the session id in the file names (`filesByID`: Claude Code `<id>.jsonl`,
+Codex `rollout-…-<id>.jsonl`, Omp `…_<id>.jsonl`), reading names only; no
+match means the transcript is gone. These three CLIs are never listed to
+find one session: listing summarized every file on the machine, 8.0 s on
+the owner's 13 exits against 1.2 GB of Claude Code and 2.8 GB of Codex
+sessions, 0.24 s after (same 8 found, 2026-09-24). Only the DB-backed CLIs
+still go through the folder and machine-wide listings. The page names its first load and later refreshes; a
 failed refresh keeps the previous results visible with a retry action.
 
 | Route | Does |
 |---|---|
 | `GET /api/agent-history` | `{entries: [{exit, session, folder, folderExists, workspaceExists, canDeleteFile}]}`, newest removal first, at most 500 exits read |
-| `POST /api/agent-history/{id}/restore` | `{workspaceId?, name?}` → 201 `{agent, terminalId, resume, envKeys}`; the refusals are ADR-0205's table (409 restored / `workspace_gone` / `folder_gone`, 410 transcript gone, the launch pre-flight) |
+| `POST /api/agent-history/{id}/restore` | `{workspaceId?, name?, undo?}` → 201 `{agent, terminalId, resume, envKeys}` under the removed agent's id (ADR-0211); the refusals are ADR-0205's table (409 restored or id taken / `workspace_gone` / `folder_gone`, 410 transcript gone unless `undo`, the launch pre-flight). The removal toast's Undo calls it with `undo: true`: no transcript is needed, and a private folder purged under the data dir's `work/` is made again |
 | `POST /api/agent-history/{id}/forget` | `{deleteFile?}` → the exit with `forgottenAt`; `deleteFile` only for a Pi file under Pi's sessions root that no living agent is bound to |
 
 A restored Pi agent gets the exit's provider, model, thinking, tools,
-checklist, extra prompt and `sessionPath`. When the file sits in the old
-agent's private folder, every file there moves to the new id's folder
-(`adoptPiAgentDir`): the chat and its session list read that folder, so a
-file left under the old id resumed in Pi and showed nowhere (found in QA).
-The eight-second Undo still re-points `sessionPath` without moving, and has
-that gap. Any other CLI gets a terminal with
+checklist, extra prompt and `sessionPath`. It keeps its id (ADR-0211), so
+its private session folder (ADR-0040), where the chat and session list read,
+is its own again; with a new id (ADR-0205 as first shipped) the conversation
+resumed in Pi and showed nowhere. Any other CLI gets a terminal with
 the frozen launch (executable, PATH, tools, integration, removed env; env
 values were never kept — their names come back as `envKeys`) and the found
 session pinned as `terminal_launches.last_session`; the client then calls
@@ -156,5 +160,4 @@ joins. Code: `internal/server/agent_history.go`, `internal/clisession/locate.go`
   `web/mobile/src/screens/OutcomesList.jsx`) lists records, answers later,
   deletes and carries the switch; the numbers' breakdowns and the filters
   stay on the desktop page.
-- The agent history has no phone screen yet, and a restore mints a new agent
-  id (automations, pins and Canvas edges on the old id stay broken).
+- The agent history has no phone screen yet.

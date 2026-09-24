@@ -647,7 +647,19 @@ func checkAgentLaunch(deps Deps, cliID, folder string, ov *clilaunch.Overrides) 
 // Pi agent with overrides is the interactive shape a Pi launch profile
 // needs. On a failure nothing is left behind.
 func newLaunchAgent(deps Deps, workspaceID, cwd, cliID, name, work string, ov *clilaunch.Overrides) (store.Agent, int, error) {
-	agent, err := deps.Store.AddAgentWithCLI(workspaceID, cliID, name, work)
+	return newLaunchAgentAs(deps, "", workspaceID, cwd, cliID, name, work, ov)
+}
+
+// newLaunchAgentAs is newLaunchAgent under a chosen id ("" mints one): a
+// restored agent keeps the id it had (ADR-0205).
+func newLaunchAgentAs(deps Deps, id, workspaceID, cwd, cliID, name, work string, ov *clilaunch.Overrides) (store.Agent, int, error) {
+	var agent store.Agent
+	var err error
+	if id == "" {
+		agent, err = deps.Store.AddAgentWithCLI(workspaceID, cliID, name, work)
+	} else {
+		agent, err = deps.Store.AddAgentAs(id, workspaceID, cliID, name, work)
+	}
 	if err != nil {
 		return agent, storeStatus(err), err
 	}

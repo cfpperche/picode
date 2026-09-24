@@ -1,6 +1,6 @@
 # ADR-0205: A removed agent stays restorable while its transcript is on disk — the exit record is the tombstone
 
-- **Status**: accepted (owner direction, 2026-09-23)
+- **Status**: accepted (owner direction, 2026-09-23); amended by ADR-0211 (a restore keeps the agent's id)
 - **Date**: 2026-09-23
 - **Boundary**: persistence + protocol — `agent_exits` gains `forgotten_at`
   (migration 072) and its `sessions` JSON gains `cwd`; new routes
