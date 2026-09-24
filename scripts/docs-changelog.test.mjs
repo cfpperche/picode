@@ -38,6 +38,12 @@ test("fragments appear under Unreleased without being the only copy", () => {
   assert.match(page, /- old added/);
 });
 
+test("public preview includes fragments after a cut removed Unreleased", () => {
+  const cut = changelog.replace(/## \[Unreleased\][\s\S]*?(?=## \[0\.1\.0\])/, "");
+  const page = renderPublicChangelog(cut, [parseFragment("### Fixed\n- next fix\n")]);
+  assert.match(page, /## \[Unreleased\][\s\S]*- next fix[\s\S]*## \[0\.1\.0\]/);
+});
+
 test("bare angle brackets are escaped so VitePress does not see HTML tags", () => {
   const page = renderPublicChangelog("# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Open <agent> and `<$0.01>`\n", []);
   assert.match(page, /Open &lt;agent>/);
