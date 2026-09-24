@@ -40,7 +40,7 @@ export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
   if (pane === "models") return cliModelsHash(cli, { workspaceId: ctx.workspaceId || "", layer: ctx.layer || "" });
   if (pane === "memory") return cliMemoryHash(cli, { workspaceId: ctx.workspaceId || "", scope: ctx.scope === "workspace" || ctx.scope === "global" ? ctx.scope : "" });
   if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
-  if (pane === "skills") return cliSkillsHash(cli, { workspaceId: ctx.workspaceId || "" });
+  if (pane === "skills") return cliSkillsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "" });
   if (pane === "connectors") return cliConnectorsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
   return cliPaneHash(cli, pane, pane === "sessions" ? workspace : "");
 }

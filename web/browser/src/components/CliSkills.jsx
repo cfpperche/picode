@@ -1,10 +1,11 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import {
-  alsoLoadedLine, canRemoveSkill, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
+  agentScopeLine, alsoLoadedLine, canRemoveSkill, skillScopes, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
   skillsSummary, skillTargetBody, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
 } from "@picode/shared/domain/cliSkills.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import AddSkillDialog from "./AddSkillDialog.jsx";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { toast } from "../lib/toast.js";
@@ -29,13 +30,13 @@ function copy(command) {
     .catch(() => toast.error("Clipboard blocked — copy it by hand."));
 }
 
-export default function CliSkills({ route, workspaceId = "", workspaceName = "" }) {
+export default function CliSkills({ route, workspaceId = "", agentId = "", workspaceName = "" }) {
   const cli = route.id;
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
-  const [scope, setScope] = useState(route.scope || "all");
+  const [scope, setScope] = useState(route.scope || "machine");
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState("");
   const [adding, setAdding] = useState(false);
@@ -44,7 +45,7 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
   const [rowBusy, setRowBusy] = useState("");
   const [ask, setAsk] = useState(null); // { key, text, action }
 
-  const load = useCallback(() => api(skillsReportPath(cli, workspaceId)), [cli, workspaceId]);
+  const load = useCallback(() => api(skillsReportPath(cli, workspaceId, agentId)), [cli, workspaceId, agentId]);
 
   useEffect(() => {
     let active = true;
@@ -88,14 +89,14 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
 
   const rows = data?.rows || [];
   const hasWorkspace = !!data?.workspacePath;
-  const shown = visibleSkills(rows, { scope, text: filter });
-  const summary = skillsSummary(rows);
-  const trust = trustLine(data, rows);
-  const scopes = [
-    { id: "all", label: "All" },
-    ...(hasWorkspace ? [{ id: "workspace", label: workspaceName || "This workspace" }] : []),
-    { id: "machine", label: "This machine" },
-  ];
+  const scopes = skillScopes(data, workspaceName);
+  const agentLine = scope === "agent" ? agentScopeLine(data, cli) : "";
+  const shown = visibleSkills(rows, { scope: scopes.some((x) => x.id === scope) ? scope : "machine", text: filter, agent: data?.agent });
+  const current = scopes.some((x) => x.id === scope) ? scope : "machine";
+  // The count follows the chip, like the table under it.
+  const trust = current === "machine" ? null : trustLine(data, rows);
+  const summary = skillsSummary(visibleSkills(rows, { scope: current, agent: data?.agent }));
+
 
   const updateOf = updates ? updatesByKey(updates) : {};
   const dialog = (
@@ -177,8 +178,8 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
               key={s.id}
               className="pkg-scope-btn"
               role="radio"
-              aria-checked={scope === s.id}
-              href={cliSkillsHash(cli, { workspaceId, scope: s.id })}
+              aria-checked={(scopes.some((x) => x.id === scope) ? scope : "machine") === s.id}
+              href={cliSkillsHash(cli, { workspaceId, agentId, scope: s.id })}
               onClick={() => { setScope(s.id); setOpen(""); }}
             >{s.label}</a>
           ))}
@@ -210,12 +211,18 @@ export default function CliSkills({ route, workspaceId = "", workspaceName = "" 
         </div>
       ) : null}
 
+      {agentLine ? (
+        <div className="cli-notice" role="status">
+          <span>{agentLine}</span>
+          <a className="btn btn-ghost btn-sm" href={cliPackagesHash(cli, { workspaceId, agentId, scope: "agent" })}>Open its packages</a>
+        </div>
+      ) : null}
       {(data?.notes || []).map((n) => <p key={n} className="cli-memory-note is-warn">{n}</p>)}
 
       {!shown.length ? (
         <div className="cli-notice" role="status">
-          <span>No skill matches this filter.</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setFilter(""); setScope("all"); }}>Show all</button>
+          <span>{filter.trim() ? "No skill matches this filter." : scope === "agent" ? "Nothing here loads for this agent." : "No skills in this scope."}</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setFilter("")}>Clear the filter</button>
         </div>
       ) : (
         <div className="cli-memory-scroll">

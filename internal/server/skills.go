@@ -226,6 +226,12 @@ func handleSkillsReport(deps Deps) http.HandlerFunc {
 				return
 			}
 			q.Workspace = ws.Path
+			// The agent scope (Pi, Omp): an agent of this CLI in that workspace.
+			if id := strings.TrimSpace(r.URL.Query().Get("agent")); id != "" {
+				if a, err := deps.Store.GetAgent(id); err == nil && a.WorkspaceID == ws.ID && (a.CLI == cli || (a.CLI == "" && cli == "pi")) {
+					q.Agent = &skills.AgentInfo{ID: a.ID, Name: agentLayerName(a, ws), Isolated: a.PackagesIsolated}
+				}
+			}
 		}
 		rep, err := skills.Read(q)
 		if errors.Is(err, skills.ErrUnknownCLI) {
