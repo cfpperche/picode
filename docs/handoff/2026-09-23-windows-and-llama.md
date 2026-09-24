@@ -1,0 +1,7 @@
+# 2026-09-23 — feat/windows-and-llama: the next two layers, and a wrong record corrected
+
+The matrix run after the compile fix went one step deeper and failed twice more, both pre-existing and both invisible while the layers in front were broken.
+- **`cmd/picode/clean_path_test.go` is Unix-shaped as a whole** — `#!/bin/sh` fakes, systemd drop-ins, unit files, `/mnt/c` and a `:`-split PATH — and the Windows leg runs that package there for its host-boundary parts. My first fix skipped the one test the log named; the run then named the next (`TestWithToolDirPutsTheToolFirst`, `PATH=\n\v24\bin;/usr/bin`). The file carries `//go:build !windows` now and the per-test skip is gone: the fixtures are the platform.
+- **The llama timeout test was not a flake.** It failed on the ubuntu leg twice; the fixture gave the client a 1 ms timeout while its handler slept 20 ms, so under load the *dial* raced the budget and the failure classified as the connection rather than the response. A connection is established long before either margin now (100 ms against a 200 ms handler), and the earlier debt line — which called it a flake because ten local runs passed — is corrected in place.
+Verified: `internal/llama` 20/20 alone and 0/4 failing under four parallel loops; `go test ./cmd/picode` green on Linux; `GOOS=windows go vet ./cmd/picode` clean with the file excluded.
+Blind spot: the Windows leg is the only place the tag is exercised, so the next dispatch is its proof — and the run that can finally be green on all three platforms.

@@ -66,9 +66,13 @@ func TestConnectionResults(t *testing.T) {
 }
 
 func TestConnectionTimeoutAndTransport(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { time.Sleep(20 * time.Millisecond) }))
+	// The margins are wide on purpose: at a 1 ms budget the dial raced the
+	// budget itself on a loaded runner, and the failure was classified as the
+	// connection rather than the response (measured 2026-09-24, twice on the
+	// ubuntu leg). What the test is about is the response timing out.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { time.Sleep(200 * time.Millisecond) }))
 	c, _ := New(server.URL, "")
-	c.http.Timeout = time.Millisecond
+	c.http.Timeout = 100 * time.Millisecond
 	_, err := c.List()
 	if ConnectionFailure(err).Code != "timeout" {
 		t.Fatal(err)
