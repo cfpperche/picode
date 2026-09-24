@@ -164,3 +164,29 @@ func TestLocateFileBackedByName(t *testing.T) {
 		t.Fatalf("a path-like id matched: %+v", got)
 	}
 }
+
+func TestLocatePrivateOmpAgentSession(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dataDir := filepath.Join(home, "picode")
+	id := "01a0d389-b7d9-719c-8f85-49235635221d"
+	path := filepath.Join(dataDir, "omp-sessions", "agent-1", "2026-09-24T13-10-13-209Z_"+id+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(ompSession(id, "/old/worktree", "Pilot", 2)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := NewLocator().Locate("omp", id, path, "/old/worktree"); got != nil {
+		t.Fatalf("regular locator found private Omp session: %+v", got)
+	}
+	for _, recordedPath := range []string{path, ""} {
+		got, err := NewAgentHistoryLocator(dataDir).Locate("omp", id, recordedPath, "/old/worktree")
+		if err != nil || got == nil || got.Path != path {
+			t.Fatalf("recorded path %q: got %+v, %v", recordedPath, got, err)
+		}
+	}
+	if got, _ := NewAgentHistoryLocator(filepath.Join(home, "other")).Locate("omp", id, path, "/old/worktree"); got != nil {
+		t.Fatalf("unrelated data directory found session: %+v", got)
+	}
+}

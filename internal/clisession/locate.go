@@ -15,7 +15,8 @@ import (
 // memoizes each CLI's listing per folder, so a page of exits reads every
 // store once.
 type Locator struct {
-	lists map[string][]Summary
+	lists          map[string][]Summary
+	privateOmpRoot string
 }
 
 // A history refresh checks the file again, but unchanged transcripts need
@@ -35,6 +36,17 @@ type locatedFile struct {
 // NewLocator returns an empty Locator; use one per request.
 func NewLocator() *Locator { return &Locator{lists: map[string][]Summary{}} }
 
+// NewAgentHistoryLocator also searches Omp transcripts launched in PiCode's
+// per-agent session directories. Other session searches keep using the CLI's
+// normal store.
+func NewAgentHistoryLocator(dataDir string) *Locator {
+	l := NewLocator()
+	if dataDir != "" {
+		l.privateOmpRoot = filepath.Join(dataDir, "omp-sessions")
+	}
+	return l
+}
+
 // Locate returns the session a removed agent pointed at, or nil when it is
 // no longer on disk. Pi is found by its file (id is ignored); every other
 // CLI by its session id in the folder it ran in (cwd), falling back to the
@@ -53,6 +65,11 @@ func (l *Locator) Locate(cli, id, path, cwd string) (*Summary, error) {
 	if sum := locateFile(cli, id, path); sum != nil {
 		return sum, nil
 	}
+	if cli == "omp" && l.privateOmpRoot != "" {
+		if sum := locateFileAtRoot(cli, id, path, l.privateOmpRoot); sum != nil {
+			return sum, nil
+		}
+	}
 	if byID, ok := filesByID[cli]; ok {
 		// A file-backed CLI names each transcript after its session id, so
 		// a moved file, or an exit that recorded no path, is found by name
@@ -63,6 +80,13 @@ func (l *Locator) Locate(cli, id, path, cwd string) (*Summary, error) {
 		for _, p := range byID(id) {
 			if sum := locateFile(cli, id, p); sum != nil {
 				return sum, nil
+			}
+		}
+		if cli == "omp" && l.privateOmpRoot != "" {
+			for _, p := range filesNamedWithID(l.privateOmpRoot, id) {
+				if sum := locateFileAtRoot(cli, id, p, l.privateOmpRoot); sum != nil {
+					return sum, nil
+				}
 			}
 		}
 		return nil, nil
@@ -131,14 +155,28 @@ func filesNamedWithID(root, id string) []string {
 // fallback below. Database paths identify a store, not one conversation.
 func locateFile(cli, id, path string) *Summary {
 	var root string
+	switch cli {
+	case "codex":
+		root = CodexSessionsRoot()
+	case "claude-code":
+		root = ClaudeProjectsRoot()
+	case "omp":
+		root = OmpSessionsRoot()
+	default:
+		return nil
+	}
+	return locateFileAtRoot(cli, id, path, root)
+}
+
+func locateFileAtRoot(cli, id, path, root string) *Summary {
 	var summarize func(string) (Summary, bool)
 	switch cli {
 	case "codex":
-		root, summarize = CodexSessionsRoot(), summarizeCodex
+		summarize = summarizeCodex
 	case "claude-code":
-		root, summarize = ClaudeProjectsRoot(), summarizeClaude
+		summarize = summarizeClaude
 	case "omp":
-		root, summarize = OmpSessionsRoot(), scanOmpFile
+		summarize = scanOmpFile
 	default:
 		return nil
 	}

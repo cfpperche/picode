@@ -124,7 +124,11 @@ the folder, and whether the folder and the workspace still exist. For
 file-backed Codex, Claude Code and Omp sessions, the locator first checks
 the recorded transcript path and session id. It reuses an unchanged file's
 summary across reads (size and modification time validate the cache). A
-recorded file that is gone, or an exit that recorded none, is looked up by
+PiCode-launched Omp agent keeps its transcript under
+`<dataDir>/omp-sessions/<agentId>`; history also checks that private root,
+including by id when the recorded path is missing. The normal Omp session
+picker still reads Omp's default store.
+When a recorded file is gone, or an exit recorded none, the locator looks up
 the session id in the file names (`filesByID`: Claude Code `<id>.jsonl`,
 Codex `rollout-…-<id>.jsonl`, Omp `…_<id>.jsonl`), reading names only; no
 match means the transcript is gone. These three CLIs are never listed to

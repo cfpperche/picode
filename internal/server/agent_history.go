@@ -111,7 +111,7 @@ func handleAgentHistory(deps Deps) http.HandlerFunc {
 			}
 		}
 		live[store.FreeWorkspaceID] = true
-		l := clisession.NewLocator()
+		l := clisession.NewAgentHistoryLocator(deps.DataDir)
 		out := []historyEntry{}
 		for _, ex := range exits {
 			sum := locateExit(l, ex)
@@ -205,7 +205,7 @@ func handleRestoreAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusConflict, "This agent was already brought back.")
 			return
 		}
-		sum := locateExit(clisession.NewLocator(), ex)
+		sum := locateExit(clisession.NewAgentHistoryLocator(deps.DataDir), ex)
 		if sum == nil && !req.Undo {
 			writeErr(w, http.StatusGone, "Its conversation is no longer on disk, so there is nothing to resume.")
 			return
