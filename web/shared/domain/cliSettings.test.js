@@ -33,6 +33,28 @@ test("the edited layer survives a reload, and guesses are dropped", () => {
   assert.equal(cliSettingsLocation("#/settings?layer=project", "A").redirect, "#/clis/pi/settings?agentId=A&layer=project");
 });
 
+// | workspaceId in hash | selected agent | parser |
+// | present             | none           | keeps workspaceId, infers no agent |
+// | present             | other pane     | keeps workspaceId, does not adopt the pane |
+// | absent              | none           | empty workspaceId, empty agentId |
+// | invalid later       | —              | still the same id; lookup fails separately |
+test("a settings workspace deep link keeps workspaceId and infers no agent", () => {
+  const hash = cliSettingsHash("pi", { workspaceId: "w /&", layer: "project" });
+  assert.equal(hash, "#/clis/pi/settings?workspaceId=w+%2F%26&layer=project");
+  const route = cliSettingsLocation(hash, "A");
+  assert.equal(route.workspaceId, "w /&");
+  assert.equal(route.agentId, "");
+  assert.equal(route.layer, "project");
+  assert.equal(route.redirect, "");
+  assert.equal(cliLocation(hash).workspaceId, "w /&");
+  assert.equal(cliLocation(hash, { agentId: "A" }).agentId, "");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings", "A").workspaceId, "");
+  assert.equal(cliSettingsLocation("#/settings?workspaceId=W", "A").redirect, "#/clis/pi/settings?workspaceId=W&agentId=A");
+  const keys = cliLocation("#/clis/pi/keyboard?workspaceId=W&agentId=A&layer=project");
+  assert.equal(keys.workspaceId, "W");
+  assert.equal(keys.agentId, "A");
+});
+
 test("the keyboard map is a pane of its own, and its sub-tab links still land", () => {
   // `#/clis/pi/keyboard` is an ordinary pane; the settings context rides along
   // so a round trip lands back on the agent and the layer it left.
@@ -88,6 +110,39 @@ test("missing identities and failed reads never choose another agent or workspac
   await assert.rejects(loadPiSettingsContext("A", async () => ({ agent: { id: "B" } })), /no longer available/);
   await assert.rejects(loadPiSettingsContext("A", async path => path.startsWith("/api/pi-settings") ? { agent: { id: "A", workspaceId: "gone" } } : [{ id: "other" }]), /workspace is no longer/);
   await assert.rejects(loadPiSettingsContext("A", async () => { throw new Error("offline"); }), /offline/);
+});
+
+test("a workspace-only settings context never infers an agent", async () => {
+  const calls = [];
+  const workspace = { id: "project", name: "Project", agents: [{ id: "A", workspaceId: "project" }] };
+  const context = await loadPiSettingsContext("", async path => {
+    calls.push(path);
+    return [workspace, { id: "other", name: "Other", agents: [] }];
+  }, "project");
+  assert.equal(context.agent, null);
+  assert.equal(context.workspace, workspace);
+  assert.deepEqual(calls, ["/api/workspaces"]);
+});
+
+// | workspaceId | agentId | outcome |
+// | missing     | —       | workspace no longer available; no other row |
+// | other id    | —       | same; never the first workspace |
+// | valid       | other   | agent does not belong; never that workspace's agent |
+// | valid       | missing | agent no longer available |
+test("missing or mismatched settings identities never choose another workspace or agent", async () => {
+  const rows = [{ id: "project", name: "Project", agents: [{ id: "A", workspaceId: "project" }] }];
+  await assert.rejects(loadPiSettingsContext("", async () => rows, "gone"), /workspace is no longer/);
+  await assert.rejects(loadPiSettingsContext("", async () => rows, "other"), /workspace is no longer/);
+  await assert.rejects(loadPiSettingsContext("A", async path => {
+    if (path === "/api/workspaces") return rows;
+    if (path.startsWith("/api/pi-settings")) return { agent: { id: "A", workspaceId: "project" } };
+    return rows;
+  }, "other"), /workspace is no longer/);
+  await assert.rejects(loadPiSettingsContext("B", async path => {
+    if (path === "/api/workspaces") return rows;
+    if (path.startsWith("/api/pi-settings")) return { agent: { id: "B", workspaceId: "other" } };
+    return rows;
+  }, "project"), /does not belong/);
 });
 
 test("missing context is distinguishable from a recoverable refresh failure", async () => {

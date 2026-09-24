@@ -4176,7 +4176,8 @@ export default function App({ shellChrome = false } = {}) {
                 return;
               }
               if (cmd.run === "go-settings" || cmd.run === "go-scoped") {
-                location.hash = cliSettingsHash("pi", { agentId: agent?.id, focus: cmd.run === "go-scoped" ? "scoped-models" : "" });
+                const ws = agent?.workspaceId && agent.workspaceId !== "ws_free" ? agent.workspaceId : "";
+                location.hash = cliSettingsHash("pi", { workspaceId: ws, agentId: agent?.id, focus: cmd.run === "go-scoped" ? "scoped-models" : "" });
                 return;
               }
               if (!agent) return;

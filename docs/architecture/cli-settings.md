@@ -349,10 +349,15 @@ editor links back to the scoped Settings route; native settings links keep
 their existing meaning.
 
 The native settings view does not load terminal inventory or installation jobs.
-Explicit agent IDs are validated against Pi's report before looking up their
-workspace. Free agents have no project layer; missing identities and unsupported
-CLIs show recovery actions without falling back to Pi or another agent.
-Pi settings/keys APIs, native files and trust remain unchanged. A transient
+`cliSettingsLocation` carries `workspaceId` the way the Models pane does, so a
+deep link `#/clis/pi/settings?workspaceId=…` opened with no selected agent keeps
+that folder and names it on the project layer. Explicit agent IDs are validated
+against Pi's report before looking up their workspace; an explicit workspace id
+is looked up on its own and never infers an agent. Free agents have no project
+layer; missing identities and unsupported CLIs show recovery actions without
+falling back to Pi or another agent. `GET /api/pi-settings?workspace=` and a PUT
+`workspaceId` load and write that folder's project file without an agent.
+Trust, live-apply and the keys API stay as they were. A transient
 context refresh failure keeps the mounted editor and its drafts, with writes
 blocked until a successful retry. A missing agent/workspace removes the editor.
 Native defaults have a separate loading/error boundary from agent controls and

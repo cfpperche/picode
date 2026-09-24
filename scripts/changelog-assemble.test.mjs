@@ -38,6 +38,13 @@ test("a missing section is created in canonical order", () => {
   assert.match(out, /### Changed\n\n- moved\n\n### Fixed/);
 });
 
+test("a new fragment recreates Unreleased after a release cut", () => {
+  const cut = changelog.replace(/## \[Unreleased\][\s\S]*?(?=## \[0\.1\.0\])/, "");
+  const out = assemble(cut, [parseFragment("### Fixed\n- after cut\n")]);
+  assert.match(out, /## \[Unreleased\]\n\n### Fixed\n\n- after cut/);
+  assert.match(out, /## \[0\.1\.0\] - 2026-08-23\n\n### Added\n\n- first/);
+});
+
 test("fragments reject unknown sections, stray text and emptiness", () => {
   assert.throws(() => parseFragment("### Bogus\n- x\n"), /unknown section/);
   assert.throws(() => parseFragment("- no heading\n"), /before the first/);

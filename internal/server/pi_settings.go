@@ -31,7 +31,7 @@ type piSettingsReport struct {
 
 func handleGetPiSettings(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rep, err := piSettingsLoad(deps, r.URL.Query().Get("agentId"))
+		rep, err := piSettingsLoad(deps, r.URL.Query().Get("agentId"), r.URL.Query().Get("workspace"))
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
 			return
@@ -41,9 +41,10 @@ func handleGetPiSettings(deps Deps) http.HandlerFunc {
 }
 
 type piSettingsPut struct {
-	AgentID string           `json:"agentId"`
-	Layer   string           `json:"layer"`
-	Patch   pisettings.Patch `json:"patch"`
+	AgentID     string           `json:"agentId"`
+	WorkspaceID string           `json:"workspaceId"`
+	Layer       string           `json:"layer"`
+	Patch       pisettings.Patch `json:"patch"`
 }
 
 func handlePutPiSettings(deps Deps) http.HandlerFunc {
@@ -62,7 +63,7 @@ func handlePutPiSettings(deps Deps) http.HandlerFunc {
 				return
 			}
 		}
-		path, code, msg := piSettingsPath(deps, req.Layer, req.AgentID)
+		path, code, msg := piSettingsPath(deps, req.Layer, req.AgentID, req.WorkspaceID)
 		if code != 0 {
 			writeErr(w, code, msg)
 			return
@@ -71,7 +72,7 @@ func handlePutPiSettings(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		rep, err := piSettingsLoad(deps, req.AgentID)
+		rep, err := piSettingsLoad(deps, req.AgentID, req.WorkspaceID)
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
 			return
@@ -114,7 +115,7 @@ func livePatch(p pisettings.Patch, rep piSettingsReport) pisettings.Patch {
 	return p
 }
 
-func piSettingsLoad(deps Deps, agentID string) (piSettingsReport, error) {
+func piSettingsLoad(deps Deps, agentID, workspaceID string) (piSettingsReport, error) {
 	global, err := pisettings.Load(pisettings.UserFile())
 	if err != nil {
 		return piSettingsReport{}, err
@@ -124,17 +125,31 @@ func piSettingsLoad(deps Deps, agentID string) (piSettingsReport, error) {
 		Effective: global,
 		Writable:  piWritable{Global: true},
 	}
-	if agentID == "" || deps.Store == nil {
+	if deps.Store == nil {
 		return rep, nil
 	}
-	agent, err := deps.Store.GetAgent(agentID)
+	if agentID != "" {
+		agent, err := deps.Store.GetAgent(agentID)
+		if err != nil {
+			return piSettingsReport{}, err
+		}
+		rep.Agent = &agent
+		rep.Writable.Agent = true
+		if workspaceID != "" && agent.WorkspaceID != workspaceID {
+			return piSettingsReport{}, store.ErrNotFound
+		}
+		if workspaceID == "" {
+			workspaceID = agent.WorkspaceID
+		}
+	}
+	if workspaceID == "" {
+		return rep, nil
+	}
+	wk, err := deps.Store.GetWorkspace(workspaceID)
 	if err != nil {
 		return piSettingsReport{}, err
 	}
-	rep.Agent = &agent
-	rep.Writable.Agent = true
-	wk, err := deps.Store.GetWorkspace(agent.WorkspaceID)
-	if err != nil || store.IsFree(wk) {
+	if store.IsFree(wk) {
 		return rep, nil
 	}
 	layer, err := pisettings.Load(pisettings.ProjectFile(wk.Path))
@@ -146,19 +161,28 @@ func piSettingsLoad(deps Deps, agentID string) (piSettingsReport, error) {
 	return rep, nil
 }
 
-func piSettingsPath(deps Deps, layer, agentID string) (string, int, string) {
+func piSettingsPath(deps Deps, layer, agentID, workspaceID string) (string, int, string) {
 	switch layer {
 	case "global":
 		return pisettings.UserFile(), 0, ""
 	case "project":
-		if agentID == "" || deps.Store == nil {
-			return "", http.StatusBadRequest, "agent is required"
+		if deps.Store == nil {
+			return "", http.StatusBadRequest, "choose a workspace"
 		}
-		agent, err := deps.Store.GetAgent(agentID)
-		if err != nil {
-			return "", statusForStore(err), err.Error()
+		if agentID != "" {
+			agent, err := deps.Store.GetAgent(agentID)
+			if err != nil {
+				return "", statusForStore(err), err.Error()
+			}
+			if workspaceID != "" && agent.WorkspaceID != workspaceID {
+				return "", http.StatusNotFound, "This agent does not belong to this workspace."
+			}
+			workspaceID = agent.WorkspaceID
 		}
-		wk, err := deps.Store.GetWorkspace(agent.WorkspaceID)
+		if workspaceID == "" {
+			return "", http.StatusBadRequest, "choose a workspace"
+		}
+		wk, err := deps.Store.GetWorkspace(workspaceID)
 		if err != nil {
 			return "", statusForStore(err), err.Error()
 		}
