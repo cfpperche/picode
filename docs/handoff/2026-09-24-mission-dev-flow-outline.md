@@ -15,5 +15,10 @@ scroll-spy exercised in headless Chromium only, not Safari/Firefox.
 visual-review: PASS (4 captures, `var/screenshots/devflow-*.png`, read by a
 subagent; card 5/5 — outline readable, hover # clears chip/title/pill, phone
 cards wrap long code spans with no clipping or horizontal overflow).
-Merge: fast-forward ready after this commit + the ADR-0124 merge of main into
-the branch; owner lands with `make land BRANCH=feat/mission-dev-flow-outline`.
+Landed: `819228fb7` on main; full `make ci` PASS. Mission
+`mission_WUFG3EEGTSC3LAAM54DRTWPGJF` accepted at v19 after the Omp terminal
+and its processes stopped. The worktree and branch were removed.
+Pilot finding: completed history survived cleanup, but the working folder and
+its `kind: file` evidence paths became unavailable. Six hashed screenshots and
+the accepted record were preserved under `var/qa/missions-pilot/<mission-id>/`;
+the durable product debt is in `docs/handoff/open/missions.md`.
