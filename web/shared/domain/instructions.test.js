@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cellTitle, createLine, groupFiles, rowMatters, shortPath, sizeLabel, visibleClis } from "./instructions.js";
+import { DRAFT_TASK, cellTitle, createLine, startsWithPrompt, groupFiles, rowMatters, shortPath, sizeLabel, visibleClis } from "./instructions.js";
 
 const clis = [
   { id: "claude-code", name: "Claude Code", installed: true },
@@ -107,4 +107,11 @@ test("lineDiff: a replaced sentence, an appended line, a new empty file", () => 
   assert.deepEqual(lineDiff("# T\n\nRead AGENTS.md.\n", "@AGENTS.md\n").map((l) => l.kind), ["-", "-", "-", "+"]);
   assert.deepEqual(lineDiff("node_modules\n", "node_modules\nCLAUDE.local.md\n"), [{ kind: " ", text: "node_modules" }, { kind: "+", text: "CLAUDE.local.md" }]);
   assert.deepEqual(lineDiff("", ""), []);
+});
+
+test("startsWithPrompt follows the server's session capability", () => {
+  assert.equal(startsWithPrompt({ id: "claude-code", sessions: { prompt: true } }), true);
+  assert.equal(startsWithPrompt({ id: "hermes", sessions: { prompt: false } }), false);
+  assert.equal(startsWithPrompt({ id: "x" }), false);
+  assert.ok(DRAFT_TASK.prompt.length < 4000);
 });

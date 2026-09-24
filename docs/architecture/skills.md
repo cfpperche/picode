@@ -82,8 +82,11 @@ The pane is `CliSkills.jsx` in each app, mounted by `AgentClis.jsx` for
 `skillOrigin`, `visibleSkills`, `trustLine`), tested in `cliSkills.test.js`.
 The desktop draws a table (skill, status, source, folder, cost at start) whose
 rows open to the folder, the reason and the other CLIs that read it; the phone
-draws the same rows as a list. Scope radios (All / the workspace / This
-machine), a filter, a one-line summary and, when workspace skills wait on
+draws the same rows as a list. Scope chips in the setup panes' order —
+**Global**, the workspace by name, and, where the spec declares `AgentScope`
+(Pi, Omp: their launch already carries an agent's packages), the agent by name,
+which shows what that agent loads or says it runs isolated; the report names
+the agent only when it is this CLI's and in that workspace — a filter, a one-line summary and, when workspace skills wait on
 trust, the vendor's command with **Copy**. An empty pane is one line and
 **Check again**; the report reloads when the window regains focus, because
 skill folders change outside PiCode.

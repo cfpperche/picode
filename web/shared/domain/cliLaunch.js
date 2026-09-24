@@ -170,6 +170,7 @@ export function cliLocation(hash = "", legacy = {}) {
     // What the CLI loads (ADR-0196): read in a workspace, shown by scope.
     const q = cliSkillsQuery(params);
     loc.workspaceId = q.workspaceId;
+    loc.agentId = q.agentId;
     loc.scope = q.scope;
     if (q.invalid || parts[3]) loc.invalid = true;
   }

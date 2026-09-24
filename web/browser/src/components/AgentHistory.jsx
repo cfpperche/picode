@@ -5,7 +5,8 @@ import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
-import { historyWorkspaceChoice, historyWorkspaceOptions } from "@picode/shared/domain/agentHistory.js";
+import { historyWorkspaceChoice, historyWorkspaceOptions, restoredToast } from "@picode/shared/domain/agentHistory.js";
+import { restoreAgent } from "@picode/shared/client/launchAgent.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { termHash } from "../lib/routes.js";
@@ -109,30 +110,14 @@ export default function AgentHistory({ hidden, workspaces = [], onOpenAgent }) {
     if (!wsId) return;
     setBusy(ex.id);
     try {
-      const res = await api("/api/agent-history/" + encodeURIComponent(ex.id) + "/restore", post({ workspaceId: wsId }));
+      // Same as Undo (ADR-0211): back as itself, and started.
+      const out = await restoreAgent(ex.id, { workspaceId: wsId });
       setEntries((list) => (list || []).filter((x) => x.exit.id !== ex.id));
       setOpen("");
-      const keys = res.envKeys || [];
-      const note = keys.length ? ` Set ${keys.join(", ")} again in its launch settings.` : "";
-      if (res.resume && res.terminalId) {
-        try {
-          await api("/api/terminals/" + encodeURIComponent(res.terminalId) + "/launch/start", post({ confirm: false, resume: true }));
-          toast.ok(`"${ex.agentName}" is back, resuming its conversation.` + note);
-        } catch (err) {
-          toast.error(`"${ex.agentName}" is back, but its CLI didn't start: ${(err && err.message) || err}`);
-        }
-        location.hash = termHash(res.terminalId);
-      } else if (res.agent) {
-        // A stopped Pi agent shows an empty chat; starting it loads the
-        // conversation the toast promises.
-        try {
-          await api("/api/agents/" + encodeURIComponent(res.agent.id) + "/managed/start", { method: "POST" });
-          toast.ok(`"${ex.agentName}" is back with its conversation.` + note);
-        } catch (err) {
-          toast.error(`"${ex.agentName}" is back, but it didn't start: ${(err && err.message) || err}. Press Run to open its conversation.`);
-        }
-        if (onOpenAgent) onOpenAgent(res.agent.id);
-      }
+      const msg = restoredToast(ex.agentName, out);
+      if (msg.ok) toast.ok(msg.text); else toast.error(msg.text);
+      if (out.terminalId) location.hash = termHash(out.terminalId);
+      else if (out.agent && onOpenAgent) onOpenAgent(out.agent.id);
     } catch (err) {
       toastError(err);
       load();

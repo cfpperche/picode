@@ -1,6 +1,6 @@
 # ADR-0062: Identify the live coding CLI in a project terminal
 
-- **Status**: accepted (2026-09-04, owner approval)
+- **Status**: accepted (2026-09-04, owner approval); amended by ADR-0212 (a shell command in the tree is observed activity)
 - **Date**: 2026-09-04
 - **Evidence**: [terminal TUI study](../benchmarks/2026-09-03-guest-tui-agent-state.md)
 

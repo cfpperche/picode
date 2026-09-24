@@ -260,6 +260,7 @@ func handleRemove(deps Deps) http.HandlerFunc {
 		exitIn := store.ExitInput{
 			Meter:             exitMeter(),
 			PiSessionFallback: piSessionFallback,
+			Instructions:      exitInstructions,
 			Origin:            exitOriginOf(req),
 			SessionsPurged:    queryFlag(r, "sessions"),
 			WorkPurged:        queryFlag(r, "work") && preview.LastOccupant && preview.CanPurgeWork,

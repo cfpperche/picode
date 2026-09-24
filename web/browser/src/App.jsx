@@ -2,6 +2,8 @@ import { adoptOffer, terminalLaunchAgent } from "@picode/shared/domain/cliLaunch
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
+import { restoredToast } from "@picode/shared/domain/agentHistory.js";
+import { restoreAgent } from "@picode/shared/client/launchAgent.js";
 import { OPEN_LINK_EVENT } from "./lib/externalLinks.js";
 import { installOpenUrlFeed } from "./lib/openUrlFeed.js";
 import { bootReads } from "./lib/bootReads.js";
@@ -76,8 +78,9 @@ import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
 import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
+import { DRAFT_TASK } from "@picode/shared/domain/instructions.js";
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, inboxHash, inboxPath, legacyInboxHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, isInstructionsTab } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, workspaceAgentsRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, inboxHash, inboxPath, legacyInboxHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, isInstructionsTab } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
@@ -2971,20 +2974,12 @@ export default function App({ shellChrome = false } = {}) {
     // did not carry the exit.
     if (snap.exitId) {
       try {
-        const res = await api("/api/agent-history/" + encodeURIComponent(snap.exitId) + "/restore", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ workspaceId: snap.workspaceId || "ws_free", undo: true }),
-        });
-        if (res.resume && res.terminalId) {
-          try {
-            await api("/api/terminals/" + encodeURIComponent(res.terminalId) + "/launch/start", {
-              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: false, resume: true }),
-            });
-          } catch (err) { toastError(err); }
-        }
+        // Same as Bring back on the history page: back as itself, started.
+        const out = await restoreAgent(snap.exitId, { workspaceId: snap.workspaceId || "ws_free", undo: true });
         const list = await loadWorkspaces();
-        openTab(res.agent.id, list);
-        toast.ok(`"${snap.name}" is back.`);
+        openTab(out.agent.id, list);
+        const msg = restoredToast(snap.name, out);
+        if (msg.ok) toast.ok(msg.text); else toast.error(msg.text);
       } catch (err) { toastError(err); }
       return;
     }
@@ -4437,12 +4432,13 @@ export default function App({ shellChrome = false } = {}) {
             workspace={workspaces.find((w) => w && w.id === instructionsRoute(hash)) || null}
             loaded={bootstrapped}
             onOpenFile={(wsId, p) => { openFileTab("workspace", wsId, p); location.hash = fileHash("workspace", wsId, p); }}
+            onDraft={(ws) => setCliPrincipalWs({ ...ws, task: DRAFT_TASK })}
           />
         ) : null}
         <AgentHistory hidden={route !== "history"} workspaces={workspaces} onOpenAgent={(id) => { loadWorkspaces().then((list) => revealAgent(id, list)).catch(() => revealAgent(id)); }} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
-        {route === "workspaceOverview" ? <Suspense fallback={<div className="pane-view"><div className="settings-wrap"><div className="skel-line w-70" /><div className="skel-line w-90" /></div></div>}>
-          <WorkspaceOverview key={workspaceOverviewRoute()} id={workspaceOverviewRoute()} workspaces={workspaces} terminals={terminals} loaded={bootstrapped} workingIds={tuiWorking} waitingId={waiting ? selectedId : null}
+        {route === "workspaceOverview" || route === "workspaceAgents" ? <Suspense fallback={<div className="pane-view"><div className="settings-wrap"><div className="skel-line w-70" /><div className="skel-line w-90" /></div></div>}>
+          <WorkspaceOverview key={route === "workspaceAgents" ? workspaceAgentsRoute() : workspaceOverviewRoute()} id={route === "workspaceAgents" ? workspaceAgentsRoute() : workspaceOverviewRoute()} workspaces={workspaces} terminals={terminals} checklists={checklists} loaded={bootstrapped} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} fullAgents={route === "workspaceAgents"}
             onOpenAgent={revealAgent} onOpenTerm={(id) => { openTermTab(id); location.hash = termHash(id); }}
             onOpenTree={(id, name) => { openTreeTab("workspace", id, name); location.hash = treeHash("workspace", id); }}
             onOpenGit={(id, name) => { openGitTab("workspace", id, name); location.hash = gitHash("workspace", id); }}

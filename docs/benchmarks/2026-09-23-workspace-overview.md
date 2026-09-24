@@ -30,3 +30,24 @@ It uses local PiCode missions, inbox and Git facts instead.
 
 Reuse the existing Recharts chart, PageFrame and native controls. The V2 adds
 no presentation dependency and no new editor tab.
+
+## Agent summary adaptation (2026-09-24)
+
+| Reference | PiCode adaptation |
+|---|---|
+| [Cursor Agents Window](https://cursor.com/docs/agent/agents-window) separates supervision across projects from detailed agent work. | Keep the workspace overview short and route its full searchable agent list to `#/workspaces/<id>/agents`. |
+| [GitHub agent sessions](https://docs.github.com/en/copilot/how-tos/copilot-on-github/use-copilot-agents/manage-and-track-agents) pair status with progress and contextual actions. | Show existing status age, assigned mission or current checklist step, and open the question, review mission or agent as appropriate. |
+| [Linear Peek](https://linear.app/docs/peek) gives list context without opening every item. | Show up to four prioritized agents in the overview, with unbound terminals separately; the full page keeps search and all rows. |
+
+`Ready` is idle runtime state, not proof of completion. Review actions require
+an in-review assigned mission. No per-agent cost, transcript summary, or new
+backend status is inferred. The native search control and existing PiCode
+primitives add no dependency.
+
+| Agent condition | Primary action |
+|---|---|
+| Needs you with a linked Inbox question | Answer that question |
+| Needs you without a linked question | Open the agent |
+| Other state with an assigned mission in review | Review mission |
+| Other state with an assigned blocked mission | Open mission |
+| Any other state or an unreserved mission | Open the agent |

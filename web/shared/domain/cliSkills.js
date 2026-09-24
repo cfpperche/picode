@@ -11,29 +11,34 @@ export function supportsCliSkills(cli) {
   return SKILLS_CLIS.includes(cli);
 }
 
-export const SKILL_SCOPES = ["all", "workspace", "machine"];
+// The scopes, in the order every setup pane uses (Packages, Memory): Global,
+// then the workspace, then the agent where the CLI loads a per-agent list.
+export const SKILL_SCOPES = ["machine", "workspace", "agent"];
 
-export function cliSkillsHash(cli, { workspaceId = "", scope = "" } = {}) {
+export function cliSkillsHash(cli, { workspaceId = "", agentId = "", scope = "" } = {}) {
   const q = new URLSearchParams();
   if (workspaceId) q.set("workspaceId", workspaceId);
-  if (scope && scope !== "all" && SKILL_SCOPES.includes(scope)) q.set("scope", scope);
+  if (agentId) q.set("agentId", agentId);
+  if (scope && scope !== "machine" && SKILL_SCOPES.includes(scope)) q.set("scope", scope);
   const qs = q.toString();
   return "#/clis/" + encodeURIComponent(cli) + "/skills" + (qs ? "?" + qs : "");
 }
 
 // The query half of the pane's address, as cliLocation reads it.
 export function cliSkillsQuery(params) {
-  const scope = params.get("scope") || "all";
+  const scope = params.get("scope") || "machine";
   return {
     workspaceId: params.get("workspaceId") || "",
-    scope: SKILL_SCOPES.includes(scope) ? scope : "all",
+    agentId: params.get("agentId") || "",
+    scope: SKILL_SCOPES.includes(scope) ? scope : "machine",
     invalid: !SKILL_SCOPES.includes(scope),
   };
 }
 
-export function skillsReportPath(cli, workspaceId = "") {
+export function skillsReportPath(cli, workspaceId = "", agentId = "") {
   const q = new URLSearchParams({ cli });
   if (workspaceId) q.set("workspace", workspaceId);
+  if (workspaceId && agentId) q.set("agent", agentId);
   return "/api/skills/report?" + q;
 }
 
@@ -92,10 +97,33 @@ export function alsoLoadedLine(row) {
 // rest, each group by name.
 const RANK = { loaded: 0, "if-trusted": 1, "needs-trust": 2, invalid: 3, shadowed: 4 };
 
-export function visibleSkills(rows = [], { scope = "all", text = "" } = {}) {
+// The chips a report offers: Global, the workspace by its name, and the
+// agent by its name when the CLI has an agent scope (Pi, Omp).
+export function skillScopes(report, workspaceName = "") {
+  const out = [{ id: "machine", label: "Global" }];
+  if (report?.workspacePath) out.push({ id: "workspace", label: workspaceName || "This workspace" });
+  if (report?.agent) out.push({ id: "agent", label: report.agent.name || "This agent" });
+  return out;
+}
+
+// Under the agent chip: what that agent loads — every loaded skill, or none
+// when it runs isolated (then only its own packages' skills).
+export function agentScopeLine(report, cli) {
+  const a = report?.agent;
+  if (!a) return "";
+  const name = terminalCliLabel(cli);
+  if (a.isolated) return a.name + " runs isolated: " + name + " loads none of these folders for it, only the skills in its own packages.";
+  return "What " + a.name + " loads. Skills for " + a.name + " alone come with its packages.";
+}
+
+export function visibleSkills(rows = [], { scope = "machine", text = "", agent = null } = {}) {
   const needle = text.trim().toLowerCase();
+  const inScope = (r) => {
+    if (scope === "agent") return !agent?.isolated && (r.status === "loaded" || r.status === "if-trusted");
+    return r.scope === scope;
+  };
   return rows
-    .filter((r) => scope === "all" || r.scope === scope)
+    .filter(inScope)
     .filter((r) => !needle || (r.name + " " + (r.description || "") + " " + (r.provenance?.source || "")).toLowerCase().includes(needle))
     .slice()
     .sort((a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || a.name.localeCompare(b.name) || a.root.localeCompare(b.root));

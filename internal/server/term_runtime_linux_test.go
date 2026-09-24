@@ -97,3 +97,25 @@ func TestIdentifyPaneCLIProcsIgnoresUnknownTree(t *testing.T) {
 		t.Fatalf("cli=%q want empty for pid 0", cli)
 	}
 }
+
+// A live tree in the measured shape: the CLI keeps a helper in its own
+// session behind a pipe and starts a command detached into a new session.
+func TestRunningCommandSeesDetachedChildLive(t *testing.T) {
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc on this platform")
+	}
+	if _, err := exec.LookPath("setsid"); err != nil {
+		t.Skip("setsid not installed")
+	}
+	cmd := spawnWrappedCLI(t, "codex", ": | sleep 9 &\nsetsid sleep 8 &\nwait")
+	root := cmd.Process.Pid
+	time.Sleep(commandMinAge + 300*time.Millisecond)
+	got, ok := runningCommand(root, readProcSnapshot())
+	if !ok || got.Name != "sleep" {
+		t.Fatalf("got %+v ok=%v, want the detached sleep", got, ok)
+	}
+	snap := readProcSnapshot()
+	if snap.sid[got.PID] == snap.sid[root] {
+		t.Fatalf("picked the pane-session helper %d instead of the detached command", got.PID)
+	}
+}

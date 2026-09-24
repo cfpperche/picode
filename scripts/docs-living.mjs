@@ -8,13 +8,15 @@
 // pass inside the full parity gate; `ci-scoped` runs it alone for a change
 // that touches only docs/ (scope `metadata`), and `make close` runs it on every
 // close. On 2026-09-23 a broken link in a study passed a metadata-only close
-// and failed `make ci` on main after the fast-forward.
+// and failed `make ci` on main after the fast-forward. The dev-flow guide's
+// quoted refusals ride along (docs-quotes.mjs): same cost, same reach.
 //
 //   node scripts/docs-living.mjs     # exit 0 ok, 1 failures
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { bendQuoteFailures } from "./docs-quotes.mjs";
 
 // Code is not a link. A fenced block or an inline code span may quote link
 // syntax (Antigravity's include form, a regex) without pointing anywhere;
@@ -130,8 +132,15 @@ function linkFailures(root) {
   return fails;
 }
 
-export function livingDocsFailures(root) {
-  return [...decisionFailures(root), ...architectureFailures(root), ...linkFailures(root)];
+// quotes: the dev-flow cards against the scripts they quote (docs-quotes.mjs).
+// Only the fixture trees of docs-living.test.mjs, which hold no guide, turn it off.
+export function livingDocsFailures(root, { quotes = true } = {}) {
+  return [
+    ...decisionFailures(root),
+    ...architectureFailures(root),
+    ...linkFailures(root),
+    ...(quotes ? bendQuoteFailures(root) : []),
+  ];
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -142,5 +151,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     for (const f of fails) console.error("  - " + f);
     process.exit(1);
   }
-  console.log("docs-living ok: ADR index, architecture index and relative links");
+  console.log("docs-living ok: ADR index, architecture index, relative links and dev-flow quotes");
 }

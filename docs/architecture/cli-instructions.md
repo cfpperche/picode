@@ -81,12 +81,29 @@ Writes are confined to the workspace. A symbolic link, or a folder that
 leads out of the workspace, is refused. Files are written atomically. Git is
 never run: the change waits in the Git tab.
 
+## Draft with an agent
+
+A workspace with no project instruction file shows **Draft with an agent** in
+the page's empty state. It opens the New agent dialog with a first prompt
+(`DRAFT_TASK`, `web/shared/domain/instructions.js`) shown whole, and offers
+only CLIs whose session source can start with a prompt (`sessions.prompt`
+from `/api/clis`; Hermes cannot yet). `POST /api/workspaces/{id}/agents`
+takes `prompt` (≤ 4,000 bytes, `startPromptLaunch`): a terminal CLI starts
+with the CLI's configured arguments plus the same `PromptArgs` the brief
+handoff uses, and a managed Pi agent gets the prompt as its first queued
+task. A prompt with explicit launch arguments is refused. The agent writes
+the file itself, as any of its work, and it waits in the Git tab; PiCode
+writes nothing here, so ADR-0204 does not apply. Once the session is pinned,
+a relaunch resumes it instead of sending the prompt again.
+
 ## Where it shows
 
 | Place | What |
 |---|---|
 | Workspace `…` menu ▸ **Instructions** | the page `#/instructions/<workspaceId>`, over the tabs like Agent CLIs: findings, then the matrix of files × CLIs; a cell's reason below the table |
 | **New agent** dialog | one line for the picked CLI (`createLine`, `web/shared/domain/instructions.js`) |
+| The page's empty state ▸ **Draft with an agent** | the New agent dialog with the draft prompt (above) |
+| **Outcomes** ▸ an exit ▸ How it was set up ▸ Instructions | the files the removed agent read, each with a short hash (`AgentRevisions`, `revisions.go`; ADR-0194 amendment 2026-09-24) |
 
 | CLI page ▸ **Settings** ▸ Instructions | the settings that change what a CLI reads: Claude Code's Project instructions mode (user layer only — Claude ignores it in project settings), Codex's `project_doc_fallback_filenames` and `project_doc_max_bytes`, Hermes's `context_file_max_chars`, OpenCode's `instructions`. Declared in `internal/clisettings/specs.go` like every other row; a finding whose fix is one of them links there |
 

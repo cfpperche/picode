@@ -238,6 +238,11 @@ jobs:
       # which is what broke internal/tmux on ubuntu the run after sharding
       # landed. `make ci` still shards locally, where there are cores to
       # spend.
+      #
+      # 25m from measurement, not from the old shared number: these packages
+      # take 7 minutes on ubuntu and 6 on macOS (2026-09-24), so the ceiling
+      # is three times the slower half — room for a cold build cache, and a
+      # hang is caught in twenty-five minutes rather than fifty.
       - name: Test daemon
         if: matrix.os != 'windows-latest'
         run: GO_TEST_EXCLUDE_HEAVY=1 GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 25m" ./scripts/go-test.sh ./...
@@ -257,7 +262,13 @@ jobs:
   # packages gave them one shared ceiling and one shared verdict. Here their
   # ceiling is theirs, the rest of the suite gets a runner of its own, and a
   # red check says which half failed. Sharding stays off for the reason
-  # measured next door: two cores buy nothing from four shards.
+  # measured next door: two cores buy nothing from four shards, and the pair
+  # measures the same 36 minutes either way.
+  #
+  # 50m, deliberately the old shared number: the pair itself has measured 26
+  # and 36 minutes on the same runner, so a ceiling sized near the fast run
+  # would fail a legitimate slow one. What changed is that this ceiling is
+  # the pair's alone — a slow package can no longer kill ~300 others.
   go-heavy:
     name: Go heavy (${{ matrix.os }})
     needs: changes
@@ -320,7 +331,7 @@ jobs:
       # still reports success.
       - name: Test the heavy packages
         if: matrix.os != 'windows-latest'
-        run: GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 40m" ./scripts/go-test.sh ./internal/server ./internal/store
+        run: GO_TEST_SHARDS=1 GO_TEST_FLAGS="-race -timeout 50m" ./scripts/go-test.sh ./internal/server ./internal/store
 
   embedded:
     name: Embedded UI build

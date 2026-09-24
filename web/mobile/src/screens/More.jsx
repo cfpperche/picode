@@ -21,6 +21,7 @@ import { MORE_TITLES, moreGroups, moreActions, moreHasResults } from "../lib/mor
 import PinsList from "./PinsList.jsx";
 import SnippetsList from "./SnippetsList.jsx";
 import OutcomesList from "./OutcomesList.jsx";
+import HistoryList from "./HistoryList.jsx";
 import "../styles/mobile-lists.css";
 
 // Mobile-owned settings, loaded only when their section opens.
@@ -81,6 +82,7 @@ export default function More({ fleetReady = true, section, apps, catalog, clis =
       {section === "pins" ? <PinsList onOpen={(id) => { location.hash = "#/pins/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/pins/new"; }} /> : null}
       {section === "snippets" ? <SnippetsList onOpen={(id) => { location.hash = "#/snippets/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/snippets/new"; }} /> : null}
       {section === "outcomes" ? <OutcomesList /> : null}
+      {section === "history" ? <HistoryList workspaces={workspaces} /> : null}
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
       {section === "clis" ? <AgentClis catalog={catalog} onCatalogChange={onCatalogChange} legacyContextReady={fleetReady} legacyPackageContext={{ workspaceId: workspace?.id || "", agentId: agent?.id || legacyAgentId || "" }} legacyAgentId={last?.agent?.id || legacyAgentId} onAgentConfig={onAgentConfig} /> : null}

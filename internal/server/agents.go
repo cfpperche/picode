@@ -562,6 +562,8 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			Model     string               `json:"model"`
 			Thinking  string               `json:"thinking"`
 			Overrides *clilaunch.Overrides `json:"overrides"`
+			// Prompt is the agent's first message (Draft with an agent).
+			Prompt string `json:"prompt"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -592,7 +594,16 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 		if work != "" {
 			cwd = work
 		}
-		agent, status, err := newLaunchAgent(deps, wsID, cwd, req.CLI, req.Name, work, req.Overrides)
+		launch := req.Overrides
+		prompt := strings.TrimSpace(req.Prompt)
+		if prompt != "" {
+			var status int
+			if launch, status, err = startPromptLaunch(deps, req.CLI, prompt, req.Overrides); err != nil {
+				writeErr(w, status, err.Error())
+				return
+			}
+		}
+		agent, status, err := newLaunchAgent(deps, wsID, cwd, req.CLI, req.Name, work, launch)
 		if err != nil {
 			writeErr(w, status, err.Error())
 			return
@@ -600,6 +611,15 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 		if agent.IsPi() {
 			agent, err = patchNewAgent(deps, agent, req.Provider, req.Model, req.Thinking)
 			if err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if prompt != "" && launch == nil {
+			// A managed Pi agent: the prompt is its first queued task and
+			// runs when the agent opens, as a handoff's brief does.
+			if _, err := deps.Store.EnqueueTask(agent.ID, store.TaskPrompt, prompt, "instructions"); err != nil {
+				_ = deps.Store.DeleteAgent(agent.ID)
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
 			}

@@ -83,6 +83,10 @@
 /* The New agent dialog's line: what the picked CLI reads here. The line's
    height is held while the answer loads, so the fields below never jump. */
 .create-instr { margin: 0; min-height: 18px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+/* Draft with an agent: the prompt the agent starts on, shown whole so the
+   user sees exactly what it is asked before creating it. */
+.create-task { margin: 0; padding: 8px 10px; border-left: 2px solid var(--border-strong); font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+.instr-empty-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* A group's label stays readable when the columns scroll sideways. */
 .instr-group th span { position: sticky; left: 4px; }
 .instr-more { margin: 0 0 6px; font-size: 12px; }

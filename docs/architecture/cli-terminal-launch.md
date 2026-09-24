@@ -36,7 +36,8 @@ per-agent `/resume` isolation currently enabled.
 **One door (ADR-0184).** Every user-facing launch creates an agent:
 `POST /api/agents` and `POST /api/workspaces/{id}/agents` take `overrides`
 (the launch overrides of a profile, a resumed session's arguments), checked
-before any row exists, and bind a launch terminal (`newLaunchAgent`). A Pi
+before any row exists — the workspace route also takes a first `prompt`
+(Draft with an agent, `docs/architecture/cli-instructions.md`) — and bind a launch terminal (`newLaunchAgent`). A Pi
 agent created with overrides is the interactive shape: its terminal runs `pi`,
 and `--session` moves onto the agent's `SessionPath` (reserved on a Pi agent's
 launch). The cross-CLI handoff uses `createCLIAgent`, which also starts the
