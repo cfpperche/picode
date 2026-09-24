@@ -68,7 +68,7 @@ test("filters keep the scope and the text, loaded first", () => {
   // The agent chip: what it loads across scopes, or nothing when isolated.
   assert.deepEqual(visibleSkills(rows, { scope: "agent", agent: { isolated: false } }).map((r) => r.name), ["beta", "zeta", "alpha"]);
   assert.deepEqual(visibleSkills(rows, { scope: "agent", agent: { isolated: true } }), []);
-  assert.deepEqual(skillsSummary(rows), { total: 4, loaded: 3, shadowed: 1, tokens: 24 });
+  assert.deepEqual(skillsSummary(rows), { total: 4, loaded: 3, shadowed: 1, off: 0, tokens: 24 });
 });
 
 test("small words for cost and sharing", () => {
@@ -173,4 +173,28 @@ test("a CLI without an agent scope says so when opened for an agent", () => {
   assert.equal(noAgentScopeLine({}, "codex", ""), "");
   assert.equal(noAgentScopeLine({ agent: { name: "x" } }, "pi", "a1"), "");
   assert.equal(noAgentScopeLine({}, "claude-code", "a1"), "");
+});
+
+test("per-skill switches: the row flips at once and says what decides (slice 3)", async () => {
+  const m = await import("./cliSkills.js");
+  const report = { toggle: "skillOverrides in Claude Code's settings", rows: [
+    { name: "pdf", dir: "/h/.claude/skills/pdf", scope: "machine", status: "loaded", enabled: true },
+    { name: "old", dir: "/h/.claude/skills/old", scope: "machine", status: "shadowed" },
+  ] };
+  assert.equal(m.hasSkillSwitch(report.rows[0]), true);
+  assert.equal(m.hasSkillSwitch(report.rows[1]), false);
+  const off = m.withSkillEnabled(report, "/h/.claude/skills/pdf", "machine", false);
+  assert.equal(off.rows[0].status, "disabled");
+  assert.equal(off.rows[0].enabled, false);
+  assert.equal(off.rows[1], report.rows[1]);
+  assert.equal(m.withSkillEnabled(off, "/h/.claude/skills/pdf", "machine", true).rows[0].status, "loaded");
+  assert.equal(m.skillStatus({ status: "disabled" }, "claude-code").label, "Off");
+  assert.equal(m.skillsSummary(off.rows).off, 1);
+  assert.deepEqual(m.skillToggleBody("codex", report.rows[0], "ws1", false), { cli: "codex", scope: "machine", dir: "/h/.claude/skills/pdf", enabled: false, workspace: "ws1" });
+  assert.equal(m.toggledLine({ name: "pdf", enabled: false }), "pdf is off.");
+  assert.equal(m.toggledLine({ name: "pdf", enabled: true, note: "x decides" }), "pdf is on. x decides.");
+  // Pi and Antigravity have no switch: one sentence, only when there are skills.
+  assert.match(m.noSwitchLine({ rows: [{}] }, "pi"), /^Pi has no switch/);
+  assert.equal(m.noSwitchLine(report, "claude-code"), "");
+  assert.equal(m.noSwitchLine({ rows: [] }, "pi"), "");
 });

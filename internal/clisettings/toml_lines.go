@@ -28,7 +28,11 @@ func tomlLines(text []byte) []tomlLine {
 		tl := tomlLine{text: l, offset: offset, inString: delim != ""}
 		delim = scanTOMLLine(l, delim)
 		if !tl.inString {
-			trimmed := strings.TrimSpace(l)
+			// A header may carry a comment (`[mcp_servers.x] # work`): reading
+			// it as a plain line let an element's span run to the end of the
+			// file and a toggle delete every table after it (adversarial
+			// review of skills slice 3, 2026-09-24).
+			trimmed := strings.TrimSpace(trimTrailingComment(l))
 			switch {
 			case strings.HasPrefix(trimmed, "[[") && strings.HasSuffix(trimmed, "]]"):
 				tl.header = strings.TrimSpace(trimmed[2 : len(trimmed)-2])

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import * as Switch from "@radix-ui/react-switch";
 import { api } from "@picode/shared/client/api.js";
 import {
   agentScopeLine, alsoLoadedLine, canRemoveSkill, skillScopes, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
   skillsSummary, skillTargetBody, installedLine, removeQuestion, noAgentScopeLine, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
+  hasSkillSwitch, noSwitchLine, skillToggleBody, toggledLine, withSkillEnabled,
 } from "@picode/shared/domain/cliSkills.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
@@ -28,6 +30,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
   const [reload, setReload] = useState(0);
   const [scope, setScope] = useState(route.scope || "machine");
   const [filter, setFilter] = useState("");
+  const [flipping, setFlipping] = useState("");
   const [open, setOpen] = useState("");
   const [adding, setAdding] = useState(false);
   const [updates, setUpdates] = useState(null);
@@ -111,6 +114,21 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
     }
   };
 
+  // The CLI's own per-skill switch (slice 3), flipped at once and read back.
+  const flip = async (row, enabled) => {
+    setFlipping(row.dir);
+    setData((d) => withSkillEnabled(d, row.dir, row.scope, enabled));
+    try {
+      const res = await api("/api/skills/toggle", { method: "POST", body: JSON.stringify(skillToggleBody(cli, row, workspaceId, enabled)) });
+      (res.note ? toast.info : toast.ok)(toggledLine(res));
+    } catch (x) {
+      toast.error(x.message);
+    } finally {
+      setFlipping("");
+      setReload((n) => n + 1);
+    }
+  };
+
   const act = async (row, verb, extra = {}) => {
     setRowBusy(row.dir);
     setAsk(null);
@@ -180,7 +198,9 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
       {summary.total ? <p className="cli-memory-note">
         {summary.loaded} of {summary.total} load in {terminalCliLabel(cli)}
         {summary.tokens ? <> · {tokensLabel(summary.tokens)} at every start</> : null}
+        {summary.off ? <> · {summary.off} switched off</> : null}
       </p> : null}
+      {noSwitchLine(data, cli) ? <p className="cli-memory-note">{noSwitchLine(data, cli)}</p> : null}
       {trust ? (
         <div className="cli-notice" role="status">
           <span>{trust.text}</span>
@@ -210,6 +230,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
             const isOpen = open === row.dir;
             return (
               <li key={row.dir} className={"cli-skills-item" + (row.status === "shadowed" ? " is-dim" : "")}>
+                <div className="cli-skills-row">
                 <button type="button" className="cli-skills-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? "" : row.dir)}>
                   <span className="cli-skills-line">
                     <span className="cli-skills-name">{row.name}</span>
@@ -218,9 +239,22 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
                   <span className="cli-skills-desc">{row.description || "No description"}</span>
                   <span className="cli-skills-meta">{origin.label} · {row.root}{row.status === "loaded" && row.tokens ? " · " + tokensLabel(row.tokens) : ""}</span>
                 </button>
+                {data?.toggle && current !== "agent" && hasSkillSwitch(row) ? (
+                  <Switch.Root
+                    className={"rx-switch cli-skills-switch" + (flipping === row.dir ? " is-busy" : "")}
+                    checked={row.enabled}
+                    disabled={flipping === row.dir}
+                    onCheckedChange={(v) => flip(row, v)}
+                    aria-label={(row.enabled ? "Turn off " : "Turn on ") + row.name}
+                  >
+                    <Switch.Thumb className="rx-switch-thumb" />
+                  </Switch.Root>
+                ) : null}
+                </div>
                 {isOpen ? (
                   <div className="cli-skills-body">
                     {st.detail ? <p>{st.detail}.</p> : null}
+                    {data?.switchNote && hasSkillSwitch(row) && row.scope === "workspace" ? <p>{data.switchNote}</p> : null}
                     {(row.problems || []).length && row.status !== "invalid" ? <p className="is-warn">{row.problems.join("; ")}.</p> : null}
                     <p className="cli-skills-path">{row.dir}</p>
                     {alsoLoadedLine(row) ? <p>{alsoLoadedLine(row)}.</p> : null}

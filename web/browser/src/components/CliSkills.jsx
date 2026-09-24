@@ -3,7 +3,9 @@ import { api } from "@picode/shared/client/api.js";
 import {
   agentScopeLine, alsoLoadedLine, canRemoveSkill, skillScopes, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
   skillsSummary, skillTargetBody, installedLine, removeQuestion, noAgentScopeLine, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
+  hasSkillSwitch, noSwitchLine, skillToggleBody, toggledLine, withSkillEnabled,
 } from "@picode/shared/domain/cliSkills.js";
+import { SwitchCtl } from "./settingsControls.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import AddSkillDialog from "./AddSkillDialog.jsx";
@@ -44,6 +46,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
   const [checking, setChecking] = useState(false);
   const [rowBusy, setRowBusy] = useState("");
   const [ask, setAsk] = useState(null); // { key, text, action }
+  const [flipping, setFlipping] = useState("");
 
   const load = useCallback(() => api(skillsReportPath(cli, workspaceId, agentId)), [cli, workspaceId, agentId]);
 
@@ -160,6 +163,24 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
     }
   };
 
+  // The CLI's own per-skill switch (slice 3): the row flips at once, the
+  // server writes the vendor's key and reads it back, and a layer that still
+  // decides the other way is named in the toast rather than hidden.
+  const flip = async (row, enabled) => {
+    setFlipping(row.dir);
+    setData((d) => withSkillEnabled(d, row.dir, row.scope, enabled));
+    try {
+      const res = await api("/api/skills/toggle", { method: "POST", body: JSON.stringify(skillToggleBody(cli, row, workspaceId, enabled)) });
+      (res.note ? toast.info : toast.ok)(toggledLine(res));
+    } catch (x) {
+      toast.error(x.message);
+    } finally {
+      setFlipping("");
+      setReload((n) => n + 1);
+    }
+  };
+  const switches = !!data?.toggle && current !== "agent";
+
   // With an agent chip, the pane stays up even with no skill anywhere: that
   // chip is where the agent's own list starts.
   if (!rows.length && !data?.agent) {
@@ -208,7 +229,9 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
         {summary.loaded} of {summary.total} load in {terminalCliLabel(cli)}
         {summary.tokens ? <> · {tokensLabel(summary.tokens)} at every start</> : null}
         {summary.shadowed ? <> · {summary.shadowed} shadowed by another copy</> : null}
+        {summary.off ? <> · {summary.off} switched off</> : null}
       </p> : null}
+      {noSwitchLine(data, cli) ? <p className="cli-memory-note">{noSwitchLine(data, cli)}</p> : null}
 
       {trust ? (
         <div className="cli-notice" role="status">
@@ -238,6 +261,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
           <table className="cli-skills-table">
             <thead>
               <tr>
+                {switches ? <th className="cli-skills-c-on"><span className="sr-only">On</span></th> : null}
                 <th className="cli-skills-c-name">Skill</th>
                 <th className="cli-skills-c-status">Status</th>
                 <th className="cli-skills-c-origin">Source</th>
@@ -260,6 +284,13 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
                       aria-expanded={isOpen}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(isOpen ? "" : key); } }}
                     >
+                      {switches ? (
+                        <td className="cli-skills-c-on" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                          {hasSkillSwitch(row)
+                            ? <span className={flipping === row.dir ? "is-busy" : ""}><SwitchCtl checked={row.enabled} label={(row.enabled ? "Turn off " : "Turn on ") + row.name} onChange={(v) => flipping !== row.dir && flip(row, v)} /></span>
+                            : null}
+                        </td>
+                      ) : null}
                       <td className="cli-skills-c-name">
                         <span className="cli-skills-name">{row.name}</span>
                         <span className="cli-skills-desc" title={row.description}>{row.description || "No description"}</span>
@@ -274,7 +305,8 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
                     </tr>
                     {isOpen ? (
                       <tr className="cli-skills-detail" ref={scrollOnce}>
-                        <td colSpan={5}>
+                        <td colSpan={switches ? 6 : 5}>
+                          {switches && hasSkillSwitch(row) && data?.switchNote && row.scope === "workspace" ? <p>{data.switchNote}</p> : null}
                           {st.detail ? <p>{st.detail}.</p> : null}
                           {(row.problems || []).length && row.status !== "invalid" ? <p className="is-warn">{row.problems.join("; ")}.</p> : null}
                           <p className="cli-skills-path">{row.dir}</p>

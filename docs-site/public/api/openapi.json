@@ -9524,6 +9524,32 @@
         ]
       }
     },
+    "/api/skills/toggle": {
+      "post": {
+        "operationId": "postApiSkillsToggle",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
     "/api/skills/update": {
       "post": {
         "operationId": "postApiSkillsUpdate",

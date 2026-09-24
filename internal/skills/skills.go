@@ -31,6 +31,7 @@ const (
 	StatusNeedsTrust = "needs-trust" // the workspace is not trusted in this CLI
 	StatusIfTrusted  = "if-trusted"  // loads once the workspace is trusted; PiCode cannot read the CLI's trust
 	StatusMissing    = "missing"     // an agent skill whose cached folder is gone: the launch leaves it out
+	StatusDisabled   = "disabled"    // the CLI's own per-skill switch is off (slice 3)
 )
 
 // Row is one skill folder a CLI reads.
@@ -49,6 +50,8 @@ type Row struct {
 	Provenance  *Provenance `json:"provenance,omitempty"`
 	// AlsoLoadedBy lists the other CLIs that read this same folder.
 	AlsoLoadedBy []string `json:"alsoLoadedBy,omitempty"`
+	// Enabled is the CLI's own per-skill switch; nil when the row has none.
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // Trust is the CLI's gate on workspace skills.
@@ -83,6 +86,7 @@ type Report struct {
 	Rows          []Row      `json:"rows"`
 	Trust         Trust      `json:"trust"`
 	Toggle        string     `json:"toggle,omitempty"`
+	SwitchNote    string     `json:"switchNote,omitempty"` // a machine-only switch, said once
 	Launch        string     `json:"launch,omitempty"`
 	WorkspacePath string     `json:"workspacePath,omitempty"`
 	Agent         *AgentInfo `json:"agent,omitempty"`
@@ -309,6 +313,8 @@ func Read(q Query) (Report, error) {
 	default: // namespaced, or isolated: no folder skill competes for the name
 		rep.Rows = append(rep.Rows, agentRows(agent, map[string]string{}, true)...)
 	}
+	applySwitches(spec, homeDir, q.Workspace, rep.Rows)
+	rep.SwitchNote = spec.SwitchNote
 	return rep, nil
 }
 

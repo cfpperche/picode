@@ -59,6 +59,8 @@ export function skillStatus(row, cli) {
       return { label: "If trusted", tone: "info", detail: name + " loads it once the folder is trusted in " + name };
     case "invalid":
       return { label: "Not loaded", tone: "warn", detail: (row.problems || []).join("; ") || "SKILL.md is not a valid skill" };
+    case "disabled":
+      return { label: "Off", tone: "muted", detail: "Switched off in " + name + "'s own settings, so it does not load" };
     default:
       return { label: row.status || "Unknown", tone: "muted" };
   }
@@ -159,8 +161,46 @@ export function visibleSkills(rows = [], { scope = "machine", text = "", agent =
 export function skillsSummary(rows = []) {
   const loaded = rows.filter((r) => r.status === "loaded" || r.status === "if-trusted").length;
   const shadowed = rows.filter((r) => r.status === "shadowed").length;
+  const off = rows.filter((r) => r.status === "disabled").length;
   const tokens = rows.filter((r) => r.status === "loaded").reduce((n, r) => n + (r.tokens || 0), 0);
-  return { total: rows.length, loaded, shadowed, tokens };
+  return { total: rows.length, loaded, shadowed, off, tokens };
+}
+
+// Per-skill switches (ADR-0196 slice 3). A row carries `enabled` only where
+// the CLI keeps a switch of its own; Pi and Antigravity have none, and say so
+// once instead of drawing a control that cannot work.
+export function hasSkillSwitch(row) {
+  return typeof row?.enabled === "boolean";
+}
+
+export function noSwitchLine(report, cli) {
+  if (!report || report.toggle || !(report.rows || []).length) return "";
+  return terminalCliLabel(cli) + " has no switch for one skill: remove it to stop it loading.";
+}
+
+// The body for POST /api/skills/toggle: the row as the report named it.
+export function skillToggleBody(cli, row, workspaceId, enabled) {
+  const body = { cli, scope: row.scope, dir: row.dir, enabled };
+  if (workspaceId) body.workspace = workspaceId;
+  return body;
+}
+
+// The toast after a flip: what the CLI does now, and why when another layer
+// or a machine-wide switch decides.
+export function toggledLine(res) {
+  const now = res.name + (res.enabled ? " is on." : " is off.");
+  return res.note ? now + " " + res.note + "." : now;
+}
+
+// The switch applied optimistically, before the server answers.
+export function withSkillEnabled(report, dir, scope, enabled) {
+  if (!report) return report;
+  const rows = (report.rows || []).map((r) => {
+    if (r.dir !== dir || r.scope !== scope) return r;
+    const status = enabled ? (r.status === "disabled" ? "loaded" : r.status) : (r.status === "loaded" ? "disabled" : r.status);
+    return { ...r, enabled, status };
+  });
+  return { ...report, rows };
 }
 
 // The trust line: shown when the workspace has skills this CLI will not load

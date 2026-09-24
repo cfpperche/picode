@@ -689,6 +689,10 @@
 .cli-skills-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .cli-skills-head.is-dim .cli-skills-name, .cli-skills-head.is-dim .cli-skills-desc { opacity: .6; }
 .cli-skills-c-name { width: auto; min-width: 0; overflow: hidden; }
+/* The CLI's own per-skill switch (slice 3): a narrow first column, vertically
+   centred, dimmed while its write is in flight. */
+.cli-skills-c-on { width: 52px; vertical-align: middle; }
+.cli-skills-c-on .is-busy { opacity: .55; pointer-events: none; }
 .cli-skills-c-status { width: 118px; }
 .cli-skills-c-origin { width: 180px; }
 .cli-skills-c-root { width: 170px; }

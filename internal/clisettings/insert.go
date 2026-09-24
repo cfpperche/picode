@@ -482,6 +482,11 @@ func removeYAMLBlock(text []byte, path []string) ([]byte, bool) {
 	}
 	end := lineStart + len(line)
 	offset := end
+	// PyYAML (Hermes) and other writers put a block sequence's items at the
+	// key's own indent (`disabled:\n- pdf`). Those lines belong to the key:
+	// leaving them turned the parent map into a list (adversarial review of
+	// skills slice 3, 2026-09-24).
+	seqAtIndent := true
 	for _, l := range splitLines(string(text[end:])) {
 		trimmed := strings.TrimSpace(l)
 		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
@@ -491,9 +496,16 @@ func removeYAMLBlock(text []byte, path []string) ([]byte, bool) {
 			offset += len(l)
 			continue
 		}
-		if ind := len(l) - len(strings.TrimLeft(l, " \t")); ind <= headIndent {
+		ind := len(l) - len(strings.TrimLeft(l, " \t"))
+		if ind == headIndent && seqAtIndent && (trimmed == "-" || strings.HasPrefix(trimmed, "- ")) {
+			offset += len(l)
+			end = offset
+			continue
+		}
+		if ind <= headIndent {
 			break
 		}
+		seqAtIndent = false
 		offset += len(l)
 		end = offset
 	}

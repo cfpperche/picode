@@ -29,6 +29,12 @@ type Spec struct {
 	// Toggle is how the CLI switches one skill off, in the vendor's words;
 	// empty when it has no per-skill switch.
 	Toggle string
+	// Switch is the writer behind Toggle (slice 3, toggle.go). A machine-only
+	// switch lives in the user file even for a workspace skill; SwitchNote
+	// says so on the row.
+	Switch            string
+	SwitchMachineOnly bool
+	SwitchNote        string
 	// Launch is the CLI's own per-run mechanism for an agent's skill set;
 	// empty when there is none.
 	Launch string
@@ -95,6 +101,7 @@ var specs = []Spec{
 			home("~/.agent/skills", true),
 		},
 		Toggle:     "skills.ignoredSkills in Omp's settings",
+		Switch:     SwitchOmp,
 		Launch:     "omp --config <overlay> naming the agent's skills in skills.customDirectories; an isolated agent's overlay turns the folders off",
 		AgentScope: true,
 		AgentOrder: AgentWins,
@@ -107,6 +114,7 @@ var specs = []Spec{
 			ws(".claude/skills", false, false),
 		},
 		Toggle:     "skillOverrides in Claude Code's settings",
+		Switch:     SwitchClaude,
 		Launch:     "claude --plugin-dir <folder>: the agent's skills as the picode-agent plugin, invoked as /picode-agent:<name>",
 		AgentScope: true,
 		AgentOrder: AgentNamespaced,
@@ -119,6 +127,10 @@ var specs = []Spec{
 			{Scope: Machine, Root: Root{Path: "/etc/codex/skills"}},
 		},
 		Toggle: "[[skills.config]] enabled = false in ~/.codex/config.toml",
+		// Codex reads skills.config only from the user file (a trusted
+		// project's layer ignores it); the SKILL.md path still targets a
+		// workspace skill from there.
+		Switch: SwitchCodex,
 	},
 	{
 		CLI: "grok",
@@ -132,10 +144,13 @@ var specs = []Spec{
 			home("~/.agents/skills", true),
 			home("~/.claude/skills", true),
 		},
-		ProjectTrust: true,
-		TrustCommand: "/hooks-trust",
-		TrustNote:    "Grok loads this workspace's skills only in a folder it trusts: run /hooks-trust in Grok there.",
-		Toggle:       "[skills] disabled in ~/.grok/config.toml",
+		ProjectTrust:      true,
+		TrustCommand:      "/hooks-trust",
+		TrustNote:         "Grok loads this workspace's skills only in a folder it trusts: run /hooks-trust in Grok there.",
+		Toggle:            "[skills] disabled in ~/.grok/config.toml",
+		Switch:            SwitchGrok,
+		SwitchMachineOnly: true,
+		SwitchNote:        "Grok keeps this switch for the whole machine: it turns the skill off by name in every folder.",
 	},
 	{
 		CLI: "hermes",
@@ -144,11 +159,14 @@ var specs = []Spec{
 			ws(".agents/skills", false, true),
 			home("~/.hermes/skills", true),
 		},
-		ProjectTrust: true,
-		TrustCommand: "hermes skills trust",
-		TrustNote:    "Hermes loads this workspace's skills after hermes skills trust.",
-		Toggle:       "skills.disabled in ~/.hermes/config.yaml",
-		Launch:       "hermes --skills=<name> preloads a skill",
+		ProjectTrust:      true,
+		TrustCommand:      "hermes skills trust",
+		TrustNote:         "Hermes loads this workspace's skills after hermes skills trust.",
+		Toggle:            "skills.disabled in ~/.hermes/config.yaml",
+		Switch:            SwitchHermes,
+		SwitchMachineOnly: true,
+		SwitchNote:        "Hermes keeps this switch for the whole machine: it turns the skill off by name in every folder.",
+		Launch:            "hermes --skills=<name> preloads a skill",
 	},
 	{
 		CLI: "opencode",
@@ -161,6 +179,7 @@ var specs = []Spec{
 			home("~/.agents/skills", false),
 		},
 		Toggle: "permission.skill in opencode.json",
+		Switch: SwitchOpenCode,
 		Launch: "permission.skill through OPENCODE_CONFIG_CONTENT",
 	},
 	{
@@ -176,6 +195,7 @@ var specs = []Spec{
 		ProjectTrust: true,
 		TrustNote:    "Muse loads this workspace's skills once you trust the folder; it asks the first time you start Muse there.",
 		Toggle:       "muse skills disable",
+		Switch:       SwitchMuse,
 	},
 	{
 		CLI: "agy",

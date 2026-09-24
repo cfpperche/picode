@@ -6,9 +6,13 @@
 The Skills tab (`#/clis/<cli>/skills`) reports the Agent Skills
 (agentskills.io) a CLI loads: every `SKILL.md` folder in the places that CLI
 reads, in its own precedence order, which copy wins, who installed it, and what
-it costs at start. Slice 1 of [the plan](../plans/skills.md) reads; slice 2
-installs, removes, checks and updates; toggles, per-agent sets and the
-marketplace are the next slices.
+it costs at start. Slices of [the plan](../plans/skills.md):
+
+- **Slice 1** reads.
+- **Slice 2** installs, removes, checks and updates.
+- **Slice 3** switches one skill off in the CLI's own settings.
+- **Slice 4** gives an agent its own skills.
+- **Next:** the marketplace.
 
 ## The declaration
 
@@ -177,6 +181,44 @@ agent terminal now folds in the agent's own scope for every CLI
 marker of packages, isolation and skill digests, computed before any
 injection, so the terminal view's "Launch changes pending" follows a skill
 added or removed while it runs.
+
+## Per-skill switches (slice 3)
+
+`internal/skills/toggle.go` writes and reads the switch each vendor keeps.
+Measured 2026-09-24 in a throwaway HOME, read back with each CLI's own
+command:
+
+| CLI | Key | Machine file | Workspace file | Read back with |
+|---|---|---|---|---|
+| Claude Code | `skillOverrides.<name> = "off"` (absent = on) | `~/.claude/settings.json` | `.claude/settings.local.json` (what `/skills` writes); local, then project, then user decides | the `init` line of `claude -p --output-format stream-json` |
+| Codex | `[[skills.config]] path = "<abs>/SKILL.md" enabled = false` | `~/.codex/config.toml` | the same user file: a project layer's `skills.config` is ignored, and the path targets a workspace skill | `codex debug prompt-input` |
+| OpenCode | `permission.skill.<name> = "deny"` (globs; the last matching rule wins) | `~/.config/opencode/opencode.json(c)` | `opencode.json(c)` or `.opencode/opencode.json(c)` | `opencode debug config` |
+| Omp | `skills.ignoredSkills` (globs) | `~/.omp/agent/config.yml` | `.omp/config.yml`, which **replaces** the machine list, so the first workspace write copies it | `omp config get skills.ignoredSkills` |
+| Grok | `[skills] disabled = [names]` | `~/.grok/config.toml` | machine only | `grok inspect --json` (`disabled`) |
+| Hermes | `skills.disabled` | `~/.hermes/config.yaml` | machine only | `hermes skills list` |
+| Muse | `muse skills disable\|enable <SKILL.md> --scope user\|project` | Muse writes `~/.config/muse/settings.json` itself | the same file, under `projects.<workspace>` | `muse skills list --json` (`activation`) |
+
+Pi and Antigravity have no per-skill switch, and their pane says so in one
+line.
+
+- **Reading:** the reader sets `Row.Enabled` on every folder skill the CLI
+  would load. A loaded skill whose switch is off gets the status `disabled`.
+- **Writing:** every write goes through `clisettings.Doc`, so comments, key
+  order and other keys keep their bytes. `SetScalar` handles a map entry and
+  `SetStrings` a list. `AppendArrayTable` and `RemoveArrayTables` handle
+  Codex's elements: PiCode appends and removes an element whole and never
+  edits one in place.
+- **Turning back on:** this removes PiCode's key. A file left holding only
+  what PiCode's first write created is deleted, so the folder is as it was.
+- **Read-back:** after each write the switch is read back. If a stronger layer
+  or a user's glob still decides, the result names that file instead of
+  claiming the switch moved.
+- **Route:** `POST /api/skills/toggle {cli, scope, workspace, dir, enabled}`
+  finds the row again in a fresh report, so it only ever writes a path the
+  reader listed. It answers 409 on a stale file and announces
+  `skills.changed`.
+- **Pane:** a Radix switch on each row that has one. The switch flips at
+  once, and the toast carries the read-back and a machine-only note.
 
 ## Live parity
 

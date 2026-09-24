@@ -2,6 +2,7 @@ package clisettings
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -151,6 +152,43 @@ func spliceList(text []byte, f Format, path []string, values []string, file stri
 	return out, nil
 }
 
+// SetScalar writes one scalar (a string or a bool) at a path, inserting it when
+// the file does not have it — the entry of a map keyed by name, such as Claude
+// Code's `skillOverrides.<skill>` or OpenCode's `permission.skill.<skill>`
+// (ADR-0196 slice 3). An existing value that is not a scalar is ErrShape: a
+// rule written as a table is the user's, and PiCode does not replace it.
+func (d *Doc) SetScalar(path []string, value any) error {
+	if len(path) == 0 {
+		return errors.New("no key to write")
+	}
+	name := strings.Join(path, ".")
+	lit, err := literal(d.format, value)
+	if err != nil {
+		return err
+	}
+	text := d.text
+	if v, ok := d.value(path); ok {
+		switch v.(type) {
+		case string, bool, float64, int64, int:
+		default:
+			return fmt.Errorf("%s: %w", name, ErrShape)
+		}
+		if start, end, spanOK := valueSpan(text, d.format, path); spanOK && !bytes.Contains(text[start:end], []byte("\n")) {
+			d.text = append(append(append([]byte{}, text[:start]...), lit...), text[end:]...)
+			return d.reparse()
+		}
+		if text, err = removeValue(text, d.format, path); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+	}
+	out, err := insertValue(text, d.format, path, lit)
+	if err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	d.text = out
+	return d.reparse()
+}
+
 // Remove drops one path, so the CLI falls back to its own default, and takes the
 // container with it when that key was the last one in it. A path the file does
 // not set is not an error.
@@ -269,3 +307,44 @@ func asStrings(v any) ([]string, error) {
 	}
 	return nil, ErrShape
 }
+
+// Keys lists the keys of the JSON object at a path in file order — the order
+// a CLI that evaluates rules top to bottom sees (OpenCode's permission map:
+// the last matching rule wins). Nil for another format or a missing path.
+func (d Doc) Keys(path ...string) []string {
+	if d.format != FormatJSON && d.format != FormatJSONC {
+		return nil
+	}
+	start, end, ok := jsonValueSpan(d.text, path)
+	if !ok {
+		return nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(stripJSONC(d.text)[start:end]))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		return nil
+	}
+	var out []string
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return out
+		}
+		key, _ := tok.(string)
+		out = append(out, key)
+		var skip json.RawMessage
+		if err := dec.Decode(&skip); err != nil {
+			return out
+		}
+	}
+	return out
+}
+
+// Empty reports whether the document holds no key at all — what is left of a
+// file PiCode created once its last key is removed again.
+func (d Doc) Empty() bool {
+	return len(d.doc) == 0 && strings.Trim(string(d.text), "{} \t\r\n") == ""
+}
+
+// Text is the document's current bytes (a caller compares before and after
+// an edit to skip a write that changes nothing).
+func (d Doc) Text() []byte { return d.text }

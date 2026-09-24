@@ -616,6 +616,12 @@
 .cli-skills .cli-notice { margin: 0; }
 .cli-skills-list { list-style: none; margin: 0; padding: 0; }
 .cli-skills-item { border-top: 1px solid var(--border); }
+/* The row's switch sits beside the head button (a switch cannot live inside
+   a button), vertically centred; dimmed while its write is in flight. */
+.cli-skills-row { display: flex; align-items: center; gap: 8px; }
+.cli-skills-row .cli-skills-head { flex: 1; min-width: 0; }
+.cli-skills-switch { flex: none; margin-right: 4px; }
+.cli-skills-switch.is-busy { opacity: .55; }
 .cli-skills-item:last-child { border-bottom: 1px solid var(--border); }
 .cli-skills-item.is-dim .cli-skills-name, .cli-skills-item.is-dim .cli-skills-desc { opacity: .6; }
 .cli-skills-head { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 10px 4px; background: none; border: 0; color: inherit; text-align: left; font: inherit; cursor: pointer; }

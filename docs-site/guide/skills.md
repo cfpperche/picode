@@ -19,7 +19,7 @@ The **Skills** tab shows what one CLI will actually load.
 | Column | Meaning |
 |---|---|
 | Skill | the skill's name and description |
-| Status | **Loaded**; **Shadowed** (another copy with the same name wins); **If trusted** or **Needs trust** (the CLI loads a project's skills only in a folder you trusted in that CLI); **Not loaded** (the `SKILL.md` has no header or no description) |
+| Status | **Loaded**; **Off** (switched off in the CLI's own settings); **Shadowed** (another copy with the same name wins); **If trusted** or **Needs trust** (the CLI loads a project's skills only in a folder you trusted in that CLI); **Not loaded** (the `SKILL.md` has no header or no description) |
 | Source | who installed it — the repository named in the `skills` tool's lock or the Hermes hub's — or **Added by hand**; **edited** means the folder changed since it was installed |
 | Folder | where the CLI found it; **link** means the folder points somewhere else |
 | At start | an estimate of what the skill's name and description cost in every session |
@@ -30,6 +30,24 @@ the workspace by its name, then — for Pi, Omp and Claude Code — the agent by
 its name, showing everything that agent loads (or, for an agent that runs
 isolated, only its own skills). The filter matches names, descriptions and
 sources.
+
+## Turning a skill off
+
+The switch at the start of a row turns the skill off without removing it.
+PiCode writes the CLI's own setting, so the CLI and its own menus agree:
+
+| CLI | Where the switch is saved |
+|---|---|
+| Claude Code | `skillOverrides` in its settings: Global writes `~/.claude/settings.json`, a workspace writes `.claude/settings.local.json` |
+| Codex | `[[skills.config]]` in `~/.codex/config.toml`, for Global and workspace skills alike |
+| OpenCode | `permission.skill` in `opencode.json`, Global or in the workspace |
+| Omp | `skills.ignoredSkills`, Global or in `.omp/config.yml` inside the workspace |
+| Grok, Hermes | their own `disabled` list, for the whole computer |
+| Muse | Muse's own `muse skills disable` |
+
+Pi and Antigravity have no switch for one skill; remove the skill to stop it
+loading. If another settings file still decides, for example a project
+setting in Claude Code, the message after the switch names that file.
 
 ## Trust
 

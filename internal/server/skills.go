@@ -26,6 +26,8 @@ func registerSkillRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("DELETE /api/skills", handleSkillsRemove(deps, mgr))
 	mux.HandleFunc("POST /api/skills/update", handleSkillsUpdate(deps, mgr))
 	mux.HandleFunc("GET /api/skills/updates", handleSkillsUpdates(deps, mgr))
+	// Slice 3: each CLI's own per-skill switch, written in its own file.
+	mux.HandleFunc("POST /api/skills/toggle", handleSkillsToggle(deps))
 }
 
 // skillsError maps the manager's refusals: a question the person can answer
@@ -354,5 +356,70 @@ func handleSkillsReport(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, rep)
+	}
+}
+
+// handleSkillsToggle flips one skill's switch in the CLI's own settings. The
+// row is found again in a fresh report, so the path written is always one the
+// reader saw, never one the request invented.
+func handleSkillsToggle(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			CLI       string `json:"cli"`
+			Scope     string `json:"scope"`
+			Workspace string `json:"workspace"`
+			Dir       string `json:"dir"`
+			Enabled   bool   `json:"enabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		q := skills.Query{CLI: strings.TrimSpace(req.CLI), Trusted: skillsTrusted}
+		if req.Workspace != "" {
+			if deps.Store == nil {
+				writeErr(w, http.StatusNotFound, "workspace not found")
+				return
+			}
+			ws, err := deps.Store.GetWorkspace(req.Workspace)
+			if err != nil {
+				writeErr(w, http.StatusNotFound, "workspace not found")
+				return
+			}
+			q.Workspace = ws.Path
+		}
+		rep, err := skills.Read(q)
+		if errors.Is(err, skills.ErrUnknownCLI) {
+			writeErr(w, http.StatusBadRequest, "unknown cli "+req.CLI)
+			return
+		}
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		var row *skills.Row
+		for i := range rep.Rows {
+			if rep.Rows[i].Dir == req.Dir && string(rep.Rows[i].Scope) == req.Scope {
+				row = &rep.Rows[i]
+			}
+		}
+		if row == nil {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "That skill is no longer where the list said; read it again.", "code": "stale"})
+			return
+		}
+		res, err := skills.SetEnabled(r.Context(), skills.ToggleReq{CLI: q.CLI, Workspace: q.Workspace, Row: *row, Enabled: req.Enabled})
+		switch {
+		case errors.Is(err, skills.ErrNoSwitch):
+			writeErr(w, http.StatusBadRequest, cliLabel(q.CLI)+" has no switch for this skill")
+			return
+		case errors.Is(err, skills.ErrStale):
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "The settings file changed while you were looking; read it again.", "code": "stale"})
+			return
+		case err != nil:
+			writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error(), "code": "refused"})
+			return
+		}
+		announceSkills(deps, "toggled", res.Name)
+		writeJSON(w, http.StatusOK, res)
 	}
 }

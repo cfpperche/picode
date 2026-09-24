@@ -208,3 +208,50 @@ func TestSkillsAgentRoutes(t *testing.T) {
 		t.Fatalf("second remove: %d", code)
 	}
 }
+
+// The toggle route writes the CLI's own key for a row the reader found, and
+// refuses a path the report never listed (it cannot be made to write one).
+func TestSkillsToggleRoute(t *testing.T) {
+	st := testStore(t) // sets its own HOME; ours comes after
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	proj := t.TempDir()
+	dir := filepath.Join(proj, ".agents", "skills", "probe")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: probe\ndescription: probe\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	w, err := st.AddWorkspace("Proj", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, AgentCmd: "cat"}).Handler)
+	t.Cleanup(ts.Close)
+	post := func(body string) (int, map[string]any) {
+		res, err := http.Post(ts.URL+"/api/skills/toggle", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		out := map[string]any{}
+		_ = json.NewDecoder(res.Body).Decode(&out)
+		return res.StatusCode, out
+	}
+
+	code, out := post(`{"cli":"codex","scope":"workspace","workspace":"` + w.ID + `","dir":"` + dir + `","enabled":false}`)
+	if code != http.StatusOK || out["enabled"] != false {
+		t.Fatalf("toggle: %d %v", code, out)
+	}
+	cfg, _ := os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
+	if !strings.Contains(string(cfg), filepath.Join(dir, "SKILL.md")) {
+		t.Fatalf("codex config: %s (result %v)", cfg, out)
+	}
+	if code, _ := post(`{"cli":"codex","scope":"machine","dir":"/etc/passwd","enabled":false}`); code != http.StatusConflict {
+		t.Fatalf("a path the report never listed: %d, want 409", code)
+	}
+	if code, _ := post(`{"cli":"pi","scope":"workspace","workspace":"` + w.ID + `","dir":"` + dir + `","enabled":false}`); code != http.StatusBadRequest {
+		t.Fatalf("pi has no switch: %d, want 400", code)
+	}
+}
