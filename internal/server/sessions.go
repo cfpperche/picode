@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/pimission"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -356,6 +357,9 @@ func (deps Deps) piSpawnFlags(agent store.Agent, receiver bool) []string {
 		flags = agent.CLIFlagsForSpawn(deps.Store.NewPendingAgentSession(agent.ID))
 	}
 	if receiver {
+		if path, err := pimission.Ensure(deps.DataDir); err == nil {
+			flags = append(flags, "-e", path)
+		}
 		if path, err := ensurePiReplyExtension(deps.DataDir); err == nil {
 			flags = append(flags, "-e", path)
 		}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/communication"
 	"github.com/cfpperche/picode/internal/mcp"
+	"github.com/cfpperche/picode/internal/pimission"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/toolpreview"
@@ -292,6 +293,11 @@ func (r *Runtime) start(agentID, path string, drain bool) (*ManagedAgent, error)
 				deliveryPaths = append(deliveryPaths, *a.SessionPath)
 			}
 			extraEnv = append(extraEnv, a.SpawnEnv()...)
+			path, e := pimission.Ensure(r.DataDir)
+			if e != nil {
+				return nil, fmt.Errorf("rpc: prepare native mission extension: %w", e)
+			}
+			args = append(args, "-e", path)
 		}
 	}
 	if r.DataDir != "" {

@@ -20,6 +20,7 @@ type Scope string
 const (
 	Machine   Scope = "machine"
 	Workspace Scope = "workspace"
+	Agent     Scope = "agent" // one agent's own skills, from PiCode's cache (slice 4)
 )
 
 // Status is what the CLI does with one skill folder.
@@ -29,6 +30,7 @@ const (
 	StatusInvalid    = "invalid"     // no frontmatter or no description: CLIs skip it
 	StatusNeedsTrust = "needs-trust" // the workspace is not trusted in this CLI
 	StatusIfTrusted  = "if-trusted"  // loads once the workspace is trusted; PiCode cannot read the CLI's trust
+	StatusMissing    = "missing"     // an agent skill whose cached folder is gone: the launch leaves it out
 )
 
 // Row is one skill folder a CLI reads.
@@ -65,6 +67,13 @@ type AgentInfo struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
 	Isolated bool   `json:"isolated"`
+	// Skills are the agent's own, as the store keeps them.
+	Skills []AgentSkill `json:"-"`
+}
+
+// AgentSkill is one of an agent's own skills: a folder in PiCode's cache.
+type AgentSkill struct {
+	Name, Digest, Source, Dir string
 }
 
 // Report is one CLI's skills.
@@ -240,6 +249,13 @@ func Read(q Query) (Report, error) {
 	}
 
 	winner := map[string]string{} // name → display root of the loaded copy
+	var agent *AgentInfo
+	if spec.AgentScope && q.Agent != nil {
+		agent = q.Agent
+	}
+	if agent != nil && spec.AgentOrder == AgentWins {
+		rep.Rows = append(rep.Rows, agentRows(agent, winner, false)...)
+	}
 	roots := resolveRoots(spec, homeDir, q.Workspace)
 	for _, r := range roots {
 		rep.Roots = append(rep.Roots, r.display)
@@ -286,7 +302,43 @@ func Read(q Query) (Report, error) {
 			rep.Rows = append(rep.Rows, row)
 		}
 	}
+	switch {
+	case agent == nil || spec.AgentOrder == AgentWins:
+	case spec.AgentOrder == AgentFoldersWin && !agent.Isolated:
+		rep.Rows = append(rep.Rows, agentRows(agent, winner, true)...)
+	default: // namespaced, or isolated: no folder skill competes for the name
+		rep.Rows = append(rep.Rows, agentRows(agent, map[string]string{}, true)...)
+	}
 	return rep, nil
+}
+
+// AgentRoot is how the pane names the agent's own list.
+const AgentRoot = "This agent only"
+
+// agentRows are the agent's own skills. yield: a folder copy that already
+// took the name wins (Pi); otherwise the agent's copy takes it (Omp).
+func agentRows(a *AgentInfo, winner map[string]string, yield bool) []Row {
+	var out []Row
+	for _, sk := range a.Skills {
+		fm, hasHeader := readFrontmatter(filepath.Join(sk.Dir, "SKILL.md"))
+		row := Row{Name: sk.Name, Description: fm.Description, Scope: Agent, Root: AgentRoot, Dir: sk.Dir, Digest: sk.Digest}
+		if sk.Source != "" {
+			row.Provenance = &Provenance{Installer: "picode", Source: sk.Source, Hash: sk.Digest}
+		}
+		row.Tokens = (len(row.Name) + len(row.Description) + 3) / 4
+		switch {
+		case !hasHeader:
+			row.Status = StatusMissing // the pane words it; the launch leaves it out
+		case yield && winner[row.Name] != "":
+			row.Status = StatusShadowed
+			row.ShadowedBy = winner[row.Name]
+		default:
+			row.Status = StatusLoaded
+			winner[row.Name] = AgentRoot
+		}
+		out = append(out, row)
+	}
+	return out
 }
 
 func provenanceFor(lk locks, row Row, homeDir, rel string) *Provenance {

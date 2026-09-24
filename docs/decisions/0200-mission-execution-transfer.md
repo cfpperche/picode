@@ -4,6 +4,9 @@
 - **Date**: 2026-09-23
 - **Boundary**: protocol and process — assignment authority, acknowledgements and recovery across native CLI sessions.
 
+Amended by [ADR-0213](0213-mission-native-session-binding.md) for Pi's first
+managed-session attribution when assignment precedes session creation.
+
 ## Context
 
 The approved mission plan requires one responsible executor while preserving

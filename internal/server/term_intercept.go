@@ -18,6 +18,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/pimission"
 )
 
 func interceptBinDir(dataDir string) string { return filepath.Join(dataDir, "bin") }
@@ -481,6 +483,9 @@ func writePiIntercept(dataDir, hook string) error {
 	// The wrapper names the receiver too (cliIntegrationPlan), so it has to
 	// exist before the first pi launches through it.
 	if _, err := ensurePiReplyExtension(dataDir); err != nil {
+		return err
+	}
+	if _, err := pimission.Ensure(dataDir); err != nil {
 		return err
 	}
 	piArgs := quotedCLIArgs(cliIntegrationPlan("pi", dataDir, hook).Branches[0].Args)

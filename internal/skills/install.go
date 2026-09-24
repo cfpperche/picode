@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -65,6 +66,10 @@ type staged struct {
 // are the truth; the manager keeps only previews in flight.
 type Manager struct {
 	StageRoot string
+	// CacheRoot holds agent skills by digest: <CacheRoot>/<digest>/<name>
+	// (slice 4). An agent's list names the folder; the folder never changes
+	// once written, so two agents with the same content share one copy.
+	CacheRoot string
 	Fetcher   *Fetcher
 	Home      string // defaults to the user's home
 	Now       func() time.Time
@@ -513,6 +518,9 @@ type Result struct {
 	Dir    string   `json:"dir,omitempty"`
 	Links  []string `json:"links,omitempty"`
 	Notes  []string `json:"notes,omitempty"`
+	// Digest and Source: an agent install, for the agent's list.
+	Digest string `json:"digest,omitempty"`
+	Source string `json:"source,omitempty"`
 }
 
 // InstallReq installs one candidate of a preview.
@@ -547,6 +555,9 @@ func (m *Manager) Install(req InstallReq) (Result, error) {
 	}
 	if hasCritical(cand.Findings) && !req.AcceptCritical {
 		return Result{}, conflict("critical", "%s has critical findings; confirm that you reviewed its files", cand.Name)
+	}
+	if req.Scope == Agent {
+		return m.cache(st, cand)
 	}
 	t := Target{Scope: req.Scope, Workspace: req.Workspace}
 	dst, err := m.canonicalDir(t, cand.Name)
@@ -600,6 +611,37 @@ func (m *Manager) Install(req InstallReq) (Result, error) {
 		return res, err
 	}
 	return res, nil
+}
+
+// cache writes a staged skill into the digest-addressed cache for an
+// agent's list. No lock, no link: the agent's CLI receives the folder at
+// launch, and nothing else reads it.
+func (m *Manager) cache(st *staged, cand *Candidate) (Result, error) {
+	dst, err := CacheDir(m.CacheRoot, cand.Digest, cand.Name)
+	if err != nil {
+		return Result{}, err
+	}
+	res := Result{Name: cand.Name, Dir: dst, Status: "installed", Digest: cand.Digest, Source: st.Source.Input}
+	if cur, err := Digest(dst); err == nil && cur == cand.Digest {
+		return res, nil
+	}
+	if err := place(filepath.Join(st.dir, filepath.FromSlash(cand.Path)), dst); err != nil {
+		return Result{}, err
+	}
+	return res, nil
+}
+
+var hexDigest = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// CacheDir is where an agent skill of this content and name lives.
+func CacheDir(root, digest, name string) (string, error) {
+	if root == "" {
+		return "", errors.New("no skill cache configured")
+	}
+	if !hexDigest.MatchString(digest) || !validName(name) {
+		return "", conflict("invalid", "%q is not a cacheable skill", name)
+	}
+	return filepath.Join(root, digest, name), nil
 }
 
 // RemoveReq removes one installed skill.

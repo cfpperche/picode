@@ -135,3 +135,42 @@ test("chips run Global, the workspace, then the agent where the CLI has one", ()
   assert.match(agentScopeLine({ agent: { name: "delivery", isolated: false } }, "omp"), /What delivery loads/);
   assert.equal(agentScopeLine({}, "pi"), "");
 });
+
+// --- slice 4: the agent's own skills (ADR-0196) -----------------------------
+import { AGENT_ROOT, installedLine, removeQuestion } from "./cliSkills.js";
+
+test("the agent chip lists the agent's own skills, isolated or not; other chips never do", () => {
+  const rows = [
+    { name: "own", scope: "agent", status: "loaded", root: AGENT_ROOT },
+    { name: "gone", scope: "agent", status: "missing", root: AGENT_ROOT },
+    { name: "shared", scope: "machine", status: "loaded", root: "~/.agents/skills" },
+  ];
+  assert.deepEqual(visibleSkills(rows, { scope: "agent", agent: { isolated: false } }).map((r) => r.name), ["own", "shared", "gone"]);
+  assert.deepEqual(visibleSkills(rows, { scope: "agent", agent: { isolated: true } }).map((r) => r.name), ["own", "gone"]);
+  assert.deepEqual(visibleSkills(rows, { scope: "machine" }).map((r) => r.name), ["shared"]);
+});
+
+test("agent rows: removable, addressed by agent, their words", () => {
+  const row = { name: "own", scope: "agent", status: "missing", root: AGENT_ROOT, provenance: { installer: "picode", source: "/home/me/skills/own/" } };
+  assert.equal(canRemoveSkill(row), true);
+  assert.deepEqual(skillTargetBody(row, "w1", "a1"), { name: "own", scope: "agent", agent: "a1" });
+  assert.equal(skillStatus(row, "pi").label, "Missing");
+  assert.equal(skillOrigin(row).label, "own");
+  assert.equal(skillOrigin({ provenance: { installer: "picode", source: "anthropics/skills" } }).label, "anthropics/skills");
+  assert.match(skillStatus({ status: "shadowed", shadowedBy: AGENT_ROOT }, "omp").detail, /agent's own copy wins/);
+  assert.match(installLine("agent", "demo", "delivery"), /for delivery alone/);
+  assert.match(installedLine({ name: "own", status: "installed" }, "agent", "delivery"), /added to delivery\. It loads at the next start/);
+  assert.match(installedLine({ name: "own", status: "already" }, "agent", "delivery"), /already on delivery/);
+  assert.match(removeQuestion(row, { agentName: "delivery" }), /from delivery\? It stops loading at the next start/);
+  assert.match(removeQuestion({ name: "x", scope: "workspace" }, { workspaceName: "demo" }), /from demo\? Every CLI/);
+  assert.match(agentScopeLine({ agent: { name: "delivery" } }, "claude-code"), /\/picode-agent:<name>/);
+});
+
+import { noAgentScopeLine } from "./cliSkills.js";
+
+test("a CLI without an agent scope says so when opened for an agent", () => {
+  assert.match(noAgentScopeLine({}, "codex", "a1"), /^Codex cannot take skills for one agent/);
+  assert.equal(noAgentScopeLine({}, "codex", ""), "");
+  assert.equal(noAgentScopeLine({ agent: { name: "x" } }, "pi", "a1"), "");
+  assert.equal(noAgentScopeLine({}, "claude-code", "a1"), "");
+});

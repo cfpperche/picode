@@ -4,6 +4,8 @@ Missions preserve outcomes independently of agent activity and native sessions.
 The [plan](../plans/missions.md) defines the acceptance scenarios; the store
 owns lifecycle, history, idempotency and reservations. Server observations own
 Git identity, revision, file digests, session identity and detected activity.
+Pi's first-session attribution amends [ADR-0200](../decisions/0200-mission-execution-transfer.md)
+through [ADR-0213](../decisions/0213-mission-native-session-binding.md).
 
 ## Contract
 
@@ -11,7 +13,7 @@ Git identity, revision, file digests, session identity and detected activity.
 |---|---|
 | `internal/store/missions*.go` | Atomic state/history/receipt/event writes; unique agent reservation; owner-only acceptance |
 | `internal/server/missions.go` | Owner routes, attributed agent tool route, filesystem/Git observations, serialized submission |
-| `cmd/picode/mission.go`, `internal/mcptool/mission.go` | One reporting contract over inherited launch identity |
+| `cmd/picode/mission.go`, `internal/mcptool/mission.go`, `internal/pimission` | One reporting contract over inherited launch identity; Pi also receives an embedded native extension in managed and interactive launches |
 | `web/shared/domain/missions.js`, `client/useMissions.js` | Route/draft/action model and injected hook lifecycle, with no React dependency |
 | Browser and mobile Missions views | Independent presentation and navigation using shared contracts |
 | `internal/inboxview/inbox.go` | Record correlated mission answers through the store; no implicit prompt send to a terminal |
@@ -36,6 +38,21 @@ payload conflicts. A per-mission server mutex serializes
 owner operations with sends; the store transaction makes competing agent
 reservations exclusive. External runtime and filesystem activity remains
 outside that transaction and must be observed and owner-confirmed.
+
+Pi's native `mission` tool is embedded in PiCode and injected with `-e` into
+managed RPC and interactive agent launches. It uses only Node built-ins and
+Pi's extension registration API; it does not require `pi-mcp-adapter`, a
+workspace package installation, or `.pi/settings.json`. The tool sends the
+same `/api/missions/tool` payload as the CLI/MCP implementation and stamps the
+inherited agent or terminal identity; it sends no client-provided native
+session field. The server resolves the current native session from PiCode's
+managed pending-session ledger, terminal runtime, or pinned last session for
+writes. Assigned `show` and `context` reads need no mutation fields or session
+binding. If a mission was assigned before the first session existed, its first
+acknowledgement binds that observed session through the existing store rule. A
+later mismatch is refused. The extension is available
+only in PiCode-launched Pi processes; it is not a general Pi MCP server or a
+new authority path.
 
 ## API and recovery
 

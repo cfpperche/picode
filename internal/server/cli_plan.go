@@ -10,6 +10,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/communication"
+	"github.com/cfpperche/picode/internal/pimission"
 )
 
 var piPassthrough = []string{"auth", "config", "install", "list", "remove", "uninstall", "update", "--help", "-h", "--version", "-v"}
@@ -24,11 +25,15 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		p.Branches = append(p.Branches, clilaunch.Injection{When: "Every launch", Args: []string{"--settings", claudeSettingsFile(dir)}})
 		p.Files = append(p.Files, claudeSettingsFile(dir))
 	case "pi":
-		p.Summary = "Activity and Ask-receiver extensions via -e"
+		p.Summary = "Activity, Ask-receiver and native Missions extensions via -e"
 		// The receiver (ADR-0060) rides along since ADR-0089's amendment: it is
 		// what lets the git graph and the Inspector ask this pi to do a git
 		// action in its own turn, with the session row as proof.
-		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not maintenance or help/version)", Args: []string{"-e", piTerminalStateExtensionFile(dir), "-e", piReplyExtensionFile(dir)}})
+		args := []string{"-e", piTerminalStateExtensionFile(dir), "-e", piReplyExtensionFile(dir)}
+		mission := pimission.Path(dir)
+		args = append(args, "-e", mission)
+		p.Files = append(p.Files, mission)
+		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not maintenance or help/version)", Args: args})
 		p.Files = append(p.Files, piTerminalStateExtensionFile(dir), piReplyExtensionFile(dir))
 	case "codex":
 		p.Summary = "Hooks or completion fallback via -c"

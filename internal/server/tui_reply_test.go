@@ -502,6 +502,15 @@ func TestSpawnFlagsInjectReplyReceiver(t *testing.T) {
 			}
 		}
 	}
+	missionCount := 0
+	for i, f := range flags {
+		if f == "-e" && i+1 < len(flags) && strings.HasSuffix(flags[i+1], "pi-mission.ts") {
+			missionCount++
+		}
+	}
+	if missionCount != 1 {
+		t.Fatalf("spawn flags must include exactly one native mission extension, got %v", flags)
+	}
 	if !found {
 		t.Fatalf("spawn flags %v do not inject the reply receiver", flags)
 	}

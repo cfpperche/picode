@@ -298,6 +298,15 @@ func handleRestoreAgent(deps Deps) http.HandlerFunc {
 			})
 			resume = err == nil
 		}
+		// The agent's own skills come back with it; their cached folders are
+		// never swept, so the launch finds them.
+		if err == nil && len(ex.Config.Skills) > 0 {
+			if withSkills, e := deps.Store.SetAgentSkills(agent.ID, ex.Config.Skills); e != nil {
+				err = e
+			} else {
+				agent = withSkills
+			}
+		}
 		if err != nil {
 			_ = deps.Store.DeleteAgent(agent.ID)
 			writeErr(w, http.StatusInternalServerError, err.Error())

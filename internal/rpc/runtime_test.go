@@ -117,6 +117,28 @@ func TestManagedDeliveryEngine(t *testing.T) {
 	}
 }
 
+func TestManagedPiLaunchInjectsOneNativeMissionExtension(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	w, agent, err := addWorkspaceWithAgent(st, "Native mission", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := t.TempDir()
+	rt := startRuntime(t, st)
+	rt.DataDir = data
+	if err := rt.Start(agent.ID, w.Path); err != nil {
+		t.Fatal(err)
+	}
+	defer rt.StopAll()
+	if _, err := os.Stat(filepath.Join(data, "intercept", "pi-mission.ts")); err != nil {
+		t.Fatalf("managed Pi did not prepare its native mission extension: %v", err)
+	}
+}
+
 func waitHub(t *testing.T, ch <-chan []byte, typ string, d time.Duration) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(d)
