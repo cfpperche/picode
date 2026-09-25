@@ -220,3 +220,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0213](0213-mission-native-session-binding.md) | Pi mission first-session attribution; amends ADR-0200 | proposed |
 | [0215](0215-local-api-host-and-fetch-metadata.md) | The local API refuses cross-site reads and mints loopback sessions only for first-party requests; the Host allowlist is the hostname on private suffixes plus the certificates' names | accepted, amends 0049 |
 | [0216](0216-client-version-handshake.md) | Out-of-process API clients send X-PiCode-Client with a protocol and get 426 when too old; the desktop shell announces its command protocol to the page | accepted |
+| [0217](0217-cli-unattended-runs.md) | Unattended automation runs on guest CLIs through their own TUI: `automations.cli`; Claude Code, Codex, Grok and Hermes start runs through the verified prompt door, the hooks end the turn, never an approval flag; amends 0107 | proposed |
