@@ -1937,6 +1937,38 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 }
 .tab-scroller:hover .tab-indicator, .tab-scroller[data-scrolling] .tab-indicator { opacity: 1; transition: opacity 100ms linear; }
 @media (prefers-reduced-motion: reduce) { .tab-indicator { transition: none; } }
+/* The same overflow chrome for in-page tab bars (OverflowTabs): the strip
+   keeps its own tab styling and loses its scrollbar; fades, arrows, the
+   "All tabs" list appear only while it overflows. No position indicator:
+   inside a card it read as a stray scrollbar thumb (visual review,
+   2026-09-24). The frame is what the parent bar lays out, so it shrinks
+   instead of the strip running past the card. The strip reaches 1px over
+   the bar's bottom border so a tab's -1px underline overlap survives the
+   scroll clip (it used to show 1px of its 2px). */
+.ovt { display: flex; align-items: stretch; flex: 0 1 auto; min-width: 0; }
+.ovt-scroller { position: relative; display: flex; flex: 1 1 auto; min-width: 0; }
+.ovt-strip {
+  flex: 1 1 auto; min-width: 0; position: relative;
+  overflow-x: auto; overflow-y: hidden;
+  padding-bottom: 1px; margin-bottom: -1px;
+  scrollbar-width: none; scroll-behavior: smooth; overscroll-behavior-x: contain;
+}
+.ovt-strip::-webkit-scrollbar { display: none; width: 0; height: 0; }
+@media (prefers-reduced-motion: reduce) { .ovt-strip { scroll-behavior: auto; } }
+.ovt-strip[data-at-start="false"] { mask-image: linear-gradient(to right, transparent, #000 28px); }
+.ovt-strip[data-at-end="false"] { mask-image: linear-gradient(to left, transparent, #000 28px); }
+.ovt-strip[data-at-start="false"][data-at-end="false"] {
+  mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+.ovt-arrow {
+  flex: none; align-self: center; width: 28px; height: 28px; margin: 0 1px; padding: 0;
+  border: 0; border-radius: var(--radius-ctl);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+}
+.ovt-arrow:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
+.ovt-arrow:disabled { opacity: .35; cursor: default; }
+.ovt-arrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .session-bar {
   display: flex; align-items: center; gap: 6px; flex: none;
   position: relative;
@@ -5752,13 +5784,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 
 /* The view's own tabs as an underline nav inside the card — the .cli-tabs
    rhythm. A strip wider than the card scrolls sideways instead of wrapping,
-   so the underline stays on one line. */
-.app-page-tabs {
-  display: flex; gap: 20px; padding: 0 24px;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto; scrollbar-width: none;
-}
-.app-page-tabs::-webkit-scrollbar { display: none; }
+   so the underline stays on one line; OverflowTabs adds the arrows. */
+.app-page-tabs-frame { padding: 0 24px; border-bottom: 1px solid var(--border); }
+.app-page-tabs { display: flex; gap: 20px; }
 .app-page-tab {
   display: inline-flex; align-items: center; gap: 6px; flex: none;
   padding: 16px 0 12px; margin-bottom: -1px;

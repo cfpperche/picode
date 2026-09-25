@@ -125,3 +125,19 @@ changelog entry. The global `* { scrollbar-width: thin }` collision with
 `::-webkit-scrollbar` that the first measurement exposed was fixed in the
 debts pass: the standard properties now live under
 `@supports not selector(::-webkit-scrollbar)` in both apps.
+
+## In-page tab bars (2026-09-24)
+
+The same chrome now covers the tab bars inside pages, which used to show a
+native horizontal scrollbar when they outgrew a narrow pane:
+`web/browser/src/components/OverflowTabs.jsx` wraps the CLI sections
+(`CliPaneTabs`), the CLIs / Messages / Settings bar (`CliTabs`) and an
+app's page tabs (`AppSurface` `PageTabs`). It reuses `useTabStrip` and
+`revealLeft`: no scrollbar, fades on the side that still has tabs, arrows,
+and a list (out-of-view tabs first) that follows a tab's `href` or calls
+the page's own navigation. Two differences from the editor strip: the
+vertical wheel stays with the page (`useTabStrip(…, { wheel: false })`),
+because these bars sit inside a page that scrolls vertically, and there
+is no position indicator — on a card's top edge it read as a stray
+scrollbar thumb. Bars that wrap instead (Preferences, llama) and the phone app
+(swipe, ADR-0072 keeps it separate) are unchanged.
