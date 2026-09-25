@@ -5,7 +5,7 @@ Decision: ADR-0194. Study: `docs/benchmarks/2026-09-23-agent-exit-feedback.md` (
 ## Next
 
 - Option B (backlog, owner 2026-09-24 — wait for more exits): designed in `docs/benchmarks/2026-09-24-exit-insights.md`. B0 (model at exit) done; next B1 = `GET /api/agent-exits/insights` computed on read + Outcomes ▸ Insights (outcome by CLI, cost per resolved, idle removals, recurring reason) with minimum samples and evidence ids; B2 = instructions before/after, needed-you, the New agent line; B3 = apply + applied-at + before/after (ADR). Thresholds (5 answered per group; 3 for reason and cost) await the owner.
-- Options C and D wait on a CLI-neutral unattended runner (Automations `start` is Pi-only) or a picode MCP verb for structured proposals; D also needs a security-model ADR (a reviewer reads every agent's transcript and writes repository files).
+- Options C and D wait on a picode MCP verb for structured proposals (the CLI-neutral unattended runner exists since ADR-0217: `start` runs on Claude Code, Codex, Grok and Hermes); D also needs a security-model ADR (a reviewer reads every agent's transcript and writes repository files).
 
 ## Debts
 
