@@ -21,7 +21,7 @@ describe("mobileRoute", () => {
     assert.equal(mobileHash("app", "docker"), "#/app/docker");
     assert.equal(mobileRoute("#/more/apps").section, "apps");
     // #/app/inbox was the Inbox's old address, retired 2026-09-25.
-    assert.notEqual(mobileRoute("#/app/inbox").screen, "inbox");
+    assert.equal(mobileRoute("#/app/inbox").screen, "now");
     assert.deepEqual(mobileRoute("#/app/docker/plan/qa%20review"), { screen: "app", id: "docker", section: "", path: "plan/qa review" });
   });
   it("parses the four tabs and the two pushed screens", () => {

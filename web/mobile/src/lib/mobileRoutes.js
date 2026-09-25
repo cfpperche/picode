@@ -99,6 +99,9 @@ export function mobileRoute(hash) {
   if (head === "snippets" && parts[1] === "new") return { screen: "snipEdit", id: "", section: "" };
   if (head === "snippets" && parts[1] && parts[2] === "edit") return { screen: "snipEdit", id: dec(parts[1]), section: "" };
   if (head === "snippets" && parts[1]) return { screen: "snip", id: dec(parts[1]), section: "" };
+  // The Inbox is a core screen, not an app (ADR-0208): its old app address
+  // lands on Now like any retired link instead of drawing the app surface.
+  if (head === "app" && parts[1] === "inbox") return { screen: "now", id: "", section: "" };
   if (head === "app" && parts[1]) return { screen: "app", id: dec(parts[1]), section: "", ...(appPath("#" + h) ? { path: appPath("#" + h) } : {}) };
   if (head === "file" || head === "tree" || head === "git") {
     return { screen: "work", id: "", section: "" };
