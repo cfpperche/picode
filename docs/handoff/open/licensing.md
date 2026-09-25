@@ -3,10 +3,10 @@
 PiCode is Apache-2.0 since ADR-0218 (`feat/apache-license`, 2026-09-25);
 `packages/` stay MIT (ADR-0028). Paid team-control features live only under a
 top-level `ee/` with its own commercial license. Detail: `LICENSING.md`.
+Pushed to GitHub on 2026-09-25 (`a12fb5aef`); GitHub detects `Apache-2.0`.
 
 ## Next
 
-- Owner pushes to GitHub (publishing the Apache versions is irrevocable); then confirm GitHub detects `Apache-2.0`, not `NOASSERTION`: `gh api repos/cfpperche/picode --jq .license`.
 - Write `ee/LICENSE` (commercial, lawyer-reviewed) in the branch that lands the first `ee/` file; none exists yet.
 - Register the trademark once the pending project rename is decided: Apache-2.0 grants no trademark rights (section 6).
 - `NOTICE` names `cfpperche` as copyright holder; switch it to the legal entity (with a copyright assignment) if a company is incorporated.
