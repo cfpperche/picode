@@ -38,9 +38,9 @@ rules live in [AGENTS.md](AGENTS.md) — this file covers the mechanics.
    before starting the next, and write the closing docs from `make
    close-summary` in a subagent, never at the peak context of the working
    session. The owner decides when a session ends.
-7. Code under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`,
-   `packages/pi-compact/`, and `packages/pi-diff/` is MIT; everything else is PolyForm
-   Noncommercial. See [LICENSING.md](LICENSING.md) and ADR-0028.
+7. Code under `packages/` is MIT; everything else is Apache-2.0, and paid
+   features live only under `ee/`. See [LICENSING.md](LICENSING.md), ADR-0028
+   and ADR-0218.
 
 ## The documentation contract (applies to everyone)
 
@@ -56,10 +56,9 @@ Code and docs change together, in the same commit:
 
 ## License of contributions
 
-PRs are [PolyForm Noncommercial 1.0.0](LICENSE) **and** grant the
-copyright holder the right to dual-license (including a commercial
-license). See [LICENSING.md](LICENSING.md). Do not send code you cannot
-offer on those terms.
+PRs are licensed under [Apache-2.0](LICENSE) (MIT under `packages/`); no
+CLA is required. See [LICENSING.md](LICENSING.md). Do not send code you
+cannot offer on those terms.
 
 ## Language
 

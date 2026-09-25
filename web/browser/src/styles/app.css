@@ -4588,6 +4588,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; }
 .set-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
 .set-pats { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+/* The list's empty line ("All models") borrows the sidebar's .side-empty;
+   its 4px side margin set it off the field's left edge. */
+.set-pats > .side-empty { margin-left: 0; margin-right: 0; }
 .set-pat-add { display: flex; gap: 6px; }
 .set-pat-add input {
   flex: 1; min-width: 0; padding: 4px 8px;

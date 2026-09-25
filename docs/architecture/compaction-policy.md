@@ -3,7 +3,7 @@
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
 **An extension, not core.** Opt-in pi package at `packages/pi-compact/`
-(MIT; the rest of this tree is PolyForm Noncommercial). The Go server has
+(MIT; the rest of this tree is Apache-2.0). The Go server has
 no code path that configures, config-reads or invokes it — its only
 involvement is exporting `PI_COMPACT_AGENT=<id>` into agent processes
 (`internal/store/agents.go`, `Agent.SpawnEnv`). Everything else runs

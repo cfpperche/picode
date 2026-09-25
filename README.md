@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://github.com/cfpperche/picode/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/cfpperche/picode/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://cfpperche.github.io/picode/"><img alt="Documentation" src="https://img.shields.io/badge/docs-online-777ff0"></a>
-  <a href="LICENSE"><img alt="PolyForm Noncommercial license" src="https://img.shields.io/badge/license-PolyForm--Noncommercial-blue"></a>
+  <a href="LICENSE"><img alt="Apache-2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
   <img alt="Pre-alpha status" src="https://img.shields.io/badge/status-pre--alpha-orange">
 </p>
 
@@ -177,7 +177,6 @@ sync.
 
 ## License
 
-PiCode is source-available. Personal and noncommercial use is covered by the
-[PolyForm Noncommercial License](LICENSE). Enterprise and other commercial use
-requires a paid license; see [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) and
-[LICENSING.md](LICENSING.md).
+PiCode is open source under the [Apache License 2.0](LICENSE), at home and at
+work. The installable CLI packages under `packages/` are MIT. Future paid team
+features will live only under `ee/`; see [LICENSING.md](LICENSING.md).

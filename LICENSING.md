@@ -1,46 +1,44 @@
 # Licensing
 
-PiCode is **source-available**, not OSI open source.
+PiCode is **open source** under the [Apache License 2.0](LICENSE)
+([ADR-0218](docs/decisions/0218-apache-license.md)). You may use it at
+home and at work, change it and redistribute it under those terms.
 
-| Use | License |
+| Path | License |
 |---|---|
-| Personal, hobby, education, research, charities, government | [PolyForm Noncommercial 1.0.0](LICENSE) |
-| Commercial / enterprise (including internal use at a company) | Paid license — see [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) |
-| `packages/pi-roles/` (the installable pi package) | [MIT](packages/pi-roles/LICENSE) — see [ADR-0028](docs/decisions/0028-model-roles.md) |
-| `packages/pi-inbox/` (the installable pi package) | [MIT](packages/pi-inbox/LICENSE) — see [ADR-0037](docs/decisions/0037-inbox-async-agent-human-messages.md) |
-| `packages/pi-checklist/` (the installable pi package) | [MIT](packages/pi-checklist/LICENSE) — see [ADR-0055](docs/decisions/0055-internal-checklist.md) |
-| `packages/pi-compact/` (the installable pi package) | [MIT](packages/pi-compact/LICENSE) — see [ADR-0061](docs/decisions/0061-compaction-policy-package.md) |
-| `packages/pi-diff/` (the installable pi package) | [MIT](packages/pi-diff/LICENSE) — see [ADR-0077](docs/decisions/0077-tui-diff-panel.md) |
+| Everything not listed below | [Apache-2.0](LICENSE) |
+| `packages/*/` (installable CLI packages: `pi-roles`, `pi-inbox`, `pi-checklist`, `pi-compact`, `pi-diff`, `pi-browser`, `pi-browser-capture`, `pi-computer`, `pi-delivery`, `pi-sysadmin`, `pi-connector-deepwiki`, `pi-connector-gmail`, `omp-checklist`) | MIT — each package's own `LICENSE` ([ADR-0028](docs/decisions/0028-model-roles.md)) |
+| `ee/` (does not exist yet) | Commercial license, stated in `ee/LICENSE` when the first file lands |
 
-Copyright stays with the author. A license is a **grant of permission**,
-not a transfer of ownership. MIT/Apache would give enterprise an
-irrevocable commercial right; that is why this repo is not MIT.
+## The `ee/` rule
 
-## What “personal” means here
+Paid features live only under a top-level `ee/` directory. It holds
+features whose buyer is an organization controlling a team: the team's
+fleet view, team inbox routing, central configuration of skills,
+instructions and models, company credentials with budgets, audit export,
+and SSO/SCIM. Anything one person needs stays outside `ee/` and stays
+Apache-2.0, including the multi-user gateway. Code published outside `ee/`
+is never moved into it.
 
-PolyForm Noncommercial’s own definitions apply. In short:
+## Earlier versions
 
-- Allowed: your machine, hobby, study, experiments, noncommercial orgs.
-- Not allowed without a commercial license: using PiCode at work, selling
-  access, bundling it in a product, or any use with anticipated commercial
-  application.
+Each version keeps the license it shipped with:
 
-## MIT copies already published
-
-Versions **before** this change were MIT. Those copies keep MIT. This
-tree, from this commit on, is PolyForm Noncommercial + commercial.
+| Versions | License |
+|---|---|
+| Before 2026-08-25 | MIT |
+| 2026-08-25 until ADR-0218 | PolyForm Noncommercial 1.0.0 plus a commercial license |
+| From ADR-0218 on | Apache-2.0 (packages MIT) |
 
 ## Contributions
 
-By opening a PR you license your contribution under PolyForm
-Noncommercial 1.0.0 **and** grant the copyright holder the right to
-offer that contribution under a commercial license. Do not contribute
-code you cannot offer on those terms.
+Contributions are licensed under Apache-2.0 (inbound equals outbound,
+Apache-2.0 section 5); contributions under `packages/` are MIT. No CLA is
+required. Do not contribute code you cannot offer on those terms.
 
-**Exception:** contributions under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`, `packages/pi-compact/`, and `packages/pi-diff/` are licensed MIT.
-Do not contribute code there you cannot offer under MIT. The same carve-out
-applies to any future installable pi extension we author in this tree
-(ADR-0028).
+## Trademark
 
-This is not legal advice. The commercial agreement should be reviewed
-by a lawyer before you sell it.
+The license grants no right to the PiCode name or logo (Apache-2.0
+section 6). A fork is welcome under a different name.
+
+This is not legal advice.
