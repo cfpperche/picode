@@ -12,7 +12,7 @@ fixed, pass 2 PASS. Not checked on a physical phone.
 visual-review: PASS
 Not done / debts: CLI settings value selects are content-sized, left edges
 do not align (noted, not fixed).
-Merge: fast-forward ready.
+Merge: landed on main ced1cba2c; deployed by the owner 2026-09-25.
 
 ## Debts
 

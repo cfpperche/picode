@@ -19,7 +19,7 @@ import { mentionAgents, agentsOf } from "@picode/shared/domain/tree.js";
 import { IconPlay, IconPlus, IconCopy, IconTrash, IconPencil, IconChevronLeft } from "./Icons.jsx";
 
 const REFRESH_MS = 15_000;
-import { automationsBlockedByPi, START_CLIS, startRunHint } from "@picode/shared/domain/automationsPi.js";
+import { automationsBlockedByPi, START_CLIS, costMeasured, startRunHint } from "@picode/shared/domain/automationsPi.js";
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 const SUGGESTED_KEY = "picode-automations-suggested";
 const CATEGORIES = [
@@ -415,7 +415,7 @@ function Detail({ a, clis = [], catalog, workspaces, freeAgents, agents, templat
         {a.action !== "message" && (a.cli || "pi") !== "pi" ? <><dt>CLI</dt><dd>{terminalCliLabel(a.cli)}, with its own settings</dd></> : null}
         {a.action !== "message" && (a.cli || "pi") === "pi" ? <><dt>Model</dt><dd>{a.provider || a.model ? [a.provider, a.model].filter(Boolean).join(" / ") + (a.thinking ? " · " + a.thinking : "") : "Pi's default"}</dd></> : null}
         {a.notifyUrl ? <><dt>Notifies</dt><dd><span className="auto-notify" title={a.notifyUrl}>{hostOf(a.notifyUrl)}</span> <CopyButton text={a.notifyUrl} label="Copy notify URL" small /></dd></> : null}
-        {a.maxCostUsd ? <><dt>Max cost per run</dt><dd>{money(a.maxCostUsd)}</dd></> : null}
+        {a.maxCostUsd ? <><dt>Max cost per run</dt><dd>{money(a.maxCostUsd)}{a.action !== "message" && !costMeasured(a.cli) ? <span className="auto-hint"> · not enforced: PiCode cannot read {terminalCliLabel(a.cli)}'s cost</span> : null}</dd></> : null}
         {a.maxRuns ? <><dt>Max runs</dt><dd>{a.maxRuns} per {windowLabel(a.maxRunsWindowMin)}</dd></> : null}
       </dl>
 
@@ -443,7 +443,7 @@ function Detail({ a, clis = [], catalog, workspaces, freeAgents, agents, templat
 
       <section className="settings-section">
         <h3>Runs</h3>
-        <RunsTable runs={runs} agentId={a.agentId} schedules={a.schedules} />
+        <RunsTable runs={runs} agentId={a.agentId} schedules={a.schedules} cli={a.action === "message" ? "pi" : a.cli} />
       </section>
     </div>
   );
@@ -467,7 +467,7 @@ function CopyButton({ text, label, small }) {
   );
 }
 
-function RunsTable({ runs, agentId, schedules }) {
+function RunsTable({ runs, agentId, schedules, cli = "pi" }) {
   if (runs === null) return <Skeleton />;
   if (!runs.length) return <p className="settings-desc">No runs yet. Use Run now to try it.</p>;
   return (
@@ -481,7 +481,7 @@ function RunsTable({ runs, agentId, schedules }) {
             <td title={absTime(r.firedAt)}>{relTime(r.firedAt)}</td>
             <td>{r.trigger}{scheduleLabelOf(schedules, r.scheduleId) ? <span className="auto-run-sched"> · {scheduleLabelOf(schedules, r.scheduleId)}</span> : null}</td>
             <td className="auto-run-result"><StatusPill status={r.status} />{r.reason && r.status !== "done" ? <div className="auto-run-reason">{r.reason}</div> : null}</td>
-            <td className="num">{r.status === "skipped" ? "" : money(r.costUsd)}</td>
+            <td className="num" title={costMeasured(cli) ? undefined : "Not measured: PiCode cannot read this CLI's cost yet"}>{r.status === "skipped" ? "" : costMeasured(cli) ? money(r.costUsd) : "—"}</td>
             <td>{r.sessionPath && agentId ? <a href={workspaceHash(agentId)}>Open agent</a> : null}</td>
           </tr>
         ))}

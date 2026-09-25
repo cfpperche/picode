@@ -125,7 +125,10 @@ func peerInputMatches(cli string, s tmux.InputSnapshot, expected string) bool {
 			strings.HasPrefix(clean(s.CursorY+2), "/") && strings.Contains(clean(s.CursorY+3), "%/")
 	}
 	if cli == "opencode" {
-		return peerOpenCodeInput(s, expected)
+		return peerOpenCodeInput(s, expected) || peerOpenCodeHomeInput(s, expected)
+	}
+	if cli == "omp" {
+		return peerOmpInput(s, expected)
 	}
 	if cli == "grok" && strings.HasPrefix(strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[s.CursorY], "")), "│") {
 		return peerGrokBoxInput(s, expected)
@@ -757,6 +760,14 @@ func peerComposerHoldsDraft(cli string, s tmux.InputSnapshot) bool {
 				return body != "" && !grokEmptySuggestion.MatchString(raw) && !grokEmptySuggestion1030.MatchString(raw)
 			}
 		}
+	case "omp":
+		if peerOmpFrame(s) {
+			return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "╰─")) != ""
+		}
+	case "opencode":
+		if peerOpenCodeHomeFrame(s) {
+			return !peerOpenCodeHomeEmpty(s) && s.CursorX > opencodeHomeTextCol
+		}
 	case "pi":
 		// Frame region: content between the two rules at the cursor.
 		y := s.CursorY
@@ -768,4 +779,71 @@ func peerComposerHoldsDraft(cli string, s tmux.InputSnapshot) bool {
 		return clean(y-1) == rule && clean(y+1) == rule && clean(y) != ""
 	}
 	return false
+}
+
+// Omp 18.2 (measured 2026-09-25, ADR-0217): the input is the screen's last
+// row, "╰─ " then the text, under Omp's status bar (segments joined by
+// " > "). The cursor sits at 3 + the text's width.
+func peerOmpFrame(s tmux.InputSnapshot) bool {
+	y := s.CursorY
+	if y < 1 || y >= len(s.Lines) {
+		return false
+	}
+	clean := func(n int) string { return strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[n], "")) }
+	if !strings.HasPrefix(clean(y), "╰─") || !strings.Contains(clean(y-1), " > ") {
+		return false
+	}
+	for n := y + 1; n < len(s.Lines); n++ {
+		if clean(n) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func peerOmpInput(s tmux.InputSnapshot, expected string) bool {
+	if !peerOmpFrame(s) {
+		return false
+	}
+	line := strings.TrimRight(terminalSGR.ReplaceAllString(s.Lines[s.CursorY], ""), " \t")
+	if expected == "" {
+		return strings.TrimSpace(line) == "╰─" && s.CursorX == 3
+	}
+	return line == "╰─ "+expected && s.CursorX == 3+utf8.RuneCountInString(expected)
+}
+
+// OpenCode 1.18's home screen (a new session, before its first message;
+// measured 2026-09-25): the input row sits between two bar rows ("┃" only),
+// over the agent · model row, the "╹▀▀" lower border and the commands footer.
+// Text starts at column 6; the empty field shows a grey placeholder
+// (38;2;128;128;128), typed text is bright.
+const opencodeHomeTextCol = 6
+
+var opencodeHomePlaceholder = regexp.MustCompile(`┃(?:\x1b\[[0-9;]*m)*  \x1b\[38;2;128;128;128m`)
+
+func peerOpenCodeHomeFrame(s tmux.InputSnapshot) bool {
+	y := s.CursorY
+	if y < 1 || y+3 >= len(s.Lines) {
+		return false
+	}
+	clean := func(n int) string { return strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[n], "")) }
+	return clean(y-1) == "┃" && clean(y+1) == "┃" && strings.HasPrefix(clean(y+2), "┃") && strings.Contains(clean(y+2), " · ") &&
+		strings.HasPrefix(clean(y+3), "╹▀") && strings.Contains(clean(y+4), "ctrl+p")
+}
+
+func peerOpenCodeHomeEmpty(s tmux.InputSnapshot) bool {
+	raw := s.Lines[s.CursorY]
+	rest := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(terminalSGR.ReplaceAllString(raw, "")), "┃"))
+	return s.CursorX == opencodeHomeTextCol && (rest == "" || opencodeHomePlaceholder.MatchString(raw))
+}
+
+func peerOpenCodeHomeInput(s tmux.InputSnapshot, expected string) bool {
+	if !peerOpenCodeHomeFrame(s) {
+		return false
+	}
+	if expected == "" {
+		return peerOpenCodeHomeEmpty(s)
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[s.CursorY], "")), "┃"))
+	return rest == expected && s.CursorX == opencodeHomeTextCol+utf8.RuneCountInString(expected)
 }

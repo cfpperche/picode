@@ -33,7 +33,7 @@ cost fallback. `message` enqueues a
 
 An automation's `cli` (`automations.cli`, default `pi`; `store.UnattendedCLIs`)
 picks the CLI of its `start` runs. `pi` is the managed runtime above. For
-`claude-code`, `codex`, `grok` and `hermes`, `cliStartRun`
+`claude-code`, `codex`, `grok`, `hermes`, `opencode` and `omp`, `cliStartRun`
 (`automations_cli.go`) reuses the automation's own agent of that CLI (created
 with its terminal through `createCLIAgent` on the first run), closes an open
 terminal and starts it again (a new conversation), then `driveCLIRun`:
@@ -58,4 +58,9 @@ Pi agent's does: that terminal is someone's. The editor offers the CLI
 (`START_CLIS`, pinned to the store's list by `TestStartCLIsMatchTheEditor`)
 and hides Pi's provider, model and thinking for the others. Measured
 2026-09-25 on a scratch instance: Claude Code 2.1.282 3/3 runs done (~$0.15
-each), Codex 0.157.0 2/2 (~$0.12); Grok and Hermes not run live.
+each), Codex 0.157.0 2/2 (~$0.12), OpenCode 1.18.32 2/2 and Omp 18.2.11 2/2
+(~$0.0016); Grok and Hermes not run live. The cost cap holds only where the
+session file is priced (`climetrics.Metered`: Claude Code, Codex, Omp); for
+OpenCode, Grok and Hermes the runs table shows "—" and the editor's hint says
+the limit does not stop them (`METERED_CLIS`, pinned by
+`TestMeteredCLIsMatchTheEditor`).
