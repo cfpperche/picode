@@ -184,3 +184,26 @@ func TestOmpAndOpenCodeComposers(t *testing.T) {
 		}
 	}
 }
+
+// Grok 1.0.41 (captured live 2026-09-25): the welcome row names the build,
+// and the indented box must not read as a draft when it is empty.
+func TestGrok1041Composer(t *testing.T) {
+	load := func(name string) tmux.InputSnapshot {
+		t.Helper()
+		b, err := os.ReadFile("testdata/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var s tmux.InputSnapshot
+		if err := json.Unmarshal(b, &s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	if st, known := peerComposerState("grok", load("grok-1041-empty.json")); !known || st != "empty" {
+		t.Fatalf("grok 1.0.41 empty = %q known=%v", st, known)
+	}
+	if st, known := peerComposerState("grok", load("grok-1041-draft.json")); !known || st != "occupied" {
+		t.Fatalf("grok 1.0.41 draft = %q known=%v", st, known)
+	}
+}

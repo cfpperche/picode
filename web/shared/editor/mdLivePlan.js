@@ -1,5 +1,5 @@
 import { syntaxTree } from "@codemirror/language";
-import { ALERT_KINDS, anchorTargets, createSlugger, DOC_ID_PREFIX, splitFrontmatter } from "@picode/shared/domain/mdDocument.js";
+import { ALERT_KINDS, anchorTargets, createSlugger, DOC_ID_PREFIX, splitFrontmatter } from "../domain/mdDocument.js";
 
 // planLive decides what the Live view (Obsidian-style live preview) does to
 // each piece of markdown in `ranges`: style it, hide its syntax, or stand a

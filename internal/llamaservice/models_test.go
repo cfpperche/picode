@@ -63,6 +63,11 @@ func TestDownloadOwnershipMatrix(t *testing.T) {
 			if recorded != (scenario == "new") {
 				t.Fatalf("ownership recorded=%v", recorded)
 			}
+			// A download that failed keeps nothing: its starting file list
+			// is dropped with it (it stayed forever before 2026-09-25).
+			if _, kept := s.doc.Downloads[j.ID]; scenario == "failed" && kept {
+				t.Fatal("a failed download kept its starting file list")
+			}
 		})
 	}
 }
@@ -135,5 +140,46 @@ func TestEndpointAliases(t *testing.T) {
 	}
 	if s.ownsEndpoint("http://remote:18080") {
 		t.Fatal("remote inferred as owned")
+	}
+}
+
+// Lists left by earlier runs — a job that is over, or gone from the store —
+// are dropped when the service opens; an active job keeps its list.
+func TestOpenDropsDownloadListsOfEndedJobs(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	begin := func(key, model string) store.LlamaJob {
+		j, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: key, Endpoint: "http://127.0.0.1:1", ConnectionID: "c", Model: model, Operation: "download"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return j
+	}
+	active := begin("k-active", "a")
+	ended := begin("k-ended", "b")
+	ended.State = "failed"
+	if _, err := st.UpdateLlamaJob(ended); err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(st, dir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.doc.Downloads = map[string][]string{active.ID: {}, ended.ID: {}, "gone": {}}
+	if err := s.save(); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	again, err := New(st, dir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(again.Close)
+	if _, ok := again.doc.Downloads[active.ID]; !ok || len(again.doc.Downloads) != 1 {
+		t.Fatalf("downloads after open = %v; only the active job's list stays", again.doc.Downloads)
 	}
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -19,6 +20,11 @@ import (
 func registerSkillRoutes(mux Registrar, deps Deps) {
 	mgr := skills.NewManager(filepath.Join(deps.DataDir, "skills", "stage"))
 	mgr.CacheRoot = filepath.Join(deps.DataDir, "skills", "cache")
+	// Copies no agent and no restorable exit names are swept at start and
+	// after each removal (agent_skill_cache.go).
+	if deps.Store != nil && deps.DataDir != "" {
+		sweepAgentSkillCacheLater(deps)
+	}
 	mux.HandleFunc("GET /api/skills/report", handleSkillsReport(deps))
 	// Slice 2: install, remove, update, check — PiCode's own writes into the
 	// CLIs' folders and the skills CLI's locks (ADR-0196).
@@ -158,7 +164,109 @@ func removeForAgent(deps Deps, name, agentID string) (skills.Result, error) {
 	if _, err := deps.Store.SetAgentSkills(a.ID, next); err != nil {
 		return skills.Result{}, err
 	}
+	sweepAgentSkillCacheLater(deps)
 	return skills.Result{Name: name, Status: "removed"}, nil
+}
+
+// checkAgentSkills compares each of the agent's own skills with the source
+// it was added from: the source is read again once (a preview, nothing
+// installed) and the skill found by name. A copy in the cache never
+// changes, so an agent skill is never "modified" — only current, behind,
+// missing from its source, or unreachable with the reason.
+func checkAgentSkills(ctx context.Context, mgr *skills.Manager, a store.Agent) []skills.UpdateRow {
+	previews := map[string]skills.Preview{}
+	failures := map[string]error{}
+	out := []skills.UpdateRow{}
+	for _, sk := range a.Skills {
+		row := skills.UpdateRow{Name: sk.Name, Scope: skills.Agent, Source: sk.Source}
+		if sk.Source == "" {
+			row.Status, row.Reason = "unreachable", "it was added without a source PiCode can read again"
+			out = append(out, row)
+			continue
+		}
+		p, seen := previews[sk.Source]
+		if !seen && failures[sk.Source] == nil {
+			var err error
+			if p, err = mgr.Preview(ctx, sk.Source); err != nil {
+				failures[sk.Source] = err
+			} else {
+				previews[sk.Source] = p
+			}
+		}
+		if err := failures[sk.Source]; err != nil {
+			row.Status, row.Reason = "unreachable", err.Error()
+			out = append(out, row)
+			continue
+		}
+		cand, ok := agentCandidate(p, sk.Name)
+		switch {
+		case !ok:
+			row.Status, row.Reason = "missing", "its source no longer has a skill named "+sk.Name
+		case cand.Digest == sk.Digest:
+			row.Status = "current"
+		default:
+			row.Status = "behind"
+		}
+		out = append(out, row)
+	}
+	return out
+}
+
+func agentCandidate(p skills.Preview, name string) (skills.Candidate, bool) {
+	for _, c := range p.Candidates {
+		if c.Name == name {
+			return c, true
+		}
+	}
+	return skills.Candidate{}, false
+}
+
+// updateForAgent caches the source's newer copy and points the agent's
+// list at it; the agent loads it at its next start. A critical finding in
+// the new copy needs force, as an install needs its confirmation.
+func updateForAgent(ctx context.Context, deps Deps, mgr *skills.Manager, name, agentID string, force bool) (skills.Result, error) {
+	agentSkillsMu.Lock()
+	defer agentSkillsMu.Unlock()
+	a, err := skillsAgent(deps, agentID)
+	if err != nil {
+		return skills.Result{}, err
+	}
+	at := -1
+	for i, sk := range a.Skills {
+		if sk.Name == name {
+			at = i
+		}
+	}
+	if at < 0 {
+		return skills.Result{}, skills.ErrNotInstalled
+	}
+	cur := a.Skills[at]
+	if cur.Source == "" {
+		return skills.Result{}, &skills.Conflict{Code: "invalid", Message: name + " was added without a source PiCode can read again"}
+	}
+	p, err := mgr.Preview(ctx, cur.Source)
+	if err != nil {
+		return skills.Result{}, err
+	}
+	cand, ok := agentCandidate(p, name)
+	if !ok {
+		return skills.Result{}, &skills.Conflict{Code: "gone", Message: "its source no longer has a skill named " + name}
+	}
+	if cand.Digest == cur.Digest {
+		return skills.Result{Name: name, Status: "current", Dir: cur.Dir, Digest: cur.Digest}, nil
+	}
+	res, err := mgr.Install(skills.InstallReq{Preview: p.ID, Path: cand.Path, Scope: skills.Agent, AcceptCritical: force})
+	if err != nil {
+		return res, err
+	}
+	next := append([]store.AgentSkill{}, a.Skills...)
+	next[at] = store.AgentSkill{Name: name, Digest: res.Digest, Source: cur.Source, Dir: res.Dir}
+	if _, err := deps.Store.SetAgentSkills(a.ID, next); err != nil {
+		return res, err
+	}
+	res.Status = "updated"
+	sweepAgentSkillCacheLater(deps)
+	return res, nil
 }
 
 func announceSkills(deps Deps, action, name string) {
@@ -268,10 +376,21 @@ func handleSkillsUpdate(deps Deps, mgr *skills.Manager) http.HandlerFunc {
 			Name      string `json:"name"`
 			Scope     string `json:"scope"`
 			Workspace string `json:"workspace"`
+			Agent     string `json:"agent"`
 			Force     bool   `json:"force"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "bad request")
+			return
+		}
+		if req.Scope == string(skills.Agent) {
+			res, err := updateForAgent(r.Context(), deps, mgr, req.Name, req.Agent, req.Force)
+			if err != nil {
+				skillsError(w, err)
+				return
+			}
+			announceSkills(deps, res.Status, req.Name)
+			writeJSON(w, http.StatusOK, res)
 			return
 		}
 		scope, path, err := skillsTarget(deps, req.Scope, req.Workspace)
@@ -301,6 +420,9 @@ func handleSkillsUpdates(deps Deps, mgr *skills.Manager) http.HandlerFunc {
 			scopes = []string{s}
 		}
 		for _, s := range scopes {
+			if s == string(skills.Agent) {
+				continue // the agent's rows follow
+			}
 			scope, path, err := skillsTarget(deps, s, q.Get("workspace"))
 			if err != nil {
 				skillsError(w, err)
@@ -312,6 +434,12 @@ func handleSkillsUpdates(deps Deps, mgr *skills.Manager) http.HandlerFunc {
 				return
 			}
 			out = append(out, rows...)
+		}
+		// The agent's own skills, when the pane names an agent that has them.
+		if id := strings.TrimSpace(q.Get("agent")); id != "" && (q.Get("scope") == "" || q.Get("scope") == string(skills.Agent)) {
+			if a, err := skillsAgent(deps, id); err == nil {
+				out = append(out, checkAgentSkills(r.Context(), mgr, a)...)
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"rows": out})
 	}

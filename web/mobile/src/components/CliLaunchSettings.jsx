@@ -121,6 +121,7 @@ export function LaunchSummary({ plan, title = "Launch settings", compact = false
       <dt>Environment</dt><dd>{list(plan.envKeys?.map((k) => k + "=••••"), "No additions")}<small>{plan.envKeys?.length ? plan.origins?.env : null}</small></dd>
       <dt>PiCode additions</dt><dd>{plan.integration ? injection?.summary || "Activity reporting on" : "None · activity reporting off"}<small>{plan.origins?.integration}</small></dd>
       {plan.tools?.length ? <><dt>PiCode tools</dt><dd>{plan.toolInjection?.summary || plan.tools.join(", ")}<small>{plan.origins?.tools}</small></dd></> : null}
+      {plan.agentInjection ? <><dt>Agent's own skills</dt><dd>{plan.agentInjection.summary}</dd></> : null}
     </dl>
     {!compact ? <details className="cli-effective"><summary>View launch details</summary>
       <div className="cli-injection">
@@ -130,6 +131,11 @@ export function LaunchSummary({ plan, title = "Launch settings", compact = false
           {Object.entries(injection?.environment || {}).map(([k, v]) => <p key={k}><code>{k}={v}</code></p>)}
           <h4>PiCode files</h4><div>{list(injection?.files, "None")}</div>
         </>}
+        {plan.agentInjection?.branches?.length ? <>
+          <h4>Agent's own skills</h4>
+          {plan.agentInjection.branches.map((b) => <div key={b.when}><p>{b.when}</p><pre>{b.args.map((a) => JSON.stringify(a)).join("\n")}</pre></div>)}
+          <div>{list(plan.agentInjection.files, "None")}</div>
+        </> : null}
         {plan.managedEnv ? <><h4>Launch correlation</h4><p>{plan.managedEnv.join(" · ")}</p></> : null}
         {plan.inheritedPath ? <><h4>Inherited service PATH</h4><div>{list(plan.inheritedPath, "Empty")}</div></> : null}
         <p className="cli-muted">Native CLI settings stay with the CLI. <code>run-{'{next}'}</code> is allocated at launch.</p>

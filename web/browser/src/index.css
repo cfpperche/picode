@@ -22,6 +22,7 @@
    the page rules out-rank the chat's `.md` message rhythm. */
 @import "@picode/shared/styles/markdown-doc.css";
 @import "@picode/shared/styles/highlight.css";
+@import "@picode/shared/styles/md-live.css";
 
 /*
   Tailwind theme maps onto the existing CSS variables (app.css :root).

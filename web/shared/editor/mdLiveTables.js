@@ -84,13 +84,14 @@ export function inlineTokens(src) {
 }
 
 // tableSkip: CodeMirror's vertical motion steps over a block widget. When a
-// move from `head` to `target` would cross a rendered table, it stops on the
+// move from `head` to `target` would cross a rendered block (a table, or any
+// block carrying `lastFrom`), it stops on the
 // table's near edge instead — its first line going down, its last going up —
 // which puts the cursor in the table and turns it back into source.
 export function tableSkip(tables, head, target, forward) {
   for (const t of forward ? tables : [...tables].reverse()) {
     if (forward && t.from > head && t.from <= target) return t.from;
-    if (!forward && t.to < head && t.to >= target) return lastLineStart(t);
+    if (!forward && t.to < head && t.to >= target) return t.lastFrom ?? lastLineStart(t);
   }
   return null;
 }

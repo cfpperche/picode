@@ -48,8 +48,8 @@ terminal and starts it again (a new conversation), then `driveCLIRun`:
    the CLI's own prompt-submit);
 3. follows `TermStates` each second: `idle` set after the paste ends the
    turn; each new `needs-you` files one Inbox question and the run waits;
-   the session file is priced every 30 s against the cost cap
-   (`climetrics.MeterSessionFile` on the pinned last session); 2 h times out;
+   the session is priced every 30 s against the cost cap
+   (`climetrics.MeterSession` on the pinned last session); 2 h times out;
 4. prices the session, finishes the run (Inbox result, notify URL) and
    closes the terminal with the ADR-0085 escalation (`killTerminalPane`).
 
@@ -59,8 +59,10 @@ Pi agent's does: that terminal is someone's. The editor offers the CLI
 and hides Pi's provider, model and thinking for the others. Measured
 2026-09-25 on a scratch instance: Claude Code 2.1.282 3/3 runs done (~$0.15
 each), Codex 0.157.0 2/2 (~$0.12), OpenCode 1.18.32 2/2 and Omp 18.2.11 2/2
-(~$0.0016); Grok and Hermes not run live. The cost cap holds only where the
-session file is priced (`climetrics.Metered`: Claude Code, Codex, Omp); for
-OpenCode, Grok and Hermes the runs table shows "—" and the editor's hint says
-the limit does not stop them (`METERED_CLIS`, pinned by
-`TestMeteredCLIsMatchTheEditor`).
+(~$0.0016), Grok 1.0.41 2/2 and Hermes 2/2 (the owner's logins through `QA_LOGINS=1`). Every `start`
+CLI is priced (`climetrics.Metered`, `METERED_CLIS`, pinned by
+`TestMeteredCLIsMatchTheEditor`): a file for Claude Code, Codex and Omp, the
+session folder for Grok, the session's rows in OpenCode's and Hermes' SQLite
+stores (`climetrics.MeterSession`). A turn the CLI recorded at $0 on a model
+the price table lacks (GLM on the owner's Z.AI plan, measured 2026-09-25) is
+`unpriced`, not a cost, so it never trips the cap; the editor's hint says so.

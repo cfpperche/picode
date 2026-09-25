@@ -1,0 +1,100 @@
+/* The Live editor (shared/editor/mdLive.js), for the desktop file pane
+   (.file-cm) and the phone's editor (.m-file-editor). `:is()` keeps each
+   rule's weight as it was in the desktop sheet: some rules out-rank others on
+   purpose (see the `.cm-line` reset). Loaded by all three apps. */
+/* Live (markdown rendered in the editor, mdLive.js). The same text as Raw:
+   prose in the reading face at a reading measure, no gutter, and the syntax
+   the plan hides only reappears on the line being edited. Measures follow
+   markdown-doc.css so Live and Preview read alike. */
+:is(.file-cm, .m-file-editor) .cm-editor.cm-md-live .cm-scroller { font-family: var(--sans); font-size: 15px; line-height: 1.65; }
+:is(.file-cm, .m-file-editor) .cm-editor.cm-md-live .cm-gutters { display: none; }
+:is(.file-cm, .m-file-editor) .cm-editor.cm-md-live .cm-content { max-width: 860px; margin: 0 auto; padding: 24px 32px 48px; }
+/* (0,3,0) on purpose: line classes below (quote, code panel) set their own padding. */
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-line { padding: 0; }
+:is(.file-cm, .m-file-editor) .cm-editor.cm-md-live .cm-activeLine { background: transparent; }
+:is(.file-cm, .m-file-editor) .cm-md-live .tok-heading, :is(.file-cm, .m-file-editor) .cm-md-live .tok-strong { color: inherit; }
+:is(.file-cm, .m-file-editor) .cm-md-live .tok-emphasis { font-style: inherit; }
+:is(.file-cm, .m-file-editor) .cm-md-live .tok-link, :is(.file-cm, .m-file-editor) .cm-md-live .tok-url { color: inherit; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-syntax, :is(.file-cm, .m-file-editor) .cm-md-live .tok-meta, :is(.file-cm, .m-file-editor) .cm-md-live .tok-processingInstruction { color: var(--text-secondary); font-style: normal; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-line:is(.cm-md-h1, .cm-md-h2, .cm-md-h3, .cm-md-h4, .cm-md-h5, .cm-md-h6) { font-weight: 600; line-height: 1.25; padding-top: .6em; padding-bottom: .2em; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-h3 { font-size: 1.25em; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-h5 { font-size: .875em; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-h6 { font-size: .85em; color: var(--text-secondary); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-rule-mark { color: var(--text-secondary); font-size: 12px; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-strong { font-weight: 600; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-em { font-style: italic; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-strike { text-decoration: line-through; color: var(--text-secondary); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-code {
+  font-family: var(--code); font-size: 85%; padding: .15em .35em; border-radius: 5px;
+  background: color-mix(in srgb, var(--text-secondary) 16%, transparent);
+}
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-link { color: var(--accent); text-decoration: none; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-link:hover { text-decoration: underline; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-bullet { color: var(--text-secondary); }
+/* Nested list indentation is the source's own spaces; in the reading face a
+   space is ~4px, so each one is widened to read like a list level. */
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-indent { letter-spacing: .55em; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-listmark { color: var(--text-secondary); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-task { margin: 0 .5em 0 0; vertical-align: -2px; accent-color: var(--accent); cursor: pointer; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-quote { border-left: .25em solid color-mix(in srgb, var(--text-secondary) 45%, transparent); padding-left: 1em; color: var(--text-secondary); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-alert { color: var(--text-primary); border-left-color: var(--alert); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-alert-note { --alert: var(--accent); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-alert-tip { --alert: var(--ok); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-alert-important { --alert: color-mix(in srgb, var(--accent) 55%, var(--danger)); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-alert-warning { --alert: var(--warn); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-alert-caution { --alert: var(--danger); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-alert-title { font-weight: 600; color: var(--alert); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-codeblock {
+  font-family: var(--code); font-size: 13px; line-height: 1.5;
+  background: var(--bg-panel); padding: 0 16px;
+}
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-fence { color: var(--text-secondary); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-fence-label { font-size: 11px; letter-spacing: .04em; text-transform: lowercase; color: var(--text-secondary); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-hr { background: linear-gradient(var(--border), var(--border)) center / 100% 3px no-repeat; }
+:is(.file-cm, .m-file-editor) .cm-md-live :is(.cm-md-table, .cm-md-html, .cm-md-frontmatter) { font-family: var(--code); font-size: 13px; line-height: 1.5; }
+/* A table no selection touches is drawn (mdLiveTables.js), measured like
+   markdown-doc.css's table; a wide one scrolls inside itself. The source
+   (the class above) comes back when the cursor enters it. */
+/* contain: the table's minimum width must not widen the editor's content
+   (every prose line would then run past the pane); the widget keeps the
+   pane's width and scrolls the table inside itself. */
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-table-widget { contain: inline-size; overflow-x: auto; padding: 4px 0 12px; cursor: text; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-table-widget.cm-md-table-quoted { border-left: .25em solid color-mix(in srgb, var(--text-secondary) 45%, transparent); padding: 4px 0 4px 1em; }
+/* Math and Mermaid (mdLiveMath.js): rendered while the cursor is elsewhere,
+   source on the line or block being edited. Wide output scrolls inside its
+   own box, like a wide table. */
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-math-block { contain: inline-size; overflow-x: auto; overflow-y: hidden; padding: 8px 0; cursor: text; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-math-block .katex-display { margin: 0; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-math .katex, :is(.file-cm, .m-file-editor) .cm-md-live .cm-md-math-block .katex { color: inherit; font-size: 1.08em; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-math-src { font-family: var(--code); font-size: 90%; color: var(--text-secondary); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-mermaid { contain: inline-size; overflow-x: auto; padding: 12px 0; text-align: center; cursor: text; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-mermaid svg { display: inline-block; max-width: 100%; height: auto; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-math-block { text-align: center; }
+:is(.file-cm, .m-file-editor) .cm-md-live .katex-error { color: var(--danger) !important; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-math-lines { font-family: var(--code); font-size: 13px; color: var(--text-secondary); }
+/* A rendered block is also a way into its source: say so on hover. */
+:is(.file-cm, .m-file-editor) .cm-md-live :is(.cm-md-math-block, .cm-md-mermaid, .cm-md-table-widget) { border-radius: 6px; transition: box-shadow var(--motion-fast); }
+:is(.file-cm, .m-file-editor) .cm-md-live :is(.cm-md-math-block, .cm-md-mermaid):hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+/* The cursor line inside a code block keeps the code panel. */
+:is(.file-cm, .m-file-editor) .cm-editor.cm-md-live .cm-activeLine.cm-md-codeblock { background: var(--bg-panel); }
+:is(.file-cm, .m-file-editor) .cm-md-live :is(.cm-md-rendering, .cm-md-render-failed) { padding: 12px 0; font-size: 13px; color: var(--text-secondary); text-align: left; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-table-widget table { border-collapse: collapse; font-size: 14px; line-height: 1.5; }
+/* The editor wraps anywhere (.cm-lineWrapping); a cell must not, or a wide
+   table shrinks to one letter per column instead of scrolling. */
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-table-widget :is(th, td) {
+  padding: 6px 13px; border: 1px solid var(--border-strong); vertical-align: top;
+  white-space: normal; overflow-wrap: normal; word-break: normal;
+}
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-table-widget th { font-weight: 600; text-align: left; background: color-mix(in srgb, var(--text-secondary) 12%, transparent); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-table-widget tr:nth-child(even) td { background: color-mix(in srgb, var(--text-secondary) 6%, transparent); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-frontmatter { color: var(--text-secondary); }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-image { display: block; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-image img { display: block; max-width: 100%; max-height: 420px; height: auto; margin: 4px 0; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-image-missing {
+  padding: 0 6px; font-size: 12.5px; color: var(--text-secondary);
+  border: 1px dashed var(--border-strong); border-radius: 4px;
+}
+:is(.file-cm, .m-file-editor):has(> .cm-md-live) { container-type: inline-size; }
+@container (max-width: 520px) { :is(.file-cm, .m-file-editor) .cm-editor.cm-md-live .cm-content { padding: 16px; } }

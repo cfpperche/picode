@@ -10,10 +10,12 @@ tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split wit
 
 ## Next
 
-- Live: render math and Mermaid in place (tables render since `feat/md-live-tables`); they stay monospace source today.
-- Live and Split on the phone (mobile keeps Preview and Edit).
+- Live on the phone: a way to follow a link by touch (long-press?) — Ctrl/⌘+click has no touch equivalent; Preview follows links today.
 
 ## Debts
+
+- [ ] Source views (Raw, Edit, Split, Live on the cursor line): table pipes take `tok-meta`'s italic and read like `/`; fenced code is not highlighted inside the editor (no `codeLanguages` given to `markdown()`).
+- [ ] Live → Split: the first source scroll can land a few hundred px off while CodeMirror re-measures Live's taller lines; the sync itself stays on the right section.
 
 - [ ] Live: a top-level bullet sits ~3px from its text (the source's own space in the reading face); a bullet margin would read better but brings back a ~5px shift when the line reveals `- `.
 

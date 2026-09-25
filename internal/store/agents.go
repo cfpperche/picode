@@ -52,6 +52,9 @@ type AgentSkill struct {
 	Digest string `json:"digest"`
 	Source string `json:"source,omitempty"` // where it was added from, as the person typed it
 	Dir    string `json:"dir"`              // the cached folder
+	// Missing is read, never stored: the cached folder is gone, so the
+	// launch leaves the skill out and the agent's row says so.
+	Missing bool `json:"missing,omitempty"`
 }
 
 const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist, cli, terminal_id, skills`
@@ -68,6 +71,11 @@ func scanAgent(row interface{ Scan(...any) error }, a *Agent) error {
 	a.Packages = decodePackages(pkgs)
 	a.PackagesIsolated = isolated != 0
 	a.Skills = decodeAgentSkills(skills)
+	for i := range a.Skills {
+		if _, err := os.Stat(filepath.Join(a.Skills[i].Dir, "SKILL.md")); err != nil {
+			a.Skills[i].Missing = true
+		}
+	}
 	if strings.TrimSpace(a.CLI) == "" {
 		a.CLI = CLIPi
 	}
@@ -522,6 +530,7 @@ func (s *Store) SetAgentSkills(id string, list []AgentSkill) (Agent, error) {
 		if !agentSkillName.MatchString(sk.Name) || strings.Contains(sk.Name, "--") {
 			return Agent{}, invalidError{"A skill name is lowercase letters, digits and single hyphens."}
 		}
+		sk.Missing = false
 		if sk.Dir == "" || !filepath.IsAbs(sk.Dir) {
 			return Agent{}, invalidError{"A skill needs its cached folder."}
 		}

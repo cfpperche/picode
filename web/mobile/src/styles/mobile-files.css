@@ -43,6 +43,16 @@
 .m-file-preview .file-preview-md { overflow-wrap: anywhere; }
 .m-file-preview .file-preview-md pre { overflow: auto; }
 .m-file-display { display: flex; gap: 6px; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+/* Editor and preview share one body. Split stacks them on a phone held
+   upright (source above, page below, half each) and puts them side by side
+   once the screen is wide enough for two readable columns. */
+.m-file-body { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+.m-file-body.is-split > .m-file-editor, .m-file-body.is-split > .m-file-preview { flex: 1 1 0; }
+.m-file-body.is-split > .m-file-preview { border-top: 1px solid var(--border); }
+@media (min-width: 700px) {
+  .m-file-body.is-split { flex-direction: row; }
+  .m-file-body.is-split > .m-file-preview { border-top: 0; border-left: 1px solid var(--border); }
+}
 .m-file-display [aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
 .m-file-empty { padding: 18px 10px; text-align: center; color: var(--text-secondary); font-size: 13px; }
 .m-file-search-note { margin: 0; padding: 6px 10px; color: var(--text-secondary); font-size: 12px; }

@@ -393,7 +393,7 @@ func TestMeterExitScopes(t *testing.T) {
 		_ = os.WriteFile(filepath.Join(agentDir, n), []byte("{}\n"), 0o644)
 	}
 	calls := 0
-	meter := func(cli, path string) (ExitCost, bool) {
+	meter := func(cli, path, _ string) (ExitCost, bool) {
 		calls++
 		return ExitCost{Cost: 1.5, Estimated: 0.5, Tokens: 100, Turns: 2, Models: map[string]int{"m-a": 1, "m-b": 1}}, true
 	}
@@ -410,7 +410,7 @@ func TestMeterExitScopes(t *testing.T) {
 	if c := meterExit(guest, ExitSessions{}, meter); c != nil {
 		t.Fatalf("no session known must be not measured: %+v", c)
 	}
-	none := func(string, string) (ExitCost, bool) { return ExitCost{}, false }
+	none := func(string, string, string) (ExitCost, bool) { return ExitCost{}, false }
 	if c := meterExit(guest, ExitSessions{CLISessionPath: "x"}, none); c != nil {
 		t.Fatalf("an unmeasurable session must be nil, not zero: %+v", c)
 	}
@@ -424,7 +424,7 @@ func TestExitCostIsStoredAndSummed(t *testing.T) {
 	if _, err := s.UpdateAgent(a.ID, AgentPatch{SessionPath: &sp}); err != nil {
 		t.Fatal(err)
 	}
-	meter := func(cli, path string) (ExitCost, bool) { return ExitCost{Cost: 2.25, Tokens: 10, Turns: 1}, true }
+	meter := func(cli, path, _ string) (ExitCost, bool) { return ExitCost{Cost: 2.25, Tokens: 10, Turns: 1}, true }
 	ex, err := s.RemoveAgentWithExit(a.ID, ExitInput{Meter: meter})
 	if err != nil || ex.Cost == nil || ex.Cost.Cost != 2.25 {
 		t.Fatalf("exit cost = %+v %v", ex.Cost, err)
@@ -453,7 +453,7 @@ func TestExitModelFromSessions(t *testing.T) {
 		t.Fatal("no models, no answer")
 	}
 	s := openTest(t)
-	meter := func(cli, path string) (ExitCost, bool) {
+	meter := func(cli, path, _ string) (ExitCost, bool) {
 		return ExitCost{Turns: 5, Models: map[string]int{"gpt-6-astra": 4, "gpt-6-mini": 1}}, true
 	}
 	a, _ := s.AddAgent(FreeWorkspaceID, "guest", "")

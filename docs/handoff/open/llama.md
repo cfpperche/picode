@@ -14,3 +14,20 @@
   200 ms handler now, and the test is 20/20 alone and 0/4 failing under four
   parallel loops.
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
+- [x] Cleanup hashed selected cache files under the service lock (2026-09-23
+  `llama-jobs-resolve` debt): paid 2026-09-25 by `feat/llama-debts` — hashes
+  are taken before the lock and kept by file identity (`hash_memo.go`).
+- [x] A download's starting file list (`doc.Downloads`) stayed forever when the
+  download did not succeed: paid 2026-09-25 by `feat/llama-debts`.
+- [x] Supervisor kill after the router is reaped could race PID reuse: paid
+  2026-09-25 by `feat/llama-debts` (group killed before the reap).
+- [ ] A SIGKILL of the llama supervisor itself leaves the router's per-model
+  children running (2026-09-25). Closing it moves the process boundary
+  (ADR-0090: supervisor reports the router PID to PiCode, or a cgroup per
+  service) — the owner's call.
+- [ ] An unknown download whose model is absent is released only by Abandon —
+  a documented choice (docs/plans/llama-manager.md, ADR-0083), not a leak. An
+  automatic release after N quiet polls would amend ADR-0083 — the owner's call.
+- [ ] `llama_jobs` rows are never deleted (~1–3 KB each). A retention rule
+  (e.g. non-active rows older than 30 days beyond the newest 500) is a
+  persistence decision (ADR-0083) — the owner's call.

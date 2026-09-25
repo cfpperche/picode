@@ -131,6 +131,8 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
     try {
       const q = new URLSearchParams();
       if (workspaceId) q.set("workspace", workspaceId);
+      // The agent's own skills are checked against their sources too.
+      if (data?.agent && agentId) q.set("agent", agentId);
       const res = await api("/api/skills/updates?" + q);
       setUpdates(res.rows || []);
     } catch (x) {
@@ -332,7 +334,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
                       </td>
                       <td className="cli-skills-c-status">
                         <span className={"cli-skills-status is-" + st.tone} title={st.detail || ""}>{st.label}</span>
-                        {updateOf[row.scope + ":" + row.name]?.status === "behind" && canRemoveSkill(row) ? <span className="cli-skills-flag is-update"> · update</span> : null}
+                        {updateOf[row.scope + ":" + row.name]?.status === "behind" && canRemoveSkill(row) ? <span className="cli-skills-flag is-update">update</span> : null}
                       </td>
                       <td className="cli-skills-c-origin" title={origin.title}>{origin.label}{origin.modified ? <span className="cli-skills-flag"> · edited</span> : null}</td>
                       <td className="cli-skills-c-root" title={row.dir}>{row.root}{row.linked ? <span className="cli-skills-flag"> · link</span> : null}</td>
