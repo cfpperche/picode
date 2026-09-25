@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
     "highlight.js": "^11.12.0",
+    "katex": "^0.18.9",
+    "mermaid": "^11.17.2",
     "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
@@ -32,6 +37,9 @@
     "./contracts/appPrimitives.js": "./contracts/appPrimitives.js",
     "./contracts/schemas.js": "./contracts/schemas.js",
     "./data/whats-new.json": "./data/whats-new.json",
+    "./editor/mdLive.js": "./editor/mdLive.js",
+    "./editor/mdLivePlan.js": "./editor/mdLivePlan.js",
+    "./editor/splitSync.js": "./editor/splitSync.js",
     "./domain/agentStatus.js": "./domain/agentStatus.js",
     "./domain/agentTerminal.js": "./domain/agentTerminal.js",
     "./domain/agentRowMenu.js": "./domain/agentRowMenu.js",
@@ -129,6 +137,7 @@
     "./styles/agent-exit.css": "./styles/agent-exit.css",
     "./styles/highlight.css": "./styles/highlight.css",
     "./styles/markdown-doc.css": "./styles/markdown-doc.css",
+    "./styles/md-live.css": "./styles/md-live.css",
     "./styles/providers.css": "./styles/providers.css",
     "./styles/scrollbars.css": "./styles/scrollbars.css",
     "./domain/llamaJobs.js": "./domain/llamaJobs.js",
@@ -158,9 +167,10 @@
     "./client/useDeliveryModes.js": "./client/useDeliveryModes.js"
   },
   "scripts": {
-    "test": "node --test client/*.test.js contracts/*.test.js domain/*.test.js"
+    "test": "node --test client/*.test.js contracts/*.test.js domain/*.test.js editor/*.test.js"
   },
   "devDependencies": {
+    "@codemirror/lang-markdown": "^6.5.2",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "unified": "^11.0.5"

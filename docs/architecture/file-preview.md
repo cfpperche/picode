@@ -36,11 +36,11 @@ markdown is kept in `localStorage` (`picode-md-view`), per browser.
 |---|---|---|
 | Source lines | `rehypeSourceLines` via `withSourceLines(offset)` | runs last in the pipeline and stamps `data-line` on blocks (paragraphs, headings, list items, table rows, fences, alerts…) from parser positions; `offset` puts the frontmatter's lines back so numbers are the file's own. Only Split asks for it |
 | Mapping | `web/shared/domain/scrollSync.js` | `syncBlocks` keeps blocks whose line moves forward; `previewTopFor` / `lineFor` interpolate between the two blocks around a position (fractional lines); top and bottom of either pane pin the other to its top and bottom |
-| Wiring | `web/browser/src/lib/useSplitSync.js` | editor scroll → preview, preview scroll → editor, each programmatic scroll ignoring its own echo for 120ms; the side the reader moved last leads, and a preview re-render (typing, late images, the lazy chunk) re-syncs to the editor; double-click on a preview block puts the cursor on its line and scrolls the editor so that line sits level with the block, which does not move |
+| Wiring | `web/shared/editor/splitSync.js` (`attachSplitSync`; the desktop wraps it in `useSplitSync`, the phone in `FileDocument`) | editor scroll → preview, preview scroll → editor, each programmatic scroll ignoring its own echo for 120ms; the side the reader moved last leads, and a preview re-render (typing, late images, the lazy chunk) re-syncs to the editor; double-click on a preview block puts the cursor on its line and scrolls the editor so that line sits level with the block, which does not move |
 
 The preview renders a deferred copy of the text (`useDeferredValue`), so a
-keystroke never waits for the markdown render. Split is desktop and browser
-only; the phone keeps Preview and Edit.
+keystroke never waits for the markdown render. The phone has Split too
+(see "On the phone").
 
 ### Live (markdown rendered in the editor)
 
@@ -54,16 +54,27 @@ keeps the cursor and the undo history.
 
 | Piece | Where | Rule |
 |---|---|---|
-| Plan | `web/browser/src/lib/mdLivePlan.js` | `planLive(state, ranges, activeLines)` walks the lezer tree (`markdownLanguage`, GFM) over the visible ranges and returns data: line classes, marks, hides, labels, bullet/task/image widgets. Tested without a DOM |
-| View | `web/browser/src/lib/mdLive.js` | a `ViewPlugin` turns the plan into decorations on doc, viewport, selection, focus and tree changes; replacements never cross a line break; the task checkbox edits `[ ]`↔`[x]` as one undoable change; images resolve like the preview (repo SVG as a `data:` image) |
+| Plan | `web/shared/editor/mdLivePlan.js` | `planLive(state, ranges, activeLines)` walks the lezer tree (`markdownLanguage`, GFM) over the visible ranges and returns data: line classes, marks, hides, labels, bullet/task/image widgets. Tested without a DOM |
+| View | `web/shared/editor/mdLive.js` | a `ViewPlugin` turns the plan into decorations on doc, viewport, selection, focus and tree changes; replacements never cross a line break; the task checkbox edits `[ ]`↔`[x]` as one undoable change; images resolve like the preview (repo SVG as a `data:` image) |
 | Links | `openLink` in `FilePane` | Ctrl/⌘+click: `#frag` moves the cursor to the heading with the preview's slug (`headingPos`), a relative path opens the file (`onOpenPath`), the web opens a new tab; a plain click only places the cursor |
 
-| Tables | `web/browser/src/lib/mdLiveTables.js` + `tableField` in `mdLive.js` | a table spans lines and only a state field may replace across line breaks, so tables are a separate `StateField` (told about focus by `focusChangeEffect`): every table no selection touches is one block widget — header, alignment from the delimiter row, inline code/bold/italic/strike/links built as DOM nodes (never parsed HTML). A click puts the cursor in the cell it hit (positions re-read at click time), which turns the table back into source; Ctrl/⌘+click on a cell link follows it. Up/Down stop on a table's near row (`tableSkip`) instead of stepping over the widget. The widget is `contain: inline-size`, so a wide table scrolls inside itself and never widens the editor |
+| Tables | `web/shared/editor/mdLiveTables.js` + `tableField` in `mdLive.js` | a table spans lines and only a state field may replace across line breaks, so tables are a separate `StateField` (told about focus by `focusChangeEffect`): every table no selection touches is one block widget — header, alignment from the delimiter row, inline code/bold/italic/strike/links built as DOM nodes (never parsed HTML). A click puts the cursor in the cell it hit (positions re-read at click time), which turns the table back into source; Ctrl/⌘+click on a cell link follows it. Up/Down stop on a table's near row (`tableSkip`) instead of stepping over the widget. The widget is `contain: inline-size`, so a wide table scrolls inside itself and never widens the editor |
 
-| Math and Mermaid | `web/browser/src/lib/mdLiveMath.js` + `blockField` in `mdLive.js` | the grammar has no math, so `$$` blocks and `$…$` spans are found in the text outside code, raw HTML and link targets; inline `$` follows pandoc's rule (no space inside the dollars, no digit after the closing one), so prices stay text. `$$` blocks and ```` ```mermaid ```` fences join tables in one block field; inline math is a per-line widget that owns its text (nothing else decorates inside it). KaTeX and Mermaid load on first use and cache output by source; Mermaid runs with `securityLevel: "strict"` and takes the theme at render time |
+| Math and Mermaid | `web/shared/editor/mdLiveMath.js` + `blockField` in `mdLive.js` | the grammar has no math, so `$$` blocks and `$…$` spans are found in the text outside code, raw HTML and link targets; inline `$` follows pandoc's rule (no space inside the dollars, no digit after the closing one), so prices stay text. `$$` blocks and ```` ```mermaid ```` fences join tables in one block field; inline math is a per-line widget that owns its text (nothing else decorates inside it). KaTeX and Mermaid load on first use and cache output by source; Mermaid runs with `securityLevel: "strict"` and takes the theme at render time |
 
 Raw HTML and frontmatter stay as monospace source in Live; Preview renders
 them.
+
+### On the phone
+
+The mobile Files screen offers **Preview · Live · Split · Edit** for markdown
+(its Edit is the desktop's Raw) and shares the desktop's remembered choice.
+Live is the same `markdownLive` compartment on the phone's editor; Split
+stacks source above page in portrait and goes side by side at ≥700px, synced
+by `attachSplitSync` against `.m-file-preview` (the phone's scroll box).
+Links in Live need Ctrl/⌘+click, which touch does not have — on the phone a
+tap edits the link and Preview follows it. The Live styles are
+`web/shared/styles/md-live.css`, loaded by all three apps.
 
 Styles live in `web/shared/styles/markdown-doc.css`, loaded after each app's
 sheet and scoped under `.md-doc`, so the chat's `.md` message rhythm is

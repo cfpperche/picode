@@ -1,10 +1,10 @@
 import { Decoration, EditorView, ViewPlugin, WidgetType, keymap } from "@codemirror/view";
 import { Prec, StateEffect, StateField } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
-import { api } from "@picode/shared/client/api.js";
-import { svgDataUrl } from "@picode/shared/domain/filePreview.js";
-import { resolveDocImage } from "@picode/shared/domain/mdDocument.js";
-import { safeImgSrc } from "@picode/shared/domain/mdSafe.js";
+import { api } from "../client/api.js";
+import { svgDataUrl } from "../domain/filePreview.js";
+import { resolveDocImage } from "../domain/mdDocument.js";
+import { safeImgSrc } from "../domain/mdSafe.js";
 import { activeLines, planLive } from "./mdLivePlan.js";
 import { inlineTokens, planTables, tableSkip } from "./mdLiveTables.js";
 import { planInlineMath, planMathBlocks, planMermaid } from "./mdLiveMath.js";
@@ -372,7 +372,7 @@ class MermaidWidget extends WidgetType {
     const fail = () => {
       el.classList.remove("cm-md-rendering");
       el.classList.add("cm-md-render-failed");
-      el.textContent = "Can't draw this diagram. Click to edit it.";
+      el.textContent = "Can't draw this diagram — edit its source to fix it.";
       view.requestMeasure();
     };
     // A failure is remembered like a drawing: re-rendering a broken diagram

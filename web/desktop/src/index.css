@@ -24,6 +24,7 @@
 /* Markdown files as documents (MarkdownDoc), after the app sheet. */
 @import "@picode/shared/styles/markdown-doc.css";
 @import "@picode/shared/styles/highlight.css";
+@import "@picode/shared/styles/md-live.css";
 
 /* ADR-0161: only ancestors of a live native page clear their paint. The
    native chrome region keeps other content and floating layers interactive. */
