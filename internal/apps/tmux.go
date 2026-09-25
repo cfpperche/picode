@@ -33,7 +33,6 @@ import (
 	"fmt"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
-	"net/url"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -429,11 +428,9 @@ func tmuxAttribution(st *store.Store, name string) (kind, scope, ownerID, ownerN
 // PiCodes share the machine, not their stores, so "no record here" is not
 // proof of garbage.
 //
-// The instance stamp is authoritative. A session created before the stamp
-// existed falls back to the loopback address it carries: a different port on
-// the same machine is a different instance (nothing else can hold that port).
-// When neither can be read the answer is "no" — the session is treated as
-// before, and the screen says why it cannot be sure.
+// The instance stamp is authoritative. A session without one (the port
+// fallback for pre-ADR-0140 sessions was retired 2026-09-25) is "no": the
+// session is treated as before, and the screen says why it cannot be sure.
 func tmuxElsewhere(h Host, receipt tmux.SessionReceipt) (where string, yes bool) {
 	if h.Tmux == nil {
 		return "", false
@@ -448,24 +445,7 @@ func tmuxElsewhere(h Host, receipt tmux.SessionReceipt) (where string, yes bool)
 		}
 		return "its data directory is " + receipt.Instance, true
 	}
-	if ours == "" || receipt.URL == "" || h.LoopbackURL == "" {
-		return "", false
-	}
-	mine, theirs := tmuxPort(h.LoopbackURL), tmuxPort(receipt.URL)
-	if mine == "" || theirs == "" || mine == theirs {
-		return "", false
-	}
-	return receipt.URL, true
-}
-
-// tmuxPort is the port of a loopback URL, "" when the string does not carry
-// one.
-func tmuxPort(raw string) string {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return ""
-	}
-	return u.Port()
+	return "", false
 }
 
 // tmuxMarkerOwner answers whether the session's own marker names something this
