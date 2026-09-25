@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/cliinstructions"
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/climetrics"
 	"github.com/cfpperche/picode/internal/pricing"
 	"github.com/cfpperche/picode/internal/store"
@@ -24,6 +25,8 @@ import (
 func registerAgentExitRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/agent-exits", handleListAgentExits(deps))
 	mux.HandleFunc("GET /api/agent-exits/summary", handleAgentExitSummary(deps))
+	// Outcomes with and without each skill (ADR-0196 slice 6).
+	mux.HandleFunc("GET /api/agent-exits/skills", handleAgentExitSkills(deps))
 	mux.HandleFunc("GET /api/agent-exits/export", handleExportAgentExits(deps))
 	mux.HandleFunc("GET /api/agent-exits/prefs", handleAgentExitPrefs(deps))
 	mux.HandleFunc("PUT /api/agent-exits/prefs", handleSetAgentExitPrefs(deps))
@@ -137,7 +140,8 @@ func (deps Deps) exitPreviewFor(agent store.Agent, now time.Time) *exitPreview {
 // the client did not show the question, the skip says why: the server's
 // own reason, or "client" when the server would have asked.
 func (deps Deps) exitInput(agent store.Agent, req exitRequest, purgeSessions, purgeWork bool, now time.Time) store.ExitInput {
-	in := store.ExitInput{Origin: store.ExitFromAPI, SessionsPurged: purgeSessions, WorkPurged: purgeWork, Meter: exitMeter(), PiSessionFallback: piSessionFallback, Instructions: exitInstructions}
+	in := store.ExitInput{Origin: store.ExitFromAPI, SessionsPurged: purgeSessions, WorkPurged: purgeWork, Meter: exitMeter(), PiSessionFallback: piSessionFallback, Instructions: exitInstructions,
+		Skills: func(a store.Agent) []clilaunch.SkillUse { return launchSkills(deps, a) }}
 	if b := req.Exit; b != nil {
 		in.Origin = b.Origin
 		in.Asked = b.Asked
@@ -221,6 +225,17 @@ func handleAgentExitSummary(deps Deps) http.HandlerFunc {
 			rng = normalizeRange(rng)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"range": rng, "summary": sum, "taxonomy": store.ExitTaxonomyV1()})
+	}
+}
+
+func handleAgentExitSkills(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		st, err := deps.Store.AgentExitSkillStats(exitFilterOf(r, time.Now()))
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, st)
 	}
 }
 

@@ -219,3 +219,25 @@ test("marketplace words", () => {
   assert.match(catalogEmptyLine("pdf", false), /No skill matches “pdf”/);
   assert.match(catalogEmptyLine("", true), /Reading the sources/);
 });
+
+// --- slice 6: the lifecycle ----------------------------------------------------
+import { askLabel, canPromoteSkill, promoteQuestion, promoteRetry, promotedLine, trialLine } from "./cliSkills.js";
+
+test("an agent's own skill is trying, then promoted to the workspace", () => {
+  const own = { name: "tried", scope: "agent", status: "loaded" };
+  assert.equal(canPromoteSkill(own, { workspacePath: "/w" }), true);
+  assert.equal(canPromoteSkill(own, {}), false, "a free agent has no project");
+  assert.equal(canPromoteSkill({ ...own, status: "missing" }, { workspacePath: "/w" }), false);
+  assert.equal(canPromoteSkill({ ...own, scope: "workspace" }, { workspacePath: "/w" }), false);
+  assert.match(trialLine(own, { agentName: "Atlas", workspaceName: "PiCode" }), /^Trying in Atlas only\..*promote it to PiCode\.$/);
+  assert.equal(trialLine({ scope: "machine" }), "");
+  assert.match(promoteQuestion(own, { agentName: "Atlas", workspaceName: "PiCode" }), /^Promote tried to PiCode\? .*leaves Atlas's own list\.$/);
+  assert.match(promotedLine({ name: "tried", status: "installed" }, "PiCode"), /now in PiCode/);
+  assert.deepEqual(promoteRetry("exists"), { replace: true });
+  assert.deepEqual(promoteRetry("critical"), { acceptCritical: true });
+  assert.equal(promoteRetry("invalid"), null);
+  assert.equal(askLabel({ verb: "promote", extra: {} }), "Promote");
+  assert.equal(askLabel({ verb: "promote", extra: { replace: true } }), "Replace it");
+  assert.equal(askLabel({ verb: "remove", extra: { confirm: true } }), "Remove anyway");
+  assert.equal(askLabel({ verb: "update", extra: { force: true } }), "Update anyway");
+});

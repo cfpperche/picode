@@ -20,3 +20,19 @@ export function sessionHostTab({ agentId = "", termId = "", openTabs = [], agent
   if (agentId) return agentId;
   return "";
 }
+
+// What a session command does to the human's view (ADR-0172). Only `open`
+// and the command that creates the split bring the session forward; every
+// other verb runs in the split where it is, so an agent driving its page does
+// not pull the human away from the tab they are using.
+//
+//   host tab open | split exists | method     | action
+//   no            | any          | any        | "open"   (open + select the host)
+//   yes           | no           | any        | "select"
+//   yes           | yes          | shell.open | "select"
+//   yes           | yes          | other      | "none"
+export function sessionReveal({ hostOpen = false, splitExists = false, method = "" } = {}) {
+  if (!hostOpen) return "open";
+  if (!splitExists || method === "shell.open") return "select";
+  return "none";
+}
