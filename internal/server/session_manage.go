@@ -40,6 +40,47 @@ func workspaceSessionDirs(deps Deps, wk store.Workspace) []string {
 	return dirs
 }
 
+// workspaceOmpAgentDirs are the per-agent Omp session directories of a
+// workspace's Omp agents (--session-dir, cli_launch.go). Removed agents
+// are not listed; their transcripts live on in the agent history.
+func workspaceOmpAgentDirs(deps Deps, wk store.Workspace) []string {
+	agents, err := deps.Store.ListAgents(wk.ID)
+	if err != nil {
+		return nil
+	}
+	var dirs []string
+	for _, a := range agents {
+		if a.CLI == "omp" {
+			dirs = append(dirs, ompAgentSessionDir(deps.DataDir, a.ID))
+		}
+	}
+	return dirs
+}
+
+// ompSessionUseBy maps the session file each Omp agent's terminal is pinned
+// to (its current conversation) to the agent, so the Sessions view offers
+// that agent instead of starting a second Omp on the same file.
+func ompSessionUseBy(deps Deps) map[string]sessionUse {
+	out := map[string]sessionUse{}
+	agents, err := deps.Store.ListAllAgents()
+	if err != nil {
+		return out
+	}
+	for _, a := range agents {
+		if a.CLI != "omp" || a.TerminalID == nil {
+			continue
+		}
+		launch, err := deps.Store.TerminalLaunch(*a.TerminalID)
+		if err != nil || launch == nil || launch.LastSession == nil || launch.LastSession.CLI != "omp" || launch.LastSession.Path == "" {
+			continue
+		}
+		if _, taken := out[launch.LastSession.Path]; !taken {
+			out[launch.LastSession.Path] = sessionUse{AgentID: a.ID, AgentName: a.Name}
+		}
+	}
+	return out
+}
+
 // sessionUseBy maps every agent's current session path to the agent.
 func sessionUseBy(deps Deps) map[string]sessionUse {
 	out := map[string]sessionUse{}

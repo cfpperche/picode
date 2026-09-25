@@ -73,10 +73,6 @@ const LAST_AGENT_KEY = "picode-mobile-last-agent";
 export default function MobileApp() {
   useVisualViewport();
   const route = useHashRoute();
-  useEffect(() => {
-    const match = /^#\/app\/inbox(?:\/item\/([^/]+))?$/.exec(location.hash);
-    if (match) location.replace(match[1] ? "#/inbox/" + match[1] : "#/inbox");
-  }, []);
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [catalog, setCatalog] = useState(null);
   const [clis, setClis] = useState([]);

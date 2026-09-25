@@ -53,3 +53,7 @@ Old `#/clis/settings/pi` and `#/settings` rewrite. Persistence unchanged.
 The [Cursor/t3code study](../benchmarks/2026-08-24-adopt-t3code-paseo-cursor.md)
 informs context-preserving URLs and controls near the conversation.
 The [work plan](../plans/cli-native-settings.md) records the decision table.
+
+## Amendment 2026-09-25 — old addresses retired (owner)
+
+The owner retired the compatibility addresses this ADR kept. `#/settings`, mobile `#/more/settings`, `#/clis/settings/<cli>` and `?tab=keys` no longer rewrite to Pi's settings; `#/clis/settings` is now the Agent CLIs **Settings** tab (terminal-wide switches). Canonical: `#/clis/<cli>/settings`. An old bookmark now lands where any unknown address does.

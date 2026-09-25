@@ -133,8 +133,9 @@ Skills, Memory, Settings, Keyboard and Models address their scope as
 `?scope=global|workspace|agent` (`web/shared/domain/scopes.js`). Each tab keeps
 its own words inside — Packages and Connectors `user/project/agent`, Skills
 `machine/workspace/agent`, settings layers `global/project/agent` — and the
-table in `scopes.js` is the only place they meet the address. Older words and
-`?layer=` still read and rewrite to the shared ones. A tab link carries the
+table in `scopes.js` is the only place they meet the address. An address
+carries only the shared words; the older words and `?layer=` were retired on
+2026-09-25 and read as an invalid scope. A tab link carries the
 scope the address chose (never a tab's default) into the next tab.
 
 | Hash | Surface | Owns |

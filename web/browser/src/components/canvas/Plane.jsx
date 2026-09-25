@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, ConnectionMode, Handle, MiniMap, NodeResizeControl, Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow } from "@xyflow/react";
-import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, legacyViewportKey, normalizeViewport, placementRect, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
+import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, normalizeViewport, placementRect, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
 import { anchorLinks } from "@picode/shared/domain/canvasAnchors.js";
 import { CANVAS_PATTERN_EVENT, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
@@ -150,21 +150,9 @@ const MAX_PX = CANVAS_LIMITS.canvasMax * UNIT_PX;
 const PLANE_PX = CANVAS_LIMITS.canvasCoord * UNIT_PX;
 const NODE_EXTENT = [[-PLANE_PX, -PLANE_PX], [PLANE_PX, PLANE_PX]];
 
-// readView also carries a camera stored under ADR-0118's old key across,
-// once: the key moves, the old one is removed, and a reader who had this
-// plane parked somewhere finds it there instead of fitted.
 function readView(id) {
   try {
-    const key = viewportKey(id);
-    let raw = localStorage.getItem(key);
-    if (raw === null) {
-      const was = legacyViewportKey(id);
-      raw = localStorage.getItem(was);
-      if (raw !== null) {
-        localStorage.setItem(key, raw);
-        localStorage.removeItem(was);
-      }
-    }
+    const raw = localStorage.getItem(viewportKey(id));
     return normalizeViewport(JSON.parse(raw || "null"));
   } catch {
     return null;

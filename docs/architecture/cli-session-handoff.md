@@ -57,7 +57,8 @@ launch passes `--session-dir`), so the handoff route vouches for that tree
 through `Ref.Roots`; `clisession.OmpAgentSessionsRoot` is the one definition
 the launch, the agent history and the reader share. A path under neither
 root is still refused ("That session is not on this machine."). The Omp
-Sessions listing still reads only `~/.omp`.
+Sessions view, scoped to a workspace, lists those agents' sessions too
+(agent-manager.md).
 
 Writers publish two ways. Claude Code, Codex, pi (as an adopted managed
 agent), Grok, Muse Code, Antigravity and Omp get a new session artifact

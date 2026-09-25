@@ -1,20 +1,13 @@
-import { renamedTabId, isAppTab, tabAppId } from "./routes.js";
+import { isAppTab, tabAppId } from "./routes.js";
 
 const KEY = "picode-tabs";
-
-// A renamed app's tab id is rewritten on the way out of storage (ADR-0118:
-// `x:matrix` is the Canvas app's tab), so a strip saved before the rename
-// reopens the app instead of dropping a tab that answers to nothing. It is
-// one map, shared with the hash redirect (lib/routes.js), and the rewrite
-// sticks the next time the strip is written.
-const canonical = (id) => renamedTabId(id) || id;
 
 export function readOpenTabs() {
   try {
     const j = JSON.parse(localStorage.getItem(KEY) || "null");
     if (!j || !Array.isArray(j.ids)) return { ids: [], selected: null };
-    const ids = [...new Set(j.ids.map((x) => canonical(String(x || ""))).filter(Boolean))];
-    const want = j.selected ? canonical(String(j.selected)) : "";
+    const ids = [...new Set(j.ids.map((x) => String(x || "")).filter(Boolean))];
+    const want = j.selected ? String(j.selected) : "";
     const selected = want && ids.includes(want) ? want : (ids[0] || null);
     return { ids, selected };
   } catch {

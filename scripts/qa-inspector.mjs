@@ -138,7 +138,7 @@ try {
     await page.keyboard.press('Control+.');
     await page.waitForFunction(() => !document.getElementById('inspector').hidden);
     assert.equal(await page.evaluate(() => localStorage.getItem('picode-inspector-open')), '1');
-    await page.evaluate(() => { location.hash = '#/app/inbox'; });
+    await page.evaluate(() => { location.hash = '#/inbox'; });
     await page.waitForFunction(() => document.querySelectorAll('.main-tabs .mtab').length === 4);
     assert.match(await rail().locator('.insp-head').innerText(), /Atlas/, 'an app tab keeps the last anchor');
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -195,7 +195,7 @@ try {
     assert.equal(await rail().getByRole('tab').count(), 1);
     await rail().getByText('Empty folder.').waitFor();
     await shot('inspector-nongit-dark');
-    await page.evaluate(() => { localStorage.removeItem('picode-tabs'); location.hash = '#/app/inbox'; });
+    await page.evaluate(() => { localStorage.removeItem('picode-tabs'); location.hash = '#/inbox'; });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await rail().getByText('Open an agent or terminal to inspect its files.').waitFor();
     await shot('inspector-no-anchor-dark');

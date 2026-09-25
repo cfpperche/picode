@@ -503,21 +503,10 @@ carries none of it: the desktop's main chunk dropped 15 376 B of JS and
 2 680 B of CSS gzip when it moved. React Flow is lazy again *inside* it
 (**Canvas** below), so opening the app and opening a plane are two fetches.
 
-**The old links still work** (ADR-0118 §4). `#/app/matrix` and
-`#/app/matrix/<id>` are replaced — never pushed — with the canvas route,
-path and all, and an `x:matrix` restored from `localStorage` is rewritten to
-`x:canvas` on the way out of `readOpenTabs`. Both read one map,
-`RENAMED_APPS` in `web/browser/src/lib/routes.js` (`renamedAppId` /
-`renamedAppHash` / `renamedTabId`), because a bookmark and a saved tab strip
-disagreeing is exactly what a second mechanism would eventually do. The
-redirect is its own effect declared before the one that resolves a hash into
-a tab, and that one returns early on a renamed hash, so the old id never
-reaches the *That app is gone.* branch. The two per-viewer keys are
-**migrated on first read**, not left to lapse: `picode-matrix-last` →
-`picode-canvas-last` (`readLast`) and `picode-matrix-view:<id>` →
-`picode-canvas-view:<id>` (`readView`), old key deleted. A rename nobody
-asked for must not cost a reader the canvas they had open or the camera they
-parked it at. The **API** keeps no compatibility layer: its only clients ship
+**The old links were retired on 2026-09-25** (ADR-0118 §4 kept them for the
+rename): `#/app/matrix[/<id>]`, a saved `x:matrix` tab and the per-viewer
+`picode-matrix-last` / `picode-matrix-view:<id>` keys are no longer read.
+The **API** keeps no compatibility layer: its only clients ship
 in this binary.
 
 | File | Holds |

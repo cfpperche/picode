@@ -1,9 +1,9 @@
 // One scope vocabulary for every setup pane's address (2026-09-24): Global,
 // the workspace, one agent — `?scope=global|workspace|agent`. Each pane still
 // speaks its own words inside (the APIs and the CLIs' files name them), and
-// the table below is the only place those words meet the address. Older words
-// (user, project, machine, local) and the old `?layer=` stay readable as
-// aliases, and a pane rewrites such a link to the shared words.
+// the table below is the only place those words meet the address. An address
+// carries only the shared words (the older words and `?layer=` were retired
+// on 2026-09-25); the table still turns a pane's own word into one.
 export const SCOPES = ["global", "workspace", "agent"];
 
 const KINDS = {
@@ -26,18 +26,13 @@ export const MEMORY_WORDS = { global: "global", workspace: "workspace" };
 
 // The scope an address names, in the pane's words. `kind` is the shared word,
 // set only when the address named one, so a pane's default never travels to
-// the next pane as if chosen. `alias`: the address used an older word or key.
-export function readScope(params, words, { legacyKey = "" } = {}) {
-  let raw = params.get("scope");
-  let legacy = false;
-  if (raw === null && legacyKey && params.has(legacyKey)) {
-    raw = params.get(legacyKey);
-    legacy = true;
-  }
-  if (raw === null || raw === "") return { value: "", kind: "", invalid: false, alias: legacy };
-  const kind = scopeKind(raw);
+// the next pane as if chosen. A word that is not a shared one is invalid.
+export function readScope(params, words) {
+  const raw = params.get("scope");
+  if (raw === null || raw === "") return { value: "", kind: "", invalid: false };
+  const kind = SCOPES.includes(raw) ? raw : "";
   const value = (kind && words[kind]) || "";
-  return { value, kind: value ? kind : "", invalid: !value, alias: legacy || raw !== kind };
+  return { value, kind: value ? kind : "", invalid: !value };
 }
 
 // Writes a scope (any pane's word) to an address in the shared word. Global
