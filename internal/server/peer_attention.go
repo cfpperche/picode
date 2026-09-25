@@ -109,20 +109,40 @@ func grokSuggestionMatch(line string) []string {
 	return grokEmptySuggestion1030.FindStringSubmatch(line)
 }
 
+// peerPiInput recognizes Pi's empty editor: the cursor at column 0 on an
+// empty row between two full-width rules, the folder line under them, and
+// the stats footer. A phone attached to the terminal narrows the pane (44
+// columns measured 2026-09-25) and pi cuts the footer before its "%/"
+// context figure, so below 70 columns the footer only has to be there; the
+// full-width rules and the folder line keep the match as strict as Pi's
+// own layout.
+func peerPiInput(s tmux.InputSnapshot, expected string) bool {
+	if expected != "" || s.Width < 30 || s.CursorX != 0 || s.CursorY < 1 || s.CursorY+3 >= len(s.Lines) {
+		return false
+	}
+	clean := func(n int) string { return strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[n], "")) }
+	rule := strings.Repeat("─", s.Width)
+	if clean(s.CursorY) != "" || clean(s.CursorY-1) != rule || clean(s.CursorY+1) != rule || !strings.HasPrefix(clean(s.CursorY+2), "/") {
+		return false
+	}
+	footer := clean(s.CursorY + 3)
+	if s.Width >= 70 {
+		return strings.Contains(footer, "%/")
+	}
+	return footer != ""
+}
+
 // The screen is an additional conservative input gate. A lifecycle hook and
 // native session binding are mandatory independently of these cursor checks.
 func peerInputMatches(cli string, s tmux.InputSnapshot, expected string) bool {
-	if s.InMode || s.Width < 70 || s.CursorY < 0 || s.CursorY >= len(s.Lines) {
+	if s.InMode || s.CursorY < 0 || s.CursorY >= len(s.Lines) {
 		return false
 	}
 	if cli == "pi" {
-		if expected != "" || s.CursorX != 0 || s.CursorY < 1 || s.CursorY+3 >= len(s.Lines) {
-			return false
-		}
-		clean := func(n int) string { return strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[n], "")) }
-		rule := strings.Repeat("─", s.Width)
-		return clean(s.CursorY) == "" && clean(s.CursorY-1) == rule && clean(s.CursorY+1) == rule &&
-			strings.HasPrefix(clean(s.CursorY+2), "/") && strings.Contains(clean(s.CursorY+3), "%/")
+		return peerPiInput(s, expected)
+	}
+	if s.Width < 70 {
+		return false
 	}
 	if cli == "opencode" {
 		return peerOpenCodeInput(s, expected) || peerOpenCodeHomeInput(s, expected)

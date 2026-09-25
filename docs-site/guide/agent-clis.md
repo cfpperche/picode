@@ -313,7 +313,7 @@ side question — but already has its next task: the fork takes the finding
 with its full context and handles it, and nobody explains the problem
 twice.
 
-Open an agent's **•••** in the sidebar and pick **Fork agent…** (offered
+Open an agent's **•••** in the sidebar (on the phone, on its row in **Work**) and pick **Fork agent…** (offered
 once the agent has a conversation, for the CLIs listed below). The dialog
 asks for:
 

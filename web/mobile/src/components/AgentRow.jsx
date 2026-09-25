@@ -2,8 +2,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import {
   IconChevronRight, IconEllipsis, IconChat, IconMonitor, IconPencil,
-  IconPlay, IconReload, IconStop, IconTrash,
-} from "./Icons.jsx";
+  IconPlay, IconReload, IconStop, IconTrash, IconFork, IconSettings } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
@@ -22,6 +21,8 @@ const ICONS = {
   term: <IconMonitor size={14} />,
   rename: <IconPencil size={14} />,
   remove: <IconTrash size={14} />,
+  fork: <IconFork size={14} />,
+  settings: <IconSettings size={14} />,
 };
 
 // One agent on the Work list, at term-row parity (owner, 2026-09-20):
@@ -47,9 +48,8 @@ export default function AgentRow({ agent, workspace, workingIds, checklist, busy
   const base = [model, path === workspace?.path ? "" : shortPath(path)].filter(Boolean).join(" · ");
   const context = base ? [base, forkLine(agent)].filter(Boolean).join(" · ") : "";
   // A legacy interactive Pi pane has no bound terminal to restart; the
-  // row drops the item instead of offering a no-op. Fork agent… has no
-  // phone sheet yet (docs/handoff/open/agent-fork.md), so it stays desktop.
-  const rows = agentRowMenu(agent, { clis, term }).filter((r) => (r.id !== "restart" || agent.terminalId) && r.id !== "fork");
+  // row drops the item instead of offering a no-op.
+  const rows = agentRowMenu(agent, { clis, term }).filter((r) => r.id !== "restart" || agent.terminalId);
   return (
     <li className={"m-row m-agent-row is-" + status}>
       <button type="button" className="m-row-main" onClick={() => onOpen(agent)}>
@@ -94,7 +94,7 @@ function HandoffSub({ row, disabled, onSelect }) {
   return (
     <DropdownMenu.Sub>
       <DropdownMenu.SubTrigger className="ws-row-menu-item" disabled={disabled}>
-        {IconChat} {row.label}
+        <IconChat size={14} /> {row.label}
         <IconChevronRight size={13} className="um-chev" />
       </DropdownMenu.SubTrigger>
       <DropdownMenu.Portal>
