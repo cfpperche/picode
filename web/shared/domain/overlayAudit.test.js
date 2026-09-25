@@ -45,8 +45,8 @@ test("clipped top is fail", () => {
 });
 
 // The class the owner hit on 2026-09-16: an HTML layer over the native work
-// browser is invisible until the page gets out of the way. The tab marks its
-// host when it hides the view; a layer over an unmarked host is a defect the
+// browser is invisible unless the shell acknowledged a native chrome region
+// for it (ADR-0161); a layer over an unacknowledged host is a defect the
 // review must catch by itself.
 function browserWin({ covered, nativeReady = false }) {
   const host = {
@@ -76,10 +76,10 @@ test("a layer over the work browser with the page still up is fail", () => {
   assert.equal(r.uncovered.length, 1);
 });
 
-test("that same layer with the page parked is ok", () => {
+test("a parked-page mark no longer excuses a layer (legacy hide path retired 2026-09-25)", () => {
   const r = overlayAudit(browserWin({ covered: true }));
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.uncovered, []);
+  assert.equal(r.ok, false);
+  assert.equal(r.uncovered.length, 1);
 });
 
 for (const [name, wraps, rects, ok] of [

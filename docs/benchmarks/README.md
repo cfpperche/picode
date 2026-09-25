@@ -33,6 +33,7 @@ are dated notes with receipts. Closed-source claims are marked inference.
 | [Insights over the exit catalog](2026-09-24-exit-insights.md) | Option B of the exit study, sized against the production catalog (17 exits, one workspace, all "resolved", no model for terminal CLIs) | Six computed insights with minimum samples, Wilson intervals, evidence ids and one door each; B0 records the model first | Read-only aggregate of the production database, 2026-09-24 |
 | [Agent instruction files](2026-09-23-agents-md.md) | How the nine catalog CLIs read `AGENTS.md` (measured on this machine), plus Hermes `/context`, `grok inspect`, Claude `/memory`, Codex and Claude `/import`, VS Code Agent Customizations, Cursor, Zed, Kiro, Conductor, opcode, ruler/rulesync, agents-lint, Factory Agent Readiness and the ETH study | One file, nine readers that disagree: precedence, personal files, nested worktrees (Omp reads main's copy), size caps, trust gates — the read-only Instructions matrix and findings first, repository writes behind an ADR | Local loaders, `grok inspect`, Hermes manifest and three model probes on sentinel fixtures + vendor docs, 2026-09-23 |
 | [Skills marketplace](2026-09-23-skills-marketplace.md) | What the nine catalog CLIs read as Agent Skills (measured on this machine), Vercel's `skills` CLI and skills.sh, the Hermes hub, Claude marketplaces, the `.well-known` discovery RFC, the ClawHavoc and ToxicSkills record, SkillsBench and `claude plugin eval` | Packages covers skills only inside plugins; one `.agents/skills` folder serves seven CLIs; per-agent sets at launch for five; locks compatible with `npx skills`; a federated catalog that never vouches — ADR-0196 | `--help` and rosters of the installed CLIs, Vercel lock sources, vendor docs and security reports, 2026-09-23 |
+| [OpenClaw](https://openclaw.ai) | Personal-agent gateway with a browser Control UI, messaging channels and its own agent runtime (MIT, OpenClaw Foundation); "2.0" is v2026.8.1 | Since 2.0 a peer control plane — project sidebar, managed worktrees, web terminal, Changes, approvals Inbox, Swarm, ACP harnesses for the CLIs PiCode hosts — not a guest CLI; six integration doors priced, only a no-code `openclaw mcp serve` connector recommended — study [2026-09-25](2026-09-25-openclaw.md) | Live docs, `npm view` and the GitHub API (repository advisories), 2026-09-25 — not installed |
 | [2026-09-18 — Embedding Windows apps in a PiCode pane (spike)](2026-09-18-embed-windows-apps.md) | reparenting works for Terminal and Electron, not for WinUI Notepad or Explorer; recommendation: mirror first, capture + input later |
 
 **Adaptation rule** (same as Cursor): borrow a pattern when it improves agent
@@ -45,6 +46,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-25 — OpenClaw 2.0+: a peer control plane, and the six doors PiCode could open](2026-09-25-openclaw.md)
 - [2026-09-23 — Workspace overview (Linear, GitHub Pulse, Langfuse, Recharts)](2026-09-23-workspace-overview.md)
 
 - [2026-09-24 — Insights over the exit catalog (option B)](2026-09-24-exit-insights.md)

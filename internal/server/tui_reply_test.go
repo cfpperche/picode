@@ -134,7 +134,7 @@ func (h *replyHarness) taskFor(t *testing.T, itemID string) store.Task {
 	}
 	for _, task := range tasks {
 		if strings.HasSuffix(task.Source, ":"+itemID) &&
-			(strings.HasPrefix(task.Source, "inbox-tui:") || strings.HasPrefix(task.Source, "inbox-burst:")) {
+			strings.HasPrefix(task.Source, "inbox-tui:") {
 			return task
 		}
 	}

@@ -112,8 +112,8 @@ func TestInboxCoreSurfaceWithoutAppsRegistry(t *testing.T) {
 	if code := getJSON(t, ts, "/api/inbox/view?path=item/"+item.ID, &view); code != http.StatusOK || view.Title != "Which port?" {
 		t.Fatalf("core item view = %d %+v", code, view)
 	}
-	if code := getJSON(t, ts, "/api/apps/inbox/view?path=item/"+item.ID, &view); code != http.StatusOK {
-		t.Fatalf("legacy app view = %d", code)
+	if code := getJSON(t, ts, "/api/inbox/view?path=item/"+item.ID, &view); code != http.StatusOK {
+		t.Fatalf("inbox view = %d", code)
 	}
 	res, out := inboxPost(t, ts, "/api/inbox/action", `{"action":"open-done"}`)
 	if res.StatusCode != http.StatusOK || out["path"] != "done" {
@@ -309,7 +309,7 @@ func TestInboxAppActionRespondInteractiveAgent(t *testing.T) {
 	id, _ := out["id"].(string)
 
 	// No captured session on the item: refused, nothing parked.
-	res, err := http.Post(ts.URL+"/api/apps/inbox/action", "application/json",
+	res, err := http.Post(ts.URL+"/api/inbox/action", "application/json",
 		bytes.NewBufferString(`{"action":"respond","path":"item/`+id+`","args":{"reply":"hi"}}`))
 	if err != nil {
 		t.Fatalf("POST action: %v", err)
@@ -332,7 +332,7 @@ func TestInboxAppActionRespondInteractiveAgent(t *testing.T) {
 	_, out2 := inboxPost(t, ts, "/api/inbox",
 		`{"kind":"question","sourceKind":"agent","sourceId":"`+ag.ID+`","sessionPath":"`+sessionPath+`","reason":"r","title":"q2","body":"?"}`)
 	id2, _ := out2["id"].(string)
-	res, err = http.Post(ts.URL+"/api/apps/inbox/action", "application/json",
+	res, err = http.Post(ts.URL+"/api/inbox/action", "application/json",
 		bytes.NewBufferString(`{"action":"respond","path":"item/`+id2+`","args":{"reply":"hi"}}`))
 	if err != nil {
 		t.Fatalf("POST action: %v", err)

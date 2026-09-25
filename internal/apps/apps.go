@@ -46,15 +46,8 @@ type Manifest struct {
 type Host struct {
 	Store   *store.Store
 	DataDir string
-	// LoopbackURL is the address this daemon answers on locally
-	// (https://localhost:8445). It identifies the instance in the one place
-	// no self-declared stamp exists: a session created before ADR-0140's
-	// PICODE_INSTANCE marker, whose own PICODE_TERM_URL names a port. Empty
-	// means this host cannot identify itself that way, and no session is
-	// called someone else's on that basis.
-	LoopbackURL string
-	Docker      *docker.Service
-	Actor       string
+	Docker  *docker.Service
+	Actor   string
 	// Tmux is the tmux server this daemon talks to (the tmux app's read
 	// model, ADR-0133). Optional — nil means the app answers its honest
 	// "not available" screen. An interface, not the concrete manager, so a

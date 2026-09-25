@@ -79,11 +79,10 @@ removal. The session itself now settles it: the Manager stamps every session
 it creates with `PICODE_INSTANCE` = its data directory (`filepath.Dir` of its
 socket, one funnel — `NewSessionEnvSize`, after the caller's env, so no caller
 can claim another identity), the receipt reads it beside `PICODE_TERM_URL`,
-and a session stamped by a different directory — or, before the stamp existed,
-carrying a different port — is *another instance's work*: named on screen, no
-removal door, and `reap` refuses it even if a request arrives by hand. A
-session with neither stamp nor URL (an agent created before this version)
-keeps the old sentence and the human's judgement; the list still carries no
+and a session stamped by a different directory is *another instance's work*:
+named on screen, no removal door, and `reap` refuses it even if a request
+arrives by hand. A session without a stamp (the pre-stamp port fallback was
+retired 2026-09-25) keeps the old sentence and the human's judgement; the list still carries no
 per-row verdict, because ADR-0133 rule 1 keeps it one tmux call.
 
 ## The one action

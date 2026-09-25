@@ -1,5 +1,6 @@
-// Legacy shells: when must the work browser get out of the way?
-// Current shells use nativeLayers.js (ADR-0161); rectOf remains shared.
+// Floating-layer geometry: which HTML layers sit over a rectangle. The shell
+// keeps the native page live beneath them (nativeLayers.js, ADR-0161); the
+// hide-the-page subscription for older shells was retired 2026-09-25.
 //
 // A WebView2 is a native child window: it paints over every HTML pixel in the
 // same region, whatever the z-index says. So an HTML layer that intersects the
@@ -58,55 +59,4 @@ export function layerRects(doc = globalThis.document, win = globalThis) {
 // this rectangle right now?
 export function overlapsLayers(rect, layers = []) {
   return layers.some((layer) => overlaps(rect, layer));
-}
-
-// subscribeFloatingLayers calls back with the current layers whenever the DOM
-// or the viewport changes.
-//
-// Coalesced with a floor between scans: the app mutates constantly while an
-// agent streams, and a full-DOM scan per mutation would cost more than the
-// page it protects. ~100 ms is below noticing for a menu and cheap enough to
-// run through a stream.
-const MIN_SCAN_GAP_MS = 100;
-
-export function subscribeFloatingLayers(fn, { doc = globalThis.document, win = globalThis, gapMs = MIN_SCAN_GAP_MS } = {}) {
-  if (!doc || typeof fn !== "function") return () => {};
-  const now = () => (typeof win.performance?.now === "function" ? win.performance.now() : Date.now());
-  let queued = 0;
-  let last = 0;
-  const run = () => {
-    queued = 0;
-    last = now();
-    fn(layerRects(doc, win));
-  };
-  const schedule = () => {
-    if (queued) return;
-    // A hidden document cannot have a layer over the page, and nothing will
-    // be painted until it comes back — scan then.
-    if (doc.hidden) return;
-    const wait = Math.max(0, gapMs - (now() - last));
-    queued = win.setTimeout ? win.setTimeout(run, wait) : 1;
-  };
-  const observer = new win.MutationObserver(schedule);
-  // data-state covers Radix's open/closed, style/class cover the app's own
-  // layers, childList covers a portal landing in the body.
-  observer.observe(doc.body || doc.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["data-state", "class", "style", "hidden"],
-  });
-  win.addEventListener("resize", schedule);
-  win.addEventListener("scroll", schedule, true);
-  doc.addEventListener?.("visibilitychange", schedule);
-  schedule();
-  return () => {
-    observer.disconnect();
-    win.removeEventListener("resize", schedule);
-    win.removeEventListener("scroll", schedule, true);
-    doc.removeEventListener?.("visibilitychange", schedule);
-    if (!queued) return;
-    if (win.clearTimeout) win.clearTimeout(queued);
-    queued = 0;
-  };
 }

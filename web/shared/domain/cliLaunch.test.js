@@ -18,7 +18,7 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.deepEqual(cliLocation("#/clis/codex/terminals"), { view: "clis", id: "codex", pane: "terminals" });
   assert.deepEqual(cliLocation("#/clis/pi/sessions"), { view: "clis", id: "pi", pane: "sessions" });
   assert.deepEqual(cliLocation("#/clis/claude-code/sessions/ws-9"), { view: "clis", id: "claude-code", pane: "sessions", workspace: "ws-9" });
-  assert.deepEqual(cliLocation("#/clis/pi/launch"), { view: "clis", id: "pi", pane: "launch", redirect: "#/clis/pi" });
+  assert.deepEqual(cliLocation("#/clis/pi/launch"), { view: "clis", id: "pi", pane: "launch" }, "no alias rewrite (retired 2026-09-25)");
   assert.equal(cliPaneHash("pi"), "#/clis/pi");
   assert.equal(cliPaneHash("pi", "launch"), "#/clis/pi");
   assert.equal(cliPaneHash("codex", "terminals"), "#/clis/codex/terminals");

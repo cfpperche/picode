@@ -176,7 +176,6 @@ export function cliLocation(hash = "") {
     if (parts[3]) loc.invalid = true;
     if (read.invalid) loc.invalid = true;
   }
-  if (panePart === "launch" && parts[2]) loc.redirect = cliPaneHash(cli, "launch");
   return loc;
 }
 

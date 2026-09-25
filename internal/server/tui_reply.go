@@ -621,7 +621,7 @@ func ReconcilePendingReplies(st *store.Store, dataDir string) {
 		_ = st.SettleReplyTask(task.ID)
 	}
 	for _, task := range tasks {
-		itemID := strings.TrimPrefix(strings.TrimPrefix(task.Source, "inbox-tui:"), "inbox-burst:")
+		itemID := strings.TrimPrefix(task.Source, "inbox-tui:")
 		sessionPath := ""
 		if it, err := st.GetInboxItem(itemID); err == nil {
 			sessionPath = it.SessionPath

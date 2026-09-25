@@ -75,7 +75,7 @@ func TestMissionHTTPRoundTripAndIdentity(t *testing.T) {
 	tool("acknowledge", nil)
 	tool("block", map[string]any{"note": "Should the history include decisions?"})
 	item := v.InboxID
-	missionPost(t, ts, "/api/apps/inbox/action", map[string]any{"action": "respond", "path": "item/" + item, "args": map[string]string{"reply": "Yes, keep each decision."}}, 200)
+	missionPost(t, ts, "/api/inbox/action", map[string]any{"action": "respond", "path": "item/" + item, "args": map[string]string{"reply": "Yes, keep each decision."}}, 200)
 	v, _ = s.GetMission(v.ID)
 	if v.State != "in-progress" || v.Context == "" {
 		t.Fatal(v)

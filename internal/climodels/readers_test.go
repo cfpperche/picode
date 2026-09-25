@@ -240,3 +240,58 @@ func TestClaudeExtrasComeFromTheOwnersConfigReadOnly(t *testing.T) {
 		t.Errorf("no config adds nothing: %+v", got)
 	}
 }
+
+func TestParseAgy(t *testing.T) {
+	raw, err := os.ReadFile("testdata/agy-models.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := parseAgy(append([]byte("Fetching available models...\n\n"), raw...))
+	if len(rows) != 14 {
+		t.Fatalf("rows = %d", len(rows))
+	}
+	if rows[1].ID != "gemini-3.8-flash-medium" || rows[1].Selector != "Gemini 3.8 Flash (Medium)" {
+		t.Fatalf("the selector is the display name the model setting holds: %+v", rows[1])
+	}
+}
+
+// The owner's sign-in is copied into a throwaway home and never written;
+// the probe runs with that home, and a missing sign-in is said plainly.
+func TestAgyRunsInAThrowawayHome(t *testing.T) {
+	h := t.TempDir()
+	old := home
+	home = func() string { return h }
+	t.Cleanup(func() { home = old })
+	Forget("agy")
+	if _, err := Read(t.Context(), "agy", "", true); err == nil || !strings.Contains(err.Error(), "not signed in") {
+		t.Fatalf("no sign-in: err = %v", err)
+	}
+	token := agyTokenFile()
+	if err := os.MkdirAll(filepath.Dir(token), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(token, []byte(`{"token":"owner"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A fake agy that proves where it ran, rewrites its token like the real
+	// one, and lists two models.
+	bin := t.TempDir()
+	script := "#!/bin/sh\nf=\"$HOME/.gemini/antigravity-cli/antigravity-oauth-token\"\n" +
+		"[ \"$(cat \"$f\")\" = '{\"token\":\"owner\"}' ] || exit 3\n" +
+		"echo refreshed > \"$f\"\necho 'Fetching available models...' >&2\n" +
+		"printf 'gemini-x-high\\tGemini X (High)\\nclaude-y\\tClaude Y\\n'\n"
+	if err := os.WriteFile(filepath.Join(bin, "agy"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	rep, err := Read(t.Context(), "agy", "", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Models) != 2 || rep.Models[0].Selector != "Gemini X (High)" {
+		t.Fatalf("report = %+v", rep)
+	}
+	if got, _ := os.ReadFile(token); string(got) != `{"token":"owner"}` {
+		t.Fatalf("the owner's sign-in was written: %s", got)
+	}
+}
