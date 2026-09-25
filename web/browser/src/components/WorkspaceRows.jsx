@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconFork, IconGit, IconMode, IconMoveDown, IconMoveUp, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconFork, IconGit, IconMode, IconMoveDown, IconMoveUp, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconWarn, IconX } from "./Icons.jsx";
+import { agentSkillsMissing } from "@picode/shared/domain/cliSkills.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
@@ -281,6 +282,18 @@ export function AgentRow({
         <span className="ws-fork-line" title={"Forked from " + ag.forkedFrom.name + (ag.forkedFrom.gone ? ", which was removed" : "")}>
           <IconFork size={11} /><span>{forkLine(ag)}</span>
         </span>
+      ) : null}
+      {/* Its own skills whose cached copy is gone: the next start leaves
+          them out (ADR-0196 slice 4); the line opens the agent's chip. */}
+      {agentSkillsMissing(ag) ? (
+        <button
+          type="button"
+          className="ws-fork-line ws-skill-warn"
+          title={agentSkillsMissing(ag).title}
+          onClick={(e) => { e.stopPropagation(); location.hash = agentSkillsMissing(ag).href; }}
+        >
+          <IconWarn size={11} /><span>{agentSkillsMissing(ag).text}</span>
+        </button>
       ) : null}
       <ChecklistDisclosure id={ag.id} check={check} />
       <ContextLine line={repo} ownerKind="agent" ownerId={ag.id} ownerLabel={label} onFileTree={onFileTree} onGitGraph={onGitGraph} />

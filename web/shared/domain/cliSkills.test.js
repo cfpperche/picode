@@ -241,3 +241,16 @@ test("an agent's own skill is trying, then promoted to the workspace", () => {
   assert.equal(askLabel({ verb: "remove", extra: { confirm: true } }), "Remove anyway");
   assert.equal(askLabel({ verb: "update", extra: { force: true } }), "Update anyway");
 });
+
+import { agentSkillsMissing } from "./cliSkills.js";
+
+test("an agent row names its own skills whose copy is gone", () => {
+  assert.equal(agentSkillsMissing({ id: "a1", cli: "pi", skills: [{ name: "ok" }] }), null);
+  const one = agentSkillsMissing({ id: "a1", cli: "claude-code", workspaceId: "w1", skills: [{ name: "review", missing: true }, { name: "ok" }] });
+  assert.equal(one.text, "review skill missing");
+  assert.equal(one.href, "#/clis/claude-code/skills?workspaceId=w1&agentId=a1&scope=agent");
+  assert.match(one.title, /leaves it out/);
+  const two = agentSkillsMissing({ id: "a1", skills: [{ name: "x", missing: true }, { name: "y", missing: true }] });
+  assert.equal(two.text, "2 skills missing");
+  assert.match(two.href, /^#\/clis\/pi\/skills\?agentId=a1&scope=agent$/);
+});

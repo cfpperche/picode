@@ -183,3 +183,34 @@ func guestLaunchFixture(t *testing.T, cli string) (Deps, string, *store.Terminal
 	}
 	return Deps{Store: st, DataDir: data}, data, launch
 }
+
+// The Launch pane names the agent's own skills and the flag each CLI takes
+// them by; a copy gone from the cache is left out and said so; an agent
+// with none, or a CLI with no agent scope, adds nothing.
+func TestAgentSkillsPlan(t *testing.T) {
+	for _, c := range []struct{ cli, flag string }{{"claude-code", "--plugin-dir"}, {"omp", "--config"}} {
+		deps, _, launch := guestLaunchFixture(t, c.cli)
+		if p := agentSkillsPlan(deps, c.cli, launch.TerminalID, "/run"); p != nil {
+			t.Fatalf("%s: a plan without skills: %+v", c.cli, p)
+		}
+		a, _ := deps.Store.AgentByTerminal(launch.TerminalID)
+		sk := agentSkillFixture(t, deps.Store, a.ID, t.TempDir(), "review")
+		p := agentSkillsPlan(deps, c.cli, launch.TerminalID, "/run")
+		if p == nil || len(p.Branches) != 1 || p.Branches[0].Args[0] != c.flag || !strings.HasPrefix(p.Summary, "1 skill of Atlas") {
+			t.Fatalf("%s: %+v", c.cli, p)
+		}
+		if err := os.RemoveAll(sk.Dir); err != nil {
+			t.Fatal(err)
+		}
+		p = agentSkillsPlan(deps, c.cli, launch.TerminalID, "/run")
+		if p == nil || len(p.Branches) != 0 || !strings.Contains(p.Summary, "1 gone from PiCode's copy") {
+			t.Fatalf("%s missing: %+v", c.cli, p)
+		}
+	}
+	deps, _, launch := guestLaunchFixture(t, "codex")
+	a, _ := deps.Store.AgentByTerminal(launch.TerminalID)
+	agentSkillFixture(t, deps.Store, a.ID, t.TempDir(), "review")
+	if p := agentSkillsPlan(deps, "codex", launch.TerminalID, "/run"); p != nil {
+		t.Fatalf("codex takes no agent skills: %+v", p)
+	}
+}

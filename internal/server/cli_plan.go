@@ -230,6 +230,9 @@ func handleCLIPreview(deps Deps) http.HandlerFunc {
 			id = v.TerminalID
 		}
 		p, c := launchPlan(deps, cli, base, v.Overrides, filepath.Join(deps.DataDir, "cli-launch", id, "run-{next}"))
+		if v.TerminalID != "" {
+			p.AgentInjection = agentSkillsPlan(deps, cli.ID, v.TerminalID, filepath.Join(deps.DataDir, "cli-launch", id, "run-{next}"))
+		}
 		if err := clilaunch.Validate(c); err != nil {
 			writeErr(w, 400, err.Error())
 			return

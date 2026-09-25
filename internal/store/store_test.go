@@ -420,6 +420,11 @@ func TestAgentSkillsCLIFlags(t *testing.T) {
 	if err != nil || len(again.Skills) != 2 {
 		t.Fatalf("%+v %v", again.Skills, err)
 	}
+	// The agent's row learns which copy is gone; the mark is read, never
+	// stored, so a restored copy reads as present again.
+	if again.Skills[0].Missing || !again.Skills[1].Missing {
+		t.Fatalf("missing marks %+v", again.Skills)
+	}
 	for _, bad := range [][]AgentSkill{
 		{{Name: "Bad Name", Dir: here}},
 		{{Name: "a--b", Dir: here}},

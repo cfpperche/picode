@@ -21,9 +21,12 @@ type Plan struct {
 	// ToolInjection is what ADR-0154's launch scope adds: the MCP servers
 	// for Config.Tools, or the reason this CLI gets none at launch.
 	ToolInjection *IntegrationPlan `json:"toolInjection,omitempty"`
-	InheritedPath []string         `json:"inheritedPath"`
-	ManagedEnv    []string         `json:"managedEnv"`
-	Problem       string           `json:"problem,omitempty"`
+	// AgentInjection is what the agent's own skills add at its start
+	// (ADR-0196 slice 4); nil when the terminal's agent has none.
+	AgentInjection *IntegrationPlan `json:"agentInjection,omitempty"`
+	InheritedPath  []string         `json:"inheritedPath"`
+	ManagedEnv     []string         `json:"managedEnv"`
+	Problem        string           `json:"problem,omitempty"`
 }
 
 type Diagnostic struct {
