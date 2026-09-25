@@ -2,7 +2,7 @@ import { cliPackagesLocation } from "./cliPackages.js";
 import { cliKeysLocation, cliSettingsLocation } from "./cliSettings.js";
 import { cliConnectorsLocation } from "./integrations.js";
 import { supportsCliModels } from "./cliModels.js";
-import { cliSkillsHash, cliSkillsQuery } from "./cliSkills.js";
+import { cliSkillsQuery } from "./cliSkills.js";
 import { LAYER_WORDS, MEMORY_WORDS, MODEL_WORDS, PACKAGE_WORDS, readScope, writeScope } from "./scopes.js";
 
 const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "models", "settings", "keyboard", "memory", "packages", "skills", "connectors"]);
@@ -128,11 +128,10 @@ export function cliLocation(hash = "") {
     // The catalog is read in a workspace and the lists are written to a layer,
     // so both ride the address; a path after the pane is not a link we made.
     loc.workspaceId = params.get("workspaceId") || "";
-    const read = readScope(params, MODEL_WORDS, { legacyKey: "layer" });
+    const read = readScope(params, MODEL_WORDS);
     loc.layer = read.value;
     if (read.kind) loc.scopeKind = read.kind;
     if (parts[3]) loc.invalid = true;
-    else if (read.alias && read.value) loc.redirect = cliModelsHash(cli, { workspaceId: loc.workspaceId, layer: read.value });
   }
   if (pane === "memory") {
     loc.workspaceId = params.get("workspaceId") || "";
@@ -167,7 +166,6 @@ export function cliLocation(hash = "") {
     loc.scope = q.scope;
     if (q.scopeKind) loc.scopeKind = q.scopeKind;
     if (q.invalid || parts[3]) loc.invalid = true;
-    else if (q.alias) loc.redirect = cliSkillsHash(cli, q);
   }
   if (pane === "connectors") {
     loc.workspaceId = params.get("workspaceId") || "";

@@ -224,25 +224,25 @@ import { readScope, writeScope, PACKAGE_WORDS, SKILL_WORDS } from "./scopes.js";
 
 test("every setup pane writes and reads the shared scope words", () => {
   const rows = [
-    // [hash, pane's own scope, redirect]
-    ["#/clis/pi/packages?scope=workspace", "project", ""],
-    ["#/clis/pi/packages?scope=project", "project", "#/clis/pi/packages?scope=workspace"],
-    ["#/clis/pi/connectors?scope=agent", "agent", ""],
-    ["#/clis/pi/connectors?scope=user", "user", "#/clis/pi/connectors"],
-    ["#/clis/pi/skills?scope=global", "machine", ""],
-    ["#/clis/pi/skills?scope=machine", "machine", "#/clis/pi/skills"],
-    ["#/clis/pi/memory?scope=workspace", "workspace", undefined],
+    // [hash, pane's own scope]
+    ["#/clis/pi/packages?scope=workspace", "project"],
+    ["#/clis/pi/connectors?scope=agent", "agent"],
+    ["#/clis/pi/skills?scope=global", "machine"],
+    ["#/clis/pi/memory?scope=workspace", "workspace"],
   ];
-  for (const [hash, scope, redirect] of rows) {
+  for (const [hash, scope] of rows) {
     const loc = cliLocation(hash);
     assert.equal(loc.invalid || false, false, hash);
     assert.equal(loc.scope, scope, hash);
-    if (redirect !== undefined) assert.equal(loc.redirect || "", redirect, hash);
+    assert.equal(loc.redirect || "", "", hash);
   }
   assert.equal(cliLocation("#/clis/pi/settings?scope=agent").layer, "agent");
-  assert.equal(cliLocation("#/clis/pi/settings?layer=project").redirect, "#/clis/pi/settings?scope=workspace");
-  assert.equal(cliLocation("#/clis/omp/models?layer=global").redirect, "#/clis/omp/models?scope=global");
-  assert.equal(cliLocation("#/clis/pi/packages?scope=bogus").invalid, true);
+  // A pane's own words and `?layer=` were address aliases until 2026-09-25.
+  for (const hash of ["#/clis/pi/packages?scope=project", "#/clis/pi/connectors?scope=user", "#/clis/pi/skills?scope=machine", "#/clis/pi/packages?scope=bogus"]) {
+    assert.equal(cliLocation(hash).invalid, true, hash);
+  }
+  assert.equal(cliLocation("#/clis/pi/settings?layer=project").layer, "");
+  assert.equal(cliLocation("#/clis/omp/models?layer=global").layer, "");
   assert.equal(readScope(new URLSearchParams("scope=agent"), PACKAGE_WORDS).value, "agent");
   assert.equal(readScope(new URLSearchParams("scope=agent"), { global: "g" }).invalid, true);
   const q = new URLSearchParams();
