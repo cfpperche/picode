@@ -269,11 +269,16 @@ the config it runs with and runs the folder's hooks, so those writes land
 there and the owner's `~/.claude.json` is only read, for the account's extra
 models (`additionalModelOptionsCache`). Signed out it still answers the full
 catalog (~0.7 s); `default` and `disabled` placeholder rows are dropped.
-Codex, OpenCode, Muse and Claude Code fill their native `model` field's
-**Choose…**, Grok its `models.default` (`MODEL_READERS` / `modelPickField` in
-`cliModels.js`, held equal to `Supported()` by a Go test); the field stays
-typeable. No reader: Antigravity (network each time, refreshed its OAuth
-token) and Hermes (no public listing; its gateway mutated `auth.json`). The measurement itself
+Antigravity's reader (2026-09-25) runs `agy models` (`id<TAB>name`, ~4 s,
+network, refuses signed out) with HOME set to a throwaway folder holding a
+copy of the one sign-in file: the token refresh every listing makes lands in
+the copy (the refresh token stayed the same, so the owner's sign-in stays
+valid), and the owner's file is never written. Its selector is the display
+name, which the `model` setting holds. Codex, OpenCode, Muse, Claude Code and
+Antigravity fill their native `model` field's **Choose…**, Grok its
+`models.default` (`MODEL_READERS` / `modelPickField` in `cliModels.js`, held
+equal to `Supported()` by a Go test); the field stays typeable. No reader:
+Hermes (no public listing; its gateway mutated `auth.json`). The measurement itself
 refreshed the owner's Antigravity token and Hermes `auth.json` once.
 
 ## Checks: what a CLI resolves here, and what is wrong with it (slice 4)
