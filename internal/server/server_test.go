@@ -615,3 +615,59 @@ func TestEmptyWorkspaceNeedsAnAgent(t *testing.T) {
 		t.Fatalf("sessions = %d, want 409", list.StatusCode)
 	}
 }
+
+// ADR-0216: the client handshake. Each row is conditions → answer.
+func TestClientGate(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	oldMin := version.MinClientProtocol
+	t.Cleanup(func() { version.MinClientProtocol = oldMin })
+	current := version.ClientValue("picode-mcp")
+	cases := []struct {
+		name, path, header string
+		min, want          int
+		says               string
+	}{
+		{"no header is served as before", "/api/version", "", 1, 200, ""},
+		{"current client passes", "/api/version", current, 1, 200, ""},
+		{"malformed header is ignored", "/api/version", "nonsense", 1, 200, ""},
+		{"older MCP server is told to restart the agent", "/api/version", "picode-mcp/0.1.0; protocol=0", 1, 426, "Restart the agent"},
+		{"a raised minimum refuses today's client", "/api/version", current, version.APIProtocol + 1, 426, "Restart the agent"},
+		{"other client kinds get a generic line", "/api/version", "picode-cli/0.1.0; protocol=0", 1, 426, "Run it again"},
+		{"the UI is never gated", "/", "picode-mcp/0.1.0; protocol=0", 1, 0, ""}, // 0: anything but 426 (tests serve no built UI)
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			version.MinClientProtocol = c.min
+			req, _ := http.NewRequest(http.MethodGet, ts.URL+c.path, nil)
+			if c.header != "" {
+				req.Header.Set(version.ClientHeader, c.header)
+			}
+			res, err := ts.Client().Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer res.Body.Close()
+			body, _ := io.ReadAll(res.Body)
+			if c.want == 0 {
+				if res.StatusCode == http.StatusUpgradeRequired {
+					t.Fatalf("the UI answered 426: %s", body)
+				}
+				return
+			}
+			if res.StatusCode != c.want || !strings.Contains(string(body), c.says) {
+				t.Fatalf("got %d %s, want %d containing %q", res.StatusCode, body, c.want, c.says)
+			}
+		})
+	}
+	version.MinClientProtocol = oldMin
+	res, err := ts.Client().Get(ts.URL + "/api/version")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var v map[string]any
+	_ = json.NewDecoder(res.Body).Decode(&v)
+	if v["protocol"] != float64(version.APIProtocol) || v["minClientProtocol"] != float64(version.MinClientProtocol) {
+		t.Fatalf("/api/version must publish the handshake: %v", v)
+	}
+}

@@ -948,6 +948,7 @@ func runPair() {
 	}
 	req, _ := http.NewRequest(http.MethodPost, base+"/api/auth/pairings", strings.NewReader("{}"))
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(tok)))
+	req.Header.Set(version.ClientHeader, version.ClientValue("picode-cli"))                                                              // ADR-0216
 	client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} //nolint:gosec
 	res, err := client.Do(req)
 	if err != nil {
@@ -981,6 +982,7 @@ func runToken(args []string) {
 		tok, _ := os.ReadFile(path)
 		req, _ := http.NewRequest(http.MethodPost, base+"/api/auth/token/rotate", nil)
 		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(tok)))
+		req.Header.Set(version.ClientHeader, version.ClientValue("picode-cli"))                                                              // ADR-0216
 		client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} //nolint:gosec
 		res, err := client.Do(req)
 		if err != nil || res.StatusCode != http.StatusOK {

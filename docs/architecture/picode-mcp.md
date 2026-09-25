@@ -62,6 +62,11 @@ result the model reads, never a JSON-RPC error. A capture travels as an
 renders files but not blocks. Unknown methods answer `-32601`; a
 notification gets no line; nothing but protocol goes to stdout.
 
+Every daemon call carries `X-PiCode-Client: picode-mcp/<build>;
+protocol=<n>` (ADR-0216). A server started before a deploy that raised
+the minimum protocol gets 426, and the model reads the daemon's sentence
+— "Restart the agent to load the new tools" — as the tool's error.
+
 ## Three scopes
 
 | pi package scope | Guest | Mechanism |

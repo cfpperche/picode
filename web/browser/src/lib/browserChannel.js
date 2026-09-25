@@ -78,6 +78,10 @@ export function createBrowserChannel({
     try {
       if (cmd.method === EVENTS_VERB) {
         const output = await invoke("btab_cdp_events", { id, since: cmd.params?.since });
+        // A session drive also reports how the page bound it (ADR-0172).
+        if (session?.decision && output && typeof output === "object") {
+          return { output: { ...output, session: session.decision } };
+        }
         return { output };
       }
       const call = () => invoke("btab_cdp_call", {

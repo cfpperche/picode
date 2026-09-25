@@ -235,6 +235,9 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.Auth != nil {
 		handler = deps.Auth.Wrap(mux) // the one gate in front of every route (ADR-0049)
 	}
+	// An out-of-process client older than the API it calls is told so
+	// before anything else runs (ADR-0216).
+	handler = clientGate(handler)
 	if deps.Previews != nil {
 		// A ticket's own origin (ADR-0137) is served before the gate and
 		// outside it: that origin is a preview, not the app, and the ticket
@@ -394,7 +397,45 @@ func handleVersion(w http.ResponseWriter, _ *http.Request) {
 		// Release notes auto-open only for binaries stamped by the release
 		// workflow; source builds keep the same version but stay quiet.
 		"release": version.Stamped != "",
+		// The client handshake (ADR-0216): the API protocol this build
+		// speaks and the oldest client protocol it still serves.
+		"protocol":          version.APIProtocol,
+		"minClientProtocol": version.MinClientProtocol,
 	})
+}
+
+// clientGate answers 426 to an out-of-process client (version.ClientHeader)
+// whose protocol is older than the daemon still serves — an MCP server
+// started before a deploy, say. Requests without the header (browsers, the
+// UI the daemon serves, curl) pass untouched.
+func clientGate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ws/") {
+			if c, ok := version.ParseClient(r.Header.Get(version.ClientHeader)); ok && c.Protocol < version.MinClientProtocol {
+				writeJSON(w, http.StatusUpgradeRequired, map[string]any{
+					"error":    staleClientMessage(c.Kind),
+					"client":   c.Kind,
+					"protocol": c.Protocol,
+					"need":     version.MinClientProtocol,
+				})
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// staleClientMessage says what to restart, in the words of whoever reads it:
+// an MCP server's error lands in the agent's transcript.
+func staleClientMessage(kind string) string {
+	switch kind {
+	case "picode-mcp":
+		return "PiCode was updated and this agent's PiCode tools are older than it. Restart the agent to load the new tools."
+	case "picode-browser-host":
+		return "PiCode was updated and the browser bridge is older than it. Close and reopen the browser to load the new version."
+	default:
+		return "PiCode was updated and this program is older than it. Run it again to use the new version."
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

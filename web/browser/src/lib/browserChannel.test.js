@@ -232,3 +232,13 @@ test("other verbs on a hidden split never reveal it", async () => {
   await until(() => calls.post.length === 3);
   assert.equal(reveals, 0);
 });
+
+test("the events verb on a session drive carries the binding decision", async () => {
+  const { source, calls } = harness({
+    ensureSession: async () => ({ id: "3", onScreen: false, decision: { host: "ag-1", reveal: "none" } }),
+    invoke: async () => ({ events: [], last: 0 }),
+  });
+  source.frame(JSON.stringify({ id: "e1", session: true, agent: "ag-1", method: "shell.events" }));
+  await settle();
+  assert.deepEqual(calls.post[0].output, { events: [], last: 0, session: { host: "ag-1", reveal: "none" } });
+});
