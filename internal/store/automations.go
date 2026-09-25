@@ -122,7 +122,7 @@ type ScheduleParams struct {
 // UnattendedCLIs are the CLIs a start run can use (ADR-0217): Pi through
 // its managed runtime, and the four whose composer the prompt door reads and
 // whose hooks report the end of a turn.
-var UnattendedCLIs = []string{CLIPi, "claude-code", "codex", "grok", "hermes"}
+var UnattendedCLIs = []string{CLIPi, "claude-code", "codex", "grok", "hermes", "opencode", "omp"}
 
 // UnattendedCLI says whether a start run can use cli.
 func UnattendedCLI(cli string) bool {
@@ -292,7 +292,7 @@ func validateAutomation(a Automation) error {
 	switch a.Action {
 	case AutomationStart:
 		if !UnattendedCLI(a.CLI) {
-			return fmt.Errorf("a start run can use Pi, Claude Code, Codex, Grok or Hermes")
+			return fmt.Errorf("a start run can use Pi, Claude Code, Codex, Grok, Hermes, OpenCode or Omp")
 		}
 	case AutomationMessage:
 		if a.TargetAgentID == nil || strings.TrimSpace(*a.TargetAgentID) == "" {

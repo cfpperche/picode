@@ -46,7 +46,16 @@ test("a start run on another CLI needs no pi (ADR-0217)", () => {
   assert.equal(automationNeedsPi({ action: "start" }, none), true);
   assert.equal(automationNeedsPi({ action: "start", cli: "pi" }, none), true);
   assert.equal(automationNeedsPi({ action: "start", cli: "claude-code" }, none), false);
-  assert.deepEqual(START_CLIS, ["pi", "claude-code", "codex", "grok", "hermes"]);
+  assert.deepEqual(START_CLIS, ["pi", "claude-code", "codex", "grok", "hermes", "opencode", "omp"]);
   assert.match(startRunHint("pi"), /Pi agent/);
   assert.match(startRunHint("codex", "Codex"), /fresh Codex conversation.*waits for you/);
+});
+
+import { costMeasured } from "./automationsPi.js";
+
+test("a start run on a CLI PiCode cannot price says its cost limit does not apply", () => {
+  assert.equal(costMeasured("omp"), true);
+  assert.equal(costMeasured("opencode"), false);
+  assert.match(startRunHint("opencode", "OpenCode"), /cannot read OpenCode's cost yet/);
+  assert.doesNotMatch(startRunHint("codex", "Codex"), /cannot read/);
 });

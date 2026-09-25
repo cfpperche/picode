@@ -1,6 +1,8 @@
 package server
 
 import (
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -151,4 +153,34 @@ func piPaneRows(draft string) []string {
 	rows[14] = "/ for commands"
 	rows[15] = "42%/ context left"
 	return rows
+}
+
+// ADR-0217: Omp 18.2 and OpenCode 1.18's home screen, captured live
+// 2026-09-25 — the empty field reads empty (OpenCode's grey placeholder
+// included), a typed draft reads occupied.
+func TestOmpAndOpenCodeComposers(t *testing.T) {
+	load := func(name string) tmux.InputSnapshot {
+		t.Helper()
+		b, err := os.ReadFile("testdata/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var s tmux.InputSnapshot
+		if err := json.Unmarshal(b, &s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	for _, cli := range []string{"omp", "opencode"} {
+		if st, known := peerComposerState(cli, load("composer-empty-"+cli+".json")); !known || st != "empty" {
+			t.Errorf("%s empty = %q known=%v", cli, st, known)
+		}
+		draft := load("composer-draft-" + cli + ".json")
+		if st, known := peerComposerState(cli, draft); !known || st != "occupied" {
+			t.Errorf("%s draft = %q known=%v", cli, st, known)
+		}
+		if !peerInputMatches(cli, draft, "hello world") {
+			t.Errorf("%s draft does not match its own text", cli)
+		}
+	}
 }

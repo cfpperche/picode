@@ -355,6 +355,7 @@ func doorPasteVerified(deps Deps, ctx, cctx context.Context, t store.Terminal, c
 var doorReaderCLI = map[string]bool{
 	"pi": true, "claude-code": true, "codex": true,
 	"grok": true, "hermes": true, "opencode": true,
+	"omp": true, // measured 2026-09-25 (ADR-0217)
 }
 
 const (
