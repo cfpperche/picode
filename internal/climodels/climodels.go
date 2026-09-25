@@ -3,11 +3,13 @@
 // text box (ADR-0181).
 //
 // omp, Pi, Codex, OpenCode and Muse have readers, each the vendor's own
-// command (measured 2026-09-23; Claude Code and Antigravity can list but
-// rewrite the owner's files on every read, and Hermes has no public way), each — the
+// command (measured 2026-09-23; Antigravity can list but rewrites the owner's
+// files on every read, and Hermes has no public way), each — the
 // bounded-subprocess exception ADR-0167 already makes for plugin verbs, with
 // none of its consequences: these are read-only and change nothing. Grok's
-// reader runs nothing: it reads the list Grok keeps on disk (grok.go).
+// reader runs nothing: it reads the list Grok keeps on disk (grok.go). Claude
+// Code's runs signed out in a throwaway config folder, so the writes every
+// start makes land there (claude.go).
 //
 // Two facts decide the shape, both measured on 2026-09-22 against omp 18.2.8:
 //
@@ -104,14 +106,15 @@ type reader struct {
 // readers are the CLIs PiCode has measured a read-only catalog command for,
 // in the order Supported lists them.
 var (
-	readerOrder = []string{"omp", "pi", "codex", "opencode", "muse", "grok"}
+	readerOrder = []string{"omp", "pi", "codex", "opencode", "muse", "grok", "claude-code"}
 	readers     = map[string]reader{
-		"omp":      {command: "omp", probe: probeOmp, inputs: ompInputs},
-		"pi":       {command: "pi", probe: probePi, inputs: piInputs},
-		"codex":    {command: "codex", probe: probeCodex, inputs: codexInputs},
-		"opencode": {command: "opencode", probe: probeOpencode, inputs: opencodeInputs},
-		"muse":     {command: "muse", probe: probeMuse, inputs: museInputs},
-		"grok":     {command: "grok", probe: probeGrok, inputs: grokInputs},
+		"omp":         {command: "omp", probe: probeOmp, inputs: ompInputs},
+		"pi":          {command: "pi", probe: probePi, inputs: piInputs},
+		"codex":       {command: "codex", probe: probeCodex, inputs: codexInputs},
+		"opencode":    {command: "opencode", probe: probeOpencode, inputs: opencodeInputs},
+		"muse":        {command: "muse", probe: probeMuse, inputs: museInputs},
+		"grok":        {command: "grok", probe: probeGrok, inputs: grokInputs},
+		"claude-code": {command: "claude", probe: probeClaude, inputs: claudeInputs},
 	}
 )
 

@@ -261,13 +261,19 @@ JSON-RPC `initialize → initialized → model/list`, offline, with
 command prints text and re-extracts 27 files under `~/.grok/docs` per run, so
 it reads `$GROK_HOME/models_cache.json`, the per-account list Grok fetches
 itself (hidden rows dropped, `reasoning_efforts` as thinking levels; no file
-yet is an error that says to sign in and open Grok once). Codex, OpenCode and
-Muse fill their native `model` field's **Choose…**, Grok its `models.default`
-(`MODEL_READERS` / `modelPickField` in `cliModels.js`, held equal to
-`Supported()` by a Go test); the field stays typeable. No reader: Claude Code
-(only its control protocol lists, and every call rewrites `~/.claude.json`),
-Antigravity (network each time, refreshed its OAuth token) and Hermes (no
-public listing; its gateway mutated `auth.json`). The measurement itself
+yet is an error that says to sign in and open Grok once). Claude Code's
+reader (2026-09-25, adapted from orca) sends one `list_models` control
+request to `claude -p` stream-json — no API turn — with `CLAUDE_CONFIG_DIR`
+and the working directory set to a throwaway folder: every start rewrites
+the config it runs with and runs the folder's hooks, so those writes land
+there and the owner's `~/.claude.json` is only read, for the account's extra
+models (`additionalModelOptionsCache`). Signed out it still answers the full
+catalog (~0.7 s); `default` and `disabled` placeholder rows are dropped.
+Codex, OpenCode, Muse and Claude Code fill their native `model` field's
+**Choose…**, Grok its `models.default` (`MODEL_READERS` / `modelPickField` in
+`cliModels.js`, held equal to `Supported()` by a Go test); the field stays
+typeable. No reader: Antigravity (network each time, refreshed its OAuth
+token) and Hermes (no public listing; its gateway mutated `auth.json`). The measurement itself
 refreshed the owner's Antigravity token and Hermes `auth.json` once.
 
 ## Checks: what a CLI resolves here, and what is wrong with it (slice 4)
