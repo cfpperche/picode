@@ -1073,8 +1073,10 @@ function VendorBody({
 
   return (
     <>
-      <div className="gpkg-sticky">
-        {rows.length > 1 ? (
+      {/* The bar only holds the filter: with 0 or 1 rows there is nothing to
+          filter, and the empty sticky box drew a 16px band (2026-09-25). */}
+      {rows.length > 1 ? (
+        <div className="gpkg-sticky">
           <div className="pkg-installed-toolbar" data-align-row>
             <input
               className="pkg-search"
@@ -1085,8 +1087,8 @@ function VendorBody({
             />
             <span className="pkg-count">{shown.length === rows.length ? rows.length + " installed" : shown.length + " of " + rows.length}</span>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {rows.length === 0 ? (
         <div className="pkg-empty">
