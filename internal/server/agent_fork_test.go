@@ -148,10 +148,9 @@ func TestForkAgentCodexInAnotherFolder(t *testing.T) {
 	}
 }
 
-// Omp's screen is read by the prompt door since ADR-0217 (2026-09-25), so its
-// fork goes the way Codex's does: the launch carries no task, and the task —
-// line breaks kept — waits for the door.
-func TestForkAgentOmpSendsTheTaskThroughTheDoor(t *testing.T) {
+// Omp has no screen reader for the prompt door, so its fork keeps the task
+// as one launch argument: line breaks become spaces, nothing is pending.
+func TestForkAgentOmpKeepsTheTaskOnItsLaunch(t *testing.T) {
 	_, _, out, _, fork := forkSource(t, "omp", "om-1")
 	res := fork(map[string]any{"prompt": "first\nsecond"})
 	if res["status"] != "201" {
@@ -159,11 +158,11 @@ func TestForkAgentOmpSendsTheTaskThroughTheDoor(t *testing.T) {
 	}
 	body := res["body"].(map[string]any)
 	cleanupTerm(t, body)
-	if body["task"] != "pending" {
-		t.Fatalf("task = %v, want pending", body["task"])
+	if body["task"] != nil {
+		t.Fatalf("task = %v, want none pending", body["task"])
 	}
-	if args := readArgs(t, out); len(args) < 2 || !reflect.DeepEqual(args[:2], []string{"--fork", "om-1"}) || strings.Contains(strings.Join(args, " "), "first") {
-		t.Fatalf("omp fork args = %q; the task must not ride the launch", args)
+	if args := readArgs(t, out); len(args) < 3 || !reflect.DeepEqual(args[:3], []string{"--fork", "om-1", "first second"}) {
+		t.Fatalf("omp fork args = %q", args)
 	}
 }
 
@@ -192,15 +191,13 @@ func TestForkAgentRefusals(t *testing.T) {
 			t.Fatalf("got %v", res)
 		}
 	})
-	// The door takes any length: a long task is not refused for a CLI whose
-	// screen it reads (every command-line fork today, Omp included).
-	t.Run("a long task through the door", func(t *testing.T) {
+	// Only a CLI whose task rides the launch (Omp, no screen reader) has
+	// the one-argument limit; the door takes any length.
+	t.Run("a task over the launch limit", func(t *testing.T) {
 		_, _, _, _, fork := forkSource(t, "omp", "om-1")
-		res := fork(map[string]any{"prompt": strings.Repeat("x ", 5000)})
-		if res["status"] != "201" {
+		if res := fork(map[string]any{"prompt": strings.Repeat("x ", 5000)}); res["status"] != "400" {
 			t.Fatalf("got %v", res)
 		}
-		cleanupTerm(t, res["body"].(map[string]any))
 	})
 	t.Run("a folder that does not exist", func(t *testing.T) {
 		_, _, _, _, fork := forkSource(t, "codex", "cx-1")
