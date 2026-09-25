@@ -14,7 +14,7 @@ import (
 )
 
 func TestMachineSocketsDiscoverTheMachine(t *testing.T) {
-	requireDrainTmux(t)
+	requireTmuxBinary(t)
 	ctx := context.Background()
 	base := socketDir(t)
 	home := filepath.Join(base, "tmuxdir")

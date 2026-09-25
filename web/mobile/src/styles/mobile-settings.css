@@ -133,7 +133,9 @@
 #m-app .m-app-screen .app-body { padding: 12px var(--m-pad); }
 #m-app .m-app-screen .app-split { overflow-y: auto; }
 #m-app .m-app-screen .app-pane { flex: none; width: 100%; max-width: none; max-height: none; overflow: visible; padding: 12px var(--m-pad); }
-#m-app .m-app-screen .app-group-items { padding-left: 12px; }
+/* Inside the group's own border, 4px is enough inset on a phone: 12px plus
+   the row's own padding put the text 35px from the screen edge. */
+#m-app .m-app-screen .app-group-items { padding-left: 4px; padding-right: 4px; }
 #m-app .m-inbox .app-body { padding-top: 12px; }
 #m-app :is(.m-inbox, .m-inbox-item) .app-surface { flex-shrink: 0; }
 #m-app :is(.m-inbox, .m-inbox-item) .ft-head { flex-shrink: 0; }

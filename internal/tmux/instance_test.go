@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewSessionCarriesTheInstanceStamp(t *testing.T) {
-	requireDrainTmux(t)
+	requireTmuxBinary(t)
 	ctx := context.Background()
 	data := filepath.Join(socketDir(t), "data")
 	if err := os.MkdirAll(data, 0o755); err != nil {

@@ -396,7 +396,7 @@ func TestCLISettingsAPIRefusesARoleTheCLIWouldNotAccept(t *testing.T) {
 // ask answers at all.
 func TestCLIModelsAPIRefusesCLIsItCannotAsk(t *testing.T) {
 	ts := newTestServer(t, "cat")
-	for _, cli := range []string{"", "grok", "claude-code"} {
+	for _, cli := range []string{"", "agy", "claude-code"} {
 		status, _ := getJSONBody(t, ts, ts.URL+"/api/cli-models?cli="+cli)
 		if status != http.StatusBadRequest {
 			t.Errorf("cli=%q: want 400, got %d", cli, status)

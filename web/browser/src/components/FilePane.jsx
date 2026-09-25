@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { EditorView } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { api } from "@picode/shared/client/api.js";
@@ -25,7 +25,7 @@ const FILE_KEY = "picode-file-w";
 // Without it the document is this component's, as it has always been.
 // `onDirty` reports that text upward: the canvas pins a dirty editor so the
 // viewport never unmounts it silently.
-export default function FilePane({ agentId, termId, wsId, path, onClose, variant, root = "", worktree = "", nonce = 0, hidden = false, controllerRef, docKey = "", onDirty, onSaved, onViewDiff, onRefreshRoot }) {
+export default function FilePane({ agentId, termId, wsId, path, onClose, variant, root = "", worktree = "", nonce = 0, hidden = false, controllerRef, docKey = "", onDirty, onSaved, onViewDiff, onRefreshRoot, onOpenPath }) {
   const ownerKind = termId ? "term" : wsId ? "workspace" : "agent";
   const ownerId = termId || wsId || agentId;
   const savedRef = useRef(onSaved);
@@ -48,6 +48,12 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
     return docKey ? holdDocument(docKey, make) : make();
   }, [ownerKind, ownerId, path, root, worktree, docKey]);
   const view = useSyncExternalStore(doc.subscribe, doc.getSnapshot);
+  // Images a markdown file points at are read from the same tree, through the
+  // same file API — never a filesystem path in the page.
+  const assetUrl = useCallback(
+    (p, resource = "blob") => ownerFileURL({ kind: ownerKind, id: ownerId }, resource, p, root, worktree),
+    [ownerKind, ownerId, root, worktree],
+  );
   const rootRef = useKeptScroll(hidden, [".cm-scroller", ".file-preview"]);
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(FILE_KEY) || "", 10);
@@ -245,7 +251,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
           kind === "html" && !previewOnly && previewEmpty(view.text) ? (
             <p className="file-pane-msg">Nothing to preview.</p>
           ) : (
-            <FilePreview kind={kind} text={view.text} src={view.src} html={kind === "html" ? html : undefined} />
+            <FilePreview kind={kind} text={view.text} src={view.src} html={kind === "html" ? html : undefined} path={path} assetUrl={assetUrl} onOpenPath={onOpenPath} />
           )
         ) : null}
       </div>

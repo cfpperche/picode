@@ -76,19 +76,20 @@ func TestSelectorIsAlwaysPresent(t *testing.T) {
 }
 
 func TestOnlyDeclaredCLIsAnswer(t *testing.T) {
-	for _, cli := range []string{"omp", "pi", "codex", "opencode", "muse"} {
+	for _, cli := range []string{"omp", "pi", "codex", "opencode", "muse", "grok"} {
 		if !Supports(cli) {
 			t.Errorf("%s has a reader", cli)
 		}
 	}
-	// Measured 2026-09-23: Claude Code, Grok and Antigravity can list but
-	// rewrite the owner's files on every read; Hermes has no public way.
-	for _, cli := range []string{"claude-code", "grok", "hermes", "agy"} {
+	// Measured 2026-09-23: Claude Code and Antigravity can list but rewrite
+	// the owner's files on every read; Hermes has no public way. (Grok's
+	// command does too; its reader reads Grok's own file instead.)
+	for _, cli := range []string{"claude-code", "hermes", "agy"} {
 		if Supports(cli) {
 			t.Errorf("%s must not have a reader", cli)
 		}
 	}
-	if _, err := Read(t.Context(), "grok", "", false); err == nil {
+	if _, err := Read(t.Context(), "claude-code", "", false); err == nil {
 		t.Error("a CLI with no reader must be refused by name, not probed")
 	}
 }

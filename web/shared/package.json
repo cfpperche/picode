@@ -5,6 +5,11 @@
   "type": "module",
   "dependencies": {
     "highlight.js": "^11.12.0",
+    "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "zod": "^4.4.3"
   },
   "exports": {
@@ -77,6 +82,8 @@
     "./domain/inspector.js": "./domain/inspector.js",
     "./domain/listSearch.js": "./domain/listSearch.js",
     "./domain/managedPrincipal.js": "./domain/managedPrincipal.js",
+    "./domain/mdDocument.js": "./domain/mdDocument.js",
+    "./domain/mdPipeline.js": "./domain/mdPipeline.js",
     "./domain/mdSafe.js": "./domain/mdSafe.js",
     "./domain/notice.js": "./domain/notice.js",
     "./domain/overlayAudit.js": "./domain/overlayAudit.js",
@@ -119,6 +126,8 @@
     "./domain/turns.js": "./domain/turns.js",
     "./tokens/theme.css": "./tokens/theme.css",
     "./styles/agent-exit.css": "./styles/agent-exit.css",
+    "./styles/highlight.css": "./styles/highlight.css",
+    "./styles/markdown-doc.css": "./styles/markdown-doc.css",
     "./styles/providers.css": "./styles/providers.css",
     "./styles/scrollbars.css": "./styles/scrollbars.css",
     "./domain/llamaJobs.js": "./domain/llamaJobs.js",
@@ -149,5 +158,10 @@
   },
   "scripts": {
     "test": "node --test client/*.test.js contracts/*.test.js domain/*.test.js"
+  },
+  "devDependencies": {
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5"
   }
 }

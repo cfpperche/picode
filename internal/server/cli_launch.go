@@ -1520,9 +1520,6 @@ func (p *preparedCLILaunch) startSized(deps Deps, r *http.Request, name, cwd str
 		if blocked, e := peerStopPending(deps, a.ID); e != nil || blocked {
 			return errAgentTUIInFlight
 		}
-		if has, e := deps.Tmux.HasSession(r.Context(), tmux.SessionName(a.ID)); e != nil || has {
-			return errors.New("This agent still has an open terminal. Close it through the agent before starting another.")
-		}
 	}
 	if a, e := deps.Store.AgentByTerminal(p.id); e == nil && a.IsPi() && deps.Runtime != nil && deps.Runtime.Active(a.ID) {
 		return errors.New("This agent is running in chat. Open its terminal through the agent to switch modes.")

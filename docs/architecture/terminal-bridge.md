@@ -327,7 +327,7 @@ reconnect never replays a login page. The wiring row (`open-url`, Agent
 CLIs page) defaults on like the guard; an explicit opt-out removes the
 wrappers and the `BROWSER` entry.
 
-### Dedicated socket and the drain (ADR-0139)
+### Dedicated socket (ADR-0139)
 
 Every instance's sessions live on their own server: the daemon runs tmux
 with `-S <dataDir>/tmux.sock` (production: `~/.picode/tmux.sock`; scratch
@@ -336,14 +336,10 @@ never share a server — the trap AGENTS.md records about scratch sessions
 landing in the owner's tmux). `$TMUX` inside a pane names that server, so
 in-pane tmux commands, the guard included, work unchanged.
 
-tmux has no live migration, so pre-move sessions are **drained**: the
-daemon's Manager holds a second Manager on the default socket, every
-session-scoped operation falls back to it when the primary does not have
-the session, and the server-wide reads (`ServerSessions`, `ListSessions`,
-`ListOwned`, `ServerInfo`) merge both sides so the fleet stays one list.
-The bridge asks `SocketFor(session)` which socket to attach with. The
-drain disappears with the last legacy session; nothing is restarted, and
-the rollback is the previous binary.
+The bridge attaches with the Manager's `SocketPath()`. Pre-move sessions on
+the default socket were **drained** by a second Manager until the owner
+retired the drain on 2026-09-25 (no default server was running); a session
+left there is not PiCode's to find any more.
 
 ### Restart recovery (ADR-0112)
 

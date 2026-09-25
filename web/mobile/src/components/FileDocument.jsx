@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { fileEditorExtensions } from "../lib/fileEditor.js";
@@ -6,8 +6,9 @@ import { languageFor } from "../lib/fileLang.js";
 import { previewKind, previewEmpty } from "@picode/shared/domain/filePreview.js";
 import { usePreviewTicket } from "../lib/usePreviewTicket.js";
 import FilePreview from "./FilePreview.jsx";
+import { ownerFileURL } from "../lib/fileIO.js";
 
-export default function FileDocument({ doc, view, path, owner, root }) {
+export default function FileDocument({ doc, view, path, owner, root, onOpenPath }) {
   const host = useRef(null), editor = useRef(null);
   const kind = previewKind(path);
   const [display, setDisplay] = useState(kind ? "preview" : "edit");
@@ -15,6 +16,9 @@ export default function FileDocument({ doc, view, path, owner, root }) {
   // A document too large for the text read still has a page to show: the
   // ticket serves it from disk, so the pane renders preview-only — no editor
   // and no "too large to display" notice.
+  // Images a markdown file points at come from the same tree, through the
+  // same file API.
+  const assetUrl = useCallback((p, resource = "blob") => (owner ? ownerFileURL(owner, resource, p, root) : ""), [owner, root]);
   const previewOnly = kind === "html" && view.kind === "msg" && /too large/i.test(view.error || "");
   // One capability ticket per open HTML preview (ADR-0136). Unsaved editor
   // text travels as the ticket's overlay (the hook PUTs it), so the preview
@@ -60,7 +64,7 @@ export default function FileDocument({ doc, view, path, owner, root }) {
       {kind === "html" && !previewOnly && previewEmpty(view.text) ? (
         <p className="file-pane-msg">Nothing to preview.</p>
       ) : (
-        <FilePreview key={path + ":" + view.src} kind={kind} text={view.text} src={view.src} html={kind === "html" ? html : undefined} />
+        <FilePreview key={path + ":" + view.src} kind={kind} text={view.text} src={view.src} html={kind === "html" ? html : undefined} path={path} assetUrl={assetUrl} onOpenPath={onOpenPath} />
       )}
     </div> : null}
   </div>;

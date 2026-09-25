@@ -885,17 +885,7 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
   object-fit: contain;
 }
 .file-preview.mermaid-svg { display: block; padding: 16px; }
-.file-preview-md {
-  display: block; text-align: left; max-width: 52rem; margin: 0 auto;
-  font-size: 14px; line-height: 1.55; color: var(--text-primary);
-}
-.file-preview-md h1, .file-preview-md h2, .file-preview-md h3 { margin: 1.2em 0 .4em; font-size: 1.1em; }
-.file-preview-md p { margin: 0 0 .8em; }
-.file-preview-md pre {
-  overflow: auto; padding: 10px 12px; border-radius: 8px;
-  background: var(--bg-base); border: 1px solid var(--border);
-  font-family: var(--code); font-size: 12.5px;
-}
+/* .file-preview-md: web/shared/styles/markdown-doc.css (MarkdownDoc). */
 .file-preview-frame {
   flex: 1; min-height: 0; width: 100%; border: 0; background: var(--bg-base);
 }

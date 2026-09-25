@@ -29,20 +29,11 @@ test("missing bound record never guesses a legacy session", () => {
   assert.equal(resolveAgentTerminalView(agent, { id: "wrong" }), null);
   assert.equal(resolveAgentTerminalView({ ...agent, terminal: term }, null).term, term);
 });
-test("live legacy Pi wins even after a failed restart allocated a binding", () => {
-  for (const terminalId of ["", "t"]) {
-    const a = { ...agent, cli: "pi", terminalId, legacyInteractive: true };
-    const view = resolveAgentTerminalView(a, term, "/work");
-    assert.equal(view.term.session, "picode-a");
-    assert.equal(view.term.running, true);
-    assert.equal(view.term.launchCli, "pi");
-    assert.equal(view.term.cwd, "/work");
-    assert.equal(view.canonical, false);
-    assert.equal(terminalOwnerBase(view.owner), "/api/agents/a");
+test("an unbound agent never acquires a fabricated session, Pi included", () => {
+  // The pre-ADR-0162 `picode-<id>` session was retired 2026-09-25.
+  for (const cli of ["pi", "codex"]) {
+    assert.equal(resolveAgentTerminalView({ ...agent, cli, terminalId: "", mode: "interactive" }, null), null, cli);
   }
-});
-test("unbound non-Pi cannot acquire a fabricated Pi session", () => {
-  assert.equal(resolveAgentTerminalView({ ...agent, cli: "codex", terminalId: "" }, null), null);
   assert.equal(initialAgentView({ ...agent, cli: "codex" }, "chat"), "term");
 });
 test("cleanup covers both old legacy and newly bound keys without duplicates", () => {

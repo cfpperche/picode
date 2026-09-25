@@ -8,12 +8,12 @@ import "katex/dist/katex.min.css";
 import { basename, statLabel, groupHunks, undoHunkInText } from "@picode/shared/domain/diff.js";
 import DiffLine from "./DiffLine.jsx";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex, pathsFromTurn } from "@picode/shared/domain/turns.js";
-import { IconCopy, IconFile } from "./Icons.jsx";
+import { IconFile } from "./Icons.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { isSearchTool, hitsFromTool, searchQuery } from "@picode/shared/domain/searchCards.js";
 import { checklistItems, checklistRefusal, currentStep, countDone, GLYPH as CHECK_GLYPH } from "@picode/shared/domain/checklist.js";
-import { mdComponents } from "./SourceBlock.jsx";
+import { CopyBtn, mdComponents } from "./SourceBlock.jsx";
 import { api } from "@picode/shared/client/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 import FileCard from "./FileCard.jsx";
@@ -655,26 +655,6 @@ function SearchHits({ hits }) {
   );
 }
 
-function CopyBtn({ text }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      type="button"
-      className="copy-btn"
-      title="Copy"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setDone(true);
-          setTimeout(() => setDone(false), 1500);
-        } catch { /* ignore */ }
-      }}
-    >
-      <IconCopy />
-      {done ? "Copied" : "Copy"}
-    </button>
-  );
-}
 
 function DiffHunks({ hunks, path, agentId, onOpenFile }) {
   const groups = groupHunks(hunks);

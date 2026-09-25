@@ -108,3 +108,7 @@ session gone rather than pretending).
 - **Do nothing; rely on the guard (ADR-0138)**: leaves the raw-bypass and
   cross-instance blast radius open, and ADR-0138 itself named this ADR as
   the follow-up.
+
+## Amendment 2026-09-25 — compatibility retired (owner)
+
+The drain is retired: the second, default-socket Manager (`internal/tmux/drain.go`, `WithLegacy`, `SocketFor`) is gone, and every session-scoped call and server-wide read goes to the instance socket alone. Measured before removal: the default tmux server was not running, so no session depended on it; PiCode runs only on the owner's machine.

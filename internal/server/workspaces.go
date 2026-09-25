@@ -43,11 +43,10 @@ type agentView struct {
 	// from the workspace list alone, with no socket per agent. Dialog is
 	// the open prompt itself, so the phone can answer it through
 	// POST /api/agents/{id}/ui without ever subscribing.
-	Streaming         bool           `json:"streaming"`
-	Waiting           bool           `json:"waiting"`
-	Dialog            *rpc.UIDialog  `json:"dialog,omitempty"`
-	Terminal          map[string]any `json:"terminal,omitempty"`
-	LegacyInteractive bool           `json:"legacyInteractive,omitempty"`
+	Streaming bool           `json:"streaming"`
+	Waiting   bool           `json:"waiting"`
+	Dialog    *rpc.UIDialog  `json:"dialog,omitempty"`
+	Terminal  map[string]any `json:"terminal,omitempty"`
 	// ForkedFrom names the agent this one was forked from (Fork agent…).
 	ForkedFrom *forkOrigin `json:"forkedFrom,omitempty"`
 }
@@ -115,7 +114,7 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 		// sidebar line is about the agent, not its container.
 		st, wt, dl := deps.liveState(a.ID)
 		views = append(views, agentView{MissionID: deps.Store.AgentMissionID(a.ID), Agent: a, Running: mode != modeStopped, Mode: string(mode),
-			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl, Terminal: deps.agentTerminalView(r, a), LegacyInteractive: a.TerminalID != nil && deps.agentSession(a.ID) == tmux.SessionName(a.ID), ForkedFrom: origins[a.ID]})
+			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl, Terminal: deps.agentTerminalView(r, a), ForkedFrom: origins[a.ID]})
 	}
 	var first *agentView
 	if len(views) > 0 {

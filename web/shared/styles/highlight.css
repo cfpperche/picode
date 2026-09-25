@@ -1,0 +1,9 @@
+/* highlight.js token colours for SourceBlock — chat messages and markdown
+   documents, in every app. Tokens only; no second palette. */
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type { color: var(--accent); }
+.hljs-string, .hljs-attr, .hljs-attribute { color: var(--ok); }
+.hljs-number, .hljs-literal { color: var(--warn); }
+.hljs-comment, .hljs-quote { color: var(--text-secondary); font-style: italic; }
+.hljs-title, .hljs-title.function_, .hljs-section { color: var(--text-primary); font-weight: 550; }
+.hljs-variable, .hljs-params, .hljs-template-variable { color: var(--text-primary); }
+.hljs-meta, .hljs-punctuation, .hljs-operator { color: var(--text-secondary); }

@@ -67,3 +67,7 @@ shutdown fails closed. Linux uses process start tokens; other Unix hosts use
   interactive implementations and omits the accepted migration scope.
 - Restart every live Pi during migration: interrupts active work unnecessarily.
 - Replace the Pi RPC runtime: unrelated to reuse of the interactive stack.
+
+## Amendment 2026-09-25 — compatibility retired (owner)
+
+The pre-binding Pi compatibility path is retired: `legacyAgentInteractive` / the `legacyInteractive` field, the web fallback that rendered `picode-<id>` through the agent owner, the check that blocked a launch while an old `picode-<id>` pane was live, and the `/ws/term?session=picode-<id>` rewrite. An agent's interactive address is its bound terminal's session. Measured before removal: production had 20 agents, none Pi and none marked legacy.

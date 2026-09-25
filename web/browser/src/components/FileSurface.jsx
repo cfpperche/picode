@@ -6,7 +6,7 @@ import WorkingDiff from "./WorkingDiff.jsx";
 // here), and the two swap in place — "View diff" and "Open file" are the pair
 // ADR-0074 already uses, so no new chrome is invented. The view is per-tab
 // viewer state held by the app, not part of the tab id or the hash.
-export default function FileSurface({ owner, path, error, onClose, view = "file", onView, changed = false, root = "", worktree = "" }) {
+export default function FileSurface({ owner, path, error, onClose, view = "file", onView, changed = false, root = "", worktree = "", onOpenPath }) {
   if (error) {
     return (
       <section className="file-surface" aria-label="File">
@@ -37,6 +37,7 @@ export default function FileSurface({ owner, path, error, onClose, view = "file"
         root={root}
         worktree={worktree}
         onViewDiff={changed && onView ? () => onView("diff") : undefined}
+        onOpenPath={onOpenPath}
       />
     </section>
   );

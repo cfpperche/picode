@@ -7,6 +7,27 @@ import MermaidBlock from "./MermaidBlock.jsx";
 
 const RUN = new Set(["bash", "sh", "shell", "python", "py", "javascript", "js", "go", "golang"]);
 
+export function CopyBtn({ text }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      className="copy-btn"
+      title="Copy"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setDone(true);
+          setTimeout(() => setDone(false), 1500);
+        } catch { /* ignore */ }
+      }}
+    >
+      <IconCopy />
+      {done ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
 export function mdComponents({ CopyBtn, onRun }) {
   return {
     pre({ children }) {

@@ -320,6 +320,7 @@ export default function FileTreeSurface({ owner, tabId, hidden, onKey, registerC
                 root={keyRef.current} path={selection.path} variant="embedded" nonce={nonce} hidden={hidden}
                 controllerRef={paneRef} onClose={closeDetail} onSaved={() => loadRef.current()} onRefreshRoot={refresh}
                 onViewDiff={kinds.has(selection.path) ? () => select(selection.path, "diff") : undefined}
+                onOpenPath={(path) => select(path)}
               />
             )}
           </div>

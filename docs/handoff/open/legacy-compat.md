@@ -9,9 +9,10 @@ left needs the owner's call before it goes.
 - [ ] /api/pi-keys: no UI caller; 5 Go tests, the qa-cli-settings scripts and the docs (as "pi's own door") still use it.
 - [ ] GET /api/packages/updates (LegacyUpdates): live caller in App.jsx; migrate that caller first.
 - [ ] workspaces[].agent ("first agent, kept for older clients"): still read by Palette.jsx, App.jsx, tree.js, providerIcon.js.
-- [ ] /ws/term?session=picode-<id> rewrite for old agent tabs.
-- [ ] High risk: legacyInteractive Pi agents (ADR-0162) — needs the owner to confirm no pre-change session is alive.
-- [ ] High risk: internal/tmux/drain.go default-socket drain (ADR-0139) — same confirmation.
+- [x] /ws/term?session=picode-<id> rewrite for old agent tabs. — retired 2026-09-25 (feat/legacy-sessions-drain)
+- [x] High risk: legacyInteractive Pi agents (ADR-0162) — needs the owner to confirm no pre-change session is alive. — retired 2026-09-25 (feat/legacy-sessions-drain)
+- [x] High risk: internal/tmux/drain.go default-socket drain (ADR-0139) — same confirmation. — retired 2026-09-25 (feat/legacy-sessions-drain)
+- [ ] TestOpencodeGUICredentials flakes under make ci-scoped load (30s timeout, 'OpenCode's server did not start'); passes alone in 3.6s — seen 2026-09-25
 
 ## Kept on purpose (not debts)
 

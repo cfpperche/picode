@@ -22,9 +22,8 @@ TUI agents and Agent CLIs use one terminal engine:
 clipboard, resizing and socket wiring. Each independent app supplies xterm
 and its own presentation, never an agent-specific terminal implementation.
 `agentTerminal.js` resolves the runtime identity and HTTP owner for every
-CLI. A live legacy Pi process wins over a newly allocated binding after a
-failed restart (ADR-0162); only its address differs, not its renderer or
-controls. Missing bound records never invent a legacy session.
+CLI through its bound terminal. Missing bound records never invent a session
+(the pre-ADR-0162 `picode-<id>` fallback was retired 2026-09-25).
 
 Mobile agent terminal views render the same `TerminalScreen` as Agent CLIs:
 toolbar, attachments, Files/Git, prompt snippets, keyboard accessory, loading,

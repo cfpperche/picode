@@ -102,9 +102,7 @@ changes a managed run. This adapts the progressive disclosure pattern in
 The browser's Pi interactive view uses the same bound terminal record as the
 Agent CLIs surface whenever `agents.terminal_id` is present. It attaches via
 the terminal session and terminal APIs, so lifecycle, launch settings, and pane
-identity remain one port across desktop, mobile, and browser. A legacy Pi
-session without a binding keeps the old agent address until it is explicitly
-restarted; this compatibility path is not used for newly allocated sessions.
+identity remain one port across desktop, mobile, and browser.
 Pi Chat versus Terminal is chosen from the sidebar agent menu (Open chat /
 Open terminal) and does not create a second terminal or chat runtime.
 `GET /api/clis` resolves installation without starting a conversation;

@@ -45,7 +45,7 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
   const mode = (agent && agent.mode) || "stopped";
   const stopped = mode === "stopped";
   const interactive = mode === "interactive";
-  const resolved = resolveAgentTerminalView(agent, terminal, workspace?.path);
+  const resolved = resolveAgentTerminalView(agent, terminal);
   const hasTerminal = mode !== "managed" && !!(agent?.terminalId || interactive);
   const state = agentState(agent, workingIds);
   const name = agent ? displayAgentName(agent, workspace) : "";
