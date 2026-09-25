@@ -1,10 +1,12 @@
-import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, WidgetType, keymap } from "@codemirror/view";
+import { Prec, StateEffect, StateField } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { api } from "@picode/shared/client/api.js";
 import { svgDataUrl } from "@picode/shared/domain/filePreview.js";
 import { resolveDocImage } from "@picode/shared/domain/mdDocument.js";
 import { safeImgSrc } from "@picode/shared/domain/mdSafe.js";
 import { activeLines, planLive } from "./mdLivePlan.js";
+import { inlineTokens, planTables, tableSkip } from "./mdLiveTables.js";
 
 const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || "");
 const OPEN_HINT = (MAC ? "⌘" : "Ctrl") + "+click to open";
@@ -26,6 +28,12 @@ export function markdownLive(context) {
 
   return [
     plugin,
+    tableField(context),
+    Prec.high(keymap.of([
+      { key: "ArrowDown", run: (view) => stepIntoTable(view, true) },
+      { key: "ArrowUp", run: (view) => stepIntoTable(view, false) },
+    ])),
+    EditorView.focusChangeEffect.of((_state, focusing) => setFocus.of(focusing)),
     EditorView.editorAttributes.of({ class: "cm-md-live" }),
     EditorView.domEventHandlers({
       mousedown(e, view) {
@@ -151,4 +159,106 @@ class ImageWidget extends WidgetType {
     return wrap;
   }
   ignoreEvent() { return false; }
+}
+
+// Tables: one block widget per table no selection touches. Focus is part of
+// the field's state (a view plugin knows it, a state field has to be told),
+// so an unfocused editor shows every table rendered.
+const setFocus = StateEffect.define();
+
+function tableField(context) {
+  const decorate = (state, focused) => Decoration.set(
+    planTables(state, activeLines(state, focused)).map((t) =>
+      Decoration.replace({ widget: new TableWidget(t, context), block: true }).range(t.from, t.to)),
+  );
+  return StateField.define({
+    create: (state) => ({ focused: false, deco: decorate(state, false) }),
+    update(value, tr) {
+      let focused = value.focused;
+      for (const e of tr.effects) if (e.is(setFocus)) focused = e.value;
+      if (focused === value.focused && !tr.docChanged && !tr.selection && syntaxTree(tr.startState) === syntaxTree(tr.state)) return value;
+      return { focused, deco: decorate(tr.state, focused) };
+    },
+    provide: (f) => EditorView.decorations.from(f, (v) => v.deco),
+  });
+}
+
+// Up/Down would step over a rendered table (a block widget); stop on its
+// near row instead, which reveals its source like a click does.
+function stepIntoTable(view, forward) {
+  const range = view.state.selection.main;
+  if (!range.empty || view.state.selection.ranges.length > 1) return false;
+  const target = view.moveVertically(range, forward).head;
+  const stop = tableSkip(planTables(view.state, activeLines(view.state, true)), range.head, target, forward);
+  if (stop == null) return false;
+  view.dispatch({ selection: { anchor: stop }, scrollIntoView: true, userEvent: "select" });
+  return true;
+}
+
+class TableWidget extends WidgetType {
+  constructor(table, context) {
+    super();
+    this.table = table;
+    this.context = context;
+    this.key = JSON.stringify([table.quoted, table.align, table.rows.map((r) => [r.header, r.cells.map((c) => c.text)])]);
+  }
+  eq(o) { return o.key === this.key; }
+  get estimatedHeight() { return this.table.rows.length * 33 + 16; }
+  toDOM(view) {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-md-table-widget" + (this.table.quoted ? " cm-md-table-quoted" : "");
+    const el = document.createElement("table");
+    const head = document.createElement("thead");
+    const body = document.createElement("tbody");
+    this.table.rows.forEach((row, r) => {
+      const tr = document.createElement("tr");
+      row.cells.forEach((cell, c) => {
+        const td = document.createElement(row.header ? "th" : "td");
+        if (this.table.align[c]) td.style.textAlign = this.table.align[c];
+        td.dataset.row = String(r);
+        td.dataset.col = String(c);
+        for (const tok of inlineTokens(cell.text)) td.appendChild(inlineNode(tok));
+        tr.appendChild(td);
+      });
+      (row.header ? head : body).appendChild(tr);
+    });
+    if (head.childNodes.length) el.appendChild(head);
+    el.appendChild(body);
+    wrap.appendChild(el);
+    // A click puts the cursor in the cell it landed on (the table turns back
+    // into its source); Ctrl/⌘+click on a link follows it. Positions are read
+    // at click time: an unchanged widget may outlive edits above it.
+    wrap.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      const target = e.target instanceof Element ? e.target : null;
+      const link = target && target.closest("[data-href]");
+      if (link && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        this.context().openLink?.(link.getAttribute("data-href"));
+        return;
+      }
+      e.preventDefault();
+      const from = view.posAtDOM(wrap);
+      const now = planTables(view.state, new Set()).find((t) => t.from === from);
+      const td = target && target.closest("[data-row]");
+      const cell = now && td ? now.rows[Number(td.dataset.row)]?.cells[Number(td.dataset.col)] : null;
+      view.dispatch({ selection: { anchor: cell ? cell.from : from } });
+      view.focus();
+    });
+    return wrap;
+  }
+  ignoreEvent() { return true; }
+}
+
+function inlineNode(tok) {
+  if (tok.type === "text") return document.createTextNode(tok.text);
+  const el = document.createElement(tok.type === "code" ? "code" : tok.type === "strong" ? "strong" : tok.type === "em" ? "em" : tok.type === "strike" ? "s" : "span");
+  el.textContent = tok.text;
+  if (tok.type === "code") el.className = "cm-md-code";
+  if (tok.type === "link") {
+    el.className = "cm-md-link";
+    el.setAttribute("data-href", tok.href);
+    el.title = OPEN_HINT;
+  }
+  return el;
 }
