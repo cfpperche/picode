@@ -504,8 +504,12 @@ function Control({ field, value, busy, disabled, onSet, levels, models, onLoadMo
 function ModelPickText({ input, value, busy, disabled, models, onLoadModels, onPick, label }) {
   const options = models.state === "ready"
     // The hint is the id Choose… will write (and its context size), so the
-    // list and the field speak the same name.
-    ? models.rows.map((m) => ({ id: m.selector, label: m.name || m.id, hint: [m.selector, m.contextWindow ? formatContext(m.contextWindow) : ""].filter(Boolean).join(" · ") }))
+    // list and the field speak the same name — left out when the name *is*
+    // what gets written (Antigravity's setting holds the display name).
+    ? models.rows.map((m) => {
+      const label = m.name || m.id;
+      return { id: m.selector, label, hint: [m.selector !== label ? m.selector : "", m.contextWindow ? formatContext(m.contextWindow) : ""].filter(Boolean).join(" · ") };
+    })
     : [];
   const note =
     models.state === "loading" || models.state === "idle" ? "Asking the CLI…"
