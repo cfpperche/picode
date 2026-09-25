@@ -128,6 +128,21 @@ test("a Pi agent without a pinned session stays flat", () => {
   assert.equal(rows.some((r) => r.sep), false);
 });
 
+// Fork agent… for Pi (agent_fork_pi.go): offered where the catalog says Pi
+// forks and the agent has a conversation (a pin, or it has run once).
+test("a Pi agent with a conversation offers Fork agent… when Pi forks", () => {
+  const forking = CATALOG.map((c) => (c.id === "pi" ? { ...c, sessions: { ...(c.sessions || {}), fork: true } } : c));
+  const pinned = agentRowMenu({ cli: "pi", sessionPath: "/p/s.jsonl", mode: "interactive" }, { clis: forking });
+  assert.equal(row(pinned, "fork").label, "Fork agent…");
+  assert.equal(pinned.findIndex((r) => r.id === "fork") < pinned.findIndex((r) => r.id === "handoff"), true, "fork rides first");
+  const ran = agentRowMenu({ cli: "pi", lastStartedAt: "2026-09-24T00:00:00Z", mode: "stopped" }, { clis: forking });
+  assert.ok(row(ran, "fork"));
+  const fresh = agentRowMenu({ cli: "pi", mode: "stopped" }, { clis: forking });
+  assert.equal(fresh.some((r) => r.id === "fork"), false);
+  const noFork = CATALOG.map((c) => (c.id === "pi" ? { ...c, sessions: { ...(c.sessions || {}), fork: false } } : c));
+  assert.equal(agentRowMenu({ cli: "pi", sessionPath: "/p/s.jsonl" }, { clis: noFork }).some((r) => r.id === "fork"), false);
+});
+
 test("a CLI agent with a pinned conversation offers Continue in…", () => {
   const rows = agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: CATALOG, term: PINNED });
   const handoff = row(rows, "handoff");

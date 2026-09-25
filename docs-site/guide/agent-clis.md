@@ -353,7 +353,7 @@ is exactly what that CLI would make.
 | [Grok](https://docs.x.ai/build/cli/reference) | yes | `--resume <id> --fork-session` |
 | [OpenCode](https://opencode.ai/docs) | yes | `--session <id> --fork` |
 | [Omp](https://omp.sh/docs) | yes | `--fork <session>` |
-| [Pi](https://pi.dev) | not yet | `--fork` exists; a Pi agent owns its session file in PiCode |
+| [Pi](https://pi.dev) | yes | `--fork <file>`: PiCode makes the copy in the new agent's own folder before it starts, and the task is sent once Pi is ready; a Restart reopens the copy |
 | [Muse Code](https://dev.meta.ai/docs/muse-code) | yes | its session server's `session/fork`; the copy opens with `muse resume`, and the task is sent once Muse is ready (a new folder may first ask you to trust it) |
 | [Hermes Agent](https://hermes-agent.nousresearch.com/docs/getting-started/installation), [Antigravity](https://antigravity.google/docs/cli/) | not yet | only inside their own TUI (`/branch`, `/fork`) |
 

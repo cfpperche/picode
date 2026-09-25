@@ -77,6 +77,17 @@ type SessionForker interface {
 	ForkSession(ctx context.Context, src Ref, start func(ctx context.Context, args ...string) *exec.Cmd) (Fork, error)
 }
 
+// AgentForker forks into the new agent's own session folder, for a CLI
+// whose agent owns its conversation file (Pi: `--session` is the agent's,
+// sessions live in its private folder, ADR-0040). The caller creates the
+// agent, then asks for the copy in dir under newID before the first start,
+// and pins the returned file as the agent's session: a restart reopens the
+// copy instead of forking again. start builds the CLI's command in the
+// copy's working folder.
+type AgentForker interface {
+	ForkIntoDir(ctx context.Context, src Ref, dir, newID string, start func(ctx context.Context, args ...string) *exec.Cmd) (string, error)
+}
+
 // LiveSessionFinder names the conversation a running TUI is writing when
 // the CLI records it only at exit (Muse Code), so a fork can start from a
 // terminal that has no pinned session yet: its id and the arguments that
@@ -149,7 +160,8 @@ func CapabilitiesOf(cli string) Capabilities {
 	_, prompt := src.(Prompter)
 	_, forker := src.(Forker)
 	_, sessionForker := src.(SessionForker)
-	fork := forker || sessionForker
+	_, agentForker := src.(AgentForker)
+	fork := forker || sessionForker || agentForker
 	return Capabilities{List: true, Read: read, Write: write, Prompt: prompt, Fork: fork}
 }
 
@@ -179,6 +191,15 @@ func PrompterFor(cli string) (Prompter, bool) {
 	}
 	p, ok := src.(Prompter)
 	return p, ok
+}
+
+func AgentForkerFor(cli string) (AgentForker, bool) {
+	src, ok := Get(cli)
+	if !ok {
+		return nil, false
+	}
+	f, ok := src.(AgentForker)
+	return f, ok
 }
 
 func SessionForkerFor(cli string) (SessionForker, bool) {

@@ -13,7 +13,7 @@ slice from `feat/agent-fork`: Claude Code, Codex, Grok, OpenCode, Omp.
 
 - [x] Muse Code forks natively through `muse serve` (`session/fork`), opens the copy with `muse resume <id>` and gets its task through the prompt door (branch `feat/muse-fork`, 2026-09-24).
 
-- [ ] Pi agents are not offered Fork: a Pi agent owns its session file (`--session` is reserved, `SessionPath`), so `pi --fork` needs the new file assigned to the new agent, not a free launch.
+- [x] Pi agents are not offered Fork: a Pi agent owns its session file (`--session` is reserved, `SessionPath`), so `pi --fork` needs the new file assigned to the new agent, not a free launch. **Paid 2026-09-24 (`feat/pi-fork`):** pi's own `--fork` runs once into the new agent's folder before its first start and the file becomes its `SessionPath`; the task goes through the prompt door; verified live with the real pi on a scratch instance.
 - [ ] The phone hides Fork agent… (no sheet yet); `web/mobile/src/components/AgentRow.jsx` filters the row.
 - [ ] Codex, OpenCode and Omp name the copy themselves, so the fork pins on its first turn report; a Restart before that re-runs the fork recipe and sends the task again.
 - [ ] The task travels as one launch argument (clilaunch.Validate: one line, ≤ 8192 characters): line breaks become spaces and attachments follow as `@path`. A multi-paragraph task loses its layout; the prompt door after launch would keep it.

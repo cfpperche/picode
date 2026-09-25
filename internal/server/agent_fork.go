@@ -71,6 +71,9 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 	if err != nil {
 		return nil, storeStatus(err), err
 	}
+	if agent.IsPi() {
+		return forkPiAgent(deps, r, agent, req)
+	}
 	if agent.TerminalID == nil || *agent.TerminalID == "" {
 		return nil, http.StatusBadRequest, errors.New("Only an agent running a CLI in its terminal can be forked.")
 	}
@@ -122,20 +125,9 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 
 	// Attachments first: a file that cannot be staged refuses the fork
 	// before an agent exists, so the dialog keeps everything and says why.
-	paths, err := checkPromptPaths(cwd, req.Paths)
+	paths, err := forkAttachments(cwd, req)
 	if err != nil {
 		return nil, http.StatusBadRequest, err
-	}
-	for _, f := range req.Files {
-		raw, err := decodeDropData(f.Data)
-		if err != nil {
-			return nil, http.StatusBadRequest, err
-		}
-		saved, err := writeDropFile(cwd, f.Name, raw)
-		if err != nil {
-			return nil, http.StatusBadRequest, err
-		}
-		paths = append(paths, saved["path"].(string))
 	}
 	src := clisession.Ref{ID: ls.SessionID, Path: ls.Path, Cwd: ls.Cwd}
 	var fork clisession.Fork
@@ -199,6 +191,27 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 		out["handoff"] = saved
 	}
 	return out, http.StatusCreated, nil
+}
+
+// forkAttachments stages the dialog's files into the fork's folder and
+// checks the paths it named, returning every path the task mentions.
+func forkAttachments(cwd string, req forkRequest) ([]string, error) {
+	paths, err := checkPromptPaths(cwd, req.Paths)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range req.Files {
+		raw, err := decodeDropData(f.Data)
+		if err != nil {
+			return nil, err
+		}
+		saved, err := writeDropFile(cwd, f.Name, raw)
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, saved["path"].(string))
+	}
+	return paths, nil
 }
 
 // forkPrompt is the task as one launch argument. A launch setting is one
