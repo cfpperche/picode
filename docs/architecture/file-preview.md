@@ -72,8 +72,13 @@ The mobile Files screen offers **Preview · Live · Split · Edit** for markdown
 Live is the same `markdownLive` compartment on the phone's editor; Split
 stacks source above page in portrait and goes side by side at ≥700px, synced
 by `attachSplitSync` against `.m-file-preview` (the phone's scroll box).
-Links in Live need Ctrl/⌘+click, which touch does not have — on the phone a
-tap edits the link and Preview follows it. The Live styles are
+On touch, a link in Live opens by press and hold (`web/shared/editor/longPress.js`:
+500ms, 10px slop; the system menu is refused, and the mouse events the
+browser synthesizes after the hold are swallowed at the document for 800ms —
+the node the finger went down on is usually gone by then, so its own
+`touchend` reaches no one); a
+short tap still edits it, and the first such tap in an editor shows a
+one-time "Press and hold to open" hint. Rendered table cells hold the same way. The Live styles are
 `web/shared/styles/md-live.css`, loaded by all three apps.
 
 Styles live in `web/shared/styles/markdown-doc.css`, loaded after each app's
