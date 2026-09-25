@@ -57,6 +57,10 @@
 /* The phone screen already carries the gutter (--m-pad); a side padding here
    put the content 30px from each edge (2026-09-25). */
 .m-missions-body { padding:16px 0; overflow:auto; min-height:0; }
+/* A section's top rule separates it from the one above; the first section on
+   a phone screen sits under the header, where the rule drew an empty band
+   (New mission, 2026-09-25). */
+.m-missions-body > .mission-section:first-child { border-top:0; padding-top:0; }
 .m-missions .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:7px 12px; border:1px solid var(--border-strong); border-radius:var(--radius-ctl); background:var(--bg-panel); color:var(--text-primary); font:inherit; text-decoration:none; }
 .m-missions .btn-primary { background:var(--accent); color:var(--bg-base); }
 .m-missions .btn:disabled { opacity:.6; }
