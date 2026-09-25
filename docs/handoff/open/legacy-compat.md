@@ -29,10 +29,13 @@ left needs the owner's call before it goes.
 - [x] recoverPiReceiverRuntime /proc environ fallback (hello without runtimePid recovers nothing) — retired 2026-09-25 (feat/legacy-sweep-2)
 - [x] desktop-shell: disk_report --stream retry fallback; btab_cdp_call optional domains (now required Vec<String>) — retired 2026-09-25 (feat/legacy-sweep-2)
 - [x] store.CreateTerminal (callers use CreateTerminalIn with FreeWorkspaceID) — retired 2026-09-25 (feat/legacy-sweep-2)
-- [ ] qa-cli-providers.mjs is stale since ADR-0169 (2026-09-21): waits for #providers-view .prov-bar; needs a rewrite for the one-pane Providers
-- [ ] qa-cli-settings.mjs fails the keyboard density assertion at line ~158 on picode-docs-fixture; its later sections (edited 2026-09-25) have not run
-- [ ] qa-cli-packages, qa-llama, qa-mobile-settings, qa-cli-settings-recovery not run after the 2026-09-25 link edits
+- [x] qa-cli-providers.mjs is stale since ADR-0169 (2026-09-21): waits for #providers-view .prov-bar; needs a rewrite for the one-pane Providers — fixed 2026-09-25 (feat/qa-scripts-fix)
+- [x] qa-cli-settings.mjs fails the keyboard density assertion at line ~158 on picode-docs-fixture; its later sections (edited 2026-09-25) have not run — fixed 2026-09-25 (feat/qa-scripts-fix)
+- [x] qa-cli-packages, qa-llama, qa-mobile-settings, qa-cli-settings-recovery not run after the 2026-09-25 link edits — fixed 2026-09-25 (feat/qa-scripts-fix)
 - [ ] Owner: first build/run of the shell after btab.rs/disk.rs edits (make desktop-restart) and of startup-repair after the task.ps1 edit
+- [ ] Owner: in the unified Packages pane a missing/mismatched agentId no longer blocks the machine-scope install up front — intended? — seen 2026-09-25 (feat/qa-scripts-fix)
+- [ ] No browser QA for PackageTarget's moved-location guard (config pages) — seen 2026-09-25 (feat/qa-scripts-fix)
+- [ ] No browser suite for the Providers pane account flows (pause/activate/OAuth) since ADR-0169 — seen 2026-09-25 (feat/qa-scripts-fix)
 
 ## Kept on purpose (not debts)
 
