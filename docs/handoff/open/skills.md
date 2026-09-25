@@ -4,7 +4,7 @@ Decision: ADR-0196. Plan: `docs/plans/skills.md`. Study: `docs/benchmarks/2026-0
 
 ## Next
 
-- Slice 6 `feat/skills-outcomes`: record each launch's skill set and compare runs with and without a skill in Outcomes.
+- Slice 7 `feat/skills-doctor`, if the debts below still matter: locally modified skills, broken links, diverged copies.
 
 ## Debts
 
@@ -39,3 +39,6 @@ Decision: ADR-0196. Plan: `docs/plans/skills.md`. Study: `docs/benchmarks/2026-0
 - [ ] The Marketplace shows no third-party audits: skills.sh's `/api/search` carries none, so a skills.sh card links to its page. A skills.sh audits endpoint, if one is published, would put them on the card.
 - [ ] Installing a skills.sh card fetches the whole repository (the search names the repository, not the folder); a card with 20 siblings reads all 20 to preview one.
 - [ ] A source is re-read only when someone searches and it is a day old; nothing refreshes the catalog while no pane is open.
+- [ ] Not built from slice 6: `claude plugin eval --ablation with-without` runs (they spend real tokens; a job with `--max-cost-usd` when wanted).
+- [ ] The Outcomes skill comparison counts a skill loaded in a run, not a skill the agent actually invoked; no CLI's session record was read for invocations.
+- [ ] A managed Pi agent's skill set is read at its removal, not at its start (no launch snapshot): a folder changed in between is recorded as it stands at removal.

@@ -129,3 +129,46 @@ export function instructionsLine(instr) {
   const source = instr.source === "observed" ? "as the CLI recorded them" : "by PiCode's rules for its CLI";
   return { text, source };
 }
+
+// --- Skills in Outcomes (ADR-0196 slice 6) ---------------------------------
+
+// Below this many answered attempts on a side, a share is shown with a
+// "few runs" mark instead of reading as a finding.
+export const SKILL_MIN_ATTEMPTS = 5;
+
+function side(s = {}) {
+  const attempts = (s.resolved || 0) + (s.partial || 0) + (s.unresolved || 0);
+  return { share: fmtShare(s.resolved || 0, attempts), of: attempts ? (s.resolved || 0) + " of " + attempts : "no answers", attempts, runs: s.total || 0, few: attempts < SKILL_MIN_ATTEMPTS };
+}
+
+// One row per skill: resolved among answered attempts with it and without it,
+// in the headline's own measure.
+export function skillComparisonRows(stats) {
+  return ((stats && stats.rows) || []).map((r) => {
+    const w = side(r.with);
+    const wo = side(r.without);
+    return {
+      name: r.name,
+      versions: r.versions || 0,
+      with: w,
+      without: wo,
+      few: w.few || wo.few,
+    };
+  });
+}
+
+// The line under the table: how much of the catalog carries a skill set.
+export function skillStatsLine(stats) {
+  const rec = (stats && stats.recorded) || 0;
+  const un = (stats && stats.unrecorded) || 0;
+  if (!rec) return un ? "No removed agent recorded its skills yet: agents started from now on do." : "";
+  if (!un) return "Every removed agent here recorded the skills it loaded.";
+  return rec + " of " + (rec + un) + " removed agents recorded their skills; the other " + un + " count on neither side.";
+}
+
+// The skills one exit ran with, for its detail.
+export function loadedSkillsLine(loaded) {
+  if (!loaded || !Array.isArray(loaded.skills)) return null;
+  const text = loaded.skills.length ? loaded.skills.map((s) => s.name + (s.scope === "agent" ? " (the agent's own)" : "")).join(", ") : "None";
+  return { text, source: loaded.source === "launch" ? "as it started" : "read when it was removed" };
+}

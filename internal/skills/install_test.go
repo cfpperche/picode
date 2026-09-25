@@ -187,6 +187,37 @@ func TestInstallAgentCache(t *testing.T) {
 	}
 }
 
+// Promote (slice 6) installs the agent's cached copy — the content it ran
+// with, even when the source changed since — into the workspace, and the
+// lock names the original source; a second promote is "already".
+func TestPromoteInstallsTheTriedCopy(t *testing.T) {
+	m, _, wsDir := newManager(t)
+	m.CacheRoot = filepath.Join(t.TempDir(), "cache")
+	src := localSource(t, map[string]string{"pdf/SKILL.md": skillMD("pdf", "PDF tools")})
+	p := previewOne(t, m, src)
+	tried, err := m.Install(InstallReq{Preview: p.ID, Path: "pdf", Scope: Agent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(src, "pdf/SKILL.md"), skillMD("pdf", "changed upstream"))
+	res, err := m.Promote(PromoteReq{Dir: tried.Dir, Source: filepath.Join(src, "pdf"), Workspace: wsDir})
+	if err != nil || res.Status != "installed" {
+		t.Fatalf("%+v %v", res, err)
+	}
+	canon := filepath.Join(wsDir, ".agents/skills/pdf")
+	if d, _ := Digest(canon); d != tried.Digest {
+		t.Fatal("promote did not install the copy the agent tried")
+	}
+	lock := readJSONFile(t, filepath.Join(wsDir, "skills-lock.json"))
+	e := lock["skills"].(map[string]any)["pdf"].(map[string]any)
+	if e["computedHash"] != tried.Digest || e["sourceType"] != "local" || !strings.Contains(e["source"].(string), "pdf") {
+		t.Fatalf("lock %v", e)
+	}
+	if again, err := m.Promote(PromoteReq{Dir: tried.Dir, Workspace: wsDir}); err != nil || again.Status != "already" {
+		t.Fatalf("again %+v %v", again, err)
+	}
+}
+
 func TestInstallRefusals(t *testing.T) {
 	m, _, wsDir := newManager(t)
 	// A folder no installer recorded: refuse, or adopt without touching it.

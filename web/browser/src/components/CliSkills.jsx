@@ -3,7 +3,7 @@ import ScopeIcon from "./ScopeIcon.jsx";
 import { api } from "@picode/shared/client/api.js";
 import {
   agentScopeLine, alsoLoadedLine, canRemoveSkill, skillScopes, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
-  skillsSummary, skillTargetBody, installedLine, removeQuestion, noAgentScopeLine, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
+  skillsSummary, skillTargetBody, installedLine, removeQuestion, askLabel, canPromoteSkill, promoteQuestion, promoteRetry, promotedLine, trialLine, noAgentScopeLine, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
   hasSkillSwitch, noSwitchLine, skillToggleBody, toggledLine, withSkillEnabled,
 } from "@picode/shared/domain/cliSkills.js";
 import { SwitchCtl } from "./settingsControls.jsx";
@@ -152,6 +152,12 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
         await api("/api/skills", { method: "DELETE", body: JSON.stringify(body) });
         toast.ok(row.name + " removed.");
         setOpen("");
+      } else if (verb === "promote") {
+        // Slice 6: the copy the agent ran with moves into its workspace.
+        const res = await api("/api/skills/promote", { method: "POST", body: JSON.stringify({ agent: agentId, name: row.name, ...extra }) });
+        toast.ok(promotedLine(res, workspaceName));
+        (res.notes || []).forEach((n) => toast.info(n));
+        setOpen("");
       } else {
         const res = await api("/api/skills/update", { method: "POST", body: JSON.stringify(body) });
         toast.ok(res.status === "current" ? row.name + " is already current." : row.name + " updated.");
@@ -160,7 +166,9 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
       setReload((n) => n + 1);
     } catch (x) {
       const code = x.body?.code || "";
-      if (code === "modified" || code === "unlocked") {
+      if (verb === "promote" && promoteRetry(code)) {
+        setAsk({ key, text: x.message, verb, extra: { ...extra, ...promoteRetry(code) } });
+      } else if (code === "modified" || code === "unlocked") {
         setAsk({ key, text: x.message, verb, extra: verb === "remove" ? { confirm: true } : { force: true } });
       } else {
         toast.error(x.message);
@@ -341,10 +349,13 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
                           {row.digest ? <p className="cli-skills-path" title={"sha256 " + row.digest + " — the folder's fingerprint, as the skills tool records it"}>Fingerprint {row.digest.slice(0, 12)}</p> : null}
                           {updateOf[row.scope + ":" + row.name] && updateOf[row.scope + ":" + row.name].status !== "current" && updateOf[row.scope + ":" + row.name].reason
                             ? <p className="is-warn">{updateOf[row.scope + ":" + row.name].reason}.</p> : null}
+                          {trialLine(row, { agentName: data?.agent?.name, workspaceName }) && data?.workspacePath ? <p>{trialLine(row, { agentName: data?.agent?.name, workspaceName })}</p> : null}
                           {canRemoveSkill(row) ? (ask && ask.key === row.dir ? null : (
                             <div className="cli-skills-actions" data-align-row>
                               {updateOf[row.scope + ":" + row.name]?.status === "behind"
                                 ? <button type="button" className="btn btn-primary btn-sm" disabled={rowBusy === row.dir} onClick={() => act(row, "update")}>Update</button> : null}
+                              {canPromoteSkill(row, data)
+                                ? <button type="button" className="btn btn-primary btn-sm" disabled={rowBusy === row.dir} onClick={() => setAsk({ key: row.dir, text: promoteQuestion(row, { workspaceName, agentName: data?.agent?.name }), verb: "promote", extra: {} })}>Promote to {workspaceName || "the workspace"}</button> : null}
                               <button type="button" className="btn btn-ghost btn-danger btn-sm" disabled={rowBusy === row.dir} onClick={() => setAsk({ key: row.dir, text: removeQuestion(row, { workspaceName, agentName: data?.agent?.name }), verb: "remove", extra: {} })}>Remove</button>
                             </div>
                           ))
@@ -354,7 +365,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
                               <span>{ask.text}</span>
                               <span className="cli-skills-ask">
                                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAsk(null)}>Cancel</button>
-                                <button type="button" className={"btn btn-sm " + (ask.verb === "remove" ? "btn-danger" : "btn-primary")} disabled={rowBusy === row.dir} onClick={() => act(row, ask.verb, ask.extra)}>{ask.verb === "remove" ? (ask.extra.confirm ? "Remove anyway" : "Remove") : "Update anyway"}</button>
+                                <button type="button" className={"btn btn-sm " + (ask.verb === "remove" ? "btn-danger" : "btn-primary")} disabled={rowBusy === row.dir} onClick={() => act(row, ask.verb, ask.extra)}>{askLabel(ask)}</button>
                               </span>
                             </div>
                           ) : null}

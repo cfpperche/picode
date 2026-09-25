@@ -258,6 +258,23 @@ Routes: `GET /api/skills/catalog?q=` (cards, per-source state, the switch,
 for a seed or a folder), `PUT /api/skills/skillssh`. All of it goes through
 `skills.PublicClient` (https, private addresses refused).
 
+## Outcomes and the lifecycle (slice 6)
+
+Every agent terminal's launch records the skills it loaded
+(`Snapshot.Skills`), and the exit keeps them (`docs/architecture/agent-exits.md`).
+Outcomes shows, per skill, resolved among answered attempts with it and without
+it — the headline's own measure — and marks a side with fewer than five
+answered runs as *few runs*: a hint, not a finding.
+
+The lifecycle is trying (an agent's own list) → in the project → off (the CLI's
+switch) → removed. **Promote** (`POST /api/skills/promote {agent, name}`) is
+the step from trying to the project: `Manager.Promote` stages the agent's
+cached copy — the content it ran with, never a fresh download — installs it
+into the agent's workspace like any workspace install (links, lock with the
+original source so Check and Update reach it, the same 409s), then takes it
+off the agent's own list. A free agent has no project to promote into. Not
+built: `claude plugin eval --ablation` runs (they spend real tokens).
+
 ## Live parity
 
 `internal/skills/live_test.go` runs the real `muse` against a fixture in a

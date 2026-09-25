@@ -4,8 +4,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import {
-  choiceLabel, emptyExitDraft, exitHeadline, fmtExitCost, fmtLifetime, fmtTurns, pickOutcome, takesReasons, toggleReason,
-} from "@picode/shared/domain/agentExit.js";
+  choiceLabel, emptyExitDraft, exitHeadline, fmtExitCost, fmtLifetime, fmtTurns, pickOutcome, takesReasons, toggleReason, loadedSkillsLine, skillComparisonRows, skillStatsLine } from "@picode/shared/domain/agentExit.js";
 import { IconChevronRight } from "../components/Icons.jsx";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -23,6 +22,7 @@ function cliName(id) {
 export default function OutcomesList() {
   const [data, setData] = useState(null); // { exits, next, ask, taxonomy }
   const [summary, setSummary] = useState(null);
+  const [skillStats, setSkillStats] = useState(null);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState("");
   const [edit, setEdit] = useState(null); // { id, draft }
@@ -30,11 +30,12 @@ export default function OutcomesList() {
 
   function load() {
     const n = ++seq.current;
-    Promise.all([api("/api/agent-exits"), api("/api/agent-exits/summary")])
-      .then(([list, sum]) => {
+    Promise.all([api("/api/agent-exits"), api("/api/agent-exits/summary"), api("/api/agent-exits/skills").catch(() => null)])
+      .then(([list, sum, skills]) => {
         if (n !== seq.current) return;
         setData(list);
         setSummary(sum.summary);
+        setSkillStats(skills);
         setErr("");
       })
       .catch(() => { if (n === seq.current) setErr("Couldn't load outcomes."); });
@@ -113,6 +114,24 @@ export default function OutcomesList() {
           {summary && summary.costMeasured ? ` · ${fmtExitCost({ cost: summary.cost, estimated: summary.estimated })} measured` : ""}
         </p>
       ) : null}
+      {skillStats && skillStats.rows.length && exits.length ? (
+        <section className="m-section">
+          <div className="m-section-label m-outc-skills-label">Skills: resolved with and without</div>
+          <ul className="m-list m-menu m-group-list">
+            {skillComparisonRows(skillStats).map((r) => (
+              <li key={r.name} className="m-row">
+                <span className="m-row-main">
+                  <span className="m-row-text">
+                    <span className="m-row-title">{r.name}</span>
+                    <span className="m-row-sub">With it {r.with.share} ({r.with.of}{r.with.few ? ", few runs" : ""}) · without {r.without.share} ({r.without.of}{r.without.few ? ", few runs" : ""})</span>
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="m-outc-facts">{skillStatsLine(skillStats)}</p>
+        </section>
+      ) : null}
       {exits.length === 0 ? (
         <div className="m-list-empty" role="status">
           <p>No agents removed yet — each one you remove lands here with how it went.</p>
@@ -151,6 +170,7 @@ export default function OutcomesList() {
                             <dt>Lived</dt><dd>{fmtLifetime(ex.lifetimeS)}, {fmtTurns(ex.turns)} turns</dd>
                             <dt>Cost</dt><dd>{fmtExitCost(ex.cost)}{ex.cost ? ` · ${ex.cost.scope === "agent" ? "every session" : "last session"}` : " — not measured"}</dd>
                             <dt>Setup</dt><dd>{[cliName(ex.cli), ex.model, ex.config && ex.config.thinking].filter(Boolean).join(" · ") || "—"}</dd>
+                            {loadedSkillsLine(ex.config && ex.config.loaded) ? <><dt>Skills</dt><dd>{loadedSkillsLine(ex.config.loaded).text}</dd></> : null}
                             <dt>Workspace</dt><dd>{ex.workspaceId === "ws_free" ? "Free" : ex.workspaceName || "—"}</dd>
                           </dl>
                           <div className="m-outc-actions">

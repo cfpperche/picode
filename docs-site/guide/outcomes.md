@@ -56,6 +56,15 @@ setup and the numbers, but nothing can read the conversation afterwards.
 Turns count each time the agent went from waiting to working. Agents created
 before PiCode counted turns show **—** instead of a number.
 
+## Skills: with and without
+
+Each agent start records which skills it loaded. The **Skills** section shows,
+for each skill, how often runs that had it were resolved against runs that did
+not — counting only the runs you answered as resolved, partly or not
+resolved. A side with fewer than five answered runs is marked **few runs**:
+read it as a hint. Agents removed before PiCode recorded skills count on
+neither side, and the line under the table says how many.
+
 ## Using the page
 
 - The numbers at the top follow the date range, workspace and CLI filters.
