@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PiCode</title>
+<style>
+  /* The waiting page (desktop-shell/src/waiting.rs): what the main window
+     shows until the daemon in WSL answers. Rust publishes the stage; this
+     page owns the words. The window is undecorated and bundled pages get no
+     injected frame, so the top row is this page's own. Colors mirror
+     web/shared/tokens/theme.css — the page has no build step to import it. */
+  :root {
+    color-scheme: dark;
+    --bg-base: #0e0e11;
+    --bg-panel: #16161c;
+    --bg-hover: #202027;
+    --border: #2a2a33;
+    --text-primary: #ececf1;
+    --text-secondary: #9b9ba7;
+    --accent: #7c8cf8;
+    --accent-fill: #4f5dde;
+    --danger: #f0848a;
+    --ctl-h: 36px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg-base: #f0f2f7;
+      --bg-panel: #fbfcfe;
+      --bg-hover: #e4e9f2;
+      --border: #d5dae4;
+      --text-primary: #16181d;
+      --text-secondary: #5b6472;
+      --accent: #2a62d6;
+      --accent-fill: #2a62d6;
+      --danger: #c2323b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    display: grid;
+    grid-template-rows: 36px 1fr;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font: 13px/1.45 "Segoe UI", system-ui, sans-serif;
+    user-select: none;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    padding-left: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  header .brand { flex: 1; font-weight: 600; color: var(--text-secondary); height: 100%; display: flex; align-items: center; }
+  header button {
+    width: 46px; height: 36px; border: 0; background: transparent;
+    color: var(--text-secondary); display: grid; place-items: center; cursor: default;
+  }
+  header button:hover { background: var(--bg-hover); color: var(--text-primary); }
+  header button.close:hover { background: #c42b1c; color: #fff; }
+  main { display: grid; place-items: center; padding: 24px 16px; }
+  .card { width: min(420px, 100%); display: grid; justify-items: center; text-align: center; gap: 10px; }
+  .mark { width: 40px; height: 40px; position: relative; margin-bottom: 6px; }
+  .mark svg { position: absolute; inset: 0; }
+  .ring { animation: spin 1.1s linear infinite; transform-origin: 50% 50%; }
+  .card:not(.busy) .ring { display: none; }
+  .card.busy .dot { display: none; }
+  .dot circle { fill: var(--text-secondary); }
+  .card.stop .dot circle { fill: var(--danger); }
+  h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  p { margin: 0; color: var(--text-secondary); min-height: 1.45em; text-wrap: balance; }
+  .elapsed { font-variant-numeric: tabular-nums; }
+  .detail { color: var(--danger); max-width: 34ch; }
+  .detail:empty { display: none; }
+  .actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+  .actions:empty { display: none; }
+  .actions button {
+    height: var(--ctl-h); padding: 0 14px; border-radius: 6px; font: inherit;
+    border: 1px solid var(--border); background: var(--bg-panel); color: var(--text-primary);
+    display: inline-flex; align-items: center; white-space: nowrap; cursor: pointer;
+  }
+  .actions button:hover { background: var(--bg-hover); }
+  .actions button.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
+  .actions button.primary:hover { filter: brightness(1.08); }
+  .actions button:disabled { opacity: .6; cursor: progress; }
+  .actions button:focus-visible, header button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .swap { animation: fade 160ms ease-out; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .ring, .swap { animation: none; } }
+</style>
+</head>
+<body>
+<header data-tauri-drag-region>
+  <span class="brand" data-tauri-drag-region>PiCode</span>
+  <button type="button" id="min" aria-label="Minimize" title="Minimize">
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" /></svg>
+  </button>
+  <button type="button" id="close" class="close" aria-label="Close" title="Close (PiCode keeps running)">
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" /></svg>
+  </button>
+</header>
+<main>
+  <section class="card busy" id="card" aria-live="polite">
+    <div class="mark" aria-hidden="true">
+      <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" stroke="var(--border)" stroke-width="3" /><path d="M20 4a16 16 0 0 1 16 16" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" /></svg>
+      <svg class="dot" viewBox="0 0 40 40"><circle cx="20" cy="20" r="6" /></svg>
+    </div>
+    <h1 id="title">Starting PiCode…</h1>
+    <p><span id="line"></span><span class="elapsed" id="elapsed"></span></p>
+    <p class="detail" id="detail"></p>
+    <div class="actions" id="actions"></div>
+  </section>
+</main>
+<script>
+  // Stage keys come from picode_shell::waitstate::Stage::key. One line and
+  // at most one primary action per stage (uiux-review: state + next action).
+  const COPY = {
+    "linux":         { title: "Starting Linux…", line: "The first start after Windows boots can take a minute." },
+    "starting":      { title: "Starting PiCode…", line: "Waiting for PiCode to answer." },
+    "paused":        { title: "Paused for Linux maintenance", line: "PiCode opens when the move, backup or update finishes." },
+    "not-found":     { title: "PiCode isn't set up in Linux", line: "Run PiCode Desktop setup, then try again.", actions: [["retry", "Try again", true]] },
+    "not-answering": { title: "PiCode isn't answering", line: "It may have stopped.", actions: [["start", "Start PiCode", true], ["logs", "View logs"]] },
+    "restarting":    { title: "Restarting PiCode…", line: "This usually takes a few seconds." },
+    "untrusted":     { title: "Windows doesn't trust PiCode's certificate", line: "Trust it once and PiCode opens here.", actions: [["trust", "Trust certificate", true], ["retry", "Check again"]],
+                       // After a failed Trust, the error names the next step; the
+                       // primary becomes checking again, not repeating what failed.
+                       failed: [["retry", "Check again", true], ["trust", "Trust certificate"]] },
+    "opening":       { title: "Opening PiCode…", line: "" },
+  };
+  // Optimistic stage per button: the press shows motion at once, and the
+  // next push from Rust says what is really true.
+  const PRESSED = { retry: null, start: "restarting", logs: null, trust: null };
+
+  const T = window.__TAURI__;
+  const invoke = (cmd, args) => (T && T.core ? T.core.invoke(cmd, args) : Promise.reject(new Error("no bridge")));
+  const $ = (id) => document.getElementById(id);
+  let shown = "", base = 0, at = 0, busy = true, ticking = null;
+
+  function fmt(s) {
+    return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
+  }
+  function tick() {
+    const s = base + Math.floor((Date.now() - at) / 1000);
+    $("elapsed").textContent = busy && s >= 3 ? `${$("line").textContent ? " · " : ""}${fmt(s)}` : "";
+  }
+
+  function render(state) {
+    const copy = COPY[state.stage] || COPY.starting;
+    busy = !!state.busy;
+    base = state.elapsed || 0;
+    at = Date.now();
+    const card = $("card");
+    const failed = !!(state.detail && copy.failed);
+    const face = state.stage + (failed ? ":failed" : "");
+    if (face !== shown) {
+      const swapped = !shown.startsWith(state.stage);
+      shown = face;
+      if (swapped) { card.classList.remove("swap"); void card.offsetWidth; card.classList.add("swap"); }
+      $("title").textContent = copy.title;
+      $("line").textContent = copy.line;
+      const box = $("actions");
+      box.replaceChildren();
+      for (const [action, label, primary] of (failed ? copy.failed : copy.actions) || []) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        if (primary) b.className = "primary";
+        b.addEventListener("click", () => press(action, b));
+        box.append(b);
+      }
+      const first = box.querySelector("button");
+      if (first) first.focus();
+    }
+    card.classList.toggle("busy", busy);
+    card.classList.toggle("stop", !busy);
+    $("detail").textContent = state.detail || "";
+    tick();
+  }
+
+  function press(action, button) {
+    button.disabled = true;
+    $("detail").textContent = "";
+    const next = PRESSED[action];
+    if (next) render({ stage: next, busy: true, elapsed: 0, detail: "" });
+    invoke("waiting_action", { action })
+      .catch((e) => { $("detail").textContent = String(e && e.message || e); })
+      .finally(() => { setTimeout(() => { button.disabled = false; }, 1500); });
+  }
+
+  window.__picodeWaiting = render;
+  ticking = setInterval(tick, 1000);
+  invoke("waiting_state").then((s) => render(JSON.parse(s))).catch(() => render({ stage: "starting", busy: true, elapsed: 0 }));
+
+  const win = T && T.window && T.window.getCurrentWindow ? T.window.getCurrentWindow() : null;
+  $("min").addEventListener("click", () => win && win.minimize());
+  // Close hides the window (main.rs keeps it); PiCode keeps running.
+  $("close").addEventListener("click", () => win && win.close());
+</script>
+</body>
+</html>
