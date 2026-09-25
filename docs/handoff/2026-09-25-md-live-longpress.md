@@ -22,4 +22,4 @@ but a pre-existing 404 for a missing README image; overlay audit ok, visual card
 Screenshots: var/screenshots/md-press/. Caveat: CDP touch emulation never fires
 `contextmenu`, so refusing the menu was verified with page-JS events only.
 Not caused here: on the phone, Back after opening a file via a link goes to the Files tree, not the previous file; in Live, raw `<kbd>` shows in the link colour.
-visual-review: PASS (2 rounds). make close green, main merged in, fast-forward ready (Next/debts: docs/handoff/open/markdown-preview.md).
+visual-review: PASS (2 rounds). Landed 66a104871 (Next/debts: docs/handoff/open/markdown-preview.md); the first merge-gate `make ci` failed on server TestCLIAdapterPreviewMatchesExecution (TempDir cleanup "directory not empty" — the second time today, see md-live), the rerun was green.
