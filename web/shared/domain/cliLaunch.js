@@ -107,10 +107,6 @@ export function cliLocation(hash = "") {
   // tab: they are not settings of any one CLI, whose pane is
   // `#/clis/<cli>/settings`.
   if (parts[1] === "settings") return { view: "settings", id: "" };
-  // The general Terminals tab left the Agent CLIs view on 2026-09-11: a CLI's
-  // own Terminals pane is the one list. The old address resolves to the
-  // catalog at once and the view rewrites the hash to #/clis.
-  if (parts[1] === "terminals") return { view: "clis", id: "", pane: "launch", redirect: "#/clis" };
   const cli = decode(parts[1]);
   const panePart = parts[2] || "launch";
   const pane = CLI_PANES.has(panePart) ? panePart : "launch";

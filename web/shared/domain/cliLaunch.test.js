@@ -8,8 +8,8 @@ test("CLI manager parses launch routes", () => {
   assert.deepEqual(cliLocation("#/clis/terminal/a%20b"), { view: "terminal", id: "a b" });
 });
 
-test("the general Terminals address lands on the CLI catalog (2026-09-11)", () => {
-  assert.deepEqual(cliLocation("#/clis/terminals"), { view: "clis", id: "", pane: "launch", redirect: "#/clis" });
+test("the retired general Terminals address is not a pane (retired 2026-09-25)", () => {
+  assert.notEqual(cliLocation("#/clis/terminals").redirect, "#/clis");
 });
 
 test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", () => {

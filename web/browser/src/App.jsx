@@ -80,7 +80,7 @@ import CreateForm from "./components/CreateForm.jsx";
 import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
 import { DRAFT_TASK } from "@picode/shared/domain/instructions.js";
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, workspaceAgentsRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, inboxHash, inboxPath, legacyInboxHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, isInstructionsTab } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, workspaceOverviewRoute, workspaceAgentsRoute, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, inboxHash, inboxPath, isWebTab, tabWebId, webHash, webRoute, boundWorkTab, instructionsRoute, instructionsHash, isInstructionsTab } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
@@ -905,10 +905,7 @@ export default function App({ shellChrome = false } = {}) {
         const fromGit = parseRoute() === "workspace" ? gitRoute() : null;
         const fromTree = parseRoute() === "workspace" ? treeRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
-        // The boot fetch outlives the redirect effect, so location.hash is
-        // already canonical here; reading through it costs nothing and makes
-        // that independent of which resolves first.
-        const fromApp = parseRoute() === "workspace" ? appRoute(renamedAppHash() || location.hash) : null;
+        const fromApp = parseRoute() === "workspace" ? appRoute(location.hash) : null;
         if (fromApp && fromApp !== "inbox") {
           if (appList.some((a) => a.id === fromApp) || !appsOk) openTab(appTabId(fromApp));
           else { setGoneId(appTabId(fromApp)); setSelectedId(null); }
@@ -1144,22 +1141,9 @@ export default function App({ shellChrome = false } = {}) {
   useEffect(() => {
     writeFileWorktrees(fileWorktrees);
   }, [fileWorktrees]);
-  // ADR-0118: #/app/matrix[/<id>] is the Canvas app's old address. Replaced,
-  // never pushed — the way ADR-0101/0102/0103 moved their surfaces and the
-  // way #/sessions* still lands on #/clis/<cli>/sessions* — so a bookmark costs the
-  // reader no extra Back step and the address bar shows the link that works
-  // now. It is its own effect, declared before the one that resolves a hash
-  // into a tab, so the old id never reaches the "that app is gone" branch.
-  useEffect(() => {
-    const next = legacyInboxHash(hash) || renamedAppHash(hash);
-    if (next) location.replace(next);
-  }, [hash]);
   useEffect(() => {
     if (!tabsReady) return;
     if (parseRoute(hash) !== "workspace") return;
-    // The effect above is replacing this hash; resolving it would flash the
-    // gone tab for the one commit before `hashchange` arrives.
-    if (legacyInboxHash(hash) || renamedAppHash(hash)) return;
     const fromWeb = webRoute(hash);
     if (fromWeb) {
       // A web tab address selects (or restores) that tab. The id may exceed

@@ -69,7 +69,6 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   }, []);
   useEffect(() => {
     if (hidden || route.view === "messages" || route.view === "settings") return;
-    if (hash === "#/preferences/status") location.replace("#/clis");
     if (route.redirect && route.redirect !== hash) location.replace(route.redirect);
     if (!legacyContextReady || route.invalid) return;
     const paneName = route.pane || "launch";
