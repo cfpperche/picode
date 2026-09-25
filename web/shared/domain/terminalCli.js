@@ -115,8 +115,8 @@ export function normalizeTerminalCli(id) {
   return CLI_ALIASES[String(id || "").trim().toLowerCase()] || "";
 }
 
-// `tui` is the authoritative runtime presence. The top-level cli/state pair
-// remains a compatibility projection for older servers and sessions.
+// `tui` is the authoritative runtime presence. Without it, the top-level cli
+// the server copies from the last hook report (term_state.go) answers.
 export function terminalCli(term) {
   const runtime = term && term.tui;
   // The mere presence of tui is authoritative: never revive a legacy CLI

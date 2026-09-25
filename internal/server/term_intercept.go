@@ -1051,17 +1051,6 @@ func ensureTmuxGuard(dataDir string) {
 	_ = writeTmuxGuard(dataDir)
 }
 
-// stripLegacyUserClaudeHooks undoes the 2026-09-03 file-wiring if it
-// ever landed in the user's ~/.claude/settings.json. Best-effort: a
-// missing or foreign file is not an error.
-func stripLegacyUserClaudeHooks() {
-	p, err := claudeSettingsPath()
-	if err != nil {
-		return
-	}
-	_, _ = claudeSetWiring(p, "", false)
-}
-
 func installIntercept(dataDir, cliID string) error {
 	hook, err := ensureHookScript(dataDir)
 	if err != nil {
@@ -1069,7 +1058,6 @@ func installIntercept(dataDir, cliID string) error {
 	}
 	switch cliID {
 	case "claude-code":
-		stripLegacyUserClaudeHooks()
 		if err := writeClaudeIntercept(dataDir, hook); err != nil {
 			return err
 		}
@@ -1130,7 +1118,7 @@ func agyTitleBlock(reporter string) map[string]any {
 // installAgyTitleReporter merges our title block into the user's settings.
 // A foreign title command is refused, never replaced: the file is theirs.
 //
-// Exception to the retired user-home writes (claudeSetWiring): agy offers
+// Exception to the retired user-home writes (2026-09-03): agy offers
 // no --settings flag and no config env (full flag list and binary strings
 // checked, Fatia 5), so its own settings.json is the only install path.
 // The merge is one key, foreign blocks refuse loudly, and removal deletes
@@ -1215,7 +1203,6 @@ func removeAgyTitleReporter(dataDir string) {
 func uninstallIntercept(dataDir, cliID string) error {
 	switch cliID {
 	case "claude-code":
-		stripLegacyUserClaudeHooks()
 		removeWrapper(dataDir, "claude")
 	case "codex":
 		removeWrapper(dataDir, "codex")

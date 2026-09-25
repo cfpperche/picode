@@ -9,7 +9,7 @@ export function agentOwnerWs(found) {
   return found.workspace ? found.workspace.id : null;
 }
 
-// A payload without workspaceId (older server, cached state) is free.
+// A payload without workspaceId (a partial record) is free.
 export function termOwnerWs(term) {
   if (!term) return undefined;
   const wsId = termWorkspaceId(term);

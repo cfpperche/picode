@@ -5,7 +5,6 @@ package server
 
 import (
 	_ "embed"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -249,78 +248,6 @@ func ensureHookScript(dataDir string) (string, error) {
 		return "", err
 	}
 	return path, nil
-}
-
-func groupHasMarker(group any) bool {
-	m, ok := group.(map[string]any)
-	if !ok {
-		return false
-	}
-	hooks, ok := m["hooks"].([]any)
-	if !ok {
-		return false
-	}
-	for _, h := range hooks {
-		hm, ok := h.(map[string]any)
-		if !ok {
-			continue
-		}
-		if cmd, _ := hm["command"].(string); strings.Contains(cmd, wiringMarker) {
-			return true
-		}
-	}
-	return false
-}
-
-// claudeSetWiring only strips legacy marker entries from a settings
-// JSON (enable=false). Enable of intercept must never call this with
-// true — that was the user-home pollution we retired.
-func claudeSetWiring(settingsPath, scriptPath string, enable bool) (bool, error) {
-	if enable {
-		return false, errors.New("refusing to write user Claude settings")
-	}
-	raw, err := os.ReadFile(settingsPath)
-	if err != nil {
-		return false, nil
-	}
-	var doc map[string]any
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return false, nil // don't clobber a file we no longer own
-	}
-	hooks, _ := doc["hooks"].(map[string]any)
-	if hooks == nil {
-		return false, nil
-	}
-	changed := false
-	for _, event := range append(append([]string{}, claudeHookEvents...), "TaskCompleted", "SubagentStop") {
-		groups, _ := hooks[event].([]any)
-		kept := make([]any, 0, len(groups))
-		for _, g := range groups {
-			if groupHasMarker(g) {
-				changed = true
-				continue
-			}
-			kept = append(kept, g)
-		}
-		if len(kept) > 0 {
-			hooks[event] = kept
-		} else {
-			delete(hooks, event)
-		}
-	}
-	if !changed {
-		return false, nil
-	}
-	if len(hooks) > 0 {
-		doc["hooks"] = hooks
-	} else {
-		delete(doc, "hooks")
-	}
-	out, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return false, err
-	}
-	return true, os.WriteFile(settingsPath, append(out, '\n'), 0o600)
 }
 
 func installedOnPath(name string) bool {

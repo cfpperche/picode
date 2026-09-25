@@ -496,46 +496,6 @@ func TestInterceptRefusesUnknownCLI(t *testing.T) {
 	}
 }
 
-func TestStripLegacyUserClaudeHooks(t *testing.T) {
-	ts, _ := wiringTestServer(t)
-	p, err := claudeSettingsPath()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	doc := map[string]any{
-		"model": "claude-opus-4-8",
-		"hooks": map[string]any{
-			"Stop": []any{
-				map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "/usr/bin/say done"}}},
-				map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "/x/picode-hook idle claude-code"}}},
-			},
-		},
-	}
-	raw, _ := json.MarshalIndent(doc, "", "  ")
-	if err := os.WriteFile(p, raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if res := postJSON(t, ts, "/api/terminals/wiring/claude-code/enable", map[string]any{}); res.StatusCode != http.StatusOK {
-		t.Fatalf("enable = %d", res.StatusCode)
-	}
-	got, _ := os.ReadFile(p)
-	var after map[string]any
-	_ = json.Unmarshal(got, &after)
-	if after["model"] != "claude-opus-4-8" {
-		t.Fatalf("user model lost: %s", got)
-	}
-	if strings.Contains(string(got), wiringMarker) {
-		t.Fatalf("legacy marker still in user settings: %s", got)
-	}
-	stop := after["hooks"].(map[string]any)["Stop"].([]any)
-	if len(stop) != 1 {
-		t.Fatalf("Stop groups = %d, want only the user group", len(stop))
-	}
-}
-
 func TestHookMapPy(t *testing.T) {
 	if _, err := exec.LookPath("python3"); err != nil {
 		t.Skip("python3 not on PATH")
@@ -981,13 +941,6 @@ for (const [type, status, want] of rows) {
 	out, err := exec.Command("node", script).CombinedOutput()
 	if err != nil {
 		t.Fatalf("map table: %v: %s", err, out)
-	}
-}
-
-func TestClaudeSetWiringRefusesEnable(t *testing.T) {
-	_, err := claudeSetWiring("/nope", "", true)
-	if err == nil || !strings.Contains(err.Error(), "refusing") {
-		t.Fatalf("enable must refuse writing user settings: %v", err)
 	}
 }
 
