@@ -198,3 +198,24 @@ test("per-skill switches: the row flips at once and says what decides (slice 3)"
   assert.equal(m.noSwitchLine(report, "claude-code"), "");
   assert.equal(m.noSwitchLine({ rows: [] }, "pi"), "");
 });
+
+// --- slice 5: the Marketplace ------------------------------------------------
+import { catalogEmptyLine, catalogInstalled, catalogOrigin, installedSkillKeys, skillCatalogPath, sourceStateLine } from "./cliSkills.js";
+
+test("marketplace words", () => {
+  assert.equal(skillCatalogPath(""), "/api/skills/catalog");
+  assert.equal(skillCatalogPath(" pdf "), "/api/skills/catalog?q=pdf");
+  assert.equal(catalogOrigin({ origin: "skills.sh", installs: 200826, source: "a/b" }).label, "a/b · skills.sh · 201k installs");
+  assert.equal(catalogOrigin({ origin: "skills.sh", installs: 2147 }).label, "skills.sh · 2.1k installs");
+  assert.equal(catalogOrigin({ origin: "seed", source: "anthropics/skills" }).label, "anthropics/skills");
+  const keys = installedSkillKeys({ rows: [{ name: "pdf", status: "loaded", provenance: { source: "anthropics/skills" } }, { name: "mine", status: "loaded" }] });
+  assert.equal(catalogInstalled(keys, { name: "pdf", source: "anthropics/skills" }), true);
+  assert.equal(catalogInstalled(keys, { name: "pdf", source: "openai/skills" }), false, "same name, other source");
+  assert.equal(catalogInstalled(keys, { name: "mine", source: "a/b" }), false, "a hand-made folder names no source");
+  assert.equal(sourceStateLine({ reading: true }), "Reading…");
+  assert.equal(sourceStateLine({ count: 20 }), "20 skills");
+  assert.equal(sourceStateLine({ count: 0, error: "not found" }), "not found");
+  assert.equal(sourceStateLine({ count: 3, error: "limited" }), "3 skills · last read failed: limited");
+  assert.match(catalogEmptyLine("pdf", false), /No skill matches “pdf”/);
+  assert.match(catalogEmptyLine("", true), /Reading the sources/);
+});

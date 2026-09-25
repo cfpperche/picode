@@ -742,3 +742,22 @@
 .cli-skills-actions { display: flex; gap: 8px; margin: 6px 0 2px; }
 .cli-skills-ask { display: inline-flex; gap: 8px; flex-shrink: 0; }
 .cli-skills-flag.is-update { color: var(--accent); }
+
+/* The Skills Marketplace (ADR-0196 slice 5): Packages' cards, a search
+   field, and the sources folded under the list. */
+.cli-skills .pkg-tabs { margin-top: 0; }
+.skills-market { display: flex; flex-direction: column; gap: 10px; }
+.skills-market-search { flex: 1; min-width: 0; }
+.skills-market .gpkg-card-desc.is-muted { color: var(--text-secondary); font-style: italic; }
+.skills-sources { border-top: 1px solid var(--border); padding-top: 10px; font-size: 12.5px; }
+.skills-sources > summary { cursor: pointer; color: var(--text-secondary); padding: 4px 0; }
+.skills-source-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.skills-source-row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.skills-source-name { font-family: var(--mono); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skills-source-state { color: var(--text-secondary); margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skills-source-state.is-warn { color: var(--warn); }
+.skills-source-add { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.skills-source-add .cred-input { flex: 1; min-width: 0; height: var(--ctl-h); }
+.skills-source-add .btn { height: var(--ctl-h); }
+.skills-sh-row { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; color: var(--text-secondary); line-height: 1.45; }
+.skills-sh-row strong { color: var(--text-primary); font-weight: 500; }

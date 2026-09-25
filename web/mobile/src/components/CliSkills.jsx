@@ -10,6 +10,7 @@ import {
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import AddSkillDialog from "./AddSkillDialog.jsx";
+import SkillsMarketplace from "./SkillsMarketplace.jsx";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { toast } from "../lib/toast.js";
 
@@ -34,6 +35,9 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
   const [flipping, setFlipping] = useState("");
   const [open, setOpen] = useState("");
   const [adding, setAdding] = useState(false);
+  // Installed | Marketplace (slice 5); a card opens the dialog on its source.
+  const [tab, setTab] = useState("installed");
+  const [market, setMarket] = useState(null);
   const [updates, setUpdates] = useState(null);
   const [checking, setChecking] = useState(false);
   const [rowBusy, setRowBusy] = useState("");
@@ -87,7 +91,9 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
   const dialog = (
     <AddSkillDialog
       open={adding}
-      onClose={() => setAdding(false)}
+      onClose={() => { setAdding(false); setMarket(null); }}
+      initialSource={market?.install || ""}
+      pickName={market?.name || ""}
       workspaceId={workspaceId}
       workspaceName={workspaceName}
       agentId={data?.agent ? agentId : ""}
@@ -154,14 +160,33 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
     }
   };
 
+  const tabs = (
+    <div className="pkg-tabs" role="tablist" aria-label="Skills">
+      <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "installed"} onClick={() => setTab("installed")}>
+        Installed{rows.length ? <span className="pkg-tab-count">{rows.length}</span> : null}
+      </button>
+      <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "marketplace"} onClick={() => setTab("marketplace")}>Marketplace</button>
+    </div>
+  );
+  if (tab === "marketplace") {
+    return (
+      <div className="cli-skills">
+        {tabs}
+        <SkillsMarketplace report={data} onInstall={(item) => { setMarket(item); setAdding(true); }} />
+        {dialog}
+      </div>
+    );
+  }
+
   // With an agent chip, the pane stays up even with no skill anywhere: that
   // chip is where the agent's own list starts.
   if (!rows.length && !data?.agent) {
     return (
       <>
+        {tabs}
         <div className="cli-notice" role="status">
           <span>{skillsEmptyLine(cli, { workspaceName, hasWorkspace })}</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>Add skill</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setTab("marketplace")}>Browse the Marketplace</button>
         </div>
         {noAgentScopeLine(data, cli, agentId) ? <p className="cli-memory-note">{noAgentScopeLine(data, cli, agentId)}</p> : null}
         {dialog}
@@ -171,6 +196,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
 
   return (
     <div className="cli-skills">
+      {tabs}
       <div className="pkg-scope" role="radiogroup" aria-label="Which skills to show">
         {scopes.map((s) => (
           <a

@@ -37,15 +37,19 @@ var ErrNotInstalled = errors.New("that skill is not installed there")
 
 // Candidate is one skill a staged source carries.
 type Candidate struct {
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Path        string    `json:"path"`      // folder inside the source, slash-separated ("" = the source root)
-	SkillPath   string    `json:"skillPath"` // path/SKILL.md, as the lock records it
-	Digest      string    `json:"digest"`
-	Files       []string  `json:"files"`
-	Size        int64     `json:"size"`
-	Problems    []string  `json:"problems,omitempty"`
-	Findings    []Finding `json:"findings,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Path        string   `json:"path"`      // folder inside the source, slash-separated ("" = the source root)
+	SkillPath   string   `json:"skillPath"` // path/SKILL.md, as the lock records it
+	Digest      string   `json:"digest"`
+	Files       []string `json:"files"`
+	Size        int64    `json:"size"`
+	Problems    []string `json:"problems,omitempty"`
+	// Folder is the folder's name at the source when it differs from the
+	// skill's name; the install writes the folder under the name, so the
+	// installed layout follows the spec (owner's call, 2026-09-24).
+	Folder   string    `json:"folder,omitempty"`
+	Findings []Finding `json:"findings,omitempty"`
 }
 
 // Preview is a staged source waiting for consent.
@@ -176,6 +180,10 @@ func discover(root, sub string) []Candidate {
 		if rel == "" {
 			// A source whose root is the skill: the folder name is the
 			// staging id, so the header's name is the only name there is.
+			folder = c.Name
+		}
+		if validName(c.Name) && folder != c.Name {
+			c.Folder = folder
 			folder = c.Name
 		}
 		c.Problems = problems(fm, hasHeader, folder)
