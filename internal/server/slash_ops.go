@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/credentials"
 	"github.com/cfpperche/picode/internal/pisettings"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/usage"
@@ -202,6 +203,14 @@ func handleCustomProviderDelete(w http.ResponseWriter, r *http.Request) {
 func handleAccountActivate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	aid := r.PathValue("aid")
+	// pi's slot is auth.json: activating writes the row there, so a login
+	// another CLI holds would be shared (ADR-0166 amendment 2026-09-25).
+	if row, ok, err := credentials.Default().Row(id, aid); err == nil && ok {
+		if holder, name := sharedLoginHolder(id, row.Cred, "pi"); holder != "" {
+			refuseSharedLogin(w, "Pi", holder, name)
+			return
+		}
+	}
 	if err := catalog.ActivateAccount(id, aid); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return

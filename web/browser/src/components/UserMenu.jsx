@@ -91,10 +91,10 @@ export default function UserMenu({ host, version, inShell = false, themeMode, on
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="um-trigger" id="um-trigger" aria-label={hasNotice ? host + ", updates available" : undefined}>
+        <button className="um-trigger" id="um-trigger" aria-label={hasNotice ? (host || "This machine") + ", updates available" : undefined}>
           <span className="um-avatar" aria-hidden="true"><IconUser />{hasNotice ? <span className="um-dot" /> : null}</span>
           <span className="um-meta">
-            <span className="um-name" id="um-name">{host}</span>
+            <span className="um-name" id="um-name">{host || <span className="um-name-skel" aria-label="Loading the machine name" />}</span>
             <span className="um-sub" id="um-sub">this machine</span>
           </span>
           <IconChevronUp className="um-chev" />
@@ -105,7 +105,7 @@ export default function UserMenu({ host, version, inShell = false, themeMode, on
           <div className="um-account">
             <span className="um-avatar" aria-hidden="true"><IconUser /></span>
             <div className="um-account-meta">
-              <span className="um-account-name" id="um-name2">{host}</span>
+              <span className="um-account-name" id="um-name2">{host || "This machine"}</span>
               <span className="um-account-sub">PiCode on this machine</span>
             </div>
           </div>
