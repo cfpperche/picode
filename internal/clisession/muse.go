@@ -11,9 +11,9 @@ import (
 // MuseSource lists Muse Code sessions from
 // ~/.local/share/muse/session-index.db (or $XDG_DATA_HOME/muse/session-index.db),
 // the index Meta's launcher keeps over ~/.local/share/muse/sessions.
-// Read-only. Resume flag verified against a real install (Muse Code
-// 1.2.1-R2847.1, `muse --help` 2026-09-14): `--resume <session-uuid>` opens
-// that session, `--resume --last` the newest.
+// Read-only. Resume form re-measured on Muse Code 1.3.0 (2026-09-24): the
+// `resume <session-uuid>` subcommand opens that session; the 1.2.1-era
+// `--resume <uuid>` flag is refused ("unexpected argument '--resume'").
 //
 // The index row is the whole listing — title, first prompt, workspace root,
 // model, prompt count and timestamps are columns — so this source parses no
@@ -165,7 +165,7 @@ func scanMuseSession(rows *sql.Rows, sel []string) (Summary, bool) {
 		CLI:        "muse",
 		ID:         sid,
 		Path:       log,
-		ResumeArgs: []string{"--resume", sid},
+		ResumeArgs: []string{"resume", sid},
 		Name:       name,
 		Cwd:        folder,
 		CreatedAt:  started,

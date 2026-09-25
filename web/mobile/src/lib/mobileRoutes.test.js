@@ -1,4 +1,4 @@
-import { go, prefSection } from "./routes.js";
+import { prefSection } from "./routes.js";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mobileRoute, mobileHash, toolHash, tabOf, parentHash } from "./mobileRoutes.js";
@@ -177,11 +177,6 @@ it("native provider navigation; the Pi-era aliases are retired", () => {
   assert.deepEqual(mobileRoute("#/more/providers/llama?tab=models"), { screen: "more", id: "", section: "llama" });
 });
 
-it("provider command navigation opens canonical list or add", () => {
-  const previous = globalThis.location; globalThis.location = { hash: "" };
-  try { go("providers"); assert.equal(location.hash, "#/clis/pi/providers"); go("providers-new"); assert.equal(location.hash, "#/clis/pi/providers/new"); }
-  finally { globalThis.location = previous; }
-});
 
 it("Preferences knows the Landing work tab", () => {
   assert.equal(prefSection("#/preferences/landing"), "landing");

@@ -136,7 +136,7 @@ func TestCLIsAdvertiseSessionCapabilities(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	res := cliRequest(t, ts, "GET", "/api/clis", nil, 200)
 	want := map[string]map[string]any{
-		"pi":          {"list": true, "read": true, "write": true, "prompt": true, "fork": false, "agent": true},
+		"pi":          {"list": true, "read": true, "write": true, "prompt": true, "fork": true, "agent": true},
 		"claude-code": {"list": true, "read": true, "write": true, "prompt": true, "fork": true, "agent": false},
 		"codex":       {"list": true, "read": true, "write": true, "prompt": true, "fork": true, "agent": false},
 		"grok":        {"list": true, "read": true, "write": true, "prompt": true, "fork": true, "agent": false},

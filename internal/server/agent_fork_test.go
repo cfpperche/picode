@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -203,5 +205,104 @@ func TestForkAgentListsItsOrigin(t *testing.T) {
 	// Gone: only the name recorded at fork time is left.
 	if got := origin(); got["name"] != "clis" || got["gone"] != true {
 		t.Fatalf("removed source = %v", got)
+	}
+}
+
+// Muse Code forks through `muse serve` (MSP session/fork), opens the copy
+// with `muse resume <id>`, and gets its task — line breaks kept — through
+// the prompt door once the TUI is up.
+func TestForkAgentMuseForksThroughItsProtocol(t *testing.T) {
+	oldWait, oldEvery := forkTaskWait, forkTaskEvery
+	forkTaskWait, forkTaskEvery = 8*time.Second, 300*time.Millisecond
+	t.Cleanup(func() { forkTaskWait, forkTaskEvery = oldWait, oldEvery })
+
+	ts, deps, _, home := handoffServer(t)
+	proj := filepath.Join(t.TempDir(), "proj")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(home, "bin-muse")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(dir, "muse")
+	out := filepath.Join(home, "muse-run")
+	script := `#!/bin/sh
+if [ "$1" = --version ]; then printf 'muse 1.3.0\n'; exit 0; fi
+if [ "$1" = serve ]; then
+  pwd > "$QA_OUTPUT.serve-cwd"
+  read a; printf '%s\n' '{"id":1,"jsonrpc":"2.0","result":{}}'
+  read b; read c; printf '%s\n' "$c" > "$QA_OUTPUT.fork-request"
+  printf '%s\n' '{"id":2,"jsonrpc":"2.0","result":{"session":{"sessionId":"mfork-1","forkedFrom":{"sessionId":"ms-1"}}}}'
+  read d; exit 0
+fi
+printf '%s\000' "$@" > "$QA_OUTPUT.args"
+exec cat
+`
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "PUT", "/api/clis/muse", clilaunch.Config{Executable: bin, Env: map[string]string{"QA_OUTPUT": out}}, 200)
+	created := launchFixture(t, ts, "muse", map[string]any{"name": "muse src", "cwd": proj}, 201)
+	termID := created["id"].(string)
+	t.Cleanup(func() { killTermPane(tmux.ShellSessionName(termID)) })
+	waitCLIFile(t, out+".args")
+	if err := deps.Store.SetTerminalLastSession(termID, store.TerminalLastSession{CLI: "muse", SessionID: "ms-1", Cwd: proj, UpdatedAt: "2026-09-24T10:00:00Z"}); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Remove(out + ".args")
+
+	res := cliRequestFull(t, ts, "POST", "/api/agents/"+created["agentId"].(string)+"/fork-agent", map[string]any{"name": "muse fork", "prompt": "first line\nsecond line"})
+	if res["status"] != "201" {
+		t.Fatalf("fork: %v", res)
+	}
+	body := res["body"].(map[string]any)
+	cleanupTerm(t, body)
+	if body["task"] != "pending" {
+		t.Fatalf("task = %v, want pending", body["task"])
+	}
+	if req := string(waitCLIFile(t, out+".fork-request")); !strings.Contains(req, `"session/fork"`) || !strings.Contains(req, `"sessionId":"ms-1"`) || !strings.Contains(req, `"commandId":"`) {
+		t.Fatalf("fork request = %s", req)
+	}
+	if cwd := strings.TrimSpace(string(waitCLIFile(t, out+".serve-cwd"))); canonDir(cwd) != canonDir(proj) {
+		t.Fatalf("muse serve ran in %q, want the source's folder", cwd)
+	}
+	if args := readArgs(t, out); !reflect.DeepEqual(args, []string{"resume", "mfork-1"}) {
+		t.Fatalf("launch args = %q", args)
+	}
+	forked := body["agent"].(map[string]any)
+	a, _ := deps.Store.GetAgent(forked["id"].(string))
+	launch, _ := deps.Store.TerminalLaunch(*a.TerminalID)
+	if launch.LastSession == nil || launch.LastSession.SessionID != "mfork-1" || !reflect.DeepEqual(launch.LastSession.ResumeArgs, []string{"resume", "mfork-1"}) {
+		t.Fatalf("pin = %+v", launch.LastSession)
+	}
+	h := body["handoff"].(map[string]any)
+	if h["mode"] != "fork" || h["targetId"] != "mfork-1" {
+		t.Fatalf("lineage = %v", h)
+	}
+
+	// The task reaches the new TUI (here `cat`, which echoes what it got),
+	// or — if the door never takes it — lands in the Inbox with its text.
+	pane := tmux.ShellSessionName(*a.TerminalID)
+	deadline := time.Now().Add(forkTaskWait + 3*time.Second)
+	for {
+		screen, _ := tmux.New().CaptureTail(context.Background(), pane, 40)
+		if strings.Contains(screen, "second line") {
+			return
+		}
+		items, _ := deps.Store.ListInboxItems(store.InboxFilter{})
+		for _, it := range items {
+			if it.Reason == "fork task not delivered" {
+				if !strings.Contains(it.Body, "first line\nsecond line") {
+					t.Fatalf("inbox body lost the task: %q", it.Body)
+				}
+				t.Logf("task went to the Inbox: %s", it.Body)
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("task neither delivered nor reported; pane:\n%s", screen)
+		}
+		time.Sleep(300 * time.Millisecond)
 	}
 }
