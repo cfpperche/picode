@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 )
 
 var ErrLlamaConflict = errors.New("another model operation needs to finish or be checked first")
@@ -155,4 +156,21 @@ func (s *Store) UpdateLlamaJob(j LlamaJob) (LlamaJob, error) {
 		return j, err
 	}
 	return j, s.commit(tx)
+}
+
+// PruneLlamaJobs deletes finished jobs created before cutoff, never touching
+// the newest keep rows nor an active one (ADR-0083 amendment 2026-09-25: the
+// history grew forever). Only finished rows go, so no reservation changes; the
+// Activity page lists the newest 50, inside what is kept. A pruned job's
+// request key no longer deduplicates a retry — a month-old retry is new work.
+func (s *Store) PruneLlamaJobs(cutoff time.Time, keep int) (int64, error) {
+	res, err := s.db.Exec(`DELETE FROM llama_jobs
+		WHERE state NOT IN ('queued','running','unknown')
+		AND created_at < ?
+		AND id NOT IN (SELECT id FROM llama_jobs ORDER BY created_at DESC LIMIT ?)`,
+		cutoff.UTC().Format(time.RFC3339Nano), keep)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }

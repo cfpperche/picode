@@ -345,12 +345,13 @@ isolated on `127.0.0.1:18081`, with Qwen3-4B-Q4_K_M initially unloaded. Set
 `picode-docs-fixture` at port 18763. `qa-llama-jobs-live.mjs` changes only that
 fixture's connection, loads/unloads the real model and checks shared history.
 
-Unknown download results can retain a reservation when the model is absent:
-absence alone cannot prove that a failed/canceled download completed. No
-forced unlock, automatic retry, service ownership or cache deletion is added.
+A lost download (after a restart, or already unknown) that the server does not
+list at all for a minute (three reads or more) is interrupted and releases its model
+(ADR-0083 amendment 2026-09-25); no automatic retry, service ownership or cache
+deletion is added.
 Cancellation is verified only for b10809; other builds retain observation and
-show the limitation. Older job records remain in SQLite; retention/pruning
-beyond the displayed most-recent-50 history is not introduced.
+show the limitation. At daemon start, finished jobs older than 30 days are
+pruned beyond the newest 500 (ADR-0083 amendment 2026-09-25).
 
 The final full gate uses `GOMAXPROCS=4 GOFLAGS='-p=2 -count=1' make ci`.
 Cached runs stalled in Go's `computeTestInputsID` / `EvalSymlinks` / `Lstat`

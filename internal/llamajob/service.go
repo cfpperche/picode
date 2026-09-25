@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"sync"
 	"time"
@@ -25,8 +26,10 @@ type Service struct {
 	workers             map[string]bool
 	wg                  sync.WaitGroup
 	interval, timeLimit time.Duration
-	closed              bool
-	completed           func(store.LlamaJob)
+	// absentFor is how long a lost download must be missing (absentReads).
+	absentFor time.Duration
+	closed    bool
+	completed func(store.LlamaJob)
 	// stoppedFn reports an endpoint of PiCode's own llama.cpp service that is
 	// not running (SetStopped).
 	stoppedFn func(endpoint string) bool
@@ -38,9 +41,16 @@ func identity(endpoint, key string) string {
 
 func New(st *store.Store, connection Connection, completed ...func(store.LlamaJob)) (*Service, error) {
 	ctx, stop := context.WithCancel(context.Background())
-	s := &Service{store: st, connection: connection, ctx: ctx, stop: stop, workers: map[string]bool{}, interval: 2 * time.Second, timeLimit: 30 * time.Minute}
+	s := &Service{store: st, connection: connection, ctx: ctx, stop: stop, workers: map[string]bool{}, interval: 2 * time.Second, timeLimit: 30 * time.Minute, absentFor: absentFor}
 	if len(completed) > 0 {
 		s.completed = completed[0]
+	}
+	// History is bounded (ADR-0083 amendment 2026-09-25): finished jobs older
+	// than a month go, beyond the newest 500. A failure only keeps them.
+	if n, err := st.PruneLlamaJobs(time.Now().Add(-historyAge), historyKeep); err != nil {
+		log.Printf("llama jobs: could not prune history: %v", err)
+	} else if n > 0 {
+		log.Printf("llama jobs: pruned %d finished jobs older than %s", n, historyAge)
 	}
 	jobs, err := st.LlamaJobs()
 	if err != nil {
@@ -237,6 +247,22 @@ func (s *Service) launch(id string, dispatch bool, c *llama.Client) {
 	}()
 }
 
+// The history kept at start: every active job, the newest historyKeep, and
+// any finished job younger than historyAge.
+const (
+	historyKeep = 500
+	historyAge  = 30 * 24 * time.Hour
+)
+
+// absentReads is how many reads in a row must miss a lost download before it
+// is released, over at least absentFor (Service.absentFor, 60 s by default):
+// a server mid-restart can answer one empty list, and one that accepted a
+// send PiCode saw time out may list the model only later.
+const (
+	absentReads = 3
+	absentFor   = time.Minute
+)
+
 func find(models []llama.Model, id string) llama.Model {
 	for _, m := range models {
 		if m.ID == id {
@@ -403,6 +429,11 @@ func (s *Service) run(id string, dispatch bool, c *llama.Client) {
 	}
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
+	// absent counts consecutive reads where a download PiCode lost track of
+	// is not on the server at all, and absentSince is when that began
+	// (ADR-0083 amendment 2026-09-25); a failed read starts over.
+	absent := 0
+	var absentSince time.Time
 	for {
 		j, err = s.store.LlamaJob(id)
 		if err != nil || !j.Active() {
@@ -437,6 +468,27 @@ func (s *Service) run(id string, dispatch bool, c *llama.Client) {
 			} else if m.Status == "failed" {
 				s.finish(id, "failed", "The server reported that the model operation failed.", m.Status)
 				return
+			}
+			// A download PiCode lost track of (a restart, or an unknown
+			// outcome) that the server does not list at all, read after read,
+			// is not running anywhere: it is released as interrupted instead
+			// of holding its model until the owner abandons it (ADR-0083
+			// amendment 2026-09-25). A download PiCode just sent keeps the
+			// benefit of the doubt: the server may not list it yet.
+			// Both a count and a duration: SSE wakes can pack reads into a
+			// second, and a send that timed out may be accepted by a server
+			// that lists the model only later.
+			if j.Operation == "download" && m.Status == "missing" && (!dispatch || j.State == "unknown") {
+				if absent == 0 {
+					absentSince = time.Now()
+				}
+				absent++
+				if absent >= absentReads && time.Since(absentSince) >= s.absentFor {
+					s.finish(id, "interrupted", "The download is not on the server. It did not finish; start it again when ready.", m.Status)
+					return
+				}
+			} else {
+				absent = 0
 			}
 			if j.CancelRequested && !j.CancelAccepted && j.Stage != "cancelDispatch" && m.Status == "downloading" {
 				if _, err = s.update(id, func(j *store.LlamaJob) { j.Stage = "cancelDispatch" }); err != nil {
@@ -490,12 +542,15 @@ func (s *Service) run(id string, dispatch bool, c *llama.Client) {
 					return
 				}
 			}
-		} else if s.stopped(j.Endpoint) {
-			// PiCode's own server there is not running: nothing is in flight.
-			_, _ = s.interrupt(id)
-			return
-		} else if j.State != "unknown" {
-			s.finish(id, "unknown", "Connection lost. Checking the result without repeating the operation.")
+		} else {
+			absent = 0 // a failed read is not a read that missed the download
+			if s.stopped(j.Endpoint) {
+				// PiCode's own server there is not running: nothing is in flight.
+				_, _ = s.interrupt(id)
+				return
+			} else if j.State != "unknown" {
+				s.finish(id, "unknown", "Connection lost. Checking the result without repeating the operation.")
+			}
 		}
 		select {
 		case <-ctx.Done():

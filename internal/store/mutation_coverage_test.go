@@ -48,6 +48,9 @@ var silentMutators = map[string]string{
 	// request.
 	"LookupSession": "stamps last_seen_at on the authenticating session, at most once a minute",
 	"PruneSessions": "drops expired rows on a timer; a row that cannot authenticate is no longer a device",
+	// llama job history (ADR-0083 amendment 2026-09-25): only finished rows
+	// older than 30 days beyond the newest 500 go, at daemon start.
+	"PruneLlamaJobs": "drops finished model jobs older than 30 days beyond the newest 500; the Activity page lists only the newest 50, so no view changes",
 
 	// Web Push delivery marks (ADR-0047). No surface watches an endpoint's
 	// failure count; the notifier owns the retry.

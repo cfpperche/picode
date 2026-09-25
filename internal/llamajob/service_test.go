@@ -465,3 +465,82 @@ func TestAbandonedDownloadIsReported(t *testing.T) {
 		t.Fatal("an abandoned download was never reported")
 	}
 }
+
+// A download PiCode lost track of that the server does not list at all is
+// released as interrupted after a few reads (ADR-0083 amendment 2026-09-25),
+// without sending anything; one the server still lists keeps waiting.
+func TestLostDownloadTheServerDoesNotListIsReleased(t *testing.T) {
+	f, s, st, url := fixture(t, false)
+	lost, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "d-lost", Endpoint: url, ConnectionID: identity(url, "key"), Model: "gone", Operation: "download"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lost.State = "unknown"
+	if _, err = st.UpdateLlamaJob(lost); err != nil {
+		t.Fatal(err)
+	}
+	s.absentFor = 30 * time.Millisecond
+	if _, err := s.Reconcile(lost.ID); err != nil {
+		t.Fatal(err)
+	}
+	got := await(t, st, lost.ID, func(j store.LlamaJob) bool { return !j.Active() })
+	if got.State != "interrupted" {
+		t.Fatalf("state = %s (%s)", got.State, got.Message)
+	}
+	// The model is free again.
+	if _, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "d-again", Endpoint: url, ConnectionID: identity(url, "key"), Model: "gone", Operation: "download"}); err != nil {
+		t.Fatalf("the model stayed reserved: %v", err)
+	}
+	f.mu.Lock()
+	posts := len(f.posts)
+	f.mu.Unlock()
+	if posts != 0 {
+		t.Fatalf("checking the result sent something to the server: %v", f.posts)
+	}
+}
+
+func TestLostDownloadTheServerStillRunsIsFollowed(t *testing.T) {
+	f, s, st, url := fixture(t, false)
+	f.mu.Lock()
+	f.models["a"] = "downloading"
+	f.mu.Unlock()
+	j, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "d-live", Endpoint: url, ConnectionID: identity(url, "key"), Model: "a", Operation: "download"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.State = "unknown"
+	if _, err = st.UpdateLlamaJob(j); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Reconcile(j.ID); err != nil {
+		t.Fatal(err)
+	}
+	await(t, st, j.ID, func(j store.LlamaJob) bool { return j.State == "running" })
+	time.Sleep(20 * s.interval)
+	if got, _ := st.LlamaJob(j.ID); !got.Active() {
+		t.Fatalf("a download the server still runs was released: %s (%s)", got.State, got.Message)
+	}
+}
+
+// Inside the grace period a lost download stays unknown however many reads
+// miss it: SSE wakes can pack three reads into a second, and a send PiCode
+// saw time out may be listed by the server only later.
+func TestLostDownloadKeepsItsGracePeriod(t *testing.T) {
+	_, s, st, url := fixture(t, false)
+	s.absentFor = time.Hour
+	j, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "d-grace", Endpoint: url, ConnectionID: identity(url, "key"), Model: "gone", Operation: "download"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.State = "unknown"
+	if _, err = st.UpdateLlamaJob(j); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Reconcile(j.ID); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(30 * s.interval) // many more than absentReads reads
+	if got, _ := st.LlamaJob(j.ID); !got.Active() {
+		t.Fatalf("released inside the grace period: %s (%s)", got.State, got.Message)
+	}
+}

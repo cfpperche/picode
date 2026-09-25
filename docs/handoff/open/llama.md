@@ -21,13 +21,15 @@
   download did not succeed: paid 2026-09-25 by `feat/llama-debts`.
 - [x] Supervisor kill after the router is reaped could race PID reuse: paid
   2026-09-25 by `feat/llama-debts` (group killed before the reap).
-- [ ] A SIGKILL of the llama supervisor itself leaves the router's per-model
+- [x] A SIGKILL of the llama supervisor itself leaves the router's per-model
   children running (2026-09-25). Closing it moves the process boundary
   (ADR-0090: supervisor reports the router PID to PiCode, or a cgroup per
   service) — the owner's call.
-- [ ] An unknown download whose model is absent is released only by Abandon —
+- [x] An unknown download whose model is absent is released only by Abandon —
   a documented choice (docs/plans/llama-manager.md, ADR-0083), not a leak. An
   automatic release after N quiet polls would amend ADR-0083 — the owner's call.
-- [ ] `llama_jobs` rows are never deleted (~1–3 KB each). A retention rule
+- [x] `llama_jobs` rows are never deleted (~1–3 KB each). A retention rule
   (e.g. non-active rows older than 30 days beyond the newest 500) is a
   persistence decision (ADR-0083) — the owner's call.
+  The three above were decided by the owner on 2026-09-25 and paid by
+  `feat/llama-owner-calls` (ADR-0083 and ADR-0090 amendments).
