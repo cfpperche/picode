@@ -32,10 +32,6 @@ func registerLlama(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/llama/jobs/{id}/abandon", handleLlamaJobVerb(deps, "abandon"))
 }
 
-func llamaClient() (*llama.Client, error) {
-	return llama.New(llamaURL(), catalog.LlamaKey())
-}
-
 func llamaURL() string {
 	if u := catalog.LlamaURL(); u != "" {
 		return u

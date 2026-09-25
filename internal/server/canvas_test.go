@@ -493,11 +493,6 @@ func TestCanvasUnknownIDs(t *testing.T) {
 
 // ---- the plane -----------------------------------------------------------
 
-func patchCanvas(t *testing.T, ts *httptest.Server, id string, body map[string]any) (int, map[string]any) {
-	t.Helper()
-	return canvasReq(t, ts, http.MethodPatch, "/api/canvases/"+id, body)
-}
-
 // rectsOf reads the canvas's panels as {id: [x, y, w, h]}.
 func rectsOf(t *testing.T, ts *httptest.Server, id string) map[string][4]float64 {
 	t.Helper()

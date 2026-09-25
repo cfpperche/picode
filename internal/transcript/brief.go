@@ -3,7 +3,6 @@ package transcript
 import (
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 )
@@ -149,14 +148,4 @@ func truncate(s string, n int) string {
 		cut = cut[:i]
 	}
 	return cut + "…"
-}
-
-// SortedKeys is a small helper for deterministic output in writers.
-func SortedKeys(m map[string]int) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }

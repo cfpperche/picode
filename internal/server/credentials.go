@@ -1161,7 +1161,6 @@ func rowView(row credentials.Row) map[string]any {
 type probe struct {
 	url    string
 	header func(key string) (string, string)
-	bearer bool
 	query  bool
 }
 
@@ -1271,26 +1270,6 @@ func knownProvider(provider string) bool {
 		}
 	}
 	return false
-}
-
-// providerIDs lists every provider the vault can hold a row for, sorted: pi's
-// /login set plus the ids the CLI declarations add.
-func providerIDs() []string {
-	seen := map[string]bool{}
-	for id := range catalog.LoginMethods {
-		seen[id] = true
-	}
-	for _, spec := range clicreds.Declarations() {
-		for _, p := range spec.Providers {
-			seen[p.Provider] = true
-		}
-	}
-	out := make([]string, 0, len(seen))
-	for id := range seen {
-		out = append(out, id)
-	}
-	sort.Strings(out)
-	return out
 }
 
 // handleCredentialSigninOpen names a CLI's sign-in already in flight, so its

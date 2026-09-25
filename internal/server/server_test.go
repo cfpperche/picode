@@ -404,11 +404,6 @@ func TestOpenCloseLifecycle(t *testing.T) {
 	}
 }
 
-func mustJSONBody(name, path string) []byte {
-	b, _ := json.Marshal(map[string]string{"name": name, "path": path})
-	return b
-}
-
 func mustGet(t *testing.T, url string) *http.Request {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, url, nil)

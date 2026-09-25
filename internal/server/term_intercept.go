@@ -1238,7 +1238,3 @@ func interceptWired(dataDir, cliID, binName string) bool {
 	st, err := os.Stat(wrapperPath(dataDir, binName))
 	return err == nil && !st.IsDir()
 }
-
-func looksLikeInterceptPATH(path string) bool {
-	return strings.Contains(path, string(os.PathListSeparator)) || strings.HasPrefix(path, "PATH=")
-}

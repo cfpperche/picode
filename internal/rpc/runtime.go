@@ -113,16 +113,6 @@ func (ma *ManagedAgent) Cost() float64 {
 	return ma.cost
 }
 
-// messageCost reads usage.cost.total from a message_end / turn_end event
-// whose message is an assistant message; 0 otherwise.
-func messageCost(ev Event) float64 {
-	u, ok := messageUsage(ev)
-	if !ok {
-		return 0
-	}
-	return u.Cost
-}
-
 // Usage is one assistant message's token accounting as pi reports it —
 // the same keys internal/session's scanUsage sums from the session file.
 type Usage struct {

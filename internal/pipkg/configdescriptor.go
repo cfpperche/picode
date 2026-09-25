@@ -412,14 +412,6 @@ func RegisterUserDescriptor(d *ConfigDescriptor) {
 	userRegistry[d.ID] = &cp
 }
 
-// UnregisterUserDescriptor forgets a user descriptor (the file is already
-// gone by the time this runs).
-func UnregisterUserDescriptor(id string) {
-	userMu.Lock()
-	defer userMu.Unlock()
-	delete(userRegistry, id)
-}
-
 // UserDescriptorByID returns the user descriptor with this exact id.
 func UserDescriptorByID(id string) *ConfigDescriptor {
 	userMu.RLock()

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -201,8 +200,4 @@ func registerPeerCommunication(mux Registrar, deps Deps) {
 		}
 		writeJSON(w, 200, map[string]any{"messages": messages})
 	})
-}
-
-func (deps Deps) startAgentTUI(ctx context.Context, name, cwd string, agent store.Agent) error {
-	return deps.startPiInteractive(ctx, agent, cwd)
 }

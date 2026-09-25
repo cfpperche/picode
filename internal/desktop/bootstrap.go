@@ -91,9 +91,6 @@ func hasUsableDistro(distros []Distro) bool {
 // installing the distro separately later is what keeps the run unattended.
 func InstallWSLArgs() []string { return []string{"--install", "--no-distribution"} }
 
-// UpdateWSLArgs refreshes an existing but older WSL.
-func UpdateWSLArgs() []string { return []string{"--update"} }
-
 // InstallDistroArgs registers a distribution without launching it. Launching
 // is what triggers the username/password prompt, so it is skipped and the
 // account is created deliberately afterwards.
