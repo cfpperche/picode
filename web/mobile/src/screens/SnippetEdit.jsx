@@ -144,7 +144,8 @@ export default function SnippetEdit({ snipId, onBack, onSaved }) {
 
   return (
     <div className="m-screen m-pin-edit">
-      <ScreenHeader title={snipId ? "Edit snippet" : "New snippet"} onBack={onBack} right={<button type="button" className="m-head-btn m-head-btn-text" disabled={busy || !loaded || invalid || slugState === "taken"} onClick={save}>Save</button>} />
+      {/* One save action: the form's own button (a header Save duplicated it). */}
+      <ScreenHeader title={snipId ? "Edit snippet" : "New snippet"} onBack={onBack} />
       {loaded ? (
         <form noValidate className="m-pin-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
           {restored ? <div className="m-pin-restored" role="status">Unsaved changes restored. <button type="button" className="btn btn-sm btn-ghost" onClick={() => { clearDraft(storage(), key); setRestored(false); setF(base ? { ...base } : formFromSnip(null)); }}>Discard</button></div> : null}
@@ -219,7 +220,7 @@ export default function SnippetEdit({ snipId, onBack, onSaved }) {
             </label>
           ) : null}
           {cap.near ? <p className={"m-pin-limit" + (cap.over ? " over" : "")}>{(cap.bytes / 1000).toFixed(0)} KB / 100 KB</p> : null}
-          <button type="submit" className="btn btn-primary m-pin-save" disabled={busy || invalid || slugState === "taken"}>{snipId ? "Save" : "Create snippet"}</button>
+          <button type="submit" className="btn btn-primary m-pin-save" disabled={busy || !loaded || invalid || slugState === "taken"}>{snipId ? "Save" : "Create snippet"}</button>
         </form>
       ) : <p className="m-pin-msg">Loading…</p>}
     </div>
