@@ -38,19 +38,11 @@ export function forkWorktreePath(graph, slug) {
   return hit ? hit.path : "";
 }
 
-// forkRequest is the POST /api/agents/{id}/fork-agent body: staged files
-// travel inline (the server writes them into the fork's folder), folder
-// picks travel as paths relative to it.
-export function forkRequest({ name, text, items, workPath }) {
-  const files = [];
-  const paths = [];
-  for (const it of items || []) {
-    if (it.path) paths.push(it.path);
-    else files.push({ name: it.name, mime: it.mime, data: it.data });
-  }
-  const body = { name: String(name || "").trim(), prompt: String(text || "") };
+// forkRequest is the POST /api/agents/{id}/fork-agent body: the fork's name
+// and, for a new worktree, its folder. A fork opens waiting; its first task
+// is given in the new session (owner, 2026-09-25).
+export function forkRequest({ name, workPath }) {
+  const body = { name: String(name || "").trim() };
   if (workPath) body.workPath = workPath;
-  if (files.length) body.files = files;
-  if (paths.length) body.paths = paths;
   return body;
 }

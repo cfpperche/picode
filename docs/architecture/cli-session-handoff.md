@@ -108,41 +108,34 @@ and Continue does not wrap launches through it. Study:
 
 **Fork agent…** (sidebar `⋯` of a CLI agent whose terminal has a pinned
 conversation) starts a new agent of the **same** CLI on a copy of that
-conversation, with a task of its own, while the source keeps running. It
+conversation, while the source keeps running. It
 never goes through the portable timeline: `clisession.Forker` composes the
 vendor's own fork, and `GET /api/clis` advertises it as `sessions.fork`.
 
-Where the prompt door can read the CLI's screen (`doorReaderCLI`: Claude
-Code, Codex, Grok, OpenCode, Omp, as Pi and Muse Code below) the fork's launch
-carries no task: `deliverForkTask` sends it once the TUI is at its prompt,
-verified, so the task keeps its line breaks and has no length limit, and a
-restart before the copy is pinned re-runs the recipe without sending the
-task twice (2026-09-25). Omp has no screen reader, and a blind paste into a
-TUI still opening could be lost; since ADR-0217 its composer is read for
-unattended senders (`unattendedReaderCLI`), which the fork's delivery is,
-so Omp takes the door too (2026-09-25, live-tested at 100 and 44 columns:
-`TestLiveOmpForkTaskThroughTheDoor`). `forkPrompt` (one line, at most 8192
-characters) remains for a future flag-forking CLI the door cannot read.
+The fork opens **waiting**: the dialog asks for a name and a folder, never a
+task, and the person gives the new agent its first task in its own session
+(owner, 2026-09-25). That removed the task's launch argument (and its 8192
+limit), the prompt-door hand-over after launch (`deliverForkTask`, its Inbox
+fallback) and the attachments; `POST /api/agents/{id}/fork-agent` takes
+`name` and `workPath` only and refuses anything else. A restart before the
+copy is pinned re-runs the recipe, which carries no task.
 
 | CLI | Launch | Copy's id |
 |---|---|---|
-| Claude Code | `--resume <id> --fork-session --session-id <new>`; task through the prompt door | pre-assigned, pinned at once |
-| Grok | `--resume <id> --fork-session --session-id <new>`; task through the prompt door | pre-assigned, pinned at once |
-| Codex | `fork <id>`; task through the prompt door | pinned on its first turn |
-| OpenCode | `--session <id> --fork`; task through the prompt door | pinned on its first turn |
-| Omp | `--fork <file\|id>` (parsed, not in `--help`); task through the prompt door (ADR-0217 reader) | pinned on its first turn |
-| Pi | `pi --mode rpc --no-extensions --no-skills --no-prompt-templates --no-themes --fork <file> --session-id <id> --session-dir <new agent's folder>`, run once before the agent starts; the task goes through the prompt door | known before launch, owned as the agent's `SessionPath` |
-| Muse Code | `muse serve` → MSP `session/fork`, then `resume <new-id>`; the task goes through the prompt door once the TUI is ready | known before launch, pinned at once |
+| Claude Code | `--resume <id> --fork-session --session-id <new>` | pre-assigned, pinned at once |
+| Grok | `--resume <id> --fork-session --session-id <new>` | pre-assigned, pinned at once |
+| Codex | `fork <id>` | pinned on its first turn |
+| OpenCode | `--session <id> --fork` | pinned on its first turn |
+| Omp | `--fork <file\|id>` (parsed, not in `--help`) | pinned on its first turn |
+| Pi | `pi --mode rpc --no-extensions --no-skills --no-prompt-templates --no-themes --fork <file> --session-id <id> --session-dir <new agent's folder>`, run once before the agent starts | known before launch, owned as the agent's `SessionPath` |
+| Muse Code | `muse serve` → MSP `session/fork`, then `resume <new-id>` | known before launch, pinned at once |
 
 Muse Code's fork is a protocol call, not a flag (`clisession.SessionForker`):
 PiCode runs `muse serve` with the CLI's configured executable and
 environment in the source's folder (ADR-0094's runner), sends `initialize`,
 the `initialized` notification and `session/fork`, and checks the new
-session's `forkedFrom` names the source. `muse resume` takes no prompt, so
-`deliverForkTask` retries the prompt door (ADR-0089) every two seconds for
-up to three minutes — a first launch in an untrusted folder stops at Muse's
-trust question — and a task that never lands becomes an Inbox note with its
-text. That path keeps the task's line breaks.
+session's `forkedFrom` names the source; `muse resume <new-id>` opens the
+copy (a first launch in an untrusted folder stops at Muse's trust question).
 
 A running Muse TUI has no pin: Muse indexes a session (and MSP
 `session/list` shows it) only when the TUI exits. At fork time PiCode
@@ -168,12 +161,10 @@ folder (pi writes that cwd into the header), and pins the file as the new
 agent's `SessionPath` before the first start. Pi writes the copy at once
 with the source's entries unchanged and `parentSession` naming the source.
 A failure removes the new agent and answers 502 with pi's own message. The
-launch reopens the copy with `--session`, so a Restart never forks again,
-and the task, line breaks kept, goes through `deliverForkTask`. The source
+launch reopens the copy with `--session`, so a Restart never forks again. The source
 may run in either mode, or not at all: the fork reads only its file.
 Verified live on a scratch instance with the real pi (2026-09-24): history
-shown, a two-line task delivered and answered, Restart relaunching with
-`--session <copy>`.
+shown, Restart relaunching with `--session <copy>`.
 
 On the phone, **Fork agent…** opens `ForkAgentSheet` (web/mobile): the same
 request, the worktree made through the git door (`lib/gitDelivery.js`); a
@@ -188,11 +179,9 @@ accepted from 30 columns; other CLIs keep the 70-column gate.
 Hermes and Antigravity fork only inside their TUI and advertise no fork yet
 (`docs/handoff/open/agent-fork.md`).
 
-`POST /api/agents/{id}/fork-agent` takes `{name, prompt, workPath, files,
-paths}`. The source's launch overrides carry over with the fork recipe as
-the arguments (resume's rule). Attachments are staged in the fork's folder
-(`.picode/drop/`, as the attach bar does) and named in the task as `@path`;
-the task is one launch argument, so line breaks become spaces. The row lands
+`POST /api/agents/{id}/fork-agent` takes `{name, workPath}`. The source's
+launch overrides carry over with the fork recipe as the arguments (resume's
+rule). The row lands
 in `session_handoffs` with `mode = "fork"`, its manifest naming the source
 agent (`sourceAgentId`, `sourceAgentName`). The agent lists
 (`GET /api/workspaces`, `GET /api/agents`) carry `forkedFrom {agentId,
@@ -204,8 +193,7 @@ appends it to the CLI line. Both refetch when a
 `session.handoff` event with mode `fork` arrives, since the row lands just
 after the agent.
 
-The dialog's task field is the terminal's attach composer
-(`AttachComposer.jsx`, shared with `TermAttachBar`). **New worktree** is the
+The dialog asks for a name and **Where**. **New worktree** is the
 default in a repository: the dialog composes `create-worktree-branch`
 (`git worktree add -b <slug> <root>/.worktrees/<slug> HEAD`), hands it to
 the git door (ADR-0096, typed into a visible shell, run only when the
@@ -219,5 +207,4 @@ press, and the fork starts in the background as soon as the worktree
 appears (ten minutes at most; a failure after that is a toast). The git
 shell is never an agent's terminal: agent-owned and `launchCli` terminals
 are skipped, and an "Agent CLI" refusal falls back to a fresh shell.
-**Same folder** shares the source's files. The task composer takes pasted
-screenshots and files like the terminal's attach bar.
+**Same folder** shares the source's files.

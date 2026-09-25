@@ -307,11 +307,10 @@ before continuing, since its newest turns may not be on disk yet.
 ## Fork an agent
 
 **Fork agent…** starts a second agent of the same CLI on a copy of an
-agent's conversation, with a task of its own, while the original keeps
-going. Use it when an agent finds something worth doing — a failure, a
-side question — but already has its next task: the fork takes the finding
-with its full context and handles it, and nobody explains the problem
-twice.
+agent's conversation while the original keeps going. Use it when an agent
+finds something worth doing — a failure, a side question — but already has
+its next task: the fork carries the finding with its full context, and
+nobody explains the problem twice.
 
 Open an agent's **•••** in the sidebar (on the phone, on its row in **Work**) and pick **Fork agent…** (offered
 once the agent has a conversation, for the CLIs listed below). The dialog
@@ -320,10 +319,8 @@ asks for:
 - **Name** — the new agent's name.
 - **Where** — a **New worktree** (its own checkout on a new branch, from
   the last commit) or the **Same folder** as the original.
-- **Task** — what the fork should do first, with photos, files or a
-  sketch: paste a screenshot straight in, as in the terminal's attach bar.
-  Left empty, the fork opens waiting. The task is sent as soon as the new
-  agent is ready, line breaks and all.
+The fork opens waiting, with the whole conversation. Give it its first task
+there, in its terminal or with the attach bar, as with any agent.
 
 ### New worktree or same folder
 
@@ -354,8 +351,8 @@ is exactly what that CLI would make.
 | [Grok](https://docs.x.ai/build/cli/reference) | yes | `--resume <id> --fork-session` |
 | [OpenCode](https://opencode.ai/docs) | yes | `--session <id> --fork` |
 | [Omp](https://omp.sh/docs) | yes | `--fork <session>` |
-| [Pi](https://pi.dev) | yes | `--fork <file>`: PiCode makes the copy in the new agent's own folder before it starts, and the task is sent once Pi is ready; a Restart reopens the copy |
-| [Muse Code](https://dev.meta.ai/docs/muse-code) | yes | its session server's `session/fork`; the copy opens with `muse resume`, and the task is sent once Muse is ready (a new folder may first ask you to trust it) |
+| [Pi](https://pi.dev) | yes | `--fork <file>`: PiCode makes the copy in the new agent's own folder before it starts; a Restart reopens the copy |
+| [Muse Code](https://dev.meta.ai/docs/muse-code) | yes | its session server's `session/fork`; the copy opens with `muse resume` (a new folder may first ask you to trust it) |
 | [Hermes Agent](https://hermes-agent.nousresearch.com/docs/getting-started/installation), [Antigravity](https://antigravity.google/docs/cli/) | not yet | only inside their own TUI (`/branch`, `/fork`) |
 
 In the sidebar, a fork's row has a **fork of &lt;name&gt;** line, with

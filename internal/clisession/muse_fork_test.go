@@ -45,7 +45,7 @@ func TestMuseForkSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Fork{Args: []string{"resume", "new-1"}, ID: "new-1", ResumeArgs: []string{"resume", "new-1"}, TaskAfterLaunch: true}
+	want := Fork{Args: []string{"resume", "new-1"}, ID: "new-1", ResumeArgs: []string{"resume", "new-1"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("fork = %+v", got)
 	}

@@ -1,8 +1,10 @@
 # Fork agent…
 
-A new agent of the same CLI on a copy of a CLI agent's conversation, with a
-task and attachments, in the source's folder or a new worktree on its own
-branch. Design: `docs/architecture/cli-session-handoff.md` ("Fork"). First
+A new agent of the same CLI on a copy of a CLI agent's conversation, in the
+source's folder or a new worktree on its own branch. It opens waiting: since
+2026-09-25 (`feat/fork-no-task`, owner's call) a fork carries no task or
+attachments — the person gives it its first task in its own session, which
+retires the task-delivery debts below. Design: `docs/architecture/cli-session-handoff.md` ("Fork"). First
 slice from `feat/agent-fork`: Claude Code, Codex, Grok, OpenCode, Omp.
 
 ## Next

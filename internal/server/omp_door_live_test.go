@@ -13,13 +13,13 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-// A fork's task reaches a real Omp TUI through the unattended prompt door
+// Text reaches a real Omp TUI through the unattended prompt door
 // (ADR-0217's reader), wide and at a phone's width. Live only:
 // PICODE_OMP_LIVE=1, PICODE_OMP_BIN naming the real omp, PICODE_OMP_HOME the
 // real home (the package isolates HOME) and PICODE_OMP_CWD a folder Omp knows.
 // The tmux server is this test's own socket, never the user's. The task is
 // submitted, so each width costs one short model turn.
-func TestLiveOmpForkTaskThroughTheDoor(t *testing.T) {
+func TestLiveOmpDoorWideAndNarrow(t *testing.T) {
 	bin := os.Getenv("PICODE_OMP_BIN")
 	if os.Getenv("PICODE_OMP_LIVE") != "1" || bin == "" {
 		t.Skip("PICODE_OMP_LIVE=1 and PICODE_OMP_BIN run this against a real omp")

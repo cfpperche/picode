@@ -195,16 +195,16 @@ func (OmpSource) Read(ctx context.Context, ref Ref) (transcript.Timeline, error)
 	return t, nil
 }
 
-// ForkArgs: `omp --fork <path|id> <prompt>` — absent from omp --help but
+// ForkArgs: `omp --fork <path|id>` — absent from omp --help but
 // parsed by omp 18.2.11 (src/cli/flag-tables.ts, src/main.ts: a value with
 // a slash or .jsonl is a file, anything else an id prefix), and in its
 // changelog (#11944). The file is preferred: it cannot match two sessions.
-func (OmpSource) ForkArgs(src Ref, prompt, _ string) Fork {
+func (OmpSource) ForkArgs(src Ref, _ string) Fork {
 	from := src.Path
 	if from == "" {
 		from = src.ID
 	}
-	return Fork{Args: withPrompt([]string{"--fork", from}, prompt)}
+	return Fork{Args: []string{"--fork", from}}
 }
 
 // PromptArgs: `omp <prompt>` — messages are positional (omp --help,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -21,31 +20,22 @@ import (
 // Fork agent… (POST /api/agents/{id}/fork-agent; "Fork" in
 // docs/architecture/cli-session-handoff.md): a new agent of the same CLI
 // opens a copy of the source agent's pinned conversation (ADR-0084)
-// through the vendor's own fork, and starts on the task the user gave it.
+// through the vendor's own fork, and opens waiting: the person gives it its
+// first task there, like any agent (owner, 2026-09-25: a task field in the
+// dialog cost more than it saved).
 // The source keeps running untouched — a fork only reads its session file
 // — so there is no live-holder check here, unlike a handoff. Where the copy
 // works is the caller's choice: the source's folder, or a worktree the
 // browser created first through ADR-0096's visible door (this handler never
 // runs git).
 
-// maxForkFiles and maxForkBody bound the inline attachments: the attach
-// bar's own limits (four files, 4 MB each), base64 included.
-const (
-	maxForkFiles = 4
-	maxForkBody  = maxForkFiles*maxDropBytes*4/3 + 64<<10
-)
+// maxForkBody bounds the request: a name and a folder.
+const maxForkBody = 16 << 10
 
 type forkRequest struct {
 	Name string `json:"name"`
-	// Prompt is the fork's first task; "" opens the copy waiting.
-	Prompt string `json:"prompt"`
 	// WorkPath is the folder the fork works in; "" is the source's own.
 	WorkPath string `json:"workPath"`
-	// Files are staged into the fork's folder (.picode/drop/) and named in
-	// the prompt, as the attach bar does for a running terminal.
-	Files []dropBody `json:"files"`
-	// Paths are files already in the folder, relative to it.
-	Paths []string `json:"paths"`
 }
 
 func handleForkAgent(deps Deps) http.HandlerFunc {
@@ -105,9 +95,6 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 	if !(flagFork || protocolFork) || (ls.CLI != "" && ls.CLI != cli.ID) {
 		return nil, http.StatusBadRequest, errors.New(cli.Name + " can't fork a conversation from PiCode yet.")
 	}
-	if len(req.Files)+len(req.Paths) > maxForkFiles {
-		return nil, http.StatusBadRequest, errors.New("Up to 4 files.")
-	}
 
 	cwd := strings.TrimSpace(req.WorkPath)
 	if cwd == "" {
@@ -123,38 +110,13 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 	}
 	cwd = filepath.Clean(cwd)
 
-	// Attachments first: a file that cannot be staged refuses the fork
-	// before an agent exists, so the dialog keeps everything and says why.
-	paths, err := forkAttachments(cwd, req)
-	if err != nil {
-		return nil, http.StatusBadRequest, err
-	}
 	src := clisession.Ref{ID: ls.SessionID, Path: ls.Path, Cwd: ls.Cwd}
 	var fork clisession.Fork
-	task := ""
-	// deliverForkTask is an unattended sender, so a CLI whose composer is
-	// read only for those (Omp, ADR-0217) qualifies too.
-	if flagFork && (doorReaderCLI[cli.ID] || unattendedReaderCLI[cli.ID]) {
-		// The prompt door reads this CLI's screen, pastes only at its
-		// prompt and confirms the text landed (ADR-0089). The fork recipe
-		// then carries no task: a restart before the copy is pinned reopens
-		// or re-forks without sending the task twice, and the task keeps its
-		// line breaks instead of becoming one launch argument.
-		fork = forker.ForkArgs(src, "", transcript.NewID())
-		fork.TaskAfterLaunch = true
-		task = buildPromptPaste(req.Prompt, paths)
-	} else if flagFork {
-		// No screen reader for this CLI: a blind paste into a TUI still
-		// opening could be lost, so the task stays a launch argument.
-		prompt, err := forkPrompt(req.Prompt, paths)
-		if err != nil {
-			return nil, http.StatusBadRequest, err
-		}
-		fork = forker.ForkArgs(src, prompt, transcript.NewID())
+	if flagFork {
+		fork = forker.ForkArgs(src, transcript.NewID())
 	} else {
 		// A protocol fork makes the copy before any agent exists; its launch
-		// only reopens it, so the task — line breaks and all — travels
-		// through the prompt door once the TUI is ready.
+		// only reopens it.
 		srcCwd := ls.Cwd
 		if srcCwd == "" {
 			srcCwd = cwd
@@ -163,7 +125,6 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 		if err != nil {
 			return nil, http.StatusBadGateway, err
 		}
-		task = buildPromptPaste(req.Prompt, paths)
 	}
 	// Resume's rule (launchWithPinnedSession): the arguments are the
 	// recipe, every other launch setting of the source carries over.
@@ -179,17 +140,13 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 		return nil, status, err
 	}
 	// The copy's launch arguments are the fork recipe, so a restart before
-	// the CLI reports its session would fork again and resend the task. A
-	// CLI that took the pre-assigned id is pinned now (a restart resumes the
-	// copy); the others pin on their first turn report (ADR-0084).
+	// the CLI reports its session would fork again. A CLI that took the
+	// pre-assigned id is pinned now (a restart resumes the copy); the others
+	// pin on their first turn report (ADR-0084).
 	if fork.ID != "" {
 		_ = deps.Store.SetTerminalLastSession(*forked.TerminalID, store.TerminalLastSession{CLI: cli.ID, SessionID: fork.ID, Cwd: cwd, Name: name, ResumeArgs: fork.ResumeArgs})
 	}
 	out := map[string]any{"agent": agentView{Agent: forked, Mode: string(modeStopped)}, "terminal": view}
-	if fork.TaskAfterLaunch && strings.TrimSpace(task) != "" {
-		out["task"] = "pending"
-		go deliverForkTask(deps, *forked.TerminalID, forked.WorkspaceID, name, task)
-	}
 	sourceID := ls.SessionID
 	if sourceID == "" {
 		sourceID = ls.Path
@@ -204,51 +161,6 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 		out["handoff"] = saved
 	}
 	return out, http.StatusCreated, nil
-}
-
-// forkAttachments stages the dialog's files into the fork's folder and
-// checks the paths it named, returning every path the task mentions.
-func forkAttachments(cwd string, req forkRequest) ([]string, error) {
-	paths, err := checkPromptPaths(cwd, req.Paths)
-	if err != nil {
-		return nil, err
-	}
-	for _, f := range req.Files {
-		raw, err := decodeDropData(f.Data)
-		if err != nil {
-			return nil, err
-		}
-		saved, err := writeDropFile(cwd, f.Name, raw)
-		if err != nil {
-			return nil, err
-		}
-		paths = append(paths, saved["path"].(string))
-	}
-	return paths, nil
-}
-
-// forkPrompt is the task as one launch argument. A launch setting is one
-// line of at most 8192 characters (clilaunch.Validate: it is stored and
-// shown as the terminal's launch), so line breaks become spaces and each
-// attachment follows as @path, which the CLI reads like a mention. A task
-// that begins with a dash would reach the CLI's flag parser; a leading
-// space is invisible to the model and keeps it an operand for every parser.
-func forkPrompt(message string, paths []string) (string, error) {
-	parts := strings.Fields(message)
-	for _, p := range paths {
-		if !strings.HasPrefix(p, "@") {
-			p = "@" + p
-		}
-		parts = append(parts, p)
-	}
-	out := strings.Join(parts, " ")
-	if strings.HasPrefix(out, "-") {
-		out = " " + out
-	}
-	if len(out) > 8192 {
-		return "", errors.New("The task is too long to start a fork with. Shorten it, or attach the details as a file.")
-	}
-	return out, nil
 }
 
 // forkManifest names the source agent on a fork's lineage row: the session
@@ -320,51 +232,6 @@ func cliCommand(deps Deps, cli clilaunch.CLI, dir string) func(ctx context.Conte
 		cmd.Env = env
 		cmd.WaitDelay = time.Second
 		return cmd
-	}
-}
-
-// forkTaskWait bounds how long a fork's task waits for its TUI: a first
-// launch in a folder the CLI does not trust yet stops at that question,
-// and the person may take a while to answer it.
-var (
-	forkTaskWait  = 3 * time.Minute
-	forkTaskEvery = 2 * time.Second
-)
-
-// deliverForkTask sends a fork's task through the prompt door (ADR-0089,
-// the attach bar's path) once the new TUI is at its prompt, retrying every
-// refusal — not started yet, a trust question, still loading — until the
-// wait runs out. A task that never lands becomes an Inbox note with the
-// text, so it is never silently lost.
-func deliverForkTask(deps Deps, termID, workspaceID, name, task string) {
-	deadline := time.Now().Add(forkTaskWait)
-	last := ""
-	for time.Now().Before(deadline) {
-		time.Sleep(forkTaskEvery)
-		t, err := deps.Store.GetTerminal(termID)
-		if err != nil {
-			return // the fork was removed meanwhile
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		status, res := doorDeliverUnattended(deps, ctx, t, task)
-		cancel()
-		if status == http.StatusOK {
-			return
-		}
-		if msg, _ := res["error"].(string); msg != "" {
-			last = msg
-		}
-	}
-	body := "PiCode could not send " + name + " its task"
-	if last != "" {
-		body += " (" + strings.TrimSuffix(last, ".") + ")"
-	}
-	body += ". Paste it into its terminal:\n\n" + task
-	if _, err := deps.Store.CreateInboxItem(store.InboxItemParams{
-		Kind: store.InboxFYI, SourceKind: store.InboxFromTerminal, SourceID: termID,
-		WorkspaceID: workspaceID, Reason: "fork task not delivered", Title: name + " did not get its task", Body: body,
-	}); err != nil {
-		log.Printf("fork: inbox: %v", err)
 	}
 }
 

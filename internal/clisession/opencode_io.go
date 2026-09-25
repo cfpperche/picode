@@ -239,15 +239,11 @@ func opencodeTime(raw string) time.Time {
 	return parseTime(s)
 }
 
-// ForkArgs: `opencode --session <id> --fork --prompt <text>` — opencode
+// ForkArgs: `opencode --session <id> --fork` — opencode
 // --help 1.18 ("fork the session when continuing"). The copy's id is the
 // CLI's to choose.
-func (OpenCodeSource) ForkArgs(src Ref, prompt, _ string) Fork {
-	args := []string{"--session", src.ID, "--fork"}
-	if prompt != "" {
-		args = append(args, "--prompt", prompt)
-	}
-	return Fork{Args: args}
+func (OpenCodeSource) ForkArgs(src Ref, _ string) Fork {
+	return Fork{Args: []string{"--session", src.ID, "--fork"}}
 }
 
 // PromptArgs: `opencode --prompt <text>` — verified flags (opencode
