@@ -1,9 +1,14 @@
 package tlsutil
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"math/big"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -66,5 +71,35 @@ func TestGeneratedCertUsableByTLS(t *testing.T) {
 	}
 	if len(loaded.Certificate) == 0 {
 		t.Error("loaded pair empty")
+	}
+}
+
+func TestCertNamesFollowsTheFileOnDisk(t *testing.T) {
+	dir := t.TempDir()
+	names := CertNames(dir)
+	if got := names(); len(got) != 0 {
+		t.Fatalf("no certificate yet, got %v", got)
+	}
+	if _, err := Ensure(dir); err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(names(), ",")
+	if !strings.Contains(got, "localhost") || !strings.Contains(got, "picode.local") {
+		t.Fatalf("self-signed names missing: %q", got)
+	}
+	// A reissued leaf (the cert timer, a Tailscale renewal) is picked up
+	// without a restart: a Tailscale leaf appears beside the pair.
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tmpl := x509.Certificate{SerialNumber: big.NewInt(7), DNSNames: []string{"Box-1.Tail.ts.net"},
+		NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour)}
+	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writePEM(filepath.Join(dir, TailscaleCertFile), "CERTIFICATE", der); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(names(), ","); !strings.Contains(got, "box-1.tail.ts.net") {
+		t.Fatalf("tailscale leaf not picked up (lowercased): %q", got)
 	}
 }

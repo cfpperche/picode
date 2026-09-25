@@ -27,7 +27,18 @@
   the `picode_session` cookie or `Authorization: Bearer` (install token
   at `<data>/token`, or a token session); `Host` and `Origin` checked in
   every mode; modes `off | remote (default: loopback auto-pairs) | all`.
-  A browser-like loopback visit with no cookie reuses the newest live
+  **Host allowlist (ADR-0215)**: IP literals, `localhost` / `*.localhost`,
+  `picode.local`, the hostname bare or as the first label (Tailscale's
+  `name-N` twin included) under `local`, `lan`, `home`, `home.arpa`,
+  `localdomain`, `internal` or `<tailnet>.ts.net`, every DNS name the
+  served certificates cover (`tlsutil.CertNames`, re-read on change), and
+  the public URL — nothing else. **Fetch metadata (ADR-0215)**: a
+  `Sec-Fetch-Site: cross-site` request is refused on every guarded route
+  except the exempt ones (`/api/health` carries CORS for the `:8470` trust
+  page), and only a first-party request (no fetch metadata, `same-origin`
+  or `none`) is handed a loopback session — a `same-site` page on another
+  localhost port gets 401.
+  A browser-like first-party loopback visit with no cookie reuses the newest live
   session with its user-agent label (secret rotated in place, presence
   asked first so an active browser keeps its cookie — ADR-0049
   amendment 2026-09-03) instead of minting a duplicate row per launch.

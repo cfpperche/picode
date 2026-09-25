@@ -555,6 +555,7 @@ func serve() {
 	hostname, _ := os.Hostname()
 	gate, err := auth.New(auth.Config{
 		Store: st, DataDir: dataDir, Insecure: os.Getenv("PICODE_INSECURE") == "1", Hostname: hostname,
+		CertNames:   tlsutil.CertNames(dataDir), // ADR-0215: names the owner issued a certificate for
 		PublicURL:   func() string { v, _, _ := st.GetSetting("server.public_url"); return v },
 		SessionLive: devices.SessionLive, // ADR-0049 amendment: reuse must not rotate an active session's cookie
 	})
