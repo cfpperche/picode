@@ -1,6 +1,10 @@
 package store
 
 import (
+	"os"
+	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -320,5 +324,50 @@ func TestRunRecordsSchedule(t *testing.T) {
 	m, _ := s.CreateRun(RunParams{AutomationID: a.ID, Trigger: TriggerManual, Status: RunSkipped, Reason: "busy"})
 	if m.ScheduleID != nil {
 		t.Fatalf("manual run must not name a schedule: %+v", m)
+	}
+}
+
+// ADR-0217: a start run names its CLI (pi by default); only the CLIs the
+// unattended runner reaches are accepted, and a patch can move it.
+func TestAutomationCLI(t *testing.T) {
+	s := openTest(t)
+	a, _, err := s.CreateAutomation(AutomationParams{Name: "a", Action: AutomationStart, Prompt: "p", Cron: "0 9 * * *"})
+	if err != nil || a.CLI != CLIPi {
+		t.Fatalf("%+v %v", a, err)
+	}
+	b, _, err := s.CreateAutomation(AutomationParams{Name: "b", Action: AutomationStart, CLI: "claude-code", Prompt: "p", Cron: "0 9 * * *"})
+	if err != nil || b.CLI != "claude-code" {
+		t.Fatalf("%+v %v", b, err)
+	}
+	if got, _ := s.GetAutomation(b.ID); got.CLI != "claude-code" {
+		t.Fatalf("read back %q", got.CLI)
+	}
+	if _, _, err := s.CreateAutomation(AutomationParams{Name: "c", Action: AutomationStart, CLI: "opencode", Prompt: "p", Cron: "0 9 * * *"}); err == nil {
+		t.Fatal("a CLI without a measured composer was accepted for start")
+	}
+	codex := "codex"
+	if got, err := s.UpdateAutomation(b.ID, AutomationPatch{CLI: &codex}); err != nil || got.CLI != "codex" {
+		t.Fatalf("%+v %v", got, err)
+	}
+}
+
+// The editor's CLI list is the store's (web/shared/domain/automationsPi.js).
+func TestStartCLIsMatchTheEditor(t *testing.T) {
+	body, err := os.ReadFile("../../web/shared/domain/automationsPi.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`START_CLIS = \[([^\]]*)\]`).FindSubmatch(body)
+	if m == nil {
+		t.Fatal("START_CLIS not found")
+	}
+	var js []string
+	for _, part := range strings.Split(string(m[1]), ",") {
+		if id := strings.Trim(strings.TrimSpace(part), `"`); id != "" {
+			js = append(js, id)
+		}
+	}
+	if !reflect.DeepEqual(js, UnattendedCLIs) {
+		t.Fatalf("js %v, go %v", js, UnattendedCLIs)
 	}
 }

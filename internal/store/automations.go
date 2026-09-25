@@ -55,13 +55,16 @@ const (
 // itself is never stored or returned after creation. Schedules are the
 // automation's rules, in position order.
 type Automation struct {
-	ID               string     `json:"id"`
-	Name             string     `json:"name"`
-	Enabled          bool       `json:"enabled"`
-	WorkspaceID      string     `json:"workspaceId"`
-	Action           string     `json:"action"`
-	TargetAgentID    *string    `json:"targetAgentId,omitempty"`
-	AgentID          *string    `json:"agentId,omitempty"`
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	Enabled       bool    `json:"enabled"`
+	WorkspaceID   string  `json:"workspaceId"`
+	Action        string  `json:"action"`
+	TargetAgentID *string `json:"targetAgentId,omitempty"`
+	AgentID       *string `json:"agentId,omitempty"`
+	// CLI is the CLI a start run uses (ADR-0217); a message run reaches its
+	// target agent in that agent's own CLI.
+	CLI              string     `json:"cli"`
 	Prompt           string     `json:"prompt"`
 	Provider         *string    `json:"provider"`
 	Model            *string    `json:"model"`
@@ -116,6 +119,28 @@ type ScheduleParams struct {
 	Enabled bool
 }
 
+// UnattendedCLIs are the CLIs a start run can use (ADR-0217): Pi through
+// its managed runtime, and the four whose composer the prompt door reads and
+// whose hooks report the end of a turn.
+var UnattendedCLIs = []string{CLIPi, "claude-code", "codex", "grok", "hermes"}
+
+// UnattendedCLI says whether a start run can use cli.
+func UnattendedCLI(cli string) bool {
+	for _, c := range UnattendedCLIs {
+		if c == cli {
+			return true
+		}
+	}
+	return false
+}
+
+func automationCLI(cli string) string {
+	if cli = strings.TrimSpace(cli); cli == "" {
+		return CLIPi
+	}
+	return cli
+}
+
 // AutomationParams is CreateAutomation's input. Zero values mean
 // "unset"; MaxRuns and MaxRunsWindowMin go together. Cron is the
 // one-schedule convenience (daemon zone, enabled) used when Schedules
@@ -125,6 +150,7 @@ type AutomationParams struct {
 	WorkspaceID      string
 	Action           string
 	TargetAgentID    string
+	CLI              string
 	Prompt           string
 	Provider         string
 	Model            string
@@ -148,6 +174,7 @@ type AutomationPatch struct {
 	WorkspaceID      *string
 	Action           *string
 	TargetAgentID    *string
+	CLI              *string
 	Prompt           *string
 	Provider         *string
 	Model            *string
@@ -186,13 +213,13 @@ type RunParams struct {
 
 const automationCols = `id, name, enabled, workspace_id, action, target_agent_id, agent_id, prompt,
 	provider, model, thinking, webhook_hash, max_cost_usd, max_runs, max_runs_window_min,
-	created_at, updated_at, notify_url`
+	created_at, updated_at, notify_url, cli`
 
 func scanAutomation(row interface{ Scan(...any) error }, a *Automation) error {
 	var enabled int
 	if err := row.Scan(&a.ID, &a.Name, &enabled, &a.WorkspaceID, &a.Action, &a.TargetAgentID, &a.AgentID,
 		&a.Prompt, &a.Provider, &a.Model, &a.Thinking, &a.webhookHash, &a.MaxCostUSD,
-		&a.MaxRuns, &a.MaxRunsWindowMin, &a.CreatedAt, &a.UpdatedAt, &a.NotifyURL); err != nil {
+		&a.MaxRuns, &a.MaxRunsWindowMin, &a.CreatedAt, &a.UpdatedAt, &a.NotifyURL, &a.CLI); err != nil {
 		return err
 	}
 	a.Enabled = enabled != 0
@@ -264,6 +291,9 @@ func validateAutomation(a Automation) error {
 	}
 	switch a.Action {
 	case AutomationStart:
+		if !UnattendedCLI(a.CLI) {
+			return fmt.Errorf("a start run can use Pi, Claude Code, Codex, Grok or Hermes")
+		}
 	case AutomationMessage:
 		if a.TargetAgentID == nil || strings.TrimSpace(*a.TargetAgentID) == "" {
 			return fmt.Errorf("a message automation needs a target agent")
@@ -427,7 +457,7 @@ func (s *Store) CreateAutomation(p AutomationParams) (Automation, string, error)
 	}
 	a := Automation{
 		ID: newID(p.Name, "aut"), Name: strings.TrimSpace(p.Name), Enabled: true, WorkspaceID: ws,
-		Action: p.Action, TargetAgentID: emptyToNil(p.TargetAgentID), Prompt: p.Prompt,
+		Action: p.Action, TargetAgentID: emptyToNil(p.TargetAgentID), CLI: automationCLI(p.CLI), Prompt: p.Prompt,
 		Provider: emptyToNil(p.Provider), Model: emptyToNil(p.Model), Thinking: emptyToNil(p.Thinking),
 		Webhook: p.Webhook, NotifyURL: emptyToNil(strings.TrimSpace(p.NotifyURL)),
 		MaxCostUSD: optFloat(p.MaxCostUSD), MaxRuns: optInt(p.MaxRuns), MaxRunsWindowMin: optInt(p.MaxRunsWindowMin),
@@ -459,10 +489,10 @@ func (s *Store) CreateAutomation(p AutomationParams) (Automation, string, error)
 	}
 	defer func() { s.rollback(tx) }()
 	if _, err := tx.Exec(`INSERT INTO automations (`+automationCols+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		a.ID, a.Name, boolInt(a.Enabled), a.WorkspaceID, a.Action, a.TargetAgentID, a.AgentID, a.Prompt,
 		a.Provider, a.Model, a.Thinking, a.webhookHash, a.MaxCostUSD, a.MaxRuns, a.MaxRunsWindowMin,
-		a.CreatedAt, a.UpdatedAt, a.NotifyURL); err != nil {
+		a.CreatedAt, a.UpdatedAt, a.NotifyURL, a.CLI); err != nil {
 		return Automation{}, "", fmt.Errorf("store: create automation: %w", err)
 	}
 	if err := writeSchedules(tx, a.ID, a.Schedules); err != nil {
@@ -548,6 +578,9 @@ func (s *Store) UpdateAutomation(id string, p AutomationPatch) (Automation, erro
 	if p.TargetAgentID != nil {
 		a.TargetAgentID = emptyToNil(*p.TargetAgentID)
 	}
+	if p.CLI != nil {
+		a.CLI = automationCLI(*p.CLI)
+	}
 	if p.Prompt != nil {
 		a.Prompt = *p.Prompt
 	}
@@ -600,10 +633,10 @@ func (s *Store) UpdateAutomation(id string, p AutomationPatch) (Automation, erro
 	defer func() { s.rollback(tx) }()
 	if _, err := tx.Exec(`UPDATE automations SET name=?, enabled=?, workspace_id=?, action=?, target_agent_id=?,
 		prompt=?, provider=?, model=?, thinking=?, max_cost_usd=?, max_runs=?, max_runs_window_min=?, updated_at=?,
-		notify_url=?
+		notify_url=?, cli=?
 		WHERE id=?`,
 		a.Name, boolInt(a.Enabled), a.WorkspaceID, a.Action, a.TargetAgentID, a.Prompt, a.Provider, a.Model,
-		a.Thinking, a.MaxCostUSD, a.MaxRuns, a.MaxRunsWindowMin, a.UpdatedAt, a.NotifyURL, id); err != nil {
+		a.Thinking, a.MaxCostUSD, a.MaxRuns, a.MaxRunsWindowMin, a.UpdatedAt, a.NotifyURL, a.CLI, id); err != nil {
 		return Automation{}, fmt.Errorf("store: update automation: %w", err)
 	}
 	if params != nil {

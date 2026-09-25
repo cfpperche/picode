@@ -74,6 +74,42 @@ func TestPeerComposerState(t *testing.T) {
 		t.Fatalf("opencode unknown row claimed occupied")
 	}
 
+	// Claude Code 2.1.282 renders the ghost word by word (measured
+	// 2026-09-25): still a known empty composer, so an unattended run can
+	// deliver (ADR-0217) and the check after Enter confirms it.
+	perWord := "\x1b[39m\u276f\u00a0\x1b[2mTry\x1b[0m \x1b[2m\"edit\x1b[0m \x1b[2mcli_launch.go\x1b[0m \x1b[2mto...\"\x1b[0m"
+	rule := strings.Repeat("\u2500", 200)
+	st, known = peerComposerState("claude-code", snap("claude-code", 2, 12, append(paneRows("", 11), rule, perWord, rule)))
+	if !known || st != "empty" {
+		t.Fatalf("claude per-word ghost = %q known=%v", st, known)
+	}
+	// Cut at the pane's edge, the last dim run has no reset (measured).
+	edge := "\x1b[39m\u276f\u00a0\x1b[2mTry\x1b[0m \x1b[2m\"create\x1b[0m \x1b[2mthat...\""
+	if !peerInputMatches("claude-code", snap("claude-code", 2, 12, append(paneRows("", 11), rule, edge, rule)), "") {
+		t.Fatal("a ghost cut at the edge was not read as empty")
+	}
+	// While it works, Claude shows the mode row and an effort row under an
+	// empty composer (measured on 2.1.282): still an empty composer, which is
+	// what the check after Enter needs.
+	working := append(paneRows("", 11), rule, "\x1b[39m\u276f\u00a0", rule,
+		"  ⏵⏵ auto mode on (shift+tab to cycle) · esc to interrupt · ← for agents",
+		"                                                            ◐ medium · /effort")
+	if !peerInputMatches("claude-code", snap("claude-code", 2, 12, working), "") {
+		t.Fatal("the working footer with the effort row was not read as an empty composer")
+	}
+	// Codex 0.157: its shortcuts hint sits under the model row (measured).
+	codex := append(paneRows("", 20), "\x1b[1m›\x1b[0m \x1b[2mAsk Codex to do anything\x1b[0m", "",
+		"  GPT-6-Astra default · /home/goat/picode",
+		"  ? for shortcuts                                      ⚠ 1 warning · f2 to view")
+	if !peerInputMatches("codex", snap("codex", 2, 20, codex), "") {
+		t.Fatal("codex 0.157 composer with its shortcuts row was not read as empty")
+	}
+	// A bright word among dim ones is typed text, not the ghost.
+	mixed := "\x1b[39m\u276f\u00a0\x1b[2mTry\x1b[0m typed"
+	if peerInputMatches("claude-code", snap("claude-code", 2, 12, append(paneRows("", 11), rule, mixed, rule)), "") {
+		t.Fatal("a bright word read as the ghost")
+	}
+
 	// Rendering drift (a ghost in a format the empty-matcher does not know)
 	// is dim, so it must read UNKNOWN — deliver, never block.
 	st, known = peerComposerState("claude-code", snap("claude-code", 2, 10,
