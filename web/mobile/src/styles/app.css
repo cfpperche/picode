@@ -25,24 +25,8 @@ html, body {
   overflow: hidden;
   background: var(--bg-base);
 }
-/* Scrollbars: the look lives in @picode/shared/styles/scrollbars.css
-   (loaded before this sheet); only this app's sidebar tweak is here. */
-@supports not selector(::-webkit-scrollbar) {
-  .side-section {
-    scrollbar-color: transparent transparent;
-    transition: scrollbar-color .18s ease;
-  }
-  #sidebar:hover .side-section, #sidebar:focus-within .side-section {
-    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
-  }
-}
-.side-section::-webkit-scrollbar-thumb {
-  background: transparent;
-  transition: background .18s ease;
-}
-#sidebar:hover .side-section::-webkit-scrollbar-thumb, #sidebar:focus-within .side-section::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-secondary) 40%, transparent);
-}
+/* Scrollbars: the look and the hide-until-hover rule live in
+   @picode/shared/styles/scrollbars.css (loaded before this sheet). */
 [hidden] { display: none !important; }
 body {
   background: var(--bg-base);
