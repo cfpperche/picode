@@ -29,9 +29,21 @@
 .mission-criteria li { padding:12px 0; border-bottom:1px solid var(--border); }
 .mission-criteria code { font-size:11px; overflow-wrap:anywhere; }
 .mission-evidence { color:var(--text-secondary); white-space:pre-wrap; overflow-wrap:anywhere; margin-top:6px; font-size:12px; }
+.mission-evidence-review { scroll-margin-top:20px; outline:none; }
+.mission-evidence-review .mission-criteria li { padding:14px 0; }
+.mission-evidence-review .mission-criteria strong { display:block; line-height:1.45; }
+.mission-evidence-review .mission-evidence { margin-top:10px; padding:12px; border:1px solid var(--border); border-radius:var(--radius-ctl); background:var(--bg-panel); }
+.mission-evidence-review .mission-evidence p { margin:8px 0; color:var(--text-primary); font-size:13px; line-height:1.55; }
+.mission-evidence-status { color:var(--ok); font-weight:600; }
+.mission-evidence-status[data-outcome=fail] { color:var(--danger); }
+.mission-evidence-type { margin-left:8px; }
+.mission-evidence code, .mission-history-evidence code { display:block; margin-top:6px; }
 .mission-history { list-style:none; padding:0; }
 .mission-history li { margin-bottom:12px; padding-left:12px; border-left:2px solid var(--border-strong); }
 .mission-history time { display:block; color:var(--text-secondary); font-size:11px; }
+.mission-history-evidence { margin-top:8px; overflow-wrap:anywhere; }
+.mission-history-evidence summary { color:var(--accent); cursor:pointer; }
+.mission-history-evidence p { white-space:pre-wrap; }
 .mission-packet { background:var(--bg-base); padding:12px; border:1px solid var(--border); border-radius:var(--radius-ctl); font:12px/1.6 var(--mono); white-space:pre-wrap; overflow-wrap:anywhere; max-height:320px; overflow:auto; }
 .mission-empty { padding:24px 0; color:var(--text-secondary); }
 .mission-loading { display:grid; gap:16px; padding:16px 0; }
