@@ -12,4 +12,4 @@ once.
 visual-review: PASS
 Pays the tab-overflow debt (docs/handoff/2026-09-24-tab-overflow.md).
 Not done / debts: none.
-Merge: fast-forward ready.
+Merge: landed on main a227ec281; deployed by the owner 2026-09-25.
