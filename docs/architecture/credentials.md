@@ -115,6 +115,20 @@ Muse, Antigravity), so the vault keeps **one** subscription row per provider
 there — ADR-0013's fingerprint rule, said out loud in the pane instead of
 letting a second import look like it vanished.
 
+**That one row mirrors the CLI's file, and its refresh token is the CLI's**
+(ADR-0166 amendment 2026-09-24). `Harvest` matches a renewal by refresh token,
+so it misses a new sign-in inside the CLI and a vendor that rotates the
+refresh token on renewal — and the row went on showing "in use" (matched by
+id) with a dead token while the CLI's own login worked (measured: the
+Anthropic row had held a 401 token since 09-14). `credentials.Mirror` copies
+the live file into the nameless row whenever they differ; it runs on every
+roster read and before every usage fetch (`usage.Client.Sync` →
+`mirrorCLILogins`, pi excluded — its file is written from the vault). And
+`usage.Client.HeldBy` (`cliHoldingRefresh`) names the CLI whose live login
+holds a row's refresh token: such a token is never refreshed by PiCode; an
+expired or rejected access token reports "Waiting for <CLI> to renew this
+login", and the CLI's next use renews it and the mirror copies it back.
+
 ## Backup
 
 A snapshot with secrets carries `picode/credentials.json` and **not**

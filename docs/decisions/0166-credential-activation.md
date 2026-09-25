@@ -100,3 +100,23 @@ vendor that changes its credential format, which fails visibly at render time
 - **Swap the file with no liveness check** (what every comparable tool does) —
   refused: this product starts the processes, so it knows when one is running;
   a refusal it can compute beats a warning nobody reads.
+
+## Amendment 2026-09-24 — a nameless login's row follows the CLI, and PiCode never spends its refresh token
+
+A login whose bytes name no account (Claude Code's subscription) keeps one
+vault row per provider, and that row and the CLI's file are the same login.
+Two rules, measured on the owner's machine where the in-use Anthropic row had
+answered 401 since 09-14 while Claude Code's own login worked:
+
+1. **The row mirrors the file.** `credentials.Mirror` copies the CLI's live
+   login into that row whenever they differ — on every roster read and before
+   every usage fetch. It is read-only toward the CLI's file (writing there is
+   still Use) and never creates a row; keyed and named logins are untouched.
+2. **One rotating refresh token, one consumer.** When a CLI's live login holds
+   a row's refresh token, PiCode does not refresh that row: an expired or
+   rejected access token waits for the CLI, which renews on its next use.
+   Refreshing it here would rotate the token out from under the CLI — the
+   likely way the row died. pi is excluded: its file is written from the vault
+   (ADR-0013).
+
+Boundary: security model (who may spend a credential), no new persistence.
