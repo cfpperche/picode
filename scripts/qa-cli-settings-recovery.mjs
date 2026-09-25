@@ -28,7 +28,9 @@ const contextHash = globalHash + "?agentId=" + encodeURIComponent(id);
 // The pane is ready when its layer body is painted (the keyboard map is a
 // sibling pane, not a sub-tab — 2026-09-12).
 const ready = () => wait('!!document.querySelector("#pi-settings-view .settings-section")');
-const selectLayer = (name, id) => { browser("find", "role", "radio", "click", "--name", name, "--exact"); wait(`document.querySelector("#pi-settings-view .settings-section")?.dataset.layer === ${JSON.stringify(id)}`); };
+// Centered first: on a phone the sticky header can sit over a radio that is
+// merely "in view", and the click would land on the header.
+const selectLayer = (name, id) => { ev(`[...document.querySelectorAll("#pi-settings-view [role=radio]")].find(b=>b.textContent.trim()===${JSON.stringify(name)})?.scrollIntoView({block:"center"}); true`); browser("find", "role", "radio", "click", "--name", name, "--exact"); wait(`!!document.querySelector(${JSON.stringify(`#pi-settings-view [data-layer="${id}"]`)})`); };
 const paneClick = label => ev(`[...document.querySelectorAll(".cli-pane-tabs a")].find(a=>a.textContent.trim()===${JSON.stringify(label)}).click(); true`);
 const openKeys = () => { paneClick("Keyboard"); wait('!!document.querySelector("#keys-filter")'); };
 const openSettingsTab = () => { paneClick("Settings"); wait('!!document.querySelector("#pi-settings-view .settings-layer")'); };
@@ -105,8 +107,9 @@ try {
     ev('window.fetch=window.qaFetch');
     // The keyboard map still works after the retry, on its own tab.
     openKeys();
-    ev('document.querySelector(".key-row").scrollIntoView({block:"center"})');
-    browser("click", ".key-row .btn");
+    // The row's "Add key" is a hover action; click it through the DOM so the
+    // shell's own header cannot sit over the click point on a short viewport.
+    ev('document.querySelector(".key-row .key-act").click(); true');
     browser("find", "role", "button", "click", "--name", "Cancel");
     results.push(app + ": draft retained across failed refresh, repeated failure and pending retry; writes resume only after validation");
   }
