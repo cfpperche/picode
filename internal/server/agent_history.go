@@ -369,6 +369,9 @@ func handleForgetAgentHistory(deps Deps) http.HandlerFunc {
 			writeExitErr(w, err)
 			return
 		}
+		// A forgotten exit can no longer be brought back: its agent skills'
+		// cached copies may go (ADR-0196 slice 4).
+		sweepAgentSkillCacheLater(deps)
 		writeJSON(w, http.StatusOK, ex)
 	}
 }

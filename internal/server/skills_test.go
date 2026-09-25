@@ -255,3 +255,71 @@ func TestSkillsToggleRoute(t *testing.T) {
 		t.Fatalf("pi has no switch: %d, want 400", code)
 	}
 }
+
+// An agent's own skills are checked against their source and updated in
+// place: current, then behind once the source changes, updated to the new
+// copy (a new digest, its own cached folder), current again; unreachable
+// once the source is gone.
+func TestSkillsAgentCheckAndUpdate(t *testing.T) {
+	st := testStore(t)
+	w, err := st.AddWorkspace("Proj", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := st.AddAgentWithCLI(w.ID, "claude-code", "Atlas", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := t.TempDir()
+	write := func(desc string) {
+		if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("---\nname: agent-skill\ndescription: "+desc+"\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("first")
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, AgentCmd: "cat", DataDir: t.TempDir()}).Handler)
+	t.Cleanup(ts.Close)
+	_, p := skillsCall(t, "POST", ts.URL+"/api/skills/preview", map[string]string{"source": src})
+	if code, res := skillsCall(t, "POST", ts.URL+"/api/skills", map[string]any{"preview": p["id"], "path": "", "scope": "agent", "agent": a.ID}); code != 200 {
+		t.Fatalf("install: %d %v", code, res)
+	}
+	status := func() string {
+		t.Helper()
+		_, res := skillsCall(t, "GET", ts.URL+"/api/skills/updates?workspace="+w.ID+"&agent="+a.ID, nil)
+		for _, r := range res["rows"].([]any) {
+			row := r.(map[string]any)
+			if row["scope"] == "agent" && row["name"] == "agent-skill" {
+				return row["status"].(string)
+			}
+		}
+		return "absent"
+	}
+	if got := status(); got != "current" {
+		t.Fatalf("after install: %s", got)
+	}
+	before, _ := st.GetAgent(a.ID)
+	write("second")
+	if got := status(); got != "behind" {
+		t.Fatalf("after a source change: %s", got)
+	}
+	code, res := skillsCall(t, "POST", ts.URL+"/api/skills/update", map[string]any{"name": "agent-skill", "scope": "agent", "agent": a.ID})
+	if code != 200 || res["status"] != "updated" {
+		t.Fatalf("update: %d %v", code, res)
+	}
+	after, _ := st.GetAgent(a.ID)
+	if len(after.Skills) != 1 || after.Skills[0].Digest == before.Skills[0].Digest || after.Skills[0].Dir == before.Skills[0].Dir || after.Skills[0].Source != src {
+		t.Fatalf("list after update %+v (was %+v)", after.Skills, before.Skills)
+	}
+	if b, err := os.ReadFile(filepath.Join(after.Skills[0].Dir, "SKILL.md")); err != nil || !strings.Contains(string(b), "second") {
+		t.Fatalf("cached copy %q %v", b, err)
+	}
+	if got := status(); got != "current" {
+		t.Fatalf("after update: %s", got)
+	}
+	if err := os.RemoveAll(src); err != nil {
+		t.Fatal(err)
+	}
+	if got := status(); got != "unreachable" {
+		t.Fatalf("source gone: %s", got)
+	}
+}

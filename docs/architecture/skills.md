@@ -275,6 +275,24 @@ original source so Check and Update reach it, the same 409s), then takes it
 off the agent's own list. A free agent has no project to promote into. Not
 built: `claude plugin eval --ablation` runs (they spend real tokens).
 
+### Agent skills over time (2026-09-25)
+
+- **Check and Update:** `GET /api/skills/updates?agent=` adds the agent's rows
+  (`checkAgentSkills`: each source previewed once, the skill found by name,
+  its digest compared); `POST /api/skills/update` with `scope=agent` caches the
+  newer copy under its own digest and swaps the list entry (`updateForAgent`).
+  A cached copy never changes, so an agent skill is never "modified".
+- **Sweep:** `sweepAgentSkillCache` removes a digest folder no live agent and
+  no exit the person has not forgotten names, older than an hour; it runs at
+  start, after an agent skill's removal or update, and after an exit is
+  forgotten.
+- **Missing:** `store.AgentSkill.Missing` is computed at every read (the
+  cached `SKILL.md` is gone) and never stored; the agent row warns and links
+  to the agent chip.
+- **Launch pane:** the terminal plan's `agentInjection`
+  (`agentSkillsPlan`) lists the agent's skills, the flag its CLI takes them
+  by and the ones left out.
+
 ## Live parity
 
 `internal/skills/live_test.go` runs the real `muse` against a fixture in a
