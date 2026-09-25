@@ -103,6 +103,18 @@
   `server.json`, which any process running as the same WSL user can
   rewrite. That user can already run Windows programs through interop,
   so it is not an escalation.
+- **The waiting page's commands are local-only**: the main window opens on
+  the bundled `ui/waiting.html` until the daemon answers
+  (`desktop-shell/src/waiting.rs`). Its buttons — Start PiCode, View logs,
+  Trust certificate — run through `waiting_state` / `waiting_action`,
+  granted by `capabilities/waiting.json`, which has no `remote` list: the
+  daemon's `/desktop/`, loaded later in the same webview, cannot call them.
+  Trust certificate imports the distro's mkcert root into the Windows
+  user's `CurrentUser\Root` with `certutil -user` (no administrator rights;
+  Windows asks the human to confirm the root), the same file the installer
+  puts in `LocalMachine\Root`. Whether Windows trusts the daemon is probed
+  with `curl.exe` *without* `-k` (schannel reads the store WebView2 uses),
+  so the window never navigates onto a certificate error page.
 
 ## Handing a target to the operating system (the desktop shell)
 

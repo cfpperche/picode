@@ -561,6 +561,18 @@
           "markdownDescription": "Enables the system_clean_apply command without any pre-configured scope."
         },
         {
+          "description": "Enables the waiting_action command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-waiting-action",
+          "markdownDescription": "Enables the waiting_action command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the waiting_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-waiting-state",
+          "markdownDescription": "Enables the waiting_state command without any pre-configured scope."
+        },
+        {
           "description": "Enables the wsl_restart command without any pre-configured scope.",
           "type": "string",
           "const": "allow-wsl-restart",
@@ -967,6 +979,18 @@
           "type": "string",
           "const": "deny-system-clean-apply",
           "markdownDescription": "Denies the system_clean_apply command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the waiting_action command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-waiting-action",
+          "markdownDescription": "Denies the waiting_action command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the waiting_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-waiting-state",
+          "markdownDescription": "Denies the waiting_state command without any pre-configured scope."
         },
         {
           "description": "Denies the wsl_restart command without any pre-configured scope.",
