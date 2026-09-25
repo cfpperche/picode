@@ -1006,9 +1006,12 @@ if [ -z "$real" ]; then
 fi
 `
 
+func tmuxGuardBody(dataDir string) string {
+	return strings.Replace(tmuxGuardWrapper, "__PICODE_GUARD_LOG__", tmuxGuardLog(dataDir), 1)
+}
+
 func writeTmuxGuard(dataDir string) error {
-	body := strings.Replace(tmuxGuardWrapper, "__PICODE_GUARD_LOG__", tmuxGuardLog(dataDir), 1)
-	return writeExecutable(wrapperPath(dataDir, "tmux"), body)
+	return writeExecutable(wrapperPath(dataDir, "tmux"), tmuxGuardBody(dataDir))
 }
 
 func installTmuxGuard(dataDir string) error {
@@ -1039,7 +1042,10 @@ func ensureTmuxGuard(dataDir string) {
 	if !interceptOn(dataDir, TmuxGuardID) {
 		return
 	}
-	if _, err := os.Stat(wrapperPath(dataDir, "tmux")); err == nil {
+	// Rewrite when missing or stale: a guard written by an older binary kept
+	// its old body across every deploy (2026-09-25: the two-instance exec
+	// loop stayed on disk after its fix). Boot calls this too.
+	if b, err := os.ReadFile(wrapperPath(dataDir, "tmux")); err == nil && string(b) == tmuxGuardBody(dataDir) {
 		return
 	}
 	_ = writeTmuxGuard(dataDir)

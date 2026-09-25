@@ -263,8 +263,10 @@ other PiCode wrapper (`#!/bin/sh` then `# PiCode …`, the Go side's
 `isCLIWrapper` test, in shell builtins): with two instances' bin dirs on
 one PATH (a scratch terminal opened inside PiCode) each guard found the
 other's and the two exec'd each other forever, one pid at full CPU for half
-an hour (2026-09-25; `TestWrappersSkipOtherInstancesWrappers`). New wrappers
-reach disk the next time PiCode writes them (a restart, or the switch).
+an hour (2026-09-25; `TestWrappersSkipOtherInstancesWrappers`). Every boot
+rewrites the wrappers whose body changed — the guard included
+(`ensureTmuxGuard` compares the body; it used to write only a missing one,
+so a deploy never replaced an old guard).
 
 **PiCode's own tmux calls skip the guard.** `tmux.Binary()` resolves the
 first `tmux` on PATH that is not a PiCode intercept wrapper (`# PiCode

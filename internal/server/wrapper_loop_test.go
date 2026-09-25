@@ -60,3 +60,20 @@ func TestWrappersSkipOtherInstancesWrappers(t *testing.T) {
 		}
 	}
 }
+
+// A guard written by an older binary is replaced on the next ensure (boot,
+// a new terminal), not only when missing.
+func TestEnsureTmuxGuardReplacesAStaleBody(t *testing.T) {
+	dir := t.TempDir()
+	if err := installTmuxGuard(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeExecutable(wrapperPath(dir, "tmux"), "#!/bin/sh\n# PiCode old guard\nexec old\n"); err != nil {
+		t.Fatal(err)
+	}
+	ensureTmuxGuard(dir)
+	b, _ := os.ReadFile(wrapperPath(dir, "tmux"))
+	if string(b) != tmuxGuardBody(dir) {
+		t.Fatalf("stale guard kept:\n%s", b)
+	}
+}

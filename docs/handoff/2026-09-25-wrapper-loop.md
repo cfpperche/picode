@@ -8,6 +8,7 @@ systemd --user; it had exited by the time the owner OK'd killing it).
 `# PiCode` wrapper (`picode_wrapper`, shell builtins). The new test loops for
 10 s on the old code and passes on the new.
 
-## Next up
-
-- Wrappers on disk update when PiCode rewrites them (restart/switch); the running production guard keeps the old loop until then.
+- The guard was only written when missing, so a deploy never replaced an old
+  one: `ensureTmuxGuard` now rewrites a stale body and runs at boot, like the
+  CLI and open-URL wrappers already did. The fix reaches production on the
+  next deploy.
