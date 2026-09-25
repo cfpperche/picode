@@ -1,11 +1,16 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/clisession"
@@ -75,14 +80,26 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 	}
 	ls := launch.LastSession
 	if ls == nil || (ls.SessionID == "" && ls.Path == "") {
+		// A CLI with no runtime integration (Muse Code, Antigravity) pins
+		// only at stop time; resolve its conversation now, the same way.
+		if t, err := deps.Store.GetTerminal(*agent.TerminalID); err == nil {
+			pinCLITerminalLastSession(deps, t.ID, t)
+			pinLiveSession(deps, r.Context(), launch.CLI, t)
+			if again, err := deps.Store.TerminalLaunch(t.ID); err == nil && again != nil {
+				launch, ls = again, again.LastSession
+			}
+		}
+	}
+	if ls == nil || (ls.SessionID == "" && ls.Path == "") {
 		return nil, http.StatusConflict, errors.New("This agent has no conversation to fork yet.")
 	}
 	cli, ok := clilaunch.Find(launch.CLI)
 	if !ok {
 		return nil, http.StatusBadRequest, errors.New("Unknown CLI.")
 	}
-	forker, ok := clisession.ForkerFor(cli.ID)
-	if !ok || (ls.CLI != "" && ls.CLI != cli.ID) {
+	forker, flagFork := clisession.ForkerFor(cli.ID)
+	sessionForker, protocolFork := clisession.SessionForkerFor(cli.ID)
+	if !(flagFork || protocolFork) || (ls.CLI != "" && ls.CLI != cli.ID) {
 		return nil, http.StatusBadRequest, errors.New(cli.Name + " can't fork a conversation from PiCode yet.")
 	}
 	if len(req.Files)+len(req.Paths) > maxForkFiles {
@@ -120,12 +137,29 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 		}
 		paths = append(paths, saved["path"].(string))
 	}
-	prompt, err := forkPrompt(req.Prompt, paths)
-	if err != nil {
-		return nil, http.StatusBadRequest, err
+	src := clisession.Ref{ID: ls.SessionID, Path: ls.Path, Cwd: ls.Cwd}
+	var fork clisession.Fork
+	task := ""
+	if flagFork {
+		prompt, err := forkPrompt(req.Prompt, paths)
+		if err != nil {
+			return nil, http.StatusBadRequest, err
+		}
+		fork = forker.ForkArgs(src, prompt, transcript.NewID())
+	} else {
+		// A protocol fork makes the copy before any agent exists; its launch
+		// only reopens it, so the task — line breaks and all — travels
+		// through the prompt door once the TUI is ready.
+		srcCwd := ls.Cwd
+		if srcCwd == "" {
+			srcCwd = cwd
+		}
+		fork, err = sessionForker.ForkSession(r.Context(), src, cliCommand(deps, cli, srcCwd))
+		if err != nil {
+			return nil, http.StatusBadGateway, err
+		}
+		task = buildPromptPaste(req.Prompt, paths)
 	}
-
-	fork := forker.ForkArgs(clisession.Ref{ID: ls.SessionID, Path: ls.Path, Cwd: ls.Cwd}, prompt, transcript.NewID())
 	// Resume's rule (launchWithPinnedSession): the arguments are the
 	// recipe, every other launch setting of the source carries over.
 	overrides := launch.Overrides
@@ -147,6 +181,10 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 		_ = deps.Store.SetTerminalLastSession(*forked.TerminalID, store.TerminalLastSession{CLI: cli.ID, SessionID: fork.ID, Cwd: cwd, Name: name, ResumeArgs: fork.ResumeArgs})
 	}
 	out := map[string]any{"agent": agentView{Agent: forked, Mode: string(modeStopped)}, "terminal": view}
+	if fork.TaskAfterLaunch && strings.TrimSpace(task) != "" {
+		out["task"] = "pending"
+		go deliverForkTask(deps, *forked.TerminalID, forked.WorkspaceID, name, task)
+	}
 	sourceID := ls.SessionID
 	if sourceID == "" {
 		sourceID = ls.Path
@@ -234,6 +272,135 @@ func forkOrigins(deps Deps) map[string]*forkOrigin {
 			o.Gone = true
 		}
 		out[h.AgentID] = o
+	}
+	return out
+}
+
+// cliCommand builds the CLI's own command the way cliRunner runs it
+// (ADR-0094): its configured executable and environment, in dir. A
+// SessionForker drives the process's stdio itself.
+func cliCommand(deps Deps, cli clilaunch.CLI, dir string) func(ctx context.Context, args ...string) *exec.Cmd {
+	return func(ctx context.Context, args ...string) *exec.Cmd {
+		binary := cli.Command
+		env := os.Environ()
+		if c, err := cliConfig(deps, cli.ID); err == nil {
+			if b, err := resolveCLIExecutable(cli, c); err == nil {
+				binary = b
+			}
+			env = cliEnvironment(c)
+		}
+		cmd := exec.CommandContext(ctx, binary, args...)
+		cmd.Dir = dir
+		cmd.Env = env
+		cmd.WaitDelay = time.Second
+		return cmd
+	}
+}
+
+// forkTaskWait bounds how long a fork's task waits for its TUI: a first
+// launch in a folder the CLI does not trust yet stops at that question,
+// and the person may take a while to answer it.
+var (
+	forkTaskWait  = 3 * time.Minute
+	forkTaskEvery = 2 * time.Second
+)
+
+// deliverForkTask sends a fork's task through the prompt door (ADR-0089,
+// the attach bar's path) once the new TUI is at its prompt, retrying every
+// refusal — not started yet, a trust question, still loading — until the
+// wait runs out. A task that never lands becomes an Inbox note with the
+// text, so it is never silently lost.
+func deliverForkTask(deps Deps, termID, workspaceID, name, task string) {
+	deadline := time.Now().Add(forkTaskWait)
+	last := ""
+	for time.Now().Before(deadline) {
+		time.Sleep(forkTaskEvery)
+		t, err := deps.Store.GetTerminal(termID)
+		if err != nil {
+			return // the fork was removed meanwhile
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		status, res := doorDeliverUnattended(deps, ctx, t, task)
+		cancel()
+		if status == http.StatusOK {
+			return
+		}
+		if msg, _ := res["error"].(string); msg != "" {
+			last = msg
+		}
+	}
+	body := "PiCode could not send " + name + " its task"
+	if last != "" {
+		body += " (" + strings.TrimSuffix(last, ".") + ")"
+	}
+	body += ". Paste it into its terminal:\n\n" + task
+	if _, err := deps.Store.CreateInboxItem(store.InboxItemParams{
+		Kind: store.InboxFYI, SourceKind: store.InboxFromTerminal, SourceID: termID,
+		WorkspaceID: workspaceID, Reason: "fork task not delivered", Title: name + " did not get its task", Body: body,
+	}); err != nil {
+		log.Printf("fork: inbox: %v", err)
+	}
+}
+
+// pinLiveSession pins the conversation a running TUI is writing when its
+// CLI records it only at exit and has not been pinned otherwise (Muse
+// Code: clisession.LiveSessionFinder). Best effort: nothing found leaves
+// the terminal unpinned and the fork answers "no conversation yet".
+func pinLiveSession(deps Deps, ctx context.Context, cliID string, t store.Terminal) {
+	launch, err := deps.Store.TerminalLaunch(t.ID)
+	if err != nil || launch == nil || (launch.LastSession != nil && launch.LastSession.SessionID != "") {
+		return
+	}
+	src, ok := clisession.Get(cliID)
+	if !ok {
+		return
+	}
+	finder, ok := src.(clisession.LiveSessionFinder)
+	if !ok {
+		return
+	}
+	cli, ok := clilaunch.Find(cliID)
+	if !ok {
+		return
+	}
+	// The current run's start, not the terminal's birth: a terminal
+	// restarted in a shared folder must not claim an earlier run's session.
+	since, _ := time.Parse(time.RFC3339Nano, t.CreatedAt)
+	if launch.Applied != nil {
+		if at, err := time.Parse(time.RFC3339Nano, launch.Applied.StartedAt); err == nil {
+			since = at
+		}
+	}
+	taken := takenSessions(deps, cliID, t.ID)
+	id, resume, err := finder.LiveSession(ctx, t.Cwd, since, func(id string) bool { return taken[id] }, cliCommand(deps, cli, t.Cwd))
+	if err != nil || id == "" {
+		return
+	}
+	_ = deps.Store.SetTerminalLastSession(t.ID, store.TerminalLastSession{CLI: cliID, SessionID: id, Cwd: t.Cwd, ResumeArgs: resume})
+}
+
+// takenSessions are the cli's sessions PiCode knows belong somewhere else:
+// pinned by another terminal, or the copy a fork made (its lineage row's
+// target). In a shared folder they are newer than the conversation a
+// terminal is running, so a live lookup must not mistake one for it.
+func takenSessions(deps Deps, cliID, termID string) map[string]bool {
+	out := map[string]bool{}
+	if terms, err := deps.Store.ListTerminals(); err == nil {
+		for _, t := range terms {
+			if t.ID == termID {
+				continue
+			}
+			if l, err := deps.Store.TerminalLaunch(t.ID); err == nil && l != nil && l.LastSession != nil && l.LastSession.CLI == cliID && l.LastSession.SessionID != "" {
+				out[l.LastSession.SessionID] = true
+			}
+		}
+	}
+	if rows, err := deps.Store.SessionHandoffs(1000); err == nil {
+		for _, h := range rows {
+			if h.TargetCLI == cliID && h.TargetID != "" {
+				out[h.TargetID] = true
+			}
+		}
 	}
 	return out
 }

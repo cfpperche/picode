@@ -813,9 +813,13 @@ func TestForkArgs(t *testing.T) {
 	if got := f.ForkArgs(Ref{ID: "s1"}, "", "new"); !reflect.DeepEqual(got.Args, []string{"--fork", "s1"}) {
 		t.Errorf("omp by id: %v", got.Args)
 	}
-	// No fork from the command line (Hermes, Muse, Antigravity: in-TUI
-	// only), and Pi agents own their session file (--session is reserved).
-	for _, cli := range []string{"hermes", "muse", "agy", "pi"} {
+	// No fork from the command line (Hermes, Antigravity: in-TUI only), and
+	// Pi agents own their session file (--session is reserved). Muse forks
+	// through its protocol instead (muse_fork_test.go).
+	if _, ok := ForkerFor("muse"); ok {
+		t.Error("muse has no fork flag")
+	}
+	for _, cli := range []string{"hermes", "agy", "pi"} {
 		if _, ok := ForkerFor(cli); ok {
 			t.Errorf("%s must not advertise a fork", cli)
 		}

@@ -7,10 +7,11 @@ slice from `feat/agent-fork`: Claude Code, Codex, Grok, OpenCode, Omp.
 
 ## Next
 
-- Muse Code: native fork through `muse serve` (`session/fork`, optional `cutPoint.lastTurnId`, MSP schema 1.3.0), then `muse resume <new-id>` in the new terminal. The method is documented in the schema; the handshake has not been exercised live.
 - Hermes and Antigravity fork only inside their TUI (`/branch`, `/fork`). Either PiCode's same-CLI copy through their Writers (the Continue in… path, a translated copy) or, for Antigravity, measure whether `agy --conversation <id> -i "/fork"` runs the slash command at start.
 
 ## Debts
+
+- [x] Muse Code forks natively through `muse serve` (`session/fork`), opens the copy with `muse resume <id>` and gets its task through the prompt door (branch `feat/muse-fork`, 2026-09-24).
 
 - [ ] Pi agents are not offered Fork: a Pi agent owns its session file (`--session` is reserved, `SessionPath`), so `pi --fork` needs the new file assigned to the new agent, not a free launch.
 - [ ] The phone hides Fork agent… (no sheet yet); `web/mobile/src/components/AgentRow.jsx` filters the row.

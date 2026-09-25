@@ -163,3 +163,17 @@ test("Fork agent… follows the pin and the CLI's native fork", () => {
   assert.equal(ids(agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: CATALOG, term: PINNED })).includes("fork"), false, "no native fork, no row");
   assert.equal(ids(agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: forking, term: STOPPED })).includes("fork"), false, "no pin, no row");
 });
+
+// Muse Code reports no runtime: it pins only at stop, so a running Muse
+// terminal (launchCli, no `cli`) offers Fork before any pin; a running CLI
+// whose runtime reports (`cli` set) waits for its pin.
+test("Fork agent… on a running Muse terminal needs no pin yet", () => {
+  const clis = [
+    { id: "muse", name: "Muse Code", installed: true, sessions: { list: true, read: true, write: true, prompt: true, fork: true } },
+    { id: "codex", name: "Codex", installed: true, sessions: { list: true, read: true, write: true, prompt: true, fork: true } },
+  ];
+  const running = (cli, reported) => ({ id: "t1", running: true, launchCli: cli, cli: reported || undefined });
+  assert.ok(ids(agentRowMenu({ cli: "muse", terminalId: "t1" }, { clis, term: running("muse") })).includes("fork"));
+  assert.equal(ids(agentRowMenu({ cli: "muse", terminalId: "t1" }, { clis, term: { id: "t1", running: false, launchCli: "muse" } })).includes("fork"), false, "stopped and unpinned: nothing to fork");
+  assert.equal(ids(agentRowMenu({ cli: "codex", terminalId: "t1" }, { clis, term: running("codex", "codex") })).includes("fork"), false, "a reporting CLI waits for its pin");
+});

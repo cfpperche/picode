@@ -158,11 +158,16 @@ export function terminalHandoffSourceCli(term) {
 // terminalCanFork: the terminal's pinned conversation can be forked into a
 // new agent of the same CLI — the CLI advertises a command-line fork
 // (sessions.fork in GET /api/clis) and the pin names a session.
+// A CLI that reports no runtime (Muse Code: the running terminal carries
+// launchCli but never `cli`) records its conversation only when it stops,
+// so while it runs there is no pin yet: the row is offered anyway and the
+// server resolves the session at fork time (or says there is none yet).
 export function terminalCanFork(term, clis) {
-  if (!sessionFromTerminal(term)) return false;
-  const sourceCli = terminalHandoffSourceCli(term);
+  const pinned = !!sessionFromTerminal(term);
+  const sourceCli = pinned ? terminalHandoffSourceCli(term) : String((term && term.launchCli) || "").trim();
   const cli = (clis || []).find((c) => c && c.id === sourceCli);
-  return !!(cli && cli.sessions && cli.sessions.fork);
+  if (!cli || !cli.sessions || !cli.sessions.fork) return false;
+  return pinned || !!(term && term.running && !term.cli);
 }
 
 // terminalHandoffMenu is the Continue-in submenu for a terminal row or pane,

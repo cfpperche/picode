@@ -105,7 +105,7 @@ func TestStopPinsWrapperlessSession(t *testing.T) {
 		seed    func(t *testing.T, dir, cwd, id string)
 		resume  []string
 	}{
-		{"muse", "pin-muse-1", seedPinMuseDB, []string{"--resume", "pin-muse-1"}},
+		{"muse", "pin-muse-1", seedPinMuseDB, []string{"resume", "pin-muse-1"}},
 		{"agy", "pin-agy-1", seedPinAgyDB, []string{"--conversation", "pin-agy-1"}},
 		{"omp", "pin-omp-1", seedPinOmpSessions, []string{"--resume", "pin-omp-1"}},
 	} {
