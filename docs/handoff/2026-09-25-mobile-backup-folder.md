@@ -9,4 +9,4 @@ Verified: `make ci-scoped` PASS; scratch instance at 390×844, geometry probe
 plus a screenshot read in a subagent. Not checked on a physical phone.
 visual-review: PASS
 Not done / debts: none.
-Merge: fast-forward ready.
+Merge: landed on main 007fcd2c7; deployed by the owner 2026-09-25.

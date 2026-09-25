@@ -31,8 +31,10 @@ What exists already, measured and shipped:
 ## Decision
 
 An automation with `action: start` names its CLI (`automations.cli`,
-default `pi`). For `pi` nothing changes. For `claude-code`, `codex`, `grok`
-and `hermes`, a run:
+default `pi`). For `pi` nothing changes. For `claude-code`, `codex`, `grok`,
+`hermes`, `opencode` and `omp` (the last two added the same day, once their
+composers were measured: OpenCode 1.18's new-session screen, Omp 18.2's
+bottom row), a run:
 
 1. uses the automation's own agent of that CLI (created on the first run in
    the automation's workspace, reused after), stops its terminal if one is
@@ -47,11 +49,15 @@ and `hermes`, a run:
 4. prices the session, finishes the run, and closes the terminal (the
    session stays with the agent to reopen).
 
+The cost cap holds only where PiCode prices the CLI's session file (Claude
+Code, Codex, Omp; `climetrics.Metered`). OpenCode, Grok and Hermes runs show
+no cost and the editor says their cost limit does not stop them.
+
 PiCode never passes a flag that skips the CLI's own approvals
 (`--dangerously-skip-permissions`, `--yolo`, `--auto-approve` or the
-like): a run that needs an approval waits for a person. The other five CLIs
-are refused for `start` until their composer is measured — an unattended,
-unverified paste can land in a menu.
+like): a run that needs an approval waits for a person. Muse and
+Antigravity are refused for `start`: Antigravity's composer is not measured,
+and Muse's hooks cannot be tied to a terminal, so nothing says its turn ended.
 
 ## Consequences
 
@@ -77,5 +83,6 @@ unverified paste can land in a menu.
 - **Passing the CLI's auto-approve flag for automations.** Refused: an
   unattended agent with every approval granted is exactly what the security
   model keeps out.
-- **All nine CLIs at once.** Five have no measured composer reader; an
-  unverified unattended paste is the failure the door's Fatia F removed.
+- **All nine CLIs at once.** Muse gives no end-of-turn signal PiCode can
+  attribute, and Antigravity's composer is unmeasured; an unverified
+  unattended paste is the failure the door's Fatia F removed.

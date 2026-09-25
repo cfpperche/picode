@@ -342,7 +342,7 @@ func TestAutomationCLI(t *testing.T) {
 	if got, _ := s.GetAutomation(b.ID); got.CLI != "claude-code" {
 		t.Fatalf("read back %q", got.CLI)
 	}
-	if _, _, err := s.CreateAutomation(AutomationParams{Name: "c", Action: AutomationStart, CLI: "opencode", Prompt: "p", Cron: "0 9 * * *"}); err == nil {
+	if _, _, err := s.CreateAutomation(AutomationParams{Name: "c", Action: AutomationStart, CLI: "muse", Prompt: "p", Cron: "0 9 * * *"}); err == nil {
 		t.Fatal("a CLI without a measured composer was accepted for start")
 	}
 	codex := "codex"
