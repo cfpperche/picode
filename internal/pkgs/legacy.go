@@ -6,9 +6,10 @@ package pkgs
 
 import "github.com/cfpperche/picode/internal/pipkg"
 
-// Legacy is GET /api/packages as the Pi pane reads it: Scope keeps the CLI's
-// own word (Row.Vendor), and Row.Enabled is the inverse of the settings file's
-// `filtered` flag — stored, not loaded.
+// Legacy is Pi's list in pipkg's shape, for the server's own readers
+// (loadPackageReport; no HTTP route answers it since 2026-09-25): Scope keeps
+// the CLI's own word (Row.Vendor), and Row.Enabled is the inverse of the
+// settings file's `filtered` flag — stored, not loaded.
 func (r Report) Legacy() pipkg.Report {
 	out := pipkg.Report{
 		Packages:     make([]pipkg.Pkg, 0, len(r.Rows)),
