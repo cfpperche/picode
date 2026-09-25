@@ -61,11 +61,6 @@ func handleListApps(deps Deps) http.HandlerFunc {
 
 func handleAppView(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Old Inbox clients may still hold an app URL after this build lands.
-		if r.PathValue("id") == "inbox" {
-			handleInboxView(deps)(w, r)
-			return
-		}
 		a, ok := deps.Apps.Find(r.PathValue("id"))
 		if !ok {
 			writeErr(w, http.StatusNotFound, "no such app")
@@ -82,10 +77,6 @@ func handleAppView(deps Deps) http.HandlerFunc {
 
 func handleAppAction(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.PathValue("id") == "inbox" {
-			handleInboxAction(deps)(w, r)
-			return
-		}
 		a, ok := deps.Apps.Find(r.PathValue("id"))
 		if !ok {
 			writeErr(w, http.StatusNotFound, "no such app")
