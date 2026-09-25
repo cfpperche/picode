@@ -54,7 +54,9 @@
 @media(prefers-reduced-motion:reduce) { .mission-loading span { animation:none; } }
 @media(max-width:600px) { .mission-row { align-items:flex-start; gap:8px; } .mission-toolbar select { min-width:0; flex:1; width:auto; } .mission-actions .btn { flex-grow:1; } }
 
-.m-missions-body { padding:16px; overflow:auto; min-height:0; }
+/* The phone screen already carries the gutter (--m-pad); a side padding here
+   put the content 30px from each edge (2026-09-25). */
+.m-missions-body { padding:16px 0; overflow:auto; min-height:0; }
 .m-missions .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:7px 12px; border:1px solid var(--border-strong); border-radius:var(--radius-ctl); background:var(--bg-panel); color:var(--text-primary); font:inherit; text-decoration:none; }
 .m-missions .btn-primary { background:var(--accent); color:var(--bg-base); }
 .m-missions .btn:disabled { opacity:.6; }

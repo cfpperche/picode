@@ -421,7 +421,11 @@ with a measured input reader are **gated and verified** (Fatia F): the
 composer must read empty before, and reads empty again after Enter — the
 response carries a `delivery` receipt (`verified` / `unconfirmed` /
 `unverified`) and refusals name themselves (`working`, `needs-you`,
-`occupied`, `busy`, `closed`). CLIs without a reader keep the blind paste
+`occupied`, `busy`, `closed`). Readers re-measured 2026-09-25 for the
+unattended runner (ADR-0217): Claude Code 2.1.282 renders its empty-composer
+suggestion one dim run per word (cut at the pane edge without a reset) and
+adds an effort row (`◐ medium · /effort`) under the mode row; Codex 0.157.0
+adds its `? for shortcuts` row under the model row. CLIs without a reader keep the blind paste
 and answer `unverified`. A working CLI is no longer only refused
 (ADR-0206): the request may carry `delivery: "steer" | "follow_up"`, and
 `term_delivery.go`'s adapter table — the live measurement in

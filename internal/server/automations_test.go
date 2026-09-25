@@ -70,6 +70,11 @@ func TestDecideFire(t *testing.T) {
 		{"pi_missing", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationStart}, fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}},
 		{"agent_in_terminal", fireInput{Enabled: true, Action: store.AutomationStart, AgentMode: modeInteractive}, fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}},
 		{"start_ok", fireInput{Enabled: true, Action: store.AutomationStart, AgentMode: modeStopped}, fireDecision{}},
+		// ADR-0217: a start run on another CLI needs no pi; its own agent's
+		// terminal open (someone is in it) skips like a Pi agent's does.
+		{"cli_start_without_pi", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationStart, StartCLI: "claude-code"}, fireDecision{}},
+		{"pi_start_without_pi", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationStart, StartCLI: "pi"}, fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}},
+		{"cli_start_terminal_open", fireInput{Enabled: true, Action: store.AutomationStart, StartCLI: "codex", AgentMode: modeInteractive}, fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}},
 		{"target_gone", fireInput{Enabled: true, Action: store.AutomationMessage}, fireDecision{Status: store.RunFailed, Reason: reasonTargetGone, Notify: true}},
 		{"target_interactive", fireInput{Enabled: true, Action: store.AutomationMessage, TargetExists: true, TargetIsPi: true, AgentMode: modeInteractive}, fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}},
 		{"message_needs_pi_to_start_the_agent", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, TargetIsPi: true, AgentMode: modeStopped}, fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}},

@@ -59,6 +59,7 @@ type fireInput struct {
 	Action       string
 	TargetExists bool         // action=message: the target agent still exists
 	TargetIsPi   bool         // action=message: the target runs Pi (a guest is reached through its launch terminal, ADR-0179)
+	StartCLI     string       // action=start: the CLI its runs use (ADR-0217); "" means pi
 	AgentMode    agentRunMode // the agent a start/message would touch
 }
 
@@ -106,9 +107,11 @@ func decideFire(in fireInput) fireDecision {
 		}
 		return fireDecision{}
 	}
-	if in.PiMissing {
+	if in.PiMissing && (in.StartCLI == "" || in.StartCLI == store.CLIPi) {
 		return fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}
 	}
+	// A start run owns its agent's terminal and restarts it; a terminal
+	// someone opened is theirs, so the run skips rather than closing it.
 	if in.AgentMode == modeInteractive {
 		return fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}
 	}
@@ -180,8 +183,13 @@ func (r automationRunner) Fire(a store.Automation, f automate.Firing) (store.Run
 			}
 		}
 	default:
+		in.StartCLI = a.CLI
 		if a.AgentID != nil {
-			in.AgentMode = r.mode(ctx, *a.AgentID)
+			// The agent of another CLI (the automation's CLI changed) is not
+			// the one this run uses; its mode says nothing about this run.
+			if ag, err := deps.Store.GetAgent(*a.AgentID); err == nil && ag.CLI == a.CLI {
+				in.AgentMode = r.mode(ctx, *a.AgentID)
+			}
 		}
 	}
 	d := decideFire(in)
@@ -202,6 +210,9 @@ func (r automationRunner) Fire(a store.Automation, f automate.Firing) (store.Run
 	body := composeAutomationPrompt(a.Prompt, trigger, f.Payload, time.Now())
 	if a.Action == store.AutomationMessage {
 		return r.messageRun(ctx, a, f, body)
+	}
+	if a.CLI != "" && a.CLI != store.CLIPi {
+		return r.cliStartRun(ctx, a, f, body)
 	}
 	return r.startRun(ctx, a, f, body)
 }
@@ -352,7 +363,9 @@ func skipBody(reason string) string {
 func (r automationRunner) ensureAgent(a store.Automation) (store.Agent, error) {
 	deps := r.deps
 	if a.AgentID != nil {
-		if ag, err := deps.Store.GetAgent(*a.AgentID); err == nil {
+		// A Pi run reuses its agent only while it is a Pi agent: an
+		// automation that ran on another CLI before gets a Pi agent of its own.
+		if ag, err := deps.Store.GetAgent(*a.AgentID); err == nil && ag.IsPi() {
 			return ag, nil
 		}
 	}

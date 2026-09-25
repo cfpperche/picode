@@ -18,7 +18,7 @@ const FRONT_ROW = /^([A-Za-z_][\w.-]*)[ \t]*:[ \t]*(.*)$/;
 export function splitFrontmatter(text) {
   const src = String(text || "");
   const m = FRONT.exec(src);
-  if (!m) return { front: null, rows: null, body: src };
+  if (!m) return { front: null, rows: null, body: src, bodyLine: 1 };
   const front = m[1] || "";
   const lines = front.split(/\r?\n/).filter((l) => l.trim() !== "");
   let rows = [];
@@ -27,7 +27,8 @@ export function splitFrontmatter(text) {
     if (!row) { rows = null; break; }
     rows.push([row[1], unquote(row[2].trim())]);
   }
-  return { front, rows, body: src.slice(m[0].length) };
+  // bodyLine: the file line the body starts on, for source-line mapping.
+  return { front, rows, body: src.slice(m[0].length), bodyLine: m[0].split("\n").length };
 }
 
 function unquote(v) {
@@ -167,4 +168,19 @@ export function resolveDocImage(fromPath, src) {
   const link = resolveDocLink(fromPath, raw);
   if (link.kind === "external" && link.href.toLowerCase().startsWith("mailto:")) return { kind: "none" };
   return link.kind === "anchor" ? { kind: "none" } : link;
+}
+
+const SOURCE_BLOCKS = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "pre", "blockquote", "table", "tr", "hr", "div", "details", "dt", "dd", "section"]);
+
+// rehypeSourceLines stamps each block with the file line it starts on
+// (`data-line`), so a preview can be scrolled to match an editor and back.
+// Runs last: it only reads positions the parser left on the nodes.
+export function rehypeSourceLines({ offset = 0 } = {}) {
+  return (tree) => {
+    walk(tree, (node) => {
+      if (node.type !== "element" || !SOURCE_BLOCKS.has(node.tagName)) return;
+      const line = node.position && node.position.start && node.position.start.line;
+      if (line) node.properties = { ...node.properties, dataLine: line + offset };
+    });
+  };
 }

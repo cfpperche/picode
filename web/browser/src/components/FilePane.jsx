@@ -11,6 +11,7 @@ import { createDocumentGuard, createFileDocument } from "../lib/fileDocument.js"
 import { fileMessage, ownerFileURL, readFile } from "../lib/fileIO.js";
 import { holdDocument, releaseDocument } from "../lib/fileDocs.js";
 import { useKeptScroll } from "../lib/keepScroll.js";
+import { useSplitSync } from "../lib/useSplitSync.js";
 import FilePreview from "./FilePreview.jsx";
 import FileLeaveDialog from "./FileLeaveDialog.jsx";
 import { IconExpand, IconCollapse } from "./Icons.jsx";
@@ -18,6 +19,21 @@ import { IconExpand, IconCollapse } from "./Icons.jsx";
 const FILE_MIN = 240;
 const FILE_MAX = 800;
 const FILE_KEY = "picode-file-w";
+// How a markdown file opens (Preview, Split or Raw) is the reader's habit, not
+// the file's: the last choice is remembered for the next markdown file.
+const MD_VIEW_KEY = "picode-md-view";
+// Split needs two readable columns; below this the pane shows the preview.
+const SPLIT_MIN = 880;
+
+function initialMode(kind) {
+  if (!kind) return "raw";
+  if (kind !== "markdown") return "preview";
+  try {
+    const saved = localStorage.getItem(MD_VIEW_KEY);
+    if (saved === "split" || saved === "raw") return saved;
+  } catch { /* storage unavailable */ }
+  return "preview";
+}
 
 // `docKey` hands the open document to a registry outside React
 // (lib/fileDocs.js) so a body that moves host — a canvas panel being
@@ -62,7 +78,15 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   const [resizing, setResizing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const kind = previewKind(path);
-  const [mode, setMode] = useState(kind ? "preview" : "raw");
+  const [mode, setModeState] = useState(() => initialMode(kind));
+  const setMode = (next) => {
+    setModeState(next);
+    if (kind === "markdown") { try { localStorage.setItem(MD_VIEW_KEY, next); } catch { /* storage unavailable */ } }
+  };
+  const bodyRef = useRef(null);
+  const previewHostRef = useRef(null);
+  const [bodyWidth, setBodyWidth] = useState(0);
+  const [cmTick, setCmTick] = useState(0);
   // A document too large for the text read still has a page to show: the
   // ticket serves it from disk, so the pane renders preview-only — no Raw,
   // and the usual "too large to display" banner would be a lie.
@@ -111,7 +135,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   // and clearing here would drop the "Unsaved" chip, and the pin that
   // protects it, on the way past.
   useEffect(() => () => { if (!docKey) dirtyRef.current?.(false); }, [docKey]);
-  useEffect(() => { setMode(previewKind(path) ? "preview" : "raw"); }, [path]);
+  useEffect(() => { setModeState(initialMode(previewKind(path))); }, [path]);
 
   useEffect(() => {
     if (!view.dirty && !view.saving) return;
@@ -135,14 +159,19 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
       parent: hostRef.current,
     });
     cmRef.current = cm;
+    setCmTick((t) => t + 1);
     // In the tree, selection keeps its keyboard focus in the navigation.
     if (!embedded && !hiddenRef.current && modeRef.current === "raw") cm.focus();
     return () => { cm.destroy(); cmRef.current = null; };
   }, [doc, view.kind, view.revision, path, embedded]);
 
   useEffect(() => {
-    if (!hidden && mode === "raw") cmRef.current?.requestMeasure();
-  }, [hidden, mode]);
+    const el = bodyRef.current;
+    if (!el) return undefined;
+    const ro = new ResizeObserver(([entry]) => setBodyWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   function pickLeave(choice) {
     const resolve = leaveResolver.current;
@@ -192,6 +221,14 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
 
   const canSave = view.kind === "text";
   const showPreview = !!kind && (canSave || view.kind === "bin" || previewOnly);
+  const splitOk = kind === "markdown" && canSave && bodyWidth >= SPLIT_MIN;
+  // A remembered Split on a pane too narrow for it reads as Preview until the
+  // pane is wide again; the choice itself is kept.
+  const shown = mode === "split" && !splitOk ? "preview" : mode;
+  useEffect(() => {
+    if (!hidden && shown !== "preview") cmRef.current?.requestMeasure();
+  }, [hidden, shown, bodyWidth]);
+  useSplitSync({ enabled: shown === "split" && !hidden, cmRef, hostRef: previewHostRef, cmTick });
   const saveError = canSave && view.dirty && view.error;
   const conflict = /changed on disk|folder changed/i.test(view.error);
   const moved = /folder changed/i.test(view.error) && onRefreshRoot;
@@ -207,8 +244,9 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
         <div className="file-pane-actions">
           {showPreview && canSave ? (
             <div className="chip-group" role="group" aria-label="File display" data-align-row>
-              <button type="button" className="cockpit-chip" aria-pressed={mode === "preview"} onClick={() => setMode("preview")}>Preview</button>
-              {canSave ? <button type="button" className="cockpit-chip" aria-pressed={mode === "raw"} onClick={() => setMode("raw")}>Raw</button> : null}
+              <button type="button" className="cockpit-chip" aria-pressed={shown === "preview"} onClick={() => setMode("preview")}>Preview</button>
+              {splitOk ? <button type="button" className="cockpit-chip" aria-pressed={shown === "split"} title="Source and preview side by side" onClick={() => setMode("split")}>Split</button> : null}
+              {canSave ? <button type="button" className="cockpit-chip" aria-pressed={shown === "raw"} onClick={() => setMode("raw")}>Raw</button> : null}
             </div>
           ) : null}
           <div className="file-pane-commands" data-align-row>
@@ -240,20 +278,20 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
           </button>
         </p>
       ) : null}
-      <div className="file-pane-body">
+      <div className={"file-pane-body" + (shown === "split" ? " file-pane-split" : "")} ref={bodyRef}>
         {view.kind === "load" ? (
           <div className="file-skel" aria-hidden="true">
             <div className="skel-line w-80" /><div className="skel-line w-90" /><div className="skel-line w-50" /><div className="skel-line w-70" />
           </div>
         ) : null}
-        {canSave ? <div className="file-cm" ref={hostRef} hidden={mode !== "raw"} /> : null}
-        {mode === "preview" && showPreview ? (
+        {canSave ? <div className="file-cm" ref={hostRef} hidden={shown === "preview"} /> : null}
+        {shown !== "raw" && showPreview ? (<div className="file-pane-view" ref={previewHostRef}>{
           kind === "html" && !previewOnly && previewEmpty(view.text) ? (
             <p className="file-pane-msg">Nothing to preview.</p>
           ) : (
-            <FilePreview kind={kind} text={view.text} src={view.src} html={kind === "html" ? html : undefined} path={path} assetUrl={assetUrl} onOpenPath={onOpenPath} />
+            <FilePreview kind={kind} text={view.text} src={view.src} html={kind === "html" ? html : undefined} path={path} assetUrl={assetUrl} onOpenPath={onOpenPath} sourceLines={shown === "split"} />
           )
-        ) : null}
+        }</div>) : null}
       </div>
       <FileLeaveDialog open={leaving} path={path} onPick={pickLeave} />
     </section>

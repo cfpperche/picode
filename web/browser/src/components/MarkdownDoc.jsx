@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Info, Lightbulb, Link as LinkIcon, MessageSquareWarning, OctagonAlert, TriangleAlert } from "lucide-react";
 import "katex/dist/katex.min.css";
 import { api } from "@picode/shared/client/api.js";
 import { svgDataUrl } from "@picode/shared/domain/filePreview.js";
-import { docPipeline } from "@picode/shared/domain/mdPipeline.js";
+import { docPipeline, withSourceLines } from "@picode/shared/domain/mdPipeline.js";
 import { DOC_ID_PREFIX, anchorTargets, resolveDocImage, resolveDocLink, splitFrontmatter } from "@picode/shared/domain/mdDocument.js";
 import { safeImgSrc } from "@picode/shared/domain/mdSafe.js";
 import { CopyBtn, mdComponents } from "./SourceBlock.jsx";
@@ -22,9 +22,15 @@ const JUMP_GAP = 16;
 // diagrams, heading anchors, an outline, and links and images that resolve
 // against the file's own folder. `assetUrl(path, resource)` turns a repository
 // path into a file-API URL; `onOpenPath(path)` opens another file of the tree.
-export default function MarkdownDoc({ text, path = "", assetUrl, onOpenPath }) {
+// `sourceLines` stamps every block with its file line (`data-line`) for the
+// Split view's scroll sync.
+export default function MarkdownDoc({ text, path = "", assetUrl, onOpenPath, sourceLines = false }) {
   const rootRef = useRef(null);
-  const { front, rows, body } = useMemo(() => splitFrontmatter(text), [text]);
+  // Typing in the Split view re-renders on every key; the preview may lag a
+  // frame behind the editor rather than make the editor wait for it.
+  const shown = useDeferredValue(text);
+  const { front, rows, body, bodyLine } = useMemo(() => splitFrontmatter(shown), [shown]);
+  const pipeline = useMemo(() => (sourceLines ? withSourceLines(bodyLine - 1) : docPipeline), [sourceLines, bodyLine]);
   const [outline, setOutline] = useState([]);
   const [active, setActive] = useState("");
   // The outline entry last clicked: a section near the end can never reach
@@ -65,6 +71,11 @@ export default function MarkdownDoc({ text, path = "", assetUrl, onOpenPath }) {
     };
     return {
       ...base,
+      // The chat's renderer drops <pre> (SourceBlock is the block); a
+      // document keeps its source line on a wrapper instead.
+      pre({ node: _node, children, ...rest }) {
+        return rest["data-line"] ? <div className="md-src-block" data-line={rest["data-line"]}>{children}</div> : <>{children}</>;
+      },
       ...Object.fromEntries(HEADINGS.map((h) => [h, heading(h)])),
       p({ node: _node, className, children, ...rest }) {
         if (className === "md-alert-title") {
@@ -148,11 +159,11 @@ export default function MarkdownDoc({ text, path = "", assetUrl, onOpenPath }) {
     <div className="md-doc-wrap">
       <div ref={rootRef} className={"md-doc" + (showOutline ? " md-doc-has-outline" : "")}>
         <article className="md md-doc-body">
-          {front != null ? <Frontmatter front={front} rows={rows} /> : null}
+          {front != null ? <Frontmatter front={front} rows={rows} line={sourceLines ? 1 : undefined} /> : null}
           <Markdown
-            remarkPlugins={docPipeline.remarkPlugins}
-            rehypePlugins={docPipeline.rehypePlugins}
-            remarkRehypeOptions={docPipeline.remarkRehypeOptions}
+            remarkPlugins={pipeline.remarkPlugins}
+            rehypePlugins={pipeline.rehypePlugins}
+            remarkRehypeOptions={pipeline.remarkRehypeOptions}
             components={components}
           >
             {body}
@@ -235,11 +246,11 @@ function RepoSvg({ path, assetRef, alt, ...props }) {
 
 // GitHub shows frontmatter as a table; a block that is not flat key/value
 // stays readable as the YAML it is.
-function Frontmatter({ front, rows }) {
+function Frontmatter({ front, rows, line }) {
   if (rows && !rows.length) return null;
-  if (!rows) return <pre className="md-frontmatter-raw"><code>{front}</code></pre>;
+  if (!rows) return <pre className="md-frontmatter-raw" data-line={line}><code>{front}</code></pre>;
   return (
-    <table className="md-frontmatter">
+    <table className="md-frontmatter" data-line={line}>
       <tbody>
         {rows.map(([k, v], i) => <tr key={i}><th scope="row">{k}</th><td>{v}</td></tr>)}
       </tbody>

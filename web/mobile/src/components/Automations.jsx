@@ -1,4 +1,5 @@
 import "../styles/mobile-automations.css";
+import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 // Mobile-owned adaptation of the established desktop workflow; server contracts are unchanged.
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
@@ -21,7 +22,7 @@ import { mentionAgents, agentsOf } from "@picode/shared/domain/tree.js";
 import { IconPlay, IconPlus, IconCopy, IconTrash, IconPencil, IconChevronLeft } from "./Icons.jsx";
 
 const REFRESH_MS = 15_000;
-import { automationsBlockedByPi } from "@picode/shared/domain/automationsPi.js";
+import { automationsBlockedByPi, START_CLIS, startRunHint } from "@picode/shared/domain/automationsPi.js";
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 const SUGGESTED_KEY = "picode-automations-suggested";
 const confirmDiscardAutomation = () => askConfirm({ title: "Discard automation changes?", message: "Your unsaved changes will be lost.", confirmLabel: "Discard changes", danger: true });
@@ -185,10 +186,11 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
     body = null;
   }
   if (sub === "new") {
-    body = <Editor catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} agents={agents} templates={templates} onSaved={onSaved} onCancel={() => { location.hash = automationsHash(""); }} />;
+    body = <Editor clis={clis} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} agents={agents} templates={templates} onSaved={onSaved} onCancel={() => { location.hash = automationsHash(""); }} />;
   } else if (sub) {
     body = current ? (
       <Detail
+        clis={clis}
         a={current}
         catalog={catalog}
         workspaces={workspaces}
@@ -396,7 +398,7 @@ function money(n) {
   return "$" + (n < 0.01 ? n.toFixed(3) : n.toFixed(2));
 }
 
-function Detail({ a, catalog, workspaces, freeAgents, agents, templates, reveal, onDismissSecret, onRun, onDelete, onRotate, onToggle, onSaved, pending }) {
+function Detail({ a, clis = [], catalog, workspaces, freeAgents, agents, templates, reveal, onDismissSecret, onRun, onDelete, onRotate, onToggle, onSaved, pending }) {
   const [editing, setEditing] = useState(false);
   const [runs, setRuns] = useState(null);
   const [runsError, setRunsError] = useState("");
@@ -443,7 +445,7 @@ function Detail({ a, catalog, workspaces, freeAgents, agents, templates, reveal,
   }, [a.id, runsRetry]);
 
   if (editing) {
-    return <Editor initial={a} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} agents={agents} templates={templates} onSaved={(d) => { setEditing(false); onSaved(d); }} onCancel={() => setEditing(false)} />;
+    return <Editor initial={a} clis={clis} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} agents={agents} templates={templates} onSaved={(d) => { setEditing(false); onSaved(d); }} onCancel={() => setEditing(false)} />;
   }
 
   return (
@@ -473,7 +475,8 @@ function Detail({ a, catalog, workspaces, freeAgents, agents, templates, reveal,
         ) : (
           <><dt>Runs in</dt><dd>{wsName}{a.agentId ? <> · <a href={workspaceHash(a.agentId)}>{a.agentName || "its agent"}</a></> : null}</dd></>
         )}
-        {a.action !== "message" ? <><dt>Model</dt><dd>{a.provider || a.model ? [a.provider, a.model].filter(Boolean).join(" / ") + (a.thinking ? " · " + a.thinking : "") : "Pi's default"}</dd></> : null}
+        {a.action !== "message" && (a.cli || "pi") !== "pi" ? <><dt>CLI</dt><dd>{terminalCliLabel(a.cli)}, with its own settings</dd></> : null}
+        {a.action !== "message" && (a.cli || "pi") === "pi" ? <><dt>Model</dt><dd>{a.provider || a.model ? [a.provider, a.model].filter(Boolean).join(" / ") + (a.thinking ? " · " + a.thinking : "") : "Pi's default"}</dd></> : null}
         {a.notifyUrl ? <><dt>Notifies</dt><dd><span className="auto-notify" title={a.notifyUrl}>{hostOf(a.notifyUrl)}</span> <CopyButton text={a.notifyUrl} label="Copy notify URL" small /></dd></> : null}
         {a.maxCostUsd ? <><dt>Max cost per run</dt><dd>{money(a.maxCostUsd)}</dd></> : null}
         {a.maxRuns ? <><dt>Max runs</dt><dd>{a.maxRuns} per {windowLabel(a.maxRunsWindowMin)}</dd></> : null}
@@ -546,7 +549,7 @@ function RunsTable({ runs, agentId, schedules }) {
           <tr key={r.id} className={"auto-run" + (r.status === "running" ? " running" : "")}>
             <td title={absTime(r.firedAt)}>{relTime(r.firedAt)}</td>
             <td>{r.trigger}{scheduleLabelOf(schedules, r.scheduleId) ? <span className="auto-run-sched"> · {scheduleLabelOf(schedules, r.scheduleId)}</span> : null}</td>
-            <td><StatusPill status={r.status} reason={r.reason} /></td>
+            <td className="auto-run-result"><StatusPill status={r.status} />{r.reason && r.status !== "done" ? <div className="auto-run-reason">{r.reason}</div> : null}</td>
             <td className="num">{r.status === "skipped" ? "" : money(r.costUsd)}</td>
             <td>{r.sessionPath && agentId ? <a href={workspaceHash(agentId)}>Open agent</a> : null}</td>
           </tr>
@@ -572,6 +575,7 @@ function emptyForm(initial, workspaces, freeAgents) {
     name: initial ? initial.name : "",
     workspaceId: wsFromAgent || (initial ? initial.workspaceId : "ws_free"),
     action: initial ? initial.action : "start",
+    cli: (initial && initial.cli) || "pi",
     targetAgentId: (initial && initial.targetAgentId) || "",
     prompt: initial ? initial.prompt : "",
     provider: (initial && initial.provider) || "",
@@ -588,7 +592,7 @@ function emptyForm(initial, workspaces, freeAgents) {
   };
 }
 
-function Editor({ initial, catalog, workspaces, freeAgents, agents, templates, onSaved, onCancel }) {
+function Editor({ initial, clis = [], catalog, workspaces, freeAgents, agents, templates, onSaved, onCancel }) {
   const [f, setF] = useState(() => {
     if (initial) return emptyForm(initial, workspaces, freeAgents);
     const draft = readAutomationDraft(isValidCron);
@@ -654,7 +658,8 @@ function Editor({ initial, catalog, workspaces, freeAgents, agents, templates, o
       action: f.action,
       targetAgentId: f.action === "message" ? f.targetAgentId : "",
       prompt: f.prompt,
-      provider: f.provider, model: f.model, thinking: f.thinking,
+      cli: f.action === "message" ? "pi" : f.cli,
+      provider: f.cli === "pi" ? f.provider : "", model: f.cli === "pi" ? f.model : "", thinking: f.cli === "pi" ? f.thinking : "",
       schedules: f.scheduleOn ? rowsToBody(f.schedules, browserZone()) : [],
       webhook: f.webhook,
       notifyUrl: f.notifyUrl.trim(),
@@ -728,6 +733,16 @@ function Editor({ initial, catalog, workspaces, freeAgents, agents, templates, o
           ) : (
             <>
               <label className="auto-cell">
+                <span>CLI</span>
+                <select className="auto-select" value={f.cli} onChange={(e) => set({ cli: e.target.value })} aria-label="CLI">
+                  {START_CLIS.map((id) => {
+                    const row = (clis || []).find((c) => c.id === id);
+                    return <option key={id} value={id}>{terminalCliLabel(id)}{row && row.installed === false ? " (not installed)" : ""}</option>;
+                  })}
+                </select>
+              </label>
+              {f.cli === "pi" ? <>
+              <label className="auto-cell">
                 <span>Provider</span>
                 <select className="auto-select" value={f.provider} onChange={(e) => set({ provider: e.target.value, model: "" })} aria-label="Provider">
                   <option value="">Default</option>
@@ -749,13 +764,14 @@ function Editor({ initial, catalog, workspaces, freeAgents, agents, templates, o
                   {thinkingLevels.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
               </label>
+              </> : null}
             </>
           )}
         </div>
         <span className="auto-hint">
           {f.action === "message"
             ? "The prompt lands as a new message in that agent's current session."
-            : "A fresh Pi agent each run, in that workspace. Empty provider, model or thinking means Pi's own defaults."}
+            : startRunHint(f.cli, terminalCliLabel(f.cli))}
         </span>
       </fieldset>
 

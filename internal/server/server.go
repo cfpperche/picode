@@ -156,6 +156,7 @@ func New(addr string, deps Deps) *http.Server {
 		_, _ = ensureHookScript(deps.DataDir)
 		_, _ = ensurePiReplyExtension(deps.DataDir) // ADR-0060 receiver: fresh on every boot
 		ensureOpenURLWrappers(deps.DataDir)         // ADR-0180: refresh like the hook scripts (or strip on opt-out)
+		ensureTmuxGuard(deps.DataDir)               // a deploy's guard body replaces the old one
 		for _, cli := range clilaunch.Catalog() {
 			if !cli.Integrable() {
 				continue

@@ -125,6 +125,7 @@ type automationBody struct {
 	WorkspaceID      *string         `json:"workspaceId"`
 	Action           *string         `json:"action"`
 	TargetAgentID    *string         `json:"targetAgentId"`
+	CLI              *string         `json:"cli"`
 	Prompt           *string         `json:"prompt"`
 	Provider         *string         `json:"provider"`
 	Model            *string         `json:"model"`
@@ -176,7 +177,7 @@ func handleCreateAutomation(deps Deps) http.HandlerFunc {
 		}
 		a, secret, err := deps.Store.CreateAutomation(store.AutomationParams{
 			Name: deref(b.Name), WorkspaceID: deref(b.WorkspaceID), Action: deref(b.Action),
-			TargetAgentID: deref(b.TargetAgentID), Prompt: deref(b.Prompt),
+			TargetAgentID: deref(b.TargetAgentID), CLI: deref(b.CLI), Prompt: deref(b.Prompt),
 			Provider: deref(b.Provider), Model: deref(b.Model), Thinking: deref(b.Thinking),
 			Cron: deref(b.Cron), Schedules: deref(scheduleParams(b.Schedules)), Webhook: deref(b.Webhook), NotifyURL: deref(b.NotifyURL), MaxCostUSD: deref(b.MaxCostUSD),
 			MaxRuns: deref(b.MaxRuns), MaxRunsWindowMin: deref(b.MaxRunsWindowMin),
@@ -231,7 +232,7 @@ func handlePatchAutomation(deps Deps) http.HandlerFunc {
 		}
 		a, err := deps.Store.UpdateAutomation(id, store.AutomationPatch{
 			Name: b.Name, Enabled: b.Enabled, WorkspaceID: b.WorkspaceID, Action: b.Action,
-			TargetAgentID: b.TargetAgentID, Prompt: b.Prompt, Provider: b.Provider, Model: b.Model,
+			TargetAgentID: b.TargetAgentID, CLI: b.CLI, Prompt: b.Prompt, Provider: b.Provider, Model: b.Model,
 			Thinking: b.Thinking, Cron: b.Cron, Schedules: scheduleParams(b.Schedules), NotifyURL: b.NotifyURL, MaxCostUSD: b.MaxCostUSD, MaxRuns: b.MaxRuns,
 			MaxRunsWindowMin: b.MaxRunsWindowMin,
 		})

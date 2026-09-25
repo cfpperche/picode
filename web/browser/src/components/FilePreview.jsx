@@ -5,11 +5,11 @@ import { fileMessage } from "../lib/fileIO.js";
 // a PDF preview should not pay for them.
 const MarkdownDoc = lazy(() => import("./MarkdownDoc.jsx"));
 
-export default function FilePreview({ kind, text, src, html, path, assetUrl, onOpenPath }) {
+export default function FilePreview({ kind, text, src, html, path, assetUrl, onOpenPath, sourceLines }) {
   if (kind === "html") return <HtmlPreview html={html} />;
   if (kind === "svg") return <SvgPreview text={text} />;
   if (kind === "mermaid") return <MermaidPreview text={text} />;
-  if (kind === "markdown") return <MarkdownPreview text={text} path={path} assetUrl={assetUrl} onOpenPath={onOpenPath} />;
+  if (kind === "markdown") return <MarkdownPreview text={text} path={path} assetUrl={assetUrl} onOpenPath={onOpenPath} sourceLines={sourceLines} />;
   if (kind === "image") return <Media src={src} tag="img" label="image" />;
   if (kind === "pdf") return <PdfPreview src={src} />;
   if (kind === "audio") return <Media src={src} tag="audio" label="audio" />;
@@ -85,12 +85,12 @@ function SvgPreview({ text }) {
   );
 }
 
-function MarkdownPreview({ text, path, assetUrl, onOpenPath }) {
+function MarkdownPreview({ text, path, assetUrl, onOpenPath, sourceLines }) {
   if (previewEmpty(text)) return <p className="file-pane-msg">Nothing to preview.</p>;
   return (
     <div className="file-preview file-preview-md">
       <Suspense fallback={<div className="file-skel" aria-hidden="true"><div className="skel-line w-80" /><div className="skel-line w-50" /></div>}>
-        <MarkdownDoc text={text} path={path} assetUrl={assetUrl} onOpenPath={onOpenPath} />
+        <MarkdownDoc text={text} path={path} assetUrl={assetUrl} onOpenPath={onOpenPath} sourceLines={sourceLines} />
       </Suspense>
     </div>
   );

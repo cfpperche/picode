@@ -38,3 +38,15 @@ test("no automations, or no catalog yet, never blocks", () => {
   assert.equal(automationsBlockedByPi(noPi, [], workspaces, free), false);
   assert.equal(automationsBlockedByPi([], [{ action: "start" }], workspaces, free), false);
 });
+
+import { START_CLIS, automationNeedsPi, startRunHint } from "./automationsPi.js";
+
+test("a start run on another CLI needs no pi (ADR-0217)", () => {
+  const none = new Map();
+  assert.equal(automationNeedsPi({ action: "start" }, none), true);
+  assert.equal(automationNeedsPi({ action: "start", cli: "pi" }, none), true);
+  assert.equal(automationNeedsPi({ action: "start", cli: "claude-code" }, none), false);
+  assert.deepEqual(START_CLIS, ["pi", "claude-code", "codex", "grok", "hermes"]);
+  assert.match(startRunHint("pi"), /Pi agent/);
+  assert.match(startRunHint("codex", "Codex"), /fresh Codex conversation.*waits for you/);
+});

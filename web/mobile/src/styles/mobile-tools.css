@@ -24,6 +24,9 @@
 .m-tool-action-count { margin-left: auto; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .m-tool-state { display: flex; align-items: flex-start; flex-direction: column; gap: 12px; padding: 16px var(--m-pad, 14px); color: var(--text-secondary); font-size: 13px; }
 .m-tool-state p { margin: 0; overflow-wrap: anywhere; }
+/* Inside a screen the gutter is already there; standalone ("Opening agent…")
+   the state keeps its own. */
+.m-screen .m-tool-state { padding-left: 0; padding-right: 0; }
 .term-attach-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .term-attach-heading .dlg-title { margin: 0; }
 .term-attach-row .term-attach-choice { width: auto; flex: 1; gap: 4px; padding: 0 4px; font-size: 11px; white-space: nowrap; }

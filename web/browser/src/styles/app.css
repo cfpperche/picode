@@ -2856,6 +2856,13 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
   font-family: var(--mono); font-size: 12.5px;
 }
 .file-pane-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+/* Whatever the pane shows instead of the editor (a preview of any kind) sits
+   in one column box, so Split can put it beside the editor unchanged. */
+.file-pane-view { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+/* Split (markdown): source left, preview right, one column each. */
+.file-pane-split { flex-direction: row; }
+.file-pane-split > .file-cm, .file-pane-split > .file-pane-view { flex: 1 1 0; min-width: 0; }
+.file-pane-split > .file-pane-view { border-left: 1px solid var(--border); }
 .file-pre {
   margin: 0; padding: 10px 12px;
   font-family: var(--code); font-size: 12.5px; line-height: 1.5;
@@ -6164,6 +6171,11 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .auto-runs th { text-align: left; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--border); }
 .auto-runs td { padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .auto-runs .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* A run's reason wraps under its pill: long reasons (ADR-0217's runs on
+   other CLIs name the screen they stopped at) must read whole. */
+.auto-runs td.auto-run-result { white-space: normal; min-width: 140px; }
+.auto-run-reason { margin-top: 3px; font-size: 12px; color: var(--text-secondary); line-height: 1.35; }
+.auto-pill-reason { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .auto-run { animation: rise-in var(--motion-med) var(--ease-out); }
 .auto-run.running td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .auto-form { display: flex; flex-direction: column; gap: 14px; }

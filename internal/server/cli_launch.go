@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/cfpperche/picode/internal/catalog"
@@ -836,21 +835,9 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 			// a plain kill-session would leave it running headless. Kill the
 			// session first (closes the PTY), then SIGTERM the pane root while
 			// we still know its pid. Best effort, never fatal.
-			panePID, _ := deps.Tmux.PanePID(r.Context(), name)
-			if err := deps.Tmux.KillSession(r.Context(), name); err != nil {
+			if err := killTerminalPane(deps, r.Context(), id, name); err != nil {
 				writeErr(w, 500, err.Error())
 				return
-			}
-			if panePID > 0 {
-				if p, perr := os.FindProcess(panePID); perr == nil {
-					_ = p.Signal(syscall.SIGTERM)
-				}
-			}
-			if deps.TermStates != nil {
-				deps.TermStates.Drop(id)
-			}
-			if deps.TermRuntimes != nil {
-				deps.TermRuntimes.Drop(id)
 			}
 			live = false
 		}
