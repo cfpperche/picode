@@ -172,6 +172,15 @@ Verified live on a scratch instance with the real pi (2026-09-24): history
 shown, a two-line task delivered and answered, Restart relaunching with
 `--session <copy>`.
 
+On the phone, **Fork agent…** opens `ForkAgentSheet` (web/mobile): the same
+request, the worktree made through the git door (`lib/gitDelivery.js`); a
+command that waits for Enter closes the sheet and opens that terminal, and
+the fork follows in the background. The phone attached to the new agent's
+terminal narrows its pane (44 columns measured), so the prompt door's Pi
+reader (`peerPiInput`) accepts Pi's empty editor below 70 columns by its
+full-width rules and folder line, since pi cuts the footer's `%/` there;
+other CLIs keep the 70-column gate.
+
 Hermes and Antigravity fork only inside their TUI and advertise no fork yet
 (`docs/handoff/open/agent-fork.md`).
 
