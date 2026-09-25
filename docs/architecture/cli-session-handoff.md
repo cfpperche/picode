@@ -43,7 +43,7 @@ handoff sources and brief targets; the paragraph stays for the next CLI
 that arrives list-only.) Muse Code reads `~/.local/share/muse/session-index.db`
 (or `$XDG_DATA_HOME/muse/...`), the index Meta's launcher keeps over its own
 session logs — title, first prompt, workspace root, model, prompt count and
-timestamps are columns there. Its `ResumeArgs` are `--resume <session-uuid>`.
+timestamps are columns there. Its `ResumeArgs` are `resume <session-uuid>` (the 1.3.0 subcommand; 1.2.1's `--resume` flag is refused now).
 Antigravity reads `~/.gemini/antigravity-cli/conversation_summaries.db` and
 resumes with `--conversation <id>`. The pane list follows the capability,
 not the adapter: `cliPanes` adds Sessions when `sessions.list` is true.
@@ -112,9 +112,51 @@ vendor's own fork, and `GET /api/clis` advertises it as `sessions.fork`.
 | Codex | `fork <id> <task>` | pinned on its first turn |
 | OpenCode | `--session <id> --fork --prompt <task>` | pinned on its first turn |
 | Omp | `--fork <file\|id> <task>` (parsed, not in `--help`) | pinned on its first turn |
+| Pi | `pi --mode rpc --no-extensions --no-skills --no-prompt-templates --no-themes --fork <file> --session-id <id> --session-dir <new agent's folder>`, run once before the agent starts; the task goes through the prompt door | known before launch, owned as the agent's `SessionPath` |
+| Muse Code | `muse serve` → MSP `session/fork`, then `resume <new-id>`; the task goes through the prompt door once the TUI is ready | known before launch, pinned at once |
 
-Hermes, Muse Code and Antigravity fork only inside their TUI; Pi agents own
-their session file. None of them advertises a fork yet
+Muse Code's fork is a protocol call, not a flag (`clisession.SessionForker`):
+PiCode runs `muse serve` with the CLI's configured executable and
+environment in the source's folder (ADR-0094's runner), sends `initialize`,
+the `initialized` notification and `session/fork`, and checks the new
+session's `forkedFrom` names the source. `muse resume` takes no prompt, so
+`deliverForkTask` retries the prompt door (ADR-0089) every two seconds for
+up to three minutes — a first launch in an untrusted folder stops at Muse's
+trust question — and a task that never lands becomes an Inbox note with its
+text. That path keeps the task's line breaks.
+
+A running Muse TUI has no pin: Muse indexes a session (and MSP
+`session/list` shows it) only when the TUI exits. At fork time PiCode
+tries the stop-time pin, then `clisession.LiveSessionFinder`: the session
+log directories (`<museHome>/sessions/YYYY/MM/DD/<id>`, `museHome` from the
+`initialize` result) written strictly after the current launch started
+(`launchApplied.startedAt`), minus sessions PiCode knows belong elsewhere
+(another terminal's pin, a fork's copy), each confirmed by MSP
+`session/read` (no attach) to be in the agent's folder; the newest wins
+and is pinned. Muse opens the session when the TUI starts, so a fork
+before the first message copies an empty conversation. The menu offers
+Fork on a running terminal whose runtime reports no `cli` for that reason.
+
+A Pi agent owns its conversation file (`--session` is reserved on its
+launch, `SessionPath`) and keeps its sessions in its private folder
+(ADR-0040), so its fork is a third shape, `clisession.AgentForker`
+(`pi_fork.go`, `agent_fork_pi.go`). The source file is the agent's
+`SessionPath`, else a pending id with a file, else the newest file in its
+folder. `createCLIAgent` creates the new agent, then runs pi's own `--fork`
+once (headless, extensions off, stdin closed; measured 0.31 s on 0.87.1)
+into the new agent's folder under a pre-assigned id, in the fork's working
+folder (pi writes that cwd into the header), and pins the file as the new
+agent's `SessionPath` before the first start. Pi writes the copy at once
+with the source's entries unchanged and `parentSession` naming the source.
+A failure removes the new agent and answers 502 with pi's own message. The
+launch reopens the copy with `--session`, so a Restart never forks again,
+and the task, line breaks kept, goes through `deliverForkTask`. The source
+may run in either mode, or not at all: the fork reads only its file.
+Verified live on a scratch instance with the real pi (2026-09-24): history
+shown, a two-line task delivered and answered, Restart relaunching with
+`--session <copy>`.
+
+Hermes and Antigravity fork only inside their TUI and advertise no fork yet
 (`docs/handoff/open/agent-fork.md`).
 
 `POST /api/agents/{id}/fork-agent` takes `{name, prompt, workPath, files,

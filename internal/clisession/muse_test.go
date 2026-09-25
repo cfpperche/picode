@@ -100,7 +100,7 @@ func TestMuseSourceList(t *testing.T) {
 	if s.CreatedAt != "2026-09-15T02:39:04Z" || s.UpdatedAt != "2026-09-15T02:40:00Z" {
 		t.Fatalf("timestamps: created=%q updated=%q", s.CreatedAt, s.UpdatedAt)
 	}
-	if len(s.ResumeArgs) != 2 || s.ResumeArgs[0] != "--resume" || s.ResumeArgs[1] != s.ID {
+	if len(s.ResumeArgs) != 2 || s.ResumeArgs[0] != "resume" || s.ResumeArgs[1] != s.ID {
 		t.Fatalf("resume args: %v", s.ResumeArgs)
 	}
 	if s.Size <= 0 {
@@ -313,7 +313,7 @@ func TestMuseWriteFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got.ResumeArgs, []string{"--resume", got.ID}) || got.Name != "Race fix" || got.Messages != 4 || got.Model != "" {
+	if !reflect.DeepEqual(got.ResumeArgs, []string{"resume", got.ID}) || got.Name != "Race fix" || got.Messages != 4 || got.Model != "" {
 		t.Fatalf("summary = %+v", got)
 	}
 	// The source model never becomes this session's model.
