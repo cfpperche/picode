@@ -25,8 +25,7 @@ What exists already, measured and shipped:
   recognize (a login, a menu), instead of pasting blind.
 - Those four report their activity through PiCode's hooks (ADR-0056):
   `working`, `needs-you`, `idle`.
-- The CLIs keep session files PiCode already prices for Outcomes
-  (`climetrics.MeterSessionFile`).
+- PiCode prices their sessions for Outcomes (`climetrics.MeterSession`).
 
 ## Decision
 
@@ -45,13 +44,14 @@ bottom row), a run:
 3. follows the hook state: `working` → `idle` is the end of the turn;
    `needs-you` files one Inbox item saying the run is waiting for the person
    at that terminal and keeps waiting; the two-hour timeout and the cost cap
-   (the session file priced every 30 seconds) stop it;
+   (the session priced every 30 seconds) stop it;
 4. prices the session, finishes the run, and closes the terminal (the
    session stays with the agent to reopen).
 
-The cost cap holds only where PiCode prices the CLI's session file (Claude
-Code, Codex, Omp; `climetrics.Metered`). OpenCode, Grok and Hermes runs show
-no cost and the editor says their cost limit does not stop them.
+The cost cap holds for every `start` CLI (`climetrics.Metered`; OpenCode,
+Grok and Hermes joined the same day). It counts only what is priced: a turn
+the CLI recorded at $0 on a model PiCode has no price for is `unpriced` and
+does not move the cap, and the editor says so.
 
 PiCode never passes a flag that skips the CLI's own approvals
 (`--dangerously-skip-permissions`, `--yolo`, `--auto-approve` or the

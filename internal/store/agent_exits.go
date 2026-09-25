@@ -172,8 +172,10 @@ type ExitCost struct {
 	Models map[string]int `json:"models,omitempty"`
 }
 
-// ExitMeter reads one session file of a CLI; ok false means not measured.
-type ExitMeter func(cli, path string) (ExitCost, bool)
+// ExitMeter reads one session of a CLI — a file, or a row of the CLI's own
+// store named by id (OpenCode, Hermes; Grok's folder beside its history);
+// ok false means not measured.
+type ExitMeter func(cli, path, id string) (ExitCost, bool)
 
 // ExitInput is what the removal adds to what the store reads itself.
 type ExitInput struct {
@@ -614,6 +616,7 @@ func dominantModel(models map[string]int) string {
 // any other CLI names only the session PiCode last saw.
 func meterExit(a Agent, ss ExitSessions, meter ExitMeter) *ExitCost {
 	var paths []string
+	id := ""
 	scope := "last-session"
 	switch {
 	case ss.PiSessionPath != "":
@@ -627,13 +630,13 @@ func meterExit(a Agent, ss ExitSessions, meter ExitMeter) *ExitCost {
 			paths = []string{ss.PiSessionPath}
 		}
 	case ss.CLISessionPath != "":
-		paths = []string{ss.CLISessionPath}
+		paths, id = []string{ss.CLISessionPath}, ss.CLISessionID
 	default:
 		return nil
 	}
 	var out ExitCost
 	for _, p := range paths {
-		c, ok := meter(a.CLI, p)
+		c, ok := meter(a.CLI, p, id)
 		if !ok {
 			continue
 		}

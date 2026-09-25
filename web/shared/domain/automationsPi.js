@@ -34,10 +34,10 @@ export function automationsBlockedByPi(clis, items, workspaces, freeAgents) {
 // and whose hooks say when a turn ends.
 export const START_CLIS = ["pi", "claude-code", "codex", "grok", "hermes", "opencode", "omp"];
 
-// The CLIs whose session file PiCode prices (internal/climetrics
-// MeterSessionFile): a start run on another CLI has no measured cost, so its
+// The CLIs whose conversations PiCode prices (internal/climetrics
+// MeterSession): a start run on another CLI has no measured cost, so its
 // cost limit cannot stop it and its runs show no cost.
-export const METERED_CLIS = ["pi", "claude-code", "codex", "omp"];
+export const METERED_CLIS = ["pi", "claude-code", "codex", "grok", "hermes", "opencode", "omp"];
 
 export function costMeasured(cli) {
   return METERED_CLIS.includes(cli || "pi");
@@ -47,6 +47,8 @@ export function costMeasured(cli) {
 export function startRunHint(cli, cliName = "") {
   if (!cli || cli === "pi") return "A fresh Pi agent each run, in that workspace. Empty provider, model or thinking means Pi's own defaults.";
   const name = cliName || cli;
-  const cost = costMeasured(cli) ? "" : " PiCode cannot read " + name + "'s cost yet, so a cost limit does not stop its runs.";
+  const cost = costMeasured(cli)
+    ? " A turn with no recorded cost on a model PiCode has no price for does not count toward a cost limit."
+    : " PiCode cannot read " + name + "'s cost yet, so a cost limit does not stop its runs.";
   return "A fresh " + name + " conversation each run, in that workspace, with " + name + "'s own settings. PiCode never approves anything for it: a run that asks waits for you, and the Inbox says where." + cost;
 }

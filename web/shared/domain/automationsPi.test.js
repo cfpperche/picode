@@ -53,9 +53,10 @@ test("a start run on another CLI needs no pi (ADR-0217)", () => {
 
 import { costMeasured } from "./automationsPi.js";
 
-test("a start run on a CLI PiCode cannot price says its cost limit does not apply", () => {
-  assert.equal(costMeasured("omp"), true);
-  assert.equal(costMeasured("opencode"), false);
-  assert.match(startRunHint("opencode", "OpenCode"), /cannot read OpenCode's cost yet/);
-  assert.doesNotMatch(startRunHint("codex", "Codex"), /cannot read/);
+test("every start CLI is priced; the hint names the turns a cost limit cannot see", () => {
+  for (const cli of ["omp", "grok", "hermes", "opencode"]) assert.equal(costMeasured(cli), true, cli);
+  assert.equal(costMeasured("antigravity"), false);
+  assert.match(startRunHint("opencode", "OpenCode"), /no price for does not count toward a cost limit/);
+  assert.doesNotMatch(startRunHint("opencode", "OpenCode"), /cannot read/);
+  assert.match(startRunHint("antigravity", "Antigravity"), /cannot read Antigravity's cost yet/);
 });

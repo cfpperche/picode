@@ -132,9 +132,9 @@ at a question (an approval, a choice), the Inbox tells you and the run waits
 until you answer in that terminal. If the CLI shows a screen PiCode does not
 recognize at start (a sign-in, a trust question, a new menu), nothing is
 typed and the run ends saying so. The cost is read from the CLI's own
-session file — for Claude Code, Codex and Omp; PiCode cannot read the cost of OpenCode,
-Grok or Hermes yet, so their runs show no cost and a cost limit does
-not stop them.
+record of the conversation, and a cost limit stops the run when it is
+passed. A turn the CLI recorded as free on a model PiCode has no price for
+does not count toward the limit.
 
 ## Messaging an agent
 
