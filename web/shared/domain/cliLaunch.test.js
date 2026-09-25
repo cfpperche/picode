@@ -33,7 +33,7 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.equal(cliLocation("#/clis/pi/providers/custom/cheap/extra").invalid, true);
   assert.equal(cliLocation("#/clis/pi/providers/nope").invalid, true);
   assert.equal(cliPaneHash("pi", "providers"), "#/clis/pi/providers");
-  assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", workspaceId: "", agentId: "", focus: "", layer: "", keysTab: false, legacy: false, redirect: "" });
+  assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", workspaceId: "", agentId: "", focus: "", layer: "", redirect: "" });
   assert.deepEqual(cliLocation("#/clis/pi/packages"), { view: "clis", pane: "packages", id: "pi", pkg: "", workspaceId: "", agentId: "", scope: "user", legacy: false, invalid: false, redirect: "" });
   assert.equal(cliLocation("#/clis/pi/connectors").pane, "connectors");
   assert.equal(cliPaneHash("pi", "settings"), "#/clis/pi/settings");
@@ -55,13 +55,10 @@ test("setup panes fall back to the selected sidebar pane when the hash has no id
   assert.deepEqual(cliPaneSetupContext({}, {}), { workspaceId: "", agentId: "", scope: "", focus: "", layer: "" });
 });
 
-test("legacy package and settings hashes adopt pane context through cliLocation", () => {
+test("legacy package hashes adopt pane context through cliLocation", () => {
   const packages = cliLocation("#/packages", { packageContext: { workspaceId: "w", agentId: "a" }, agentId: "a" });
   assert.equal(packages.adoptPane, true);
   assert.equal(packages.redirect, "#/clis/pi/packages?workspaceId=w&agentId=a");
-  const settings = cliLocation("#/settings", { agentId: "a" });
-  assert.equal(settings.adoptPane, true);
-  assert.equal(settings.redirect, "#/clis/pi/settings?agentId=a");
   assert.equal(cliLocation("#/packages").redirect, "#/clis/pi/packages");
   const connectors = cliLocation("#/mcps", { packageContext: { workspaceId: "w", agentId: "a" } });
   assert.equal(connectors.pane, "connectors");

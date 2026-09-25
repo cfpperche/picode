@@ -34,36 +34,25 @@ export function cliSettingsHash(cli = "pi", { workspaceId = "", agentId = "", fo
   return "#/clis/" + encodeURIComponent(cli || "pi") + "/settings" + cliSettingsQuery({ workspaceId, agentId, focus, layer });
 }
 
-export function cliSettingsLocation(hash = "", legacyAgentId = "") {
+export function cliSettingsLocation(hash = "") {
   const [path, query = ""] = hash.replace(/^#/, "").split("?");
   const extra = /^\/clis\/([^/]+)\/settings\//.exec(path);
   const nested = /^\/clis\/([^/]+)\/settings$/.exec(path);
-  const strip = path === "/clis/settings" || path.startsWith("/clis/settings/");
-  const legacy = path === "/settings" || path === "/more/settings";
-  if (!legacy && !strip && !nested && !extra) return null;
+  if (!nested && !extra) return null;
   const params = new URLSearchParams(query);
-  let cli = "pi";
-  try {
-    if (extra) cli = decodeURIComponent(extra[1]);
-    else if (nested) cli = decodeURIComponent(nested[1]);
-    else if (strip && path.startsWith("/clis/settings/")) cli = decodeURIComponent(path.slice("/clis/settings/".length));
-  } catch { cli = ""; }
-  if (extra) return { view: "clis", pane: "settings", id: cli, workspaceId: "", agentId: "", focus: "", invalid: true, legacy: false, redirect: "" };
-  const adoptPane = !!(legacy && !params.has("agentId"));
+  let cli = "";
+  try { cli = decodeURIComponent((extra || nested)[1]); } catch { cli = ""; }
+  if (extra) return { view: "clis", pane: "settings", id: cli, workspaceId: "", agentId: "", focus: "", invalid: true, redirect: "" };
   const workspaceId = params.get("workspaceId") || "";
-  const agentId = params.has("agentId") ? params.get("agentId") : adoptPane ? legacyAgentId : "";
+  const agentId = params.get("agentId") || "";
   const focus = params.get("focus") === "scoped-models" ? "scoped-models" : "";
   // An unknown layer or view is dropped, not adopted: the pane falls back to
   // the default layer and never writes to a layer the URL only guessed at.
   const read = readScope(params, LAYER_WORDS, { legacyKey: "layer" });
   const layer = read.value;
-  // `?tab=keys` was the sub-tab of the day before: the caller turns this flag
-  // into a redirect to the keyboard pane, so an old bookmark still lands there.
-  const keysTab = params.get("tab") === "keys";
   const canonical = cliSettingsHash(cli, { workspaceId, agentId, focus, layer });
-  return { view: "clis", pane: "settings", id: cli, workspaceId, agentId, focus, layer, ...(read.kind ? { scopeKind: read.kind } : {}), keysTab, legacy: legacy || strip,
-    ...(adoptPane ? { adoptPane: true } : {}),
-    redirect: !nested || path === "/clis/settings" || read.alias ? canonical : "" };
+  return { view: "clis", pane: "settings", id: cli, workspaceId, agentId, focus, layer, ...(read.kind ? { scopeKind: read.kind } : {}),
+    redirect: read.alias ? canonical : "" };
 }
 
 // The layers a route may name; the keyboard pane keeps the settings context
