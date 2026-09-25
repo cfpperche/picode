@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { EditorView } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
 import { api } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { languageFor } from "../lib/fileLang.js";
@@ -12,6 +12,9 @@ import { fileMessage, ownerFileURL, readFile } from "../lib/fileIO.js";
 import { holdDocument, releaseDocument } from "../lib/fileDocs.js";
 import { useKeptScroll } from "../lib/keepScroll.js";
 import { useSplitSync } from "../lib/useSplitSync.js";
+import { markdownLive } from "../lib/mdLive.js";
+import { headingPos } from "../lib/mdLivePlan.js";
+import { resolveDocLink } from "@picode/shared/domain/mdDocument.js";
 import FilePreview from "./FilePreview.jsx";
 import FileLeaveDialog from "./FileLeaveDialog.jsx";
 import { IconExpand, IconCollapse } from "./Icons.jsx";
@@ -30,7 +33,7 @@ function initialMode(kind) {
   if (kind !== "markdown") return "preview";
   try {
     const saved = localStorage.getItem(MD_VIEW_KEY);
-    if (saved === "split" || saved === "raw") return saved;
+    if (saved === "live" || saved === "split" || saved === "raw") return saved;
   } catch { /* storage unavailable */ }
   return "preview";
 }
@@ -87,6 +90,13 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   const previewHostRef = useRef(null);
   const [bodyWidth, setBodyWidth] = useState(0);
   const [cmTick, setCmTick] = useState(0);
+  // Live (markdown rendered inside the editor) is one compartment of the same
+  // editor, so switching to and from Raw keeps the text, the cursor and the
+  // undo history.
+  const liveComp = useMemo(() => new Compartment(), []);
+  const liveOnRef = useRef(false);
+  const liveCtxRef = useRef(null);
+  const shownRef = useRef(mode);
   // A document too large for the text read still has a page to show: the
   // ticket serves it from disk, so the pane renders preview-only — no Raw,
   // and the usual "too large to display" banner would be a lie.
@@ -154,11 +164,12 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
           dark: document.documentElement.dataset.theme !== "light",
           onDoc: () => doc.edit(cm.state.doc.toString()),
           onSave: () => { void doc.save(); },
-        }),
+        }).concat(liveComp.of(shownRef.current === "live" ? markdownLive(() => liveCtxRef.current) : [])),
       }),
       parent: hostRef.current,
     });
     cmRef.current = cm;
+    liveOnRef.current = shownRef.current === "live";
     setCmTick((t) => t + 1);
     // In the tree, selection keeps its keyboard focus in the navigation.
     if (!embedded && !hiddenRef.current && modeRef.current === "raw") cm.focus();
@@ -225,6 +236,31 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   // A remembered Split on a pane too narrow for it reads as Preview until the
   // pane is wide again; the choice itself is kept.
   const shown = mode === "split" && !splitOk ? "preview" : mode;
+  shownRef.current = shown;
+  liveCtxRef.current = {
+    path,
+    assetUrl,
+    openLink(href) {
+      const to = resolveDocLink(path, href);
+      const cm = cmRef.current;
+      if (to.kind === "external") window.open(to.href, "_blank", "noopener,noreferrer");
+      else if (to.kind === "file") onOpenPath?.(to.path);
+      else if (to.kind === "anchor" && cm) {
+        const pos = headingPos(cm.state, to.id);
+        if (pos >= 0) {
+          cm.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "start", yMargin: 16 }) });
+          cm.focus();
+        }
+      }
+    },
+  };
+  useEffect(() => {
+    const cm = cmRef.current;
+    const want = shown === "live";
+    if (!cm || liveOnRef.current === want) return;
+    liveOnRef.current = want;
+    cm.dispatch({ effects: liveComp.reconfigure(want ? markdownLive(() => liveCtxRef.current) : []) });
+  }, [shown, cmTick, liveComp]);
   useEffect(() => {
     if (!hidden && shown !== "preview") cmRef.current?.requestMeasure();
   }, [hidden, shown, bodyWidth]);
@@ -245,6 +281,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
           {showPreview && canSave ? (
             <div className="chip-group" role="group" aria-label="File display" data-align-row>
               <button type="button" className="cockpit-chip" aria-pressed={shown === "preview"} onClick={() => setMode("preview")}>Preview</button>
+              {kind === "markdown" && canSave ? <button type="button" className="cockpit-chip" aria-pressed={shown === "live"} title="Edit with formatting shown; markdown appears on the line you edit" onClick={() => setMode("live")}>Live</button> : null}
               {splitOk ? <button type="button" className="cockpit-chip" aria-pressed={shown === "split"} title="Source and preview side by side" onClick={() => setMode("split")}>Split</button> : null}
               {canSave ? <button type="button" className="cockpit-chip" aria-pressed={shown === "raw"} onClick={() => setMode("raw")}>Raw</button> : null}
             </div>
@@ -285,7 +322,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
           </div>
         ) : null}
         {canSave ? <div className="file-cm" ref={hostRef} hidden={shown === "preview"} /> : null}
-        {shown !== "raw" && showPreview ? (<div className="file-pane-view" ref={previewHostRef}>{
+        {(shown === "preview" || shown === "split") && showPreview ? (<div className="file-pane-view" ref={previewHostRef}>{
           kind === "html" && !previewOnly && previewEmpty(view.text) ? (
             <p className="file-pane-msg">Nothing to preview.</p>
           ) : (

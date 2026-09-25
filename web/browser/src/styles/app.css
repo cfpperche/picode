@@ -2882,6 +2882,67 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 .file-cm .tok-tagName { color: var(--danger); }
 .file-cm .tok-invalid { color: var(--danger); }
 .file-cm .tok-regexp, .file-cm .tok-escape { color: var(--ok); }
+/* Live (markdown rendered in the editor, mdLive.js). The same text as Raw:
+   prose in the reading face at a reading measure, no gutter, and the syntax
+   the plan hides only reappears on the line being edited. Measures follow
+   markdown-doc.css so Live and Preview read alike. */
+.file-cm .cm-editor.cm-md-live .cm-scroller { font-family: var(--sans); font-size: 15px; line-height: 1.65; }
+.file-cm .cm-editor.cm-md-live .cm-gutters { display: none; }
+.file-cm .cm-editor.cm-md-live .cm-content { max-width: 860px; margin: 0 auto; padding: 24px 32px 48px; }
+/* (0,3,0) on purpose: line classes below (quote, code panel) set their own padding. */
+.file-cm .cm-md-live .cm-line { padding: 0; }
+.file-cm .cm-editor.cm-md-live .cm-activeLine { background: transparent; }
+.file-cm .cm-md-live .tok-heading, .file-cm .cm-md-live .tok-strong { color: inherit; }
+.file-cm .cm-md-live .tok-emphasis { font-style: inherit; }
+.file-cm .cm-md-live .tok-link, .file-cm .cm-md-live .tok-url { color: inherit; }
+.file-cm .cm-md-live .cm-md-syntax, .file-cm .cm-md-live .tok-meta, .file-cm .cm-md-live .tok-processingInstruction { color: var(--text-secondary); font-style: normal; }
+.file-cm .cm-md-live .cm-line:is(.cm-md-h1, .cm-md-h2, .cm-md-h3, .cm-md-h4, .cm-md-h5, .cm-md-h6) { font-weight: 600; line-height: 1.25; padding-top: .6em; padding-bottom: .2em; }
+.file-cm .cm-md-live .cm-md-h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+.file-cm .cm-md-live .cm-md-h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+.file-cm .cm-md-live .cm-md-h3 { font-size: 1.25em; }
+.file-cm .cm-md-live .cm-md-h5 { font-size: .875em; }
+.file-cm .cm-md-live .cm-md-h6 { font-size: .85em; color: var(--text-secondary); }
+.file-cm .cm-md-live .cm-md-rule-mark { color: var(--text-secondary); font-size: 12px; }
+.file-cm .cm-md-live .cm-md-strong { font-weight: 600; }
+.file-cm .cm-md-live .cm-md-em { font-style: italic; }
+.file-cm .cm-md-live .cm-md-strike { text-decoration: line-through; color: var(--text-secondary); }
+.file-cm .cm-md-live .cm-md-code {
+  font-family: var(--code); font-size: 85%; padding: .15em .35em; border-radius: 5px;
+  background: color-mix(in srgb, var(--text-secondary) 16%, transparent);
+}
+.file-cm .cm-md-live .cm-md-link { color: var(--accent); text-decoration: none; }
+.file-cm .cm-md-live .cm-md-link:hover { text-decoration: underline; }
+.file-cm .cm-md-live .cm-md-bullet { color: var(--text-secondary); }
+/* Nested list indentation is the source's own spaces; in the reading face a
+   space is ~4px, so each one is widened to read like a list level. */
+.file-cm .cm-md-live .cm-md-indent { letter-spacing: .55em; }
+.file-cm .cm-md-live .cm-md-listmark { color: var(--text-secondary); }
+.file-cm .cm-md-live .cm-md-task { margin: 0 .5em 0 0; vertical-align: -2px; accent-color: var(--accent); cursor: pointer; }
+.file-cm .cm-md-live .cm-md-quote { border-left: .25em solid color-mix(in srgb, var(--text-secondary) 45%, transparent); padding-left: 1em; color: var(--text-secondary); }
+.file-cm .cm-md-live .cm-md-alert { color: var(--text-primary); border-left-color: var(--alert); }
+.file-cm .cm-md-live .cm-md-alert-note { --alert: var(--accent); }
+.file-cm .cm-md-live .cm-md-alert-tip { --alert: var(--ok); }
+.file-cm .cm-md-live .cm-md-alert-important { --alert: color-mix(in srgb, var(--accent) 55%, var(--danger)); }
+.file-cm .cm-md-live .cm-md-alert-warning { --alert: var(--warn); }
+.file-cm .cm-md-live .cm-md-alert-caution { --alert: var(--danger); }
+.file-cm .cm-md-live .cm-md-alert-title { font-weight: 600; color: var(--alert); }
+.file-cm .cm-md-live .cm-md-codeblock {
+  font-family: var(--code); font-size: 13px; line-height: 1.5;
+  background: var(--bg-panel); padding: 0 16px;
+}
+.file-cm .cm-md-live .cm-md-fence { color: var(--text-secondary); }
+.file-cm .cm-md-live .cm-md-fence-label { font-size: 11px; letter-spacing: .04em; text-transform: lowercase; color: var(--text-secondary); }
+.file-cm .cm-md-live .cm-md-hr { background: linear-gradient(var(--border), var(--border)) center / 100% 3px no-repeat; }
+.file-cm .cm-md-live :is(.cm-md-table, .cm-md-html, .cm-md-frontmatter) { font-family: var(--code); font-size: 13px; line-height: 1.5; }
+.file-cm .cm-md-live .cm-md-frontmatter { color: var(--text-secondary); }
+.file-cm .cm-md-live .cm-md-image { display: block; }
+.file-cm .cm-md-live .cm-md-image img { display: block; max-width: 100%; max-height: 420px; height: auto; margin: 4px 0; }
+.file-cm .cm-md-live .cm-md-image-missing {
+  padding: 0 6px; font-size: 12.5px; color: var(--text-secondary);
+  border: 1px dashed var(--border-strong); border-radius: 4px;
+}
+.file-cm:has(> .cm-md-live) { container-type: inline-size; }
+@container (max-width: 520px) { .file-cm .cm-editor.cm-md-live .cm-content { padding: 16px; } }
 .file-dirty {
   width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none;
 }
