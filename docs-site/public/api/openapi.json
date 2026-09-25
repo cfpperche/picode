@@ -7763,21 +7763,6 @@
           "packages"
         ]
       },
-      "get": {
-        "operationId": "getApiPackages",
-        "parameters": null,
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "packages"
-        ]
-      },
       "post": {
         "operationId": "postApiPackages",
         "parameters": null,
@@ -8119,47 +8104,6 @@
         },
         "tags": [
           "packages"
-        ]
-      }
-    },
-    "/api/pi-keys": {
-      "get": {
-        "operationId": "getApiPi-keys",
-        "parameters": null,
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "pi-keys"
-        ]
-      },
-      "put": {
-        "operationId": "putApiPi-keys",
-        "parameters": null,
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "pi-keys"
         ]
       }
     },
@@ -13367,9 +13311,6 @@
     },
     {
       "name": "packages"
-    },
-    {
-      "name": "pi-keys"
     },
     {
       "name": "pi-settings"
