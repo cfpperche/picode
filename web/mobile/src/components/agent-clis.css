@@ -596,7 +596,11 @@
 #cli-models-view .set-row { padding-top: 4px; padding-bottom: 4px; }
 #cli-models-view .set-row-stack .set-ctl > .btn { justify-self: start; }
 @media (max-width: 767px) {
-  #cli-models-view .set-row-role .role-pick { flex: 1 1 100%; font-size: 16px; }
+  /* The desktop's 22rem cap stopped the picker at x 366 on a 390 phone, and
+     the level select sat at its text's width (x 179) on the line below:
+     both now run to the row's edge; a button after the level shares its line. */
+  #cli-models-view .set-row-role .role-pick { flex: 1 1 100%; font-size: 16px; max-width: none; }
+  #cli-models-view .set-row-role .role-level { flex: 1 1 auto; min-width: 0; max-width: none; }
   #cli-models-view .set-row-role .set-ctl > .btn { margin-left: auto; }
 }
 
