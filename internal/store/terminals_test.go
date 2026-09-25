@@ -12,14 +12,14 @@ func TestTerminalsCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := s.CreateTerminal("", "")
+	a, err := s.CreateTerminalIn(FreeWorkspaceID, "", "")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if a.Name != "Terminal" || a.Cwd != home || a.ID == "" {
 		t.Fatalf("first = %+v", a)
 	}
-	b, err := s.CreateTerminal("", home)
+	b, err := s.CreateTerminalIn(FreeWorkspaceID, "", home)
 	if err != nil {
 		t.Fatalf("second: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestTerminalsCRUD(t *testing.T) {
 
 func TestRenameTerminal(t *testing.T) {
 	s := openTest(t)
-	a, err := s.CreateTerminal("", "")
+	a, err := s.CreateTerminalIn(FreeWorkspaceID, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,10 +69,10 @@ func TestListTerminalsKeepsSidebarOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateTerminal("Pi/PiCode", home); err != nil {
+	if _, err := s.CreateTerminalIn(FreeWorkspaceID, "Pi/PiCode", home); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateTerminal("Claude/PiCode", home); err != nil {
+	if _, err := s.CreateTerminalIn(FreeWorkspaceID, "Claude/PiCode", home); err != nil {
 		t.Fatal(err)
 	}
 	list, err := s.ListTerminals()
@@ -88,14 +88,14 @@ func TestListTerminalsKeepsSidebarOrder(t *testing.T) {
 
 func TestCreateTerminalBadCwd(t *testing.T) {
 	s := openTest(t)
-	if _, err := s.CreateTerminal("x", "/no/such/picode-term-cwd"); err == nil {
+	if _, err := s.CreateTerminalIn(FreeWorkspaceID, "x", "/no/such/picode-term-cwd"); err == nil {
 		t.Fatal("want error")
 	}
 }
 
 func TestCreateTerminalDefaultsToFreeWorkspace(t *testing.T) {
 	s := openTest(t)
-	a, err := s.CreateTerminal("", "")
+	a, err := s.CreateTerminalIn(FreeWorkspaceID, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestListWorkspaceTerminals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateTerminal("free one", ""); err != nil {
+	if _, err := s.CreateTerminalIn(FreeWorkspaceID, "free one", ""); err != nil {
 		t.Fatal(err)
 	}
 	owned, err := s.CreateTerminalIn(w.ID, "owned", "")
@@ -170,7 +170,7 @@ func TestRemoveWorkspaceDeletesItsTerminals(t *testing.T) {
 	if err := s.SetTerminalSettings(owned.ID, map[string]string{"mouse": "off"}); err != nil {
 		t.Fatal(err)
 	}
-	free, err := s.CreateTerminal("free one", "")
+	free, err := s.CreateTerminalIn(FreeWorkspaceID, "free one", "")
 	if err != nil {
 		t.Fatal(err)
 	}

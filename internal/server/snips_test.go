@@ -142,7 +142,7 @@ func TestSnipRunShellIntoTerminal(t *testing.T) {
 			TermRuntimes: runtimes,
 		}).Handler)
 		t.Cleanup(ts.Close)
-		term, err := st.CreateTerminal("sh", cwd)
+		term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "sh", cwd)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -424,7 +424,7 @@ func TestSnipRunIntoTerminal(t *testing.T) {
 			Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
 		}).Handler)
 		t.Cleanup(ts.Close)
-		term, err := st.CreateTerminal("cli", cwd)
+		term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "cli", cwd)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -451,7 +451,7 @@ func TestSnipRunIntoTerminal(t *testing.T) {
 
 	t.Run("plain shell refused", func(t *testing.T) {
 		st, ts, _, p := newHarness(t)
-		shell, err := st.CreateTerminal("sh", t.TempDir())
+		shell, err := st.CreateTerminalIn(store.FreeWorkspaceID, "sh", t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}

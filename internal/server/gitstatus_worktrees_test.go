@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"github.com/cfpperche/picode/internal/store"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -224,7 +225,7 @@ func TestWorktreeScopedTextReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	term, err := st.CreateTerminal("sh", repo)
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "sh", repo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +276,7 @@ func TestWorktreeScopedTextSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	term, err := st.CreateTerminal("sh", repo)
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "sh", repo)
 	if err != nil {
 		t.Fatal(err)
 	}

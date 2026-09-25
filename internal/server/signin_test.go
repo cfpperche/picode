@@ -41,7 +41,7 @@ func TestSigninTerminalLifecycle(t *testing.T) {
 		_, err := st.GetTerminal(tm.ID)
 		return err != nil
 	}
-	shell, err := st.CreateTerminal("zsh", t.TempDir())
+	shell, err := st.CreateTerminalIn(store.FreeWorkspaceID, "zsh", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestLaunchEditRefusesShellsAndSignins(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st}).Handler)
 	t.Cleanup(ts.Close)
-	shell, _ := st.CreateTerminal("zsh", t.TempDir())
+	shell, _ := st.CreateTerminalIn(store.FreeWorkspaceID, "zsh", t.TempDir())
 	in, _ := st.CreateSigninTerminal("Codex sign-in", t.TempDir())
 	body := map[string]any{"cli": "codex", "overrides": map[string]any{}}
 	cliRequest(t, ts, "PUT", "/api/terminals/"+shell.ID+"/launch", body, 409)
@@ -192,7 +192,7 @@ func TestSigninLaunchEndsWithItsCLI(t *testing.T) {
 	if s := script(in); !strings.Contains(s, `exit "$picode_exit"`) || strings.Contains(s, "exec ") && strings.Contains(s, "--rcfile") {
 		t.Fatalf("sign-in script does not end with its CLI:\n%s", s)
 	}
-	shell, _ := st.CreateTerminal("zsh", t.TempDir())
+	shell, _ := st.CreateTerminalIn(store.FreeWorkspaceID, "zsh", t.TempDir())
 	if s := script(shell); strings.Contains(s, `exit "$picode_exit"`) {
 		t.Fatalf("a terminal script ends instead of returning to its shell:\n%s", s)
 	}

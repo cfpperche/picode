@@ -147,7 +147,7 @@ func mustJSON(v any) []byte {
 func TestComputerToolTerminalPrincipalAndNoShell(t *testing.T) {
 	ts, hub, st := browserServer(t)
 	hub.Timeout = 200 * time.Millisecond
-	term, err := st.CreateTerminal("shell", t.TempDir())
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "shell", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestComputerToolTerminalPrincipalAndNoShell(t *testing.T) {
 func TestComputerPoliciesListAndSave(t *testing.T) {
 	ts, _, st := browserServer(t)
 	agent := seedAgent(t, st, "worker")
-	term, err := st.CreateTerminal("shell", t.TempDir())
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "shell", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

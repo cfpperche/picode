@@ -132,7 +132,7 @@ func TestLaunchFailureInsideTmuxRecordsAttempt(t *testing.T) {
 	if _, err := os.Stat(exe); err != nil {
 		t.Skip("no /bin/true on this platform")
 	}
-	term, err := st.CreateTerminal("fail-name", t.TempDir())
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "fail-name", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -90,7 +90,7 @@ func TestRemoveAgentWithExitKeepsNoEnvValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	term, err := s.CreateTerminal("reviewer", t.TempDir())
+	term, err := s.CreateTerminalIn(FreeWorkspaceID, "reviewer", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

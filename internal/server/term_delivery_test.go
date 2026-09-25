@@ -126,7 +126,7 @@ func deliveryHarness(t *testing.T, cli string) (*httptest.Server, store.Terminal
 		TermStates: states,
 	}).Handler)
 	t.Cleanup(ts.Close)
-	term, err := st.CreateTerminal("cli", t.TempDir())
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "cli", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
