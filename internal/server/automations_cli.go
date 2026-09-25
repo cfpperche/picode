@@ -167,7 +167,7 @@ func cliRunCost(deps Deps, t store.Terminal, cli string) (float64, bool) {
 	if err != nil || l == nil || l.LastSession == nil || l.LastSession.Path == "" {
 		return 0, false
 	}
-	c, ok := climetrics.MeterSessionFile(cli, l.LastSession.Path, pricing.Current())
+	c, ok := climetrics.MeterSession(cli, l.LastSession.Path, l.LastSession.SessionID, pricing.Current())
 	if !ok {
 		return 0, false
 	}
