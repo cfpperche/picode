@@ -43,6 +43,21 @@ that could have answered it. At start the service also removes what an install
 killed mid-way leaves: its download temps, and an unrecorded `release-*` folder
 that is incomplete. A complete unrecorded installation is still preserved.
 
+## Amendment (2026-09-25): the daemon clears a killed supervisor's group
+
+Owner-approved (2026-09-25). A supervisor killed outright (SIGKILL, so no pipe
+EOF handling runs) let the router die of its parent-death signal but left the
+per-model servers the router started running, holding memory. The supervisor
+now reports its router's PID — the router's process group — to the daemon on a
+dedicated descriptor (`PICODE_LLAMA_ROUTER_FD`, fd 3). When the supervisor
+exits, the daemon kills that group only if its leader is gone and members
+remain: a live process whose PID is the group's number means the number is no
+longer the router's, and nothing is sent. The supervisor itself now kills a
+router that exited on its own before reaping it, so the group's number cannot
+be reused in between. Still unhandled: the daemon and the supervisor both
+killed at once (the group ID is not persisted); a systemd stop kills the whole
+unit's cgroup anyway.
+
 ## Alternatives considered
 
 - Treating every configured URL as PiCode-owned risks stopping another user's

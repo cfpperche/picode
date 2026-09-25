@@ -128,3 +128,96 @@ func TestSupervisorClosesDescendantsWhenTheRouterDies(t *testing.T) {
 	}
 	t.Fatal("the router's child outlived the router")
 }
+
+// A supervisor killed outright (ADR-0090 amendment 2026-09-25): the router
+// dies of its parent-death signal, its child does not — until the daemon,
+// which learned the router's group from the supervisor, clears the group.
+func TestDaemonClearsTheGroupOfAKilledSupervisor(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux process group acceptance; see docs/plans/llama-manager.md.")
+	}
+	self, _ := os.Executable()
+	pidFile := filepath.Join(t.TempDir(), "child")
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	groupR, groupW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(self, "--internal-llama-supervisor", "/bin/sh", "-c", `sleep 60 & echo $! > "$1"; wait`, "qa", pidFile)
+	cmd.Stdin = reader
+	cmd.ExtraFiles = []*os.File{groupW}
+	cmd.Env = append(os.Environ(), routerFDEnv+"=3")
+	if err = cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	_ = reader.Close()
+	_ = groupW.Close()
+	t.Cleanup(func() { _ = writer.Close(); _ = cmd.Process.Kill() })
+	group := readRouterGroup(groupR)
+	if group <= 1 {
+		t.Fatal("the supervisor did not report its router")
+	}
+	var child string
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		raw, _ := os.ReadFile(pidFile)
+		if child = strings.TrimSpace(string(raw)); child != "" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if child == "" {
+		t.Fatal("the router's child did not start")
+	}
+	t.Cleanup(func() {
+		if pid, _ := strconv.Atoi(child); pid > 1 {
+			if p, err := os.FindProcess(pid); err == nil {
+				_ = p.Kill()
+			}
+		}
+	})
+	alive := func() bool {
+		stat, e := os.ReadFile("/proc/" + child + "/stat")
+		return e == nil && !strings.Contains(string(stat), ") Z ")
+	}
+	if err := cmd.Process.Kill(); err != nil { // the supervisor, outright
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+	time.Sleep(300 * time.Millisecond)
+	if !alive() {
+		t.Fatal("the child died without the daemon: this test no longer shows the gap")
+	}
+	clearOrphanedGroup(group)
+	deadline = time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if !alive() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("the router's child outlived the daemon's group clear")
+}
+
+// While a process holds the group's number as its PID the group is not
+// ours to clear — a reused number, or a leader still alive — and nothing is
+// sent to it.
+func TestGroupClearLeavesAGroupWithALiveLeader(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux process group acceptance; see docs/plans/llama-manager.md.")
+	}
+	leader := exec.Command("sleep", "60")
+	configureProcess(leader) // its own group, whose number is its PID
+	if err := leader.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = leader.Process.Kill(); _ = leader.Wait() })
+	clearOrphanedGroup(leader.Process.Pid)
+	stat, err := os.ReadFile("/proc/" + strconv.Itoa(leader.Process.Pid) + "/stat")
+	if err != nil || strings.Contains(string(stat), ") Z ") {
+		t.Fatal("a group whose leader is alive was killed")
+	}
+}

@@ -57,9 +57,10 @@ and recover it if a running replacement fails readiness. The private same-binary
 supervisor owns a router process group: parent pipe EOF kills the entire group,
 including after a daemon crash. A router that exits on its own is killed as a
 group before it is reaped (`waitid` with `WNOWAIT`), so the group's number
-cannot have been reused by then. Not covered: a SIGKILL of the supervisor
-itself leaves the router's per-model children running (the router gets its
-parent-death signal; its children do not). Startup marks unfinished jobs
+cannot have been reused by then. The supervisor reports the router's PID
+(its group) to the daemon on fd 3; if the supervisor is killed outright, the
+daemon kills what is left of that group once the router is gone, and never a
+group whose leader is alive (ADR-0090 amendment 2026-09-25). Startup marks unfinished jobs
 interrupted and does not relaunch the service. No process name or external PID is adopted.
 
 The initial CPU profiles use explicit GPU zero, Jinja/autoload switches and

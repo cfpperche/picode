@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"sync"
 	"time"
@@ -41,6 +42,13 @@ func New(st *store.Store, connection Connection, completed ...func(store.LlamaJo
 	s := &Service{store: st, connection: connection, ctx: ctx, stop: stop, workers: map[string]bool{}, interval: 2 * time.Second, timeLimit: 30 * time.Minute}
 	if len(completed) > 0 {
 		s.completed = completed[0]
+	}
+	// History is bounded (ADR-0083 amendment 2026-09-25): finished jobs older
+	// than a month go, beyond the newest 500. A failure only keeps them.
+	if n, err := st.PruneLlamaJobs(time.Now().Add(-historyAge), historyKeep); err != nil {
+		log.Printf("llama jobs: could not prune history: %v", err)
+	} else if n > 0 {
+		log.Printf("llama jobs: pruned %d finished jobs older than %s", n, historyAge)
 	}
 	jobs, err := st.LlamaJobs()
 	if err != nil {
@@ -237,6 +245,17 @@ func (s *Service) launch(id string, dispatch bool, c *llama.Client) {
 	}()
 }
 
+// The history kept at start: every active job, the newest historyKeep, and
+// any finished job younger than historyAge.
+const (
+	historyKeep = 500
+	historyAge  = 30 * 24 * time.Hour
+)
+
+// absentReads is how many reads in a row must miss a lost download before it
+// is released: a server that is mid-restart can answer one empty list.
+const absentReads = 3
+
 func find(models []llama.Model, id string) llama.Model {
 	for _, m := range models {
 		if m.ID == id {
@@ -403,6 +422,9 @@ func (s *Service) run(id string, dispatch bool, c *llama.Client) {
 	}
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
+	// absent counts consecutive reads where a download the server should be
+	// running is not on it at all (ADR-0083 amendment 2026-09-25).
+	absent := 0
 	for {
 		j, err = s.store.LlamaJob(id)
 		if err != nil || !j.Active() {
@@ -437,6 +459,21 @@ func (s *Service) run(id string, dispatch bool, c *llama.Client) {
 			} else if m.Status == "failed" {
 				s.finish(id, "failed", "The server reported that the model operation failed.", m.Status)
 				return
+			}
+			// A download PiCode lost track of (a restart, or an unknown
+			// outcome) that the server does not list at all, read after read,
+			// is not running anywhere: it is released as interrupted instead
+			// of holding its model until the owner abandons it (ADR-0083
+			// amendment 2026-09-25). A download PiCode just sent keeps the
+			// benefit of the doubt: the server may not list it yet.
+			if j.Operation == "download" && m.Status == "missing" && (!dispatch || j.State == "unknown") {
+				absent++
+				if absent >= absentReads {
+					s.finish(id, "interrupted", "The download is not on the server. It did not finish; start it again when ready.", m.Status)
+					return
+				}
+			} else {
+				absent = 0
 			}
 			if j.CancelRequested && !j.CancelAccepted && j.Stage != "cancelDispatch" && m.Status == "downloading" {
 				if _, err = s.update(id, func(j *store.LlamaJob) { j.Stage = "cancelDispatch" }); err != nil {
