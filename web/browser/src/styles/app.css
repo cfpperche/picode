@@ -2934,6 +2934,23 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 .file-cm .cm-md-live .cm-md-fence-label { font-size: 11px; letter-spacing: .04em; text-transform: lowercase; color: var(--text-secondary); }
 .file-cm .cm-md-live .cm-md-hr { background: linear-gradient(var(--border), var(--border)) center / 100% 3px no-repeat; }
 .file-cm .cm-md-live :is(.cm-md-table, .cm-md-html, .cm-md-frontmatter) { font-family: var(--code); font-size: 13px; line-height: 1.5; }
+/* A table no selection touches is drawn (mdLiveTables.js), measured like
+   markdown-doc.css's table; a wide one scrolls inside itself. The source
+   (the class above) comes back when the cursor enters it. */
+/* contain: the table's minimum width must not widen the editor's content
+   (every prose line would then run past the pane); the widget keeps the
+   pane's width and scrolls the table inside itself. */
+.file-cm .cm-md-live .cm-md-table-widget { contain: inline-size; overflow-x: auto; padding: 4px 0 12px; cursor: text; }
+.file-cm .cm-md-live .cm-md-table-widget.cm-md-table-quoted { border-left: .25em solid color-mix(in srgb, var(--text-secondary) 45%, transparent); padding: 4px 0 4px 1em; }
+.file-cm .cm-md-live .cm-md-table-widget table { border-collapse: collapse; font-size: 14px; line-height: 1.5; }
+/* The editor wraps anywhere (.cm-lineWrapping); a cell must not, or a wide
+   table shrinks to one letter per column instead of scrolling. */
+.file-cm .cm-md-live .cm-md-table-widget :is(th, td) {
+  padding: 6px 13px; border: 1px solid var(--border-strong); vertical-align: top;
+  white-space: normal; overflow-wrap: normal; word-break: normal;
+}
+.file-cm .cm-md-live .cm-md-table-widget th { font-weight: 600; text-align: left; background: color-mix(in srgb, var(--text-secondary) 12%, transparent); }
+.file-cm .cm-md-live .cm-md-table-widget tr:nth-child(even) td { background: color-mix(in srgb, var(--text-secondary) 6%, transparent); }
 .file-cm .cm-md-live .cm-md-frontmatter { color: var(--text-secondary); }
 .file-cm .cm-md-live .cm-md-image { display: block; }
 .file-cm .cm-md-live .cm-md-image img { display: block; max-width: 100%; max-height: 420px; height: auto; margin: 4px 0; }
