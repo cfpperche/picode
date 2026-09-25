@@ -98,3 +98,16 @@
 }
 :is(.file-cm, .m-file-editor):has(> .cm-md-live) { container-type: inline-size; }
 @container (max-width: 520px) { :is(.file-cm, .m-file-editor) .cm-editor.cm-md-live .cm-content { padding: 16px; } }
+
+/* Touch: a link is opened by press and hold (longPress.js), so the system's
+   own long-press callout must not cover it; the hint says so once. */
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-link { -webkit-touch-callout: none; }
+:is(.file-cm, .m-file-editor) .cm-md-live .cm-md-press-hint {
+  position: absolute; z-index: 5; pointer-events: none;
+  padding: 6px 10px; border-radius: 8px; font: 500 12.5px/1.3 var(--sans);
+  color: var(--text-primary); background: var(--bg-elevated);
+  border: 1px solid var(--border-strong); box-shadow: 0 4px 16px rgb(0 0 0 / .18);
+  animation: cm-md-hint 2.2s var(--ease-out) forwards;
+}
+@keyframes cm-md-hint { 0% { opacity: 0; transform: translateY(4px); } 8%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { :is(.file-cm, .m-file-editor) .cm-md-live .cm-md-press-hint { animation: none; } }

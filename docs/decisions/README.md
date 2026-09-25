@@ -32,7 +32,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0025](0025-open-tmux-catalog.md) | The whole tmux catalog is a settings surface | accepted; re-measured on tmux 3.7c 2026-09-24 (catalog 174 = 32/68/74, the per-index list rule held) |
 | [0026](0026-sidebar-tabs-and-workspace-terminals.md) | Four sidebar tabs; workspaces own terminals | accepted |
 | [0027](0027-workspaces-start-empty.md) | Workspaces start empty | accepted |
-| [0028](0028-model-roles.md) | Model roles as an opt-in MIT pi package (`packages/pi-roles`) | accepted |
+| [0028](0028-model-roles.md) | Model roles as an opt-in MIT pi package (`packages/pi-roles`) | accepted, amended by 0218 |
 | [0029](0029-composer-extension-commands.md) | Composer `/` lists commands from the running agent | accepted |
 | [0030](0030-file-tree-per-owner.md) | File tree per folder, read-only, changed files highlighted | accepted, diff refusal amended by 0032, graph-refresh precedent superseded by 0038, file navigation amended by 0074 |
 | [0031](0031-provider-usage-dialog.md) | Live provider usage dialog on `#/providers` | accepted |
@@ -221,3 +221,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0215](0215-local-api-host-and-fetch-metadata.md) | The local API refuses cross-site reads and mints loopback sessions only for first-party requests; the Host allowlist is the hostname on private suffixes plus the certificates' names | accepted, amends 0049 |
 | [0216](0216-client-version-handshake.md) | Out-of-process API clients send X-PiCode-Client with a protocol and get 426 when too old; the desktop shell announces its command protocol to the page | accepted |
 | [0217](0217-cli-unattended-runs.md) | Unattended automation runs on guest CLIs through their own TUI: `automations.cli`; Claude Code, Codex, Grok, Hermes, OpenCode and Omp start runs through the verified prompt door, the hooks end the turn, never an approval flag; amends 0107 | proposed |
+| [0218](0218-apache-license.md) | PiCode is Apache-2.0; paid features live only under `ee/` with a commercial license; installable packages stay MIT; amends 0028 | accepted, amends 0028 |

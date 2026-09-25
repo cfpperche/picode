@@ -184,3 +184,9 @@ tag-pinned, checksum-verified, one binary) are what keep it defensible.
 The alternatives row "Ship unsigned and document the SmartScreen wall" is
 superseded: the script removes the wall for the documented path.
 
+
+## Amendment 2026-09-25 — license is Apache-2.0 (ADR-0218)
+
+PiCode is now Apache-2.0, an OSI license, but SignPath Foundation also
+forbids proprietary components from the maintainer, and ADR-0218 reserves
+`ee/` for commercial code. The script path above stays the free route.

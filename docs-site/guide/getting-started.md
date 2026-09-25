@@ -63,4 +63,4 @@ The first visit may warn about the certificate. `picode provision` installs a lo
 
 Phone: [On your phone](/guide/mobile). Send the tab you are looking at to an agent: [Chrome extension](/guide/browser-extension). Changing PiCode itself: [From source](/guide/from-source).
 
-Personal use is free under PolyForm Noncommercial. Company use needs a [commercial license](/license).
+PiCode is free and open source under the [Apache License 2.0](/license), at home and at work.

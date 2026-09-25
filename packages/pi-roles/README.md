@@ -5,7 +5,7 @@ named presets. Works in the pi TUI and, via the same commands and dialogs, in
 PiCode.
 
 **This directory is MIT.** The rest of the PiCode repository is
-PolyForm Noncommercial — see the [repo licensing](../../LICENSING.md).
+Apache-2.0 — see the [repo licensing](../../LICENSING.md).
 
 ## Install
 

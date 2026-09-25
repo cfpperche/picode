@@ -3,7 +3,7 @@
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
 Opt-in pi package at `packages/pi-roles/` (MIT; the rest of this tree is
-PolyForm Noncommercial). Users install it with `pi install -l` / `#/clis/pi/packages`;
+Apache-2.0). Users install it with `pi install -l` / `#/clis/pi/packages`;
 a missing `<cwd>/.pi/roles.json` leaves it dormant. Three builtin behaviours
 (`default`, `vision`, `plan`) plus named custom presets. `default` is the
 switch-back target, not a startup override — per-agent `--model` stays with

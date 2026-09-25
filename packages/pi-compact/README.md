@@ -2,7 +2,7 @@
 
 Opt-in compaction policy for [pi](https://pi.dev) — **an extension, not
 part of PiCode core**. PiCode ships it in this repository (MIT — the rest
-of the tree is PolyForm Noncommercial) and it installs into pi like any
+of the tree is Apache-2.0) and it installs into pi like any
 package; the PiCode server neither configures nor invokes it, and a
 session without it compacts exactly as pi's stock behavior.
 
@@ -13,7 +13,7 @@ summarizer this package overrides when configured). Works in the pi TUI
 and, via the same commands and dialogs, in PiCode.
 
 **This directory is MIT.** The rest of the PiCode repository is
-PolyForm Noncommercial — see the [repo licensing](../../LICENSING.md).
+Apache-2.0 — see the [repo licensing](../../LICENSING.md).
 
 ## Install
 

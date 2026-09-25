@@ -10,7 +10,6 @@ tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split wit
 
 ## Next
 
-- Live on the phone: a way to follow a link by touch (long-press?) — Ctrl/⌘+click has no touch equivalent; Preview follows links today.
 
 ## Debts
 
