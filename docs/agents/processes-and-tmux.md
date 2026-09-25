@@ -57,7 +57,9 @@
   every test's `t.TempDir` and, until 2026-09-25, every test binary's link
   output lived there; that day it filled and `make ci` on `main` failed three
   times with "no space left on device" while the disk had 772 GB free.
-  `scripts/go-test.sh` now sets `GOTMPDIR=~/.cache/picode-gotmp` (a value
+  `scripts/go-test.sh` now gives each run its own
+  `~/.cache/picode-gotmp/run.*` as `GOTMPDIR` and removes it on exit (a value
   the caller sets wins): link outputs and, with TMPDIR unset, the tests'
-  `t.TempDir` go to disk; the suites' tmux sockets stay under `/tmp`. Large scratch output belongs on disk too
+  `t.TempDir` go to disk; the suites' tmux sockets stay under `/tmp`. Do not
+  delete `~/.cache/picode-gotmp` while a gate runs — its tests live there. Large scratch output belongs on disk too
   (`var/` in your worktree), and a finished session's scratchpad can go.
