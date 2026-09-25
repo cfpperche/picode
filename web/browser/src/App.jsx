@@ -906,7 +906,7 @@ export default function App({ shellChrome = false } = {}) {
         const fromTree = parseRoute() === "workspace" ? treeRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
         const fromApp = parseRoute() === "workspace" ? appRoute(location.hash) : null;
-        if (fromApp && fromApp !== "inbox") {
+        if (fromApp) {
           if (appList.some((a) => a.id === fromApp) || !appsOk) openTab(appTabId(fromApp));
           else { setGoneId(appTabId(fromApp)); setSelectedId(null); }
         } else if (fromTree) {
