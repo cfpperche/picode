@@ -1,5 +1,6 @@
-//! The decision half of a work-tab capture (ADR-0161's legacy hide/capture
-//! path): `capture_png` and `btab_preview` in `btab.rs` drive the COM half on
+//! The decision half of a work-tab capture (annotation screenshots; the
+//! ADR-0161 hide path that also used it was retired 2026-09-25): `capture_png`
+//! and `btab_preview` in `btab.rs` drive the COM half on
 //! the UI thread and learn the outcome through a channel; this module is
 //! everything that channel answer and the file on disk decide, so the rows
 //! below run on any host (`rustc --edition 2021 --test src/preview.rs`).
