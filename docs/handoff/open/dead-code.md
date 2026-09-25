@@ -14,7 +14,7 @@ decision behind it — each is the owner's call. Method: grep + `deadcode -test`
 - [ ] Routes — DELETE /api/browser/annotations/{id} (WebTab only POSTs) and POST /api/browser/permissions/clear (only its test; the UI deletes per row or prunes).
 - [ ] Routes — POST /api/agent-exits/{id}/undo: only its test; ADR-0211 made Undo = restore.
 - [ ] Routes — POST /api/auth/logout (only spec_test.go; no UI sign-out calls it), POST /api/agents/{id}/login and /api/agents/{id}/command (no caller found).
-- [ ] Routes — packages_describe.go registerPackageDescribeRoutes is never called and duplicates the live GET/PUT/DELETE /api/packages/describe in packages_config.go.
+- [x] Routes — packages_describe.go registerPackageDescribeRoutes (never called; duplicated the live /api/packages/describe registration in packages_config.go) — removed 2026-09-25 (feat/dead-code-sweep)
 - [ ] Tauri — 7 commands registered but never invoked from webview JS: clean_list, disk_compact_dry_run, computer_displays, computer_preview, btab_zoom (Rust calls it directly; only the registration is dead), lab_open, computerlab_open. Removing needs a shell build.
 - [ ] Scripts — referenced by nothing, may be run by hand: install-systemd.sh (superseded by `picode install`), verify-browser-capture-sidecar.mjs, qa-peer-communication.mjs, qa-agent-menu.mjs, qa-agent-tui.mjs, qa-mobile-v2.mjs.
 - [ ] Go reachable only from tests — session/stats StatsRoot + statsAcc; tmux New/IsolatedEnv/KillIsolatedServer/MarkIsolated; the cli* packages' Supported/Read/List/Panes/Installed; clicreds.ProvidersFor/CanUse/EnvVar; ~60 in all. Removing each means deleting its tests.
