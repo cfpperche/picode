@@ -44,3 +44,7 @@ The Inbox is a PiCode surface. Its model and primitive-tree presentation live in
 | Keep the app and add a sidebar shortcut | The user would still see Inbox in Apps, and core availability and badge would still depend on the apps manifest. |
 | Put Inbox in the user menu footer | Questions awaiting a human would be less visible, and one footer control would have two destinations. |
 | Build a separate bespoke view renderer | The shared primitives already express every Inbox state; duplicating it would add maintenance without improving the core boundary. |
+
+## Amendment 2026-09-25 — old addresses retired (owner)
+
+The owner retired the compatibility addresses this ADR kept. The old `#/app/inbox[/item/<id>]` hash no longer redirects on desktop or mobile; the API aliases this ADR keeps are unchanged. An old bookmark now lands where any unknown address does.

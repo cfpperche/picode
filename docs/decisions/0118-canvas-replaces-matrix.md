@@ -89,3 +89,7 @@ to say so.
 - **Keep grid mode as a "tidy" preset of the canvas.** Deferred, not refused:
   the Tidy action already packs panels in reading order, and vertical
   compaction could become a canvas behaviour later without a second engine.
+
+## Amendment 2026-09-25 — old addresses retired (owner)
+
+The owner retired the compatibility addresses this ADR kept. §4 is retired: `#/app/matrix[/<id>]`, a saved `x:matrix` tab and the `picode-matrix-last` / `picode-matrix-view:<id>` keys are no longer read. An old bookmark now lands where any unknown address does.

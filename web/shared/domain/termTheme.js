@@ -1,5 +1,3 @@
-const THEME_KEY = "picode-term-theme";
-const SIZE_KEY = "picode-term-size";
 const PREFS_KEY = "picode-term-prefs";
 
 export const TERM_SIZE_MIN = 11;
@@ -80,22 +78,12 @@ function normalize(raw) {
   return d;
 }
 
-function readLegacy() {
-  const o = {};
-  const theme = typeof localStorage !== "undefined" ? localStorage.getItem(THEME_KEY) : null;
-  const size = typeof localStorage !== "undefined" ? localStorage.getItem(SIZE_KEY) : null;
-  if (theme === "light" || theme === "dark") o.theme = theme;
-  const n = parseInt(size || "", 10);
-  if (Number.isFinite(n)) o.fontSize = n;
-  return o;
-}
-
 export function readTermPrefs() {
   let parsed = {};
   try {
     parsed = JSON.parse((typeof localStorage !== "undefined" && localStorage.getItem(PREFS_KEY)) || "{}") || {};
   } catch { parsed = {}; }
-  return normalize({ ...readLegacy(), ...parsed });
+  return normalize(parsed);
 }
 
 export function readTermTheme() {
@@ -199,8 +187,6 @@ export function persistTermPrefs(patch) {
   const next = normalize({ ...readTermPrefs(), ...patch });
   if (typeof localStorage !== "undefined") {
     localStorage.setItem(PREFS_KEY, JSON.stringify(next));
-    localStorage.setItem(THEME_KEY, next.theme);
-    localStorage.setItem(SIZE_KEY, String(next.fontSize));
   }
   emitTerm();
   return next;

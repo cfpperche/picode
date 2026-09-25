@@ -63,19 +63,6 @@ test("roundtrip", () => {
   assert.equal(got.selected, "y");
 });
 
-test("a renamed app's tab id is rewritten on read (ADR-0118)", () => {
-  const store = { "picode-tabs": JSON.stringify({ ids: ["a", "x:matrix", "b"], selected: "x:matrix" }) };
-  globalThis.localStorage = {
-    getItem: (k) => (k in store ? store[k] : null),
-    setItem: (k, v) => { store[k] = String(v); },
-  };
-  const got = readOpenTabs();
-  assert.deepEqual(got.ids, ["a", "x:canvas", "b"], "x:matrix opens the canvas app, not a dead tab");
-  assert.equal(got.selected, "x:canvas", "the selection follows its tab");
-  store["picode-tabs"] = JSON.stringify({ ids: ["x:canvas", "x:matrix"], selected: "x:canvas" });
-  assert.deepEqual(readOpenTabs().ids, ["x:canvas"], "both ids are one tab, not two");
-});
-
 test("term view roundtrip and dedupe", () => {
   const store = {};
   globalThis.localStorage = {

@@ -53,3 +53,7 @@ Canonical hashes are `#/clis/<cli>/providers` and `#/clis/<cli>/providers/new`
 pane. `#/providers/llama` is unchanged. OAuth still returns to the canonical
 list in the same app, now `#/clis/pi/providers`. Settings, Packages and
 Messages remain strip tabs.
+
+## Amendment 2026-09-25 — old addresses retired (owner)
+
+The owner retired the compatibility addresses this ADR kept. `#/clis/providers*`, `#/providers*` and `#/more/providers*` no longer rewrite. Canonical: `#/clis/<cli>/providers`. `#/providers/llama` still opens llama.cpp. An old bookmark now lands where any unknown address does.

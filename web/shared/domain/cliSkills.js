@@ -34,7 +34,6 @@ export function cliSkillsQuery(params) {
     scope: read.value || "machine",
     ...(read.kind ? { scopeKind: read.kind } : {}),
     invalid: read.invalid,
-    ...(read.alias ? { alias: true } : {}),
   };
 }
 
