@@ -23,9 +23,16 @@ next=$(printf '%04d' $((10#${last:-0} + 1)))
 file="docs/decisions/$next-$slug.md"
 [ -e "$file" ] && { echo "adr: $file exists" >&2; exit 1; }
 
+# The title is data, not sed syntax: escape the replacement's specials
+# (\ & and the / delimiter). Write to a temp file and move it into place, so
+# a failure never leaves a numbered file without its index row.
+sed_title=$(printf '%s' "$title" | sed -e 's/[\\&/]/\\&/g')
+tmp=$(mktemp "$file.XXXXXX")
+trap 'rm -f "$tmp"' EXIT
 awk 'f { print } /^---$/ { f = 1 }' docs/decisions/template.md \
-  | sed -e '1{/^$/d;}' -e "s/ADR-NNNN: Title/ADR-$next: $title/" -e "s/YYYY-MM-DD/$(date +%F)/" \
-  > "$file"
+  | sed -e '1{/^$/d;}' -e "s/ADR-NNNN: Title/ADR-$next: $sed_title/" -e "s/YYYY-MM-DD/$(date +%F)/" \
+  > "$tmp"
+mv "$tmp" "$file"
 printf '| [%s](%s-%s.md) | %s | proposed |\n' "$next" "$next" "$slug" "$title" >> docs/decisions/README.md
 echo "adr: $file (index row appended; status proposed)"
 echo "     fill Boundary first — no boundary means it is not an ADR (AGENTS.md)"

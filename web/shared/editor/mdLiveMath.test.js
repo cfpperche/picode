@@ -5,10 +5,18 @@ import { ensureSyntaxTree } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { planInlineMath, planMathBlocks, planMermaid } from "./mdLiveMath.js";
 
+// syntaxTree(state) is the tree the state was created with; ensureSyntaxTree
+// finishes the parse in the shared context but leaves that field alone. When
+// creation ran out of its parse budget (a cold start under load) the code
+// under test saw a partial tree. A no-op update carries the full parse in.
+function parsed(doc) {
+  const created = EditorState.create({ doc, extensions: [markdown({ base: markdownLanguage })] });
+  ensureSyntaxTree(created, doc.length, 5000);
+  return created.update({}).state;
+}
+
 function st(doc) {
-  const state = EditorState.create({ doc, extensions: [markdown({ base: markdownLanguage })] });
-  ensureSyntaxTree(state, doc.length, 5000);
-  return state;
+  return parsed(doc);
 }
 
 test("planMathBlocks: multi-line, one-line, unclosed, code and cursor", () => {

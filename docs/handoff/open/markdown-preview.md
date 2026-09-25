@@ -26,3 +26,4 @@ tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split wit
 - [ ] Live: raw HTML (`<kbd>`, `<details>`) and frontmatter stay source, and raw HTML tags take the link colour; Preview renders them.
 - [ ] Live tables: a click on a cell puts the cursor at the start of the cell's text, not at the clicked character.
 - [ ] `.workspace-view.file-on` is `overflow: hidden` with content taller than its box, so any `scrollIntoView` inside a file tab can scroll the clipped ancestor and push the file toolbar off-screen; MarkdownDoc avoids scrollIntoView for this reason.
+- [x] Live editor tests flaked under load (`planTables…`, `headings…` saw an empty tree): `ensureSyntaxTree` never reaches `syntaxTree(state)`; the tests now go through `parsed(doc)`, which carries the full parse in with a no-op update (feat/adr-new-title).

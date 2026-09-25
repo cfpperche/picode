@@ -5,9 +5,18 @@ import { ensureSyntaxTree } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { activeLines, headingPos, planLive } from "./mdLivePlan.js";
 
+// syntaxTree(state) is the tree the state was created with; ensureSyntaxTree
+// finishes the parse in the shared context but leaves that field alone. When
+// creation ran out of its parse budget (a cold start under load) the code
+// under test saw a partial tree. A no-op update carries the full parse in.
+function parsed(doc) {
+  const created = EditorState.create({ doc, extensions: [markdown({ base: markdownLanguage })] });
+  ensureSyntaxTree(created, doc.length, 5000);
+  return created.update({}).state;
+}
+
 function plan(doc, active = []) {
-  const state = EditorState.create({ doc, extensions: [markdown({ base: markdownLanguage })] });
-  ensureSyntaxTree(state, doc.length, 5000);
+  const state = parsed(doc);
   const specs = planLive(state, [{ from: 0, to: doc.length }], new Set(active));
   const at = (s) => doc.slice(s.from, s.to);
   return {
@@ -106,8 +115,7 @@ test("activeLines: every selected line, none without focus", () => {
 
 test("headingPos finds a #fragment with the preview's slugs", () => {
   const doc = "# Intro\n\n## **Bold** [link](x) title\n\n## Intro\n";
-  const state = EditorState.create({ doc, extensions: [markdown({ base: markdownLanguage })] });
-  ensureSyntaxTree(state, doc.length, 5000);
+  const state = parsed(doc);
   assert.equal(headingPos(state, "intro"), 0);
   assert.equal(headingPos(state, "bold-link-title"), 9);
   assert.equal(headingPos(state, "#intro-1"), doc.indexOf("## Intro"));
