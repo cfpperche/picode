@@ -1,36 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { IconAgent } from "./Icons.jsx";
 import "../styles/mobile-settings.css";
 
 export default function PageFrame({ id, title, context, children, hidden, wide, embedded, className = "" }) {
+  // Tab bars inside a page (pref-tabs, cli-tabs, cli-pane-tabs, llama-nav)
+  // reveal their own selected tab: OverflowTabs.
   const rootRef = useRef(null);
-  useEffect(() => {
-    if (hidden) return undefined;
-    let frame;
-    const revealTab = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        for (const nav of rootRef.current?.querySelectorAll(".pref-tabs, .cli-tabs, .cli-pane-tabs, .llama-nav") || []) {
-          const selected = nav.querySelector('[aria-selected="true"], [aria-current="page"], .active');
-          if (!selected) continue;
-          const item = selected.getBoundingClientRect();
-          const rail = nav.getBoundingClientRect();
-          if (item.left < rail.left) nav.scrollLeft += item.left - rail.left;
-          else if (item.right > rail.right) nav.scrollLeft += item.right - rail.right;
-          const next = nav.getBoundingClientRect();
-          for (const el of nav.querySelectorAll('[role="tab"]')) {
-            const box = el.getBoundingClientRect();
-            const inView = box.right > next.left + 1 && box.left < next.right - 1;
-            const fully = box.left >= next.left - 1 && box.right <= next.right + 1;
-            el.style.visibility = inView && !fully ? "hidden" : "";
-          }
-        }
-      });
-    };
-    revealTab();
-    window.addEventListener("hashchange", revealTab);
-    return () => { cancelAnimationFrame(frame); window.removeEventListener("hashchange", revealTab); };
-  }, [hidden]);
   if (embedded) return <section ref={rootRef} id={id} hidden={hidden} aria-label={title}>{context && <p className="settings-ctx">{context}</p>}{children}</section>;
   return (
     <section ref={rootRef} id={id} className={"pane-view" + (className ? " " + className : "")} hidden={hidden} aria-label={title}>
