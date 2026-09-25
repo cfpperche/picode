@@ -364,10 +364,3 @@ export function writeFileWorktrees(map) {
     localStorage.setItem(FILE_WT_KEY, JSON.stringify(map || {}));
   } catch { /* preference is optional */ }
 }
-
-const DASH_SCOPE_KEY = "picode-dash-scope";
-
-// The dashboard scope picker (machine|picode) retired with ADR-0127 — the
-// dashboard measures the whole machine. Drop the stale key so a returning
-// viewer does not carry a preference nothing reads.
-try { localStorage.removeItem(DASH_SCOPE_KEY); } catch { /* private mode */ }

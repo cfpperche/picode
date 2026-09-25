@@ -80,11 +80,6 @@ func (s *Store) GetTerminal(id string) (Terminal, error) {
 	return t, nil
 }
 
-// CreateTerminal keeps the old shape: a free terminal.
-func (s *Store) CreateTerminal(name, cwd string) (Terminal, error) {
-	return s.CreateTerminalIn(FreeWorkspaceID, name, cwd)
-}
-
 // CreateTerminalIn creates a terminal owned by the given workspace (ADR-0026).
 // A blank workspace means free. A workspace terminal with no cwd starts in
 // the workspace folder; the $HOME default belongs to free terminals only.

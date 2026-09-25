@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/cfpperche/picode/internal/store"
 	"net/http"
 	"net/url"
 	"os"
@@ -115,7 +116,7 @@ func TestFileRootRejectsTerminalCD(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	term, err := st.CreateTerminal("root precondition", before)
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "root precondition", before)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +181,7 @@ func TestFileRootWithWorktreeScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	term, err := st.CreateTerminal("Scope", repo)
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "Scope", repo)
 	if err != nil {
 		t.Fatal(err)
 	}

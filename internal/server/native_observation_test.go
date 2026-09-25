@@ -318,7 +318,7 @@ assert not m.save_observation(root,"fixture",dict(new,action="",sessionSeq=r["se
 	}
 }
 
-func TestPiLegacyHeartbeatRecoversOnlyItsWrapper(t *testing.T) {
+func TestPiHeartbeatRecoversOnlyItsWrapper(t *testing.T) {
 	deps, id, _ := observationFixture(t, "pi")
 	name := tmux.ShellSessionName(id)
 	deps.Tmux.KillSession(t.Context(), name)
@@ -343,11 +343,18 @@ func TestPiLegacyHeartbeatRecoversOnlyItsWrapper(t *testing.T) {
 		t.Fatal("fixture child missing")
 	}
 	deps.TermRuntimes.Start(id, TermRuntime{CLI: "pi", Source: "tmux-fallback", RunID: "fallback", PID: pid, ProcStart: processStartToken(pid)})
-	recoverPiReceiverRuntime(t.Context(), deps, id, "wrong-run", child, 0)
-	if rt, _ := deps.TermRuntimes.Get(id); rt.RunID != "fallback" {
-		t.Fatal("wrong heartbeat replaced wrapper")
-	}
+	// A hello without runtimePid recovers nothing (the /proc environ fallback
+	// for pre-runtimePid receivers was retired 2026-09-25).
 	recoverPiReceiverRuntime(t.Context(), deps, id, "legacy-run", child, 0)
+	if rt, _ := deps.TermRuntimes.Get(id); rt.RunID != "fallback" {
+		t.Fatal("a hello without its wrapper replaced the runtime")
+	}
+	// A wrapper the child does not descend from is refused.
+	recoverPiReceiverRuntime(t.Context(), deps, id, "legacy-run", child, 1<<30)
+	if rt, _ := deps.TermRuntimes.Get(id); rt.RunID != "fallback" {
+		t.Fatal("a foreign wrapper replaced the runtime")
+	}
+	recoverPiReceiverRuntime(t.Context(), deps, id, "legacy-run", child, pid)
 	rt, _ := deps.TermRuntimes.Get(id)
 	if rt.RunID != "legacy-run" || rt.PID != pid || rt.SessionID != "" {
 		t.Fatalf("invalid heartbeat recovery: %+v", rt)

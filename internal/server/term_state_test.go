@@ -41,7 +41,7 @@ func TestTerminalInterruptObserver(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer st.Close()
-			terminal, err := st.CreateTerminal("Shell", root)
+			terminal, err := st.CreateTerminalIn(store.FreeWorkspaceID, "Shell", root)
 			if err != nil {
 				t.Fatal(err)
 			}

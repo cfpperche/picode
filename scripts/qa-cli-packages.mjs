@@ -30,7 +30,7 @@ const browser = (...args) => execFileSync("agent-browser", ["--session", session
 const ev = code => JSON.parse(browser("eval", code));
 const wait = code => browser("wait", "--fn", code);
 const nav = hash => ev(`location.hash=${JSON.stringify(hash)}`);
-const root = "#/clis/packages/pi";
+const root = "#/clis/pi/packages";
 const context = root + "?workspaceId=" + ws + "&agentId=" + id;
 const input = '[aria-label="Package source"]';
 const ready = () => wait(`!!document.querySelector(${JSON.stringify(input)}) && !document.querySelector(${JSON.stringify(input)}).matches(':disabled')`);
@@ -184,10 +184,10 @@ try {
     wait('!!document.querySelector("#cli-packages-view [role=alert]")');
     assert.equal(ev(`!!document.querySelector(${JSON.stringify(input)})`),false);
     results.push(app + ": free-agent scope and deletion never fall back to another target");
-    open(app, (app === "mobile" ? "#/more/packages" : "#/packages") + '?workspaceId='+ws+'&agentId='+id); ready();
+    open(app, context); ready();
     assert.equal(ev('location.hash'), context);
-    open(app, '#/packages/config/pi-roles?workspaceId='+ws+'&agentId='+id);
-    wait('location.hash.startsWith("#/clis/packages/pi/config/pi-roles")');
+    open(app, root + '/config/pi-roles?workspaceId='+ws+'&agentId='+id);
+    wait('location.hash.startsWith("#/clis/pi/packages/config/pi-roles")');
     if (app === "mobile") {
       wait("!![...document.querySelectorAll('#cli-packages-view button')].find(b => b.textContent === 'Open desktop layout') && !document.querySelector('.cli-loading')");
       await new Promise(done => setTimeout(done, 700));

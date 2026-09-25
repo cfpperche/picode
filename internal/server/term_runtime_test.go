@@ -107,7 +107,7 @@ func TestTerminalRuntimeHTTPRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	term, err := st.CreateTerminal("Shell", root)
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "Shell", root)
 	if err != nil {
 		t.Fatal(err)
 	}

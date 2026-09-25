@@ -41,10 +41,9 @@ const paneClick = label => evaluate(`[...document.querySelectorAll(".cli-pane-ta
 // reached pi). Ask the wrapper; an earlier version read the first section and
 // silently answered "".
 const layerOf = () => evaluate('document.querySelector("#pi-settings-view [data-layer]")?.dataset.layer || ""');
-const globalHash = "#/clis/settings/pi";
-const contextHash = globalHash + "?agentId=" + encodeURIComponent(id);
-// The legacy forms redirect to the canonical route; the agent survives.
+const globalHash = "#/clis/pi/settings";
 const canonicalContext = "#/clis/pi/settings?agentId=" + encodeURIComponent(id);
+const contextHash = canonicalContext;
 // The fixture's machine layer is disposable: start every run from empty so a
 // leftover key from an earlier run cannot shadow the provenance assertions.
 writeFileSync((await api("/api/pi-settings")).global.path, "{}\n");
@@ -227,10 +226,6 @@ try {
     await capture(app + "-keyboard-reset");
     await api("/api/cli-keys", "PUT", { cli: "pi", action: firstAction.id, reset: true });
     results.push(app + ": a captured chord is saved, marks the row, and Reset all hands every key back");
-    // The old sub-tab route still lands here (a bookmark from 2026-09-12).
-    navigate("#/clis/pi/settings?agentId=" + encodeURIComponent(id) + "&tab=keys");
-    browser("wait", "--fn", 'location.hash.endsWith("/keyboard") && !!document.querySelector("#keys-filter")');
-    results.push(app + ": the keyboard map is its own pane, and the old sub-tab link lands on it");
 
     // The same screen for the CLIs whose maps PiCode writes through their own
     // files (P2b, P3): Omp's flat YAML and Codex's nested TOML render from the
@@ -373,7 +368,7 @@ try {
 
     // An agent in the route opens that agent's layer, and the switcher offers
     // exactly the layers this context has.
-    navigate((app === "desktop" ? "#/settings" : "#/more/settings") + "?agentId=" + encodeURIComponent(id));
+    navigate(canonicalContext);
     ready();
     assert.equal(evaluate("location.hash"), canonicalContext);
     assert.equal(layerOf(), "agent");
@@ -394,7 +389,7 @@ try {
     browser("wait", "--fn", '[...document.querySelector("#ag-set-thinking").options].some(o=>o.value==="medium")');
     browser("select", "#ag-set-thinking", "medium"); ready();
     assert.equal((await api("/api/pi-settings?agentId=" + encodeURIComponent(id))).agent.thinking, "medium");
-    results.push(app + ": legacy redirect, reload and correct agent write");
+    results.push(app + ": agent context route, reload and correct agent write");
     await api("/api/agents/" + encodeURIComponent(id), "PATCH", { thinking: "high" });
     browser("wait", "--fn", 'document.querySelector("#ag-set-thinking")?.value==="high"');
     results.push(app + ": external agent changes arrive through feed");
@@ -436,7 +431,7 @@ try {
     // (correctly) replace the whole detail with its outage notice, and this
     // row is about the settings editor, not the shell's error reporting.
     evaluate('window.qaFetch=window.fetch;window.fetch=(url,opts)=>/^\\/api\\/(clis|terminals|cli-jobs)(?:[/?]|$)/.test(String(url))?Promise.resolve(new Response(JSON.stringify({error:"QA: terminal manager unavailable"}),{status:503,headers:{"Content-Type":"application/json"}})):window.qaFetch(url,opts)');
-    navigate("#/clis/pi/launch");
+    navigate("#/clis/pi");
     browser("wait", "--fn", '!document.querySelector("#pi-settings-view")');
     navigate(globalHash); ready();
     // The settings editor is the acceptance: it renders and stays editable
@@ -484,7 +479,7 @@ try {
   results.push("unknown reset key refused");
   // Trust acceptance uses the real endpoint on this disposable workspace.
   await api("/api/agents/" + encodeURIComponent(id) + "/trust", "POST");
-  browser("open", new URL("/mobile/?theme=light" + contextHash + "&layer=project", base).href); ready();
+  browser("open", new URL("/mobile/?theme=light" + contextHash + "&scope=workspace", base).href); ready();
   browser("wait", "#w-steer");
   browser("select", "#w-steer", "all"); ready();
   assert.equal((await api("/api/pi-settings?agentId=" + encodeURIComponent(id))).project.steeringMode, "all");

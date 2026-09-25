@@ -739,3 +739,29 @@ func TestNativeCLIAttentionMatrix(t *testing.T) {
 		})
 	}
 }
+
+// Omp at a phone's width (a real 44-column capture, 2026-09-25): the
+// status bar keeps its " > " and the input row its "╰─", so the empty
+// editor is recognized; a draft or a missing status bar is not.
+func TestOmpComposerOnANarrowPane(t *testing.T) {
+	lines := make([]string, 40)
+	lines[28] = "\x1b[48;2;15;18;22m \x1b[38;2;107;114;128mpi\x1b[39m \x1b[38;2;42;48;56m>\x1b[39m \x1b[38;2;232;236;244m[D] …ode\x1b[39m \x1b[38;2;15;18;22m\x1b[49m>\x1b[38;2;0;180;255m-1.0%"
+	lines[29] = "\x1b[38;2;212;192;144m╰─ \x1b[39m"
+	s := tmux.InputSnapshot{Width: 44, CursorX: 3, CursorY: 29, Lines: lines}
+	if !peerInputMatches("omp", s, "") {
+		t.Fatal("Omp's empty editor at 44 columns refused")
+	}
+	draft := append([]string{}, lines...)
+	draft[29] = "╰─ half a thought"
+	if peerInputMatches("omp", tmux.InputSnapshot{Width: 44, CursorX: 3, CursorY: 29, Lines: draft}, "") {
+		t.Fatal("a draft was taken for an empty editor")
+	}
+	bare := append([]string{}, lines...)
+	bare[28] = "Tip: something"
+	if peerInputMatches("omp", tmux.InputSnapshot{Width: 44, CursorX: 3, CursorY: 29, Lines: bare}, "") {
+		t.Fatal("no status bar, yet accepted")
+	}
+	if peerInputMatches("omp", tmux.InputSnapshot{Width: 20, CursorX: 3, CursorY: 29, Lines: lines}, "") {
+		t.Fatal("a pane too narrow to trust was accepted")
+	}
+}

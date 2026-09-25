@@ -171,61 +171,6 @@ func TestWindowsTaskPolicyRoundTrip(t *testing.T) {
 	}
 }
 
-func TestWindowsTaskRetargetRoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	oldExe := filepath.Join(dir, "old-resident.exe")
-	newExe := filepath.Join(dir, "picode-shell.exe")
-	for _, exe := range []string{oldExe, newExe} {
-		if err := os.WriteFile(exe, []byte("not launched by this test"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	name := "PiCodeDesktop-test-" + rand.Text()
-	r := nativeTaskRunner{}
-	if _, err := taskOperation(r, "install", name, oldExe, ShellArgs); err != nil {
-		t.Fatal(err)
-	}
-	registerTaskCleanup(t, name)
-	before := taskPreservedFields(t, name)
-	after, err := retargetTask(r, name, newExe, ShellArgs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if after.Executable != newExe || after.Arguments != ShellArgs ||
-		len(after.PolicyIssues()) != 0 || after.Backup == "" {
-		t.Fatalf("retarget did not move the action cleanly: %+v", after)
-	}
-	t.Cleanup(func() { _ = os.Remove(after.Backup) })
-	// Principals, triggers and the enabled choice survive; only the action moves.
-	preserved := taskPreservedFields(t, name)
-	for _, k := range []string{"principals", "triggers", "enabled"} {
-		if preserved[k] != before[k] {
-			t.Fatalf("retarget changed %s:\nbefore %v\nafter %v", k, before, preserved)
-		}
-	}
-	if preserved["actions"] == before["actions"] {
-		t.Fatal("retarget left the action in place")
-	}
-	// The same target degrades to a no-op repair.
-	again, err := retargetTask(r, name, newExe, ShellArgs)
-	if err != nil || again.Backup != "" {
-		t.Fatalf("already-retargeted write: %+v, %v", again, err)
-	}
-	// A task running an unrelated command is refused without a write.
-	taskNativeScript(t, name, "$d = $folder.GetTask($name).Definition; $d.Actions.Item(1).Arguments = 'version'; "+
-		"$folder.RegisterTaskDefinition($name, $d, 4, $null, $null, 3, $null) | Out-Null")
-	preserved = taskPreservedFields(t, name)
-	if _, err := retargetTask(r, name, newExe, ShellArgs); err == nil {
-		t.Fatal("retarget took over an unrelated command")
-	}
-	if now := taskPreservedFields(t, name); !reflect.DeepEqual(preserved, now) {
-		t.Fatal("refused retarget changed the task")
-	}
-	if _, err := retargetTask(r, name+"-missing", newExe, ShellArgs); err == nil {
-		t.Fatal("retarget created a missing task")
-	}
-}
-
 func TestWindowsTaskLaunchRetryAndQuit(t *testing.T) {
 	if os.Getenv("PICODE_TEST_TASK_LIFECYCLE") != "1" {
 		t.Skip("manual native acceptance (over two minutes): docs/plans/desktop-task-reliability.md#validation")

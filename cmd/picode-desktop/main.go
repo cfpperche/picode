@@ -45,9 +45,6 @@ func main() {
 	fs := flag.NewFlagSet("picode-desktop", flag.ExitOnError)
 	distro := fs.String("distro", "", "WSL distribution (default: the only WSL 2 one, else the default)")
 	user := fs.String("user", "", "Linux account to provision (default: the distro's own; with install: also owns the picode binary)")
-	// Kept parsing so a pre-migration logon task fails with the retired
-	// message below instead of an unknown-flag dump.
-	tray := fs.Bool("tray", false, "retired with the Go tray (ADR-0142)")
 	asJSON := fs.Bool("json", false, "with `disk`: emit the measurement as JSON")
 	stream := fs.Bool("stream", false, "with `disk --json`: one line per scanned half, the report last")
 	yes := fs.Bool("yes", false, "with disk-compact: stop the distro and compact without asking again; with install: install the runtime on an adopted distro without asking")
@@ -60,7 +57,6 @@ func main() {
 	folder := fs.String("folder", "", `with move / backup: folder on that drive (default WSL\<distro>)`)
 	edits := fs.String("edits", "", `with wslconf-write: JSON list of {"section","key","value"}; an empty value removes the key`)
 	listOnly := fs.Bool("list", false, "with clean: measure and print the prunable caches")
-	retargetShell := fs.Bool("retarget-shell", false, "with startup-repair: move the task to the shell resident")
 	fs.Usage = usage
 	_ = fs.Parse(commandArgs())
 
@@ -99,7 +95,7 @@ func main() {
 	case cmd == "startup-check":
 		exit(runStartupCheck())
 	case cmd == "startup-repair":
-		exit(runStartupRepair(*retargetShell))
+		exit(runStartupRepair())
 	case cmd == "install":
 		installErr := runInstall(*distro, *user, *yes)
 		if installErr != nil {
@@ -124,9 +120,6 @@ func main() {
 	case cmd == "help":
 		usage()
 	default:
-		if *tray {
-			exit(runRetiredTray())
-		}
 		if cmd == "" {
 			usage()
 			os.Exit(2)
@@ -135,13 +128,6 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
-}
-
-// runRetiredTray is the kind failure mode for a logon task that still points
-// at the Go tray: loud, on stderr, with the repair named. The task retries a
-// failing launch three times and then stops — no retry storm.
-func runRetiredTray() error {
-	return fmt.Errorf("the Go tray retired (ADR-0142) — run `picode-desktop startup-repair --retarget-shell` to move startup to the shell")
 }
 
 // command is the first bare argument; flags may come before or after it.
@@ -186,7 +172,6 @@ Usage:
   picode-desktop system-clean    --apply system:apt,system:journal --yes (root-owned caches)
   picode-desktop startup-check   inspect Windows startup without starting WSL
   picode-desktop startup-repair  repair the existing task, without restarting anything
-    --retarget-shell  move the task to the shell resident (ADR-0142) as well
   picode-desktop install         set the machine up and start with Windows
   picode-desktop uninstall       stop starting with Windows (PiCode stays installed)
   picode-desktop update          replace the tool and the shell with a newer release

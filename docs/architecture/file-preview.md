@@ -58,8 +58,10 @@ keeps the cursor and the undo history.
 | View | `web/browser/src/lib/mdLive.js` | a `ViewPlugin` turns the plan into decorations on doc, viewport, selection, focus and tree changes; replacements never cross a line break; the task checkbox edits `[ ]`↔`[x]` as one undoable change; images resolve like the preview (repo SVG as a `data:` image) |
 | Links | `openLink` in `FilePane` | Ctrl/⌘+click: `#frag` moves the cursor to the heading with the preview's slug (`headingPos`), a relative path opens the file (`onOpenPath`), the web opens a new tab; a plain click only places the cursor |
 
-Tables, raw HTML, math and frontmatter stay as monospace source in Live;
-Preview renders them.
+| Tables | `web/browser/src/lib/mdLiveTables.js` + `tableField` in `mdLive.js` | a table spans lines and only a state field may replace across line breaks, so tables are a separate `StateField` (told about focus by `focusChangeEffect`): every table no selection touches is one block widget — header, alignment from the delimiter row, inline code/bold/italic/strike/links built as DOM nodes (never parsed HTML). A click puts the cursor in the cell it hit (positions re-read at click time), which turns the table back into source; Ctrl/⌘+click on a cell link follows it. Up/Down stop on a table's near row (`tableSkip`) instead of stepping over the widget. The widget is `contain: inline-size`, so a wide table scrolls inside itself and never widens the editor |
+
+Raw HTML, math and frontmatter stay as monospace source in Live; Preview
+renders them.
 
 Styles live in `web/shared/styles/markdown-doc.css`, loaded after each app's
 sheet and scoped under `.md-doc`, so the chat's `.md` message rhythm is

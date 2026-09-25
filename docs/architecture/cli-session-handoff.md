@@ -113,13 +113,16 @@ never goes through the portable timeline: `clisession.Forker` composes the
 vendor's own fork, and `GET /api/clis` advertises it as `sessions.fork`.
 
 Where the prompt door can read the CLI's screen (`doorReaderCLI`: Claude
-Code, Codex, Grok, OpenCode, as Pi and Muse Code below) the fork's launch
+Code, Codex, Grok, OpenCode, Omp, as Pi and Muse Code below) the fork's launch
 carries no task: `deliverForkTask` sends it once the TUI is at its prompt,
 verified, so the task keeps its line breaks and has no length limit, and a
 restart before the copy is pinned re-runs the recipe without sending the
 task twice (2026-09-25). Omp has no screen reader, and a blind paste into a
-TUI still opening could be lost, so its task stays one launch argument
-(`forkPrompt`: one line, at most 8192 characters).
+TUI still opening could be lost; since ADR-0217 its composer is read for
+unattended senders (`unattendedReaderCLI`), which the fork's delivery is,
+so Omp takes the door too (2026-09-25, live-tested at 100 and 44 columns:
+`TestLiveOmpForkTaskThroughTheDoor`). `forkPrompt` (one line, at most 8192
+characters) remains for a future flag-forking CLI the door cannot read.
 
 | CLI | Launch | Copy's id |
 |---|---|---|
@@ -127,7 +130,7 @@ TUI still opening could be lost, so its task stays one launch argument
 | Grok | `--resume <id> --fork-session --session-id <new>`; task through the prompt door | pre-assigned, pinned at once |
 | Codex | `fork <id>`; task through the prompt door | pinned on its first turn |
 | OpenCode | `--session <id> --fork`; task through the prompt door | pinned on its first turn |
-| Omp | `--fork <file\|id> <task>` (parsed, not in `--help`) | pinned on its first turn |
+| Omp | `--fork <file\|id>` (parsed, not in `--help`); task through the prompt door (ADR-0217 reader) | pinned on its first turn |
 | Pi | `pi --mode rpc --no-extensions --no-skills --no-prompt-templates --no-themes --fork <file> --session-id <id> --session-dir <new agent's folder>`, run once before the agent starts; the task goes through the prompt door | known before launch, owned as the agent's `SessionPath` |
 | Muse Code | `muse serve` → MSP `session/fork`, then `resume <new-id>`; the task goes through the prompt door once the TUI is ready | known before launch, pinned at once |
 
@@ -179,7 +182,8 @@ the fork follows in the background. The phone attached to the new agent's
 terminal narrows its pane (44 columns measured), so the prompt door's Pi
 reader (`peerPiInput`) accepts Pi's empty editor below 70 columns by its
 full-width rules and folder line, since pi cuts the footer's `%/` there;
-other CLIs keep the 70-column gate.
+Omp's frame (`╰─` under the ` > ` status bar) holds at that width too and is
+accepted from 30 columns; other CLIs keep the 70-column gate.
 
 Hermes and Antigravity fork only inside their TUI and advertise no fork yet
 (`docs/handoff/open/agent-fork.md`).

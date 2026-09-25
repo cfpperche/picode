@@ -90,7 +90,7 @@ try {
   assert.equal((await saved()).checklist, "always");
   click("Done");
   await settle();
-  browser("open", new URL("/mobile/#/more/settings", base).href);
+  browser("open", new URL("/mobile/#/clis/pi/settings?agentId=" + encodeURIComponent(id), base).href);
   browser("wait", "#ag-set-thinking");
   browser("select", "#ag-set-thinking", "medium");
   waitSaved();

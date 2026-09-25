@@ -255,11 +255,11 @@ func TestTerminalReportsCountTurns(t *testing.T) {
 	}
 	defer st.Close()
 	a, _ := st.AddAgentWithCLI(store.FreeWorkspaceID, "codex", "reviewer", "")
-	term, _ := st.CreateTerminal("reviewer", t.TempDir())
+	term, _ := st.CreateTerminalIn(store.FreeWorkspaceID, "reviewer", t.TempDir())
 	if _, err := st.UpdateAgent(a.ID, store.AgentPatch{TerminalID: &term.ID}); err != nil {
 		t.Fatal(err)
 	}
-	shell, _ := st.CreateTerminal("shell", t.TempDir())
+	shell, _ := st.CreateTerminalIn(store.FreeWorkspaceID, "shell", t.TempDir())
 	deps := Deps{Store: st, TermStates: &TermStates{}}
 	now := time.Now()
 	steps := []struct {
@@ -294,7 +294,7 @@ func TestNativeSessionReportsCountTurns(t *testing.T) {
 	}
 	defer st.Close()
 	a, _ := st.AddAgentWithCLI(store.FreeWorkspaceID, "codex", "reviewer", "")
-	term, _ := st.CreateTerminal("reviewer", t.TempDir())
+	term, _ := st.CreateTerminalIn(store.FreeWorkspaceID, "reviewer", t.TempDir())
 	if _, err := st.UpdateAgent(a.ID, store.AgentPatch{TerminalID: &term.ID}); err != nil {
 		t.Fatal(err)
 	}
@@ -350,11 +350,11 @@ func TestWorkspaceRemovalEndsItsAgentsWithExits(t *testing.T) {
 func TestTerminalRemovalEndsItsAgentWithAnExit(t *testing.T) {
 	ts, st := exitServer(t)
 	a, _ := st.AddAgentWithCLI(store.FreeWorkspaceID, "codex", "reviewer", "")
-	term, _ := st.CreateTerminal("reviewer", t.TempDir())
+	term, _ := st.CreateTerminalIn(store.FreeWorkspaceID, "reviewer", t.TempDir())
 	if _, err := st.UpdateAgent(a.ID, store.AgentPatch{TerminalID: &term.ID}); err != nil {
 		t.Fatal(err)
 	}
-	shell, _ := st.CreateTerminal("shell", t.TempDir())
+	shell, _ := st.CreateTerminalIn(store.FreeWorkspaceID, "shell", t.TempDir())
 	if bad := sendJSON(t, ts, http.MethodDelete, "/api/terminals/"+term.ID, map[string]any{"exit": map[string]any{"outcome": "nope"}}); bad.StatusCode != http.StatusBadRequest {
 		t.Fatalf("bad answer = %d", bad.StatusCode)
 	}

@@ -1,6 +1,7 @@
 package climodels
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -167,8 +168,17 @@ func TestGrokReadsItsOwnFileAndRunsNothing(t *testing.T) {
 	t.Setenv("GROK_HOME", root)
 	t.Setenv("PATH", t.TempDir()) // no grok binary to run
 	Forget("grok")
-	if _, err := Read(t.Context(), "grok", "", true); err == nil || !strings.Contains(err.Error(), "sign in and open Grok once") {
-		t.Fatalf("no file: err = %v", err)
+	// No list and no sign-in: the step is signing in.
+	var blocked *Blocked
+	if _, err := Read(t.Context(), "grok", "", true); !errors.As(err, &blocked) || blocked.Action != ActionSignIn {
+		t.Fatalf("no file, no sign-in: err = %v", err)
+	}
+	// Signed in but never started: the step is opening Grok once.
+	if err := os.WriteFile(filepath.Join(root, "auth.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Read(t.Context(), "grok", "", true); !errors.As(err, &blocked) || blocked.Action != ActionOpen || !strings.Contains(err.Error(), "open it once") {
+		t.Fatalf("no file, signed in: err = %v", err)
 	}
 	raw, err := os.ReadFile("testdata/grok-models-cache.json")
 	if err != nil {
@@ -263,7 +273,8 @@ func TestAgyRunsInAThrowawayHome(t *testing.T) {
 	home = func() string { return h }
 	t.Cleanup(func() { home = old })
 	Forget("agy")
-	if _, err := Read(t.Context(), "agy", "", true); err == nil || !strings.Contains(err.Error(), "not signed in") {
+	var blocked *Blocked
+	if _, err := Read(t.Context(), "agy", "", true); !errors.As(err, &blocked) || blocked.Action != ActionSignIn || !strings.Contains(err.Error(), "not signed in") {
 		t.Fatalf("no sign-in: err = %v", err)
 	}
 	token := agyTokenFile()

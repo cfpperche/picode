@@ -132,7 +132,9 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 	src := clisession.Ref{ID: ls.SessionID, Path: ls.Path, Cwd: ls.Cwd}
 	var fork clisession.Fork
 	task := ""
-	if flagFork && doorReaderCLI[cli.ID] {
+	// deliverForkTask is an unattended sender, so a CLI whose composer is
+	// read only for those (Omp, ADR-0217) qualifies too.
+	if flagFork && (doorReaderCLI[cli.ID] || unattendedReaderCLI[cli.ID]) {
 		// The prompt door reads this CLI's screen, pastes only at its
 		// prompt and confirms the text landed (ADR-0089). The fork recipe
 		// then carries no task: a restart before the copy is pinned reopens
@@ -142,8 +144,8 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 		fork.TaskAfterLaunch = true
 		task = buildPromptPaste(req.Prompt, paths)
 	} else if flagFork {
-		// No screen reader for this CLI (Omp): a blind paste into a TUI
-		// still opening could be lost, so the task stays a launch argument.
+		// No screen reader for this CLI: a blind paste into a TUI still
+		// opening could be lost, so the task stays a launch argument.
 		prompt, err := forkPrompt(req.Prompt, paths)
 		if err != nil {
 			return nil, http.StatusBadRequest, err

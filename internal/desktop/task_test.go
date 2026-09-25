@@ -17,7 +17,7 @@ func healthyTask() TaskStatus {
 		Schema: 1, Exists: true, Enabled: true, State: 3,
 		UserID: "S-1-5-21-123", CurrentUserID: "S-1-5-21-123",
 		Interactive: true, Limited: true, Logon: true,
-		Executable: `C:\Users\owner\PiCode\picode-desktop.exe`, Arguments: "--tray", ExecutableExists: true,
+		Executable: `C:\Users\owner\PiCode\picode-shell.exe`, Arguments: "--hidden", ExecutableExists: true,
 		ExecutionTimeLimit: "PT0S", MultipleInstances: 2, RestartCount: 3, RestartInterval: "PT1M",
 	}
 }
@@ -213,7 +213,7 @@ func TestTaskWritesMustVerifyTheReturnedPolicy(t *testing.T) {
 
 func TestInstallTaskRefusesANewTray(t *testing.T) {
 	r := &fakeRunner{}
-	if _, err := InstallTask(r, `C:\PiCode\picode-desktop.exe`, TrayArgs); err == nil {
+	if _, err := InstallTask(r, `C:\PiCode\picode-desktop.exe`, "--tray"); err == nil {
 		t.Fatal("install registered the retired tray")
 	} else if len(r.calls) != 0 {
 		t.Fatalf("refused install still called the runner %d time(s)", len(r.calls))
@@ -221,7 +221,7 @@ func TestInstallTaskRefusesANewTray(t *testing.T) {
 }
 
 func TestResidentKind(t *testing.T) {
-	for args, want := range map[string]string{"--tray": "tray", "--hidden": "shell", "": "", "install": "", "--Tray": ""} {
+	for args, want := range map[string]string{"--tray": "", "--hidden": "shell", "": "", "install": "", "--Hidden": ""} {
 		if got := ResidentKind(args); got != want {
 			t.Errorf("ResidentKind(%q) = %q, want %q", args, got, want)
 		}
@@ -259,84 +259,6 @@ func TestShellExePrefersSiblingThenInstallFolder(t *testing.T) {
 	}
 }
 
-func TestRetargetTaskDecisionTable(t *testing.T) {
-	shell := filepath.Join(t.TempDir(), ShellExeName)
-	if err := os.WriteFile(shell, []byte("shell"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	tray := filepath.Join(t.TempDir(), "picode-desktop.exe")
-	if err := os.WriteFile(tray, []byte("tray"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	healthyShell := func() TaskStatus {
-		s := healthyTask()
-		s.Executable, s.Arguments = shell, ShellArgs
-		return s
-	}
-	healthyTray := func() TaskStatus {
-		s := healthyTask()
-		s.Executable = tray
-		return s
-	}
-	tests := []struct {
-		name    string
-		exe     string
-		args    string
-		change  func(*TaskStatus)
-		after   func() TaskStatus
-		wantErr string
-		calls   int
-	}{
-		{"tray to shell", shell, ShellArgs, func(*TaskStatus) {}, healthyShell, "", 2},
-		{"already shell healthy", shell, ShellArgs, func(s *TaskStatus) {
-			s.Executable, s.Arguments = shell, ShellArgs
-		}, healthyShell, "", 1},
-		{"already shell legacy policy", shell, ShellArgs, func(s *TaskStatus) {
-			s.Executable, s.Arguments = shell, ShellArgs
-			s.ExecutionTimeLimit = "PT72H"
-		}, healthyShell, "", 2},
-		{"shell back to tray", tray, TrayArgs, func(s *TaskStatus) {
-			s.Executable, s.Arguments = shell, ShellArgs
-		}, healthyTray, "", 2},
-		{"missing task", shell, ShellArgs, func(s *TaskStatus) { s.Exists = false }, healthyShell, "retargeted safely", 1},
-		{"foreign principal", shell, ShellArgs, func(s *TaskStatus) { s.UserID = "someone-else" }, healthyShell, "retargeted safely", 1},
-		{"foreign action", shell, ShellArgs, func(s *TaskStatus) { s.Arguments = "version" }, healthyShell, "unrelated command", 1},
-		{"unknown target launch", shell, "version", func(*TaskStatus) {}, healthyShell, "resident launch", 0},
-		{"relative target", "picode-shell.exe", ShellArgs, func(*TaskStatus) {}, healthyShell, "absolute path", 0},
-		{"missing target file", filepath.Join(t.TempDir(), ShellExeName), ShellArgs, func(*TaskStatus) {}, healthyShell, "missing", 0},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			before := healthyTask()
-			tt.change(&before)
-			after := tt.after()
-			r := &fakeRunner{replies: [][]byte{taskJSON(t, before), taskJSON(t, after)}}
-			_, err := retargetTask(r, TaskName, tt.exe, tt.args)
-			if (err != nil) != (tt.wantErr != "") || (err != nil && !strings.Contains(err.Error(), tt.wantErr)) {
-				t.Fatalf("err = %v, want %q", err, tt.wantErr)
-			}
-			if len(r.calls) != tt.calls {
-				t.Fatalf("calls = %d, want %d", len(r.calls), tt.calls)
-			}
-		})
-	}
-}
-
-func TestRetargetWritesMustVerifyTheReturnedPolicy(t *testing.T) {
-	shell := filepath.Join(t.TempDir(), ShellExeName)
-	if err := os.WriteFile(shell, []byte("shell"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	// The reply still carries the legacy policy: the write must be refused.
-	after := healthyTask()
-	after.Executable, after.Arguments = shell, ShellArgs
-	after.ExecutionTimeLimit = "PT72H"
-	r := &fakeRunner{replies: [][]byte{taskJSON(t, healthyTask()), taskJSON(t, after)}}
-	if _, err := retargetTask(r, TaskName, shell, ShellArgs); err == nil || !strings.Contains(err.Error(), "verification failed") {
-		t.Fatalf("unverified retarget accepted: %v", err)
-	}
-}
-
 func decodeTaskCall(t *testing.T, argv []string) string {
 	t.Helper()
 	if len(argv) != 4 || argv[0] != "-NoProfile" || argv[1] != "-NonInteractive" || argv[2] != "-EncodedCommand" {
@@ -351,26 +273,6 @@ func decodeTaskCall(t *testing.T, argv []string) string {
 		units[i] = binary.LittleEndian.Uint16(b[i*2:])
 	}
 	return string(utf16.Decode(units))
-}
-
-func TestRetargetArgsCarryTargetAndGuards(t *testing.T) {
-	exe := `C:\Users\owner\PiCode\picode-shell.exe`
-	script := decodeTaskCall(t, taskArgs("retarget", TaskName, exe, ShellArgs))
-	if !strings.HasSuffix(script, "-Operation 'retarget' -Name 'PiCodeDesktop' -ExecutablePath 'C:\\Users\\owner\\PiCode\\picode-shell.exe' -Arguments '--hidden'") {
-		t.Fatalf("retarget call was not complete: %s", script[len(taskScript):])
-	}
-	for _, guard := range []string{
-		"$Arguments -notin @('--tray', '--hidden')",
-		"'The resident launch must be --tray or --hidden.'",
-		"$definition.Actions.Item(1).Path = $ExecutablePath",
-		"$definition.Actions.Item(1).Arguments = $Arguments",
-		"if ($Operation -ne 'install') { $flags = 4 }",
-		"'Startup task runs an unrelated command; inspect it before reinstalling.'",
-	} {
-		if !strings.Contains(script, guard) {
-			t.Errorf("retarget is missing %s", guard)
-		}
-	}
 }
 
 func TestTaskStateNames(t *testing.T) {

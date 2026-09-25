@@ -10,7 +10,7 @@ tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split wit
 
 ## Next
 
-- Live: render tables (a widget off the cursor), math and Mermaid in place; they stay monospace source today.
+- Live: render math and Mermaid in place (tables render since `feat/md-live-tables`); they stay monospace source today.
 - Live and Split on the phone (mobile keeps Preview and Edit).
 
 ## Debts

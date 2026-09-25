@@ -93,6 +93,22 @@ type Report struct {
 	CachedAt string `json:"askedAt,omitempty"`
 }
 
+// Blocked is a read the owner can unblock with one step in PiCode, named by
+// Action so the pane offers that step beside the words instead of a dead end:
+// ActionSignIn (the CLI's sign-in) or ActionOpen (start the CLI once, for one
+// that writes its list on start). Any other failure is worth a retry.
+type Blocked struct {
+	Msg    string
+	Action string
+}
+
+func (b *Blocked) Error() string { return b.Msg }
+
+const (
+	ActionSignIn = "signin"
+	ActionOpen   = "open"
+)
+
 // reader is one CLI's catalog command: how to ask it, and which files decide
 // its answer (the cache keeps an answer while none of them moved). command is
 // the binary to run — the reader's own name unless a caller configured another

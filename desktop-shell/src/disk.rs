@@ -214,16 +214,7 @@ pub(crate) fn read_stream<R: BufRead>(
 #[tauri::command(async)]
 pub fn disk_report(app: tauri::AppHandle, run: Option<String>) -> Result<serde_json::Value, String> {
     let run = run.unwrap_or_default();
-    match stream_cli(&app, "scan", &run, &["disk", "--json", "--stream"]) {
-        // An older picode-desktop.exe (the %LOCALAPPDATA% fallback) predates
-        // --stream: read the report whole rather than failing the window.
-        Err(e) if e.contains("-stream") => {
-            let text = run_cli(&["disk", "--json"])?;
-            serde_json::from_str(text[text.find('{').ok_or(e)?..].trim_end())
-                .map_err(|e| format!("disk report JSON: {e}"))
-        }
-        other => other,
-    }
+    stream_cli(&app, "scan", &run, &["disk", "--json", "--stream"])
 }
 
 /// The compact flow, gates included: readiness interlock, stop, convert,

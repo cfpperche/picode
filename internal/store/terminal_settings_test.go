@@ -76,7 +76,7 @@ func TestTerminalSettingsUnparsableRowReadsAsUnset(t *testing.T) {
 
 func TestDeletingATerminalTakesItsOverridesWithIt(t *testing.T) {
 	s := settingsStore(t)
-	term, err := s.CreateTerminal("Shell", t.TempDir())
+	term, err := s.CreateTerminalIn(FreeWorkspaceID, "Shell", t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}

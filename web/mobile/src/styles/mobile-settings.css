@@ -43,6 +43,13 @@
 #m-app .m-more-page .folder-field-wrap .btn { flex: 1 1 0; justify-content: center; }
 #m-app .m-more-page :is(.reach-ctl, .pkg-by-source) > input { flex: 1; min-width: 0; margin: 0; }
 #m-app .m-more-page .pkg-by-source .btn { flex: none; height: var(--ctl-h); }
+/* Install by source: the source takes the whole row and Install sits under
+   it. Beside the button the field had 294px at 390 and each CLI's example
+   ("npm module, git URL, or name@marketplace") needs ~343 at 16px, so the
+   placeholder was cut (2026-09-25). Same shape as Backup's folder field. */
+#m-app .m-more-page .pkg-by-source { flex-wrap: wrap; }
+#m-app .m-more-page .pkg-by-source > input { flex: 1 1 100%; }
+#m-app .m-more-page .pkg-by-source .btn { flex: 1 1 100%; justify-content: center; }
 #m-app .m-more-page .key-pane { --kbd-h: 28px; }
 /* The phone shell scrolls its own page (not `#agent-clis-view`), and the pane
    is a short hop from the top there: the bar stays in flow rather than guessing

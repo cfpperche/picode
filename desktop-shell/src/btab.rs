@@ -505,7 +505,7 @@ pub async fn btab_meta(
 // an agent's tier; the catalog in picode_shell::cdppolicy re-checks every
 // method before delivery, and refuses anything it does not name.
 //
-// The call shape is `invoke("btab_cdp_call", { id, method, paramsJson, tier })`
+// The call shape is `invoke("btab_cdp_call", { id, method, paramsJson, tier, domains })`
 // and `invoke("btab_cdp_events", { id, since })`.
 #[tauri::command]
 pub async fn btab_cdp_call(
@@ -514,7 +514,7 @@ pub async fn btab_cdp_call(
     method: String,
     params_json: Option<String>,
     tier: String,
-    domains: Option<Vec<String>>,
+    domains: Vec<String>,
     raw: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
@@ -547,11 +547,10 @@ pub async fn btab_cdp_call(
     }
     let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
     // Arm the navigation gate: an act-capable tier carries the agent's
-    // domain table (absent on legacy envelopes — leave the map alone).
+    // domain table (the page always sends one; the optional form for older
+    // envelopes was retired 2026-09-25).
     if matches!(tier, cdppolicy::Tier::Act | cdppolicy::Tier::Full) {
-        if let Some(domains) = domains {
-            grants().lock().unwrap().insert(id.clone(), domains);
-        }
+        grants().lock().unwrap().insert(id.clone(), domains);
     }
     let (tx, rx) = mpsc::channel::<Result<String, String>>();
     let failed = tx.clone();

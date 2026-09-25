@@ -441,3 +441,14 @@ func TestCLIModelsAPIAsksTheConfiguredPi(t *testing.T) {
 		t.Fatalf("thinking = %v / %v", levels(0), levels(1))
 	}
 }
+
+// A read PiCode can unblock names the step, so the picker offers it beside
+// the words: Grok with no list and no sign-in asks for a sign-in.
+func TestCLIModelsAPINamesTheStepThatUnblocksIt(t *testing.T) {
+	t.Setenv("GROK_HOME", t.TempDir())
+	ts := newTestServer(t, "cat")
+	status, body := getJSONBody(t, ts, ts.URL+"/api/cli-models?cli=grok&fresh=1")
+	if status != http.StatusBadGateway || body["action"] != "signin" || !strings.Contains(body["error"].(string), "not signed in") {
+		t.Fatalf("status %d, body %v", status, body)
+	}
+}

@@ -200,7 +200,7 @@ func promptHarness(t *testing.T) (*store.Store, *httptest.Server, store.Terminal
 		Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
 	}).Handler)
 	t.Cleanup(ts.Close)
-	term, err := st.CreateTerminal("cli", cwd)
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "cli", cwd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestTerminalPromptDecisionTable(t *testing.T) {
 
 	t.Run("plain shell refused", func(t *testing.T) {
 		st, ts, _ := promptHarness(t)
-		shell, err := st.CreateTerminal("sh", t.TempDir())
+		shell, err := st.CreateTerminalIn(store.FreeWorkspaceID, "sh", t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -290,7 +290,7 @@ func TestTerminalPromptDecisionTable(t *testing.T) {
 
 	t.Run("plain shell prompt refused", func(t *testing.T) {
 		st, ts, _ := promptHarness(t)
-		shell, err := st.CreateTerminal("sh", t.TempDir())
+		shell, err := st.CreateTerminalIn(store.FreeWorkspaceID, "sh", t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}

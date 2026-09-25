@@ -91,17 +91,15 @@ try {
     ab("set", "viewport", app === "mobile" ? "390" : "1365", app === "mobile" ? "844" : "1000");
     wait('!!document.querySelector("#m-app, #app")');
     await pause(1000); intercept();
-    for (const hash of ["#/providers", "#/more/providers", "#/clis/providers"]) {
-      nav(hash); wait(`location.hash===${JSON.stringify(list)}`); ready();
-    }
+    nav(list); wait(`location.hash===${JSON.stringify(list)}`); ready();
     await capture(app + "-roster");
-    for (const hash of ["#/providers/new", "#/more/providers/new", list + "/new"]) {
+    for (const hash of [list + "/new"]) {
       nav(hash); wait(`location.hash===${JSON.stringify(list + "/new")} && !!document.querySelector('[role=dialog]')`);
       ab("press", "Escape"); wait(`location.hash===${JSON.stringify(list)} && !document.querySelector('[role=dialog]')`);
     }
     nav(list + "/new"); wait('!!document.querySelector("[role=dialog]")'); nav(list); wait('!document.querySelector("[role=dialog]")');
-    results.push(app + ": legacy/list/new redirects and add close");
-    for (const [name, hash] of [["unsupported", "#/clis/providers/codex"], ["malformed", "#/clis/providers/%ZZ"], ["invalid", list + "/extra"], ["scoped", list + "?agentId=" + agent.id]]) {
+    results.push(app + ": list/new and add close");
+    for (const [name, hash] of [["unsupported", "#/clis/unknown-cli/providers"], ["malformed", "#/clis/%ZZ/providers"], ["invalid", list + "/extra"], ["scoped", list + "?agentId=" + agent.id]]) {
       ev("qa.calls=[]"); nav(hash);
       wait('!!document.querySelector("#cli-providers-view .cli-notice")');
       assert.equal(ev('!!document.querySelector("#providers-view")'), false);
@@ -154,7 +152,7 @@ try {
       assert.equal(new URL(request.body.returnTo).pathname, "/" + app + "/"); assert.equal(new URL(request.body.returnTo).hash, list);
       if (mode === "error") { wait('document.querySelector("[role=dialog] .form-error")?.textContent.includes("Fixture login failed")'); await capture(app + "-oauth-error"); ab("press", "Escape"); }
       if (mode === "success") { wait(`location.hash===${JSON.stringify(list)} && !document.querySelector('[role=dialog]')`); }
-      if (mode === "delay") { wait('!!qa.oauthResolve'); nav("#/clis/settings/pi"); wait('!document.querySelector("#providers-view")'); ev("qa.oauthResolve()"); await pause(1200); assert.equal(ev("location.hash"), "#/clis/settings/pi"); }
+      if (mode === "delay") { wait('!!qa.oauthResolve'); nav("#/clis/pi/settings"); wait('!document.querySelector("#providers-view")'); ev("qa.oauthResolve()"); await pause(1200); assert.equal(ev("location.hash"), "#/clis/pi/settings"); }
     }
     results.push(app + ": OAuth app path, success/failure and ignored late completion after navigation");
     if (app === "desktop") {
@@ -169,7 +167,7 @@ try {
       ev(`document.documentElement.dataset.theme=${JSON.stringify("light")};document.documentElement.style.colorScheme="light"`);
       nav(list); ready(); await capture(app + "-width-" + width);
       const geometry = ev('(()=>{const r=document.querySelector(".cli-page .settings-card").getBoundingClientRect();return {x:r.x,width:r.width,y:r.y}})()');
-      for (const hash of ["#/clis/settings/pi", "#/clis/packages/pi", list]) {
+      for (const hash of ["#/clis/pi/settings", "#/clis/pi/packages", list]) {
         nav(hash); wait('!!document.querySelector(".cli-page .cli-tabs")'); await pause(300);
         const current = ev('(()=>{const r=document.querySelector(".cli-page .settings-card").getBoundingClientRect();return {x:r.x,width:r.width,y:r.y}})()');
         assert.deepEqual(current, geometry, app + " " + width + " tab geometry");

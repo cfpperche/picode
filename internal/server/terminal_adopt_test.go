@@ -48,7 +48,7 @@ func TestAdoptTerminalMakesAnAgent(t *testing.T) {
 
 	// A free shell: a free agent working where the shell is.
 	dir := t.TempDir()
-	free, _ := st.CreateTerminal("codex here", dir)
+	free, _ := st.CreateTerminalIn(store.FreeWorkspaceID, "codex here", dir)
 	running(free, "codex")
 	f := cliRequest(t, ts, "POST", "/api/terminals/"+free.ID+"/adopt", map[string]any{}, 201)
 	if f["workspaceId"] != store.FreeWorkspaceID || f["workPath"] != dir {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -17,7 +16,7 @@ import (
 func startupReady() desktop.TaskStatus {
 	return desktop.TaskStatus{Schema: 1, Exists: true, Enabled: true, State: 3,
 		UserID: "owner", CurrentUserID: "owner", Interactive: true, Limited: true, Logon: true,
-		Executable: `C:\PiCode\picode-desktop.exe`, Arguments: "--tray", ExecutableExists: true,
+		Executable: `C:\PiCode\picode-shell.exe`, Arguments: "--hidden", ExecutableExists: true,
 		ExecutionTimeLimit: "PT0S", MultipleInstances: 2, RestartCount: 3, RestartInterval: "PT1M"}
 }
 
@@ -85,7 +84,7 @@ func TestStartupRepairElevation(t *testing.T) {
 			r := &startupRunner{reports: [][]byte{before, []byte(tt.failure)}}
 			var out bytes.Buffer
 			calls := 0
-			err := repairStartup(r, func() (bool, error) { calls++; return tt.relaunched, tt.elevationErr }, &out, false)
+			err := repairStartup(r, func() (bool, error) { calls++; return tt.relaunched, tt.elevationErr }, &out)
 			if (err != nil) != tt.wantErr || calls != tt.wantCalls {
 				t.Fatalf("err = %v, elevation calls = %d", err, calls)
 			}
@@ -93,39 +92,6 @@ func TestStartupRepairElevation(t *testing.T) {
 				t.Fatal("elevation handoff/error claimed repair success")
 			}
 		})
-	}
-}
-
-func TestStartupRepairRetarget(t *testing.T) {
-	data := t.TempDir()
-	shell := filepath.Join(data, "PiCode", "picode-shell.exe")
-	if err := os.MkdirAll(filepath.Dir(shell), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(shell, []byte("shell"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("LOCALAPPDATA", data)
-	before, _ := json.Marshal(startupReady())
-	after := startupReady()
-	after.Executable, after.Arguments = shell, "--hidden"
-	after.Backup = `C:\Users\owner\PiCode\task-backups\before.xml`
-	afterJSON, _ := json.Marshal(after)
-	r := &startupRunner{reports: [][]byte{before, afterJSON}}
-	var out bytes.Buffer
-	if err := repairStartup(r, func() (bool, error) { return false, nil }, &out, true); err != nil {
-		t.Fatalf("retarget = %v", err)
-	}
-	if r.calls != 2 || !strings.Contains(out.String(), "retargeted to the shell resident") {
-		t.Fatalf("calls = %d, output = %q", r.calls, out.String())
-	}
-	// Without the shell on disk there is nothing to point the task at.
-	t.Setenv("LOCALAPPDATA", t.TempDir())
-	r = &startupRunner{reports: [][]byte{before}}
-	if err := repairStartup(r, func() (bool, error) { return false, nil }, &out, true); err == nil {
-		t.Fatal("retarget without a shell succeeded")
-	} else if r.calls != 0 {
-		t.Fatalf("missing shell still called the runner %d time(s)", r.calls)
 	}
 }
 

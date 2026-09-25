@@ -23,7 +23,7 @@ let session = "settings-recovery-" + process.pid;
 const browser = (...args) => execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }).trim();
 const ev = code => JSON.parse(browser("eval", code));
 const wait = condition => browser("wait", "--fn", condition);
-const globalHash = "#/clis/settings/pi";
+const globalHash = "#/clis/pi/settings";
 const contextHash = globalHash + "?agentId=" + encodeURIComponent(id);
 // The pane is ready when its layer body is painted (the keyboard map is a
 // sibling pane, not a sub-tab — 2026-09-12).

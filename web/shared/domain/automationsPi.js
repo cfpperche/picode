@@ -1,7 +1,7 @@
 // Which automations still need Pi on this machine (ADR-0179). A `start`
 // run creates a Pi agent; a `message` run needs Pi only when its target is
 // a Pi agent — a guest agent is reached through its launch terminal. An
-// unknown target counts as Pi, which is what a legacy row without `cli` is.
+// unknown target counts as Pi.
 
 export function piInstalled(clis) {
   const pi = (clis || []).find((c) => c && c.id === "pi");

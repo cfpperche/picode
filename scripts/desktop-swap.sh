@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Swap the Windows tool + native-host + shell exes and relaunch the resident
-# through its logon task (ADR-0142: the task's target is the resident — the
-# Go tray before the migration, the shell after).
+# through its logon task (ADR-0142: the task's target is the shell resident;
+# the Go tray it replaced was retired from this script 2026-09-25).
 #
 # The rule this script exists to enforce (2026-09-02 incident): NEVER
 # launch a resident exe in the background from a WSL shell (`exe … &`).
@@ -47,24 +47,22 @@ fi
 win_user=$(/mnt/c/Windows/System32/cmd.exe /c "echo %USERNAME%" | tr -d '\r\n')
 dest="/mnt/c/Users/${win_user}/AppData/Local/PiCode"
 [[ -d "$dest" ]] || { echo "desktop-swap: $dest not found (is PiCode Desktop installed?)" >&2; exit 1; }
-win_dest="C:\\Users\\${win_user}\\AppData\\Local\\PiCode"
 
 shell_running=false
 if /mnt/c/Windows/System32/tasklist.exe /FI "IMAGENAME eq picode-shell.exe" 2>/dev/null | grep -q picode-shell.exe; then
   shell_running=true
 fi
 
-# Who the task starts is who comes back: the tray before the migration, the
-# shell after. A task that cannot be read is a pre-migration machine.
-resident="tray"
-if task_xml=$(/mnt/c/Windows/System32/schtasks.exe /query /tn PiCodeDesktop /xml 2>/dev/null); then
-  if grep -q "picode-shell.exe" <<<"$task_xml"; then
-    resident="shell"
-  fi
-else
-  echo "desktop-swap: cannot read the PiCodeDesktop task — assuming the tray is the resident" >&2
+# The task must start the shell: that is who comes back after the swap.
+if ! task_xml=$(/mnt/c/Windows/System32/schtasks.exe /query /tn PiCodeDesktop /xml 2>/dev/null); then
+  echo "desktop-swap: cannot read the PiCodeDesktop task — run 'picode-desktop install' on Windows first" >&2
+  exit 1
 fi
-echo "Resident: $resident (the PiCodeDesktop task's target)"
+if ! grep -q "picode-shell.exe" <<<"$task_xml"; then
+  echo "desktop-swap: the PiCodeDesktop task does not start picode-shell.exe — run 'picode-desktop install' on Windows" >&2
+  exit 1
+fi
+echo "Resident: shell (the PiCodeDesktop task's target)"
 
 # The distro keepalive (ADR-0154): the scheduled task holds the distro open
 # independent of the resident, so the taskkill below cannot strand it into
@@ -140,32 +138,11 @@ else
 fi
 sleep 3
 
-if [[ $resident == "shell" ]]; then
-  want="picode-shell.exe"; came_up="Shell is running."
-  missing="desktop-swap: the shell did not come up — check the Windows task 'PiCodeDesktop'"
+if /mnt/c/Windows/System32/tasklist.exe /FI "IMAGENAME eq picode-shell.exe" 2>/dev/null | grep -q picode-shell.exe; then
+  echo "Shell is running."
 else
-  want="picode-desktop.exe"; came_up="Tray is running."
-  missing="desktop-swap: the tray did not come up — check the Windows task 'PiCodeDesktop'"
-fi
-if /mnt/c/Windows/System32/tasklist.exe /FI "IMAGENAME eq $want" 2>/dev/null | grep -q "$want"; then
-  echo "$came_up"
-else
-  echo "$missing" >&2
+  echo "desktop-swap: the shell did not come up — check the Windows task 'PiCodeDesktop'" >&2
   exit 1
-fi
-
-if [[ $shell_running == true && $resident != "shell" ]]; then
-  # Pre-migration coexistence: the task brought the tray back; the shell
-  # that was running comes back through a detached start.
-  echo "Relaunching the shell…"
-  (cd /mnt/c/Windows/Temp && run /mnt/c/Windows/System32/cmd.exe /c start "" "${win_dest}\\picode-shell.exe")
-  sleep 3
-  if /mnt/c/Windows/System32/tasklist.exe /FI "IMAGENAME eq picode-shell.exe" 2>/dev/null | grep -q picode-shell.exe; then
-    echo "Shell is running."
-  else
-    echo "desktop-swap: the shell did not come back — start it from the tray" >&2
-    exit 1
-  fi
 fi
 # The verdict the caller can trust — the 2026-09-21 incident ended a turn
 # with mutation jobs "still running" that nobody ever checked. Bounded, and

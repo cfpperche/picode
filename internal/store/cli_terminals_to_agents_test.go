@@ -127,7 +127,7 @@ func TestSigninTerminalKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plain, err := s.CreateTerminal("zsh", t.TempDir())
+	plain, err := s.CreateTerminalIn(FreeWorkspaceID, "zsh", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestMigrateSigninKind(t *testing.T) {
 	s := openTest(t)
 	mk := func(name string) Terminal {
 		t.Helper()
-		tm, err := s.CreateTerminal(name, t.TempDir())
+		tm, err := s.CreateTerminalIn(FreeWorkspaceID, name, t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}

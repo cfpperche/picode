@@ -119,8 +119,8 @@ type SessionReceipt struct {
 	AgentID string
 	// Instance is the data directory of the PiCode that created the session
 	// (MarkerInstanceEnv, ADR-0140); URL is that instance's loopback address
-	// (MarkerURLEnv), present since long before the instance stamp and the
-	// fallback identity for the sessions older than it.
+	// (MarkerURLEnv), shown to name the other instance (the port fallback for
+	// unstamped sessions was retired 2026-09-25).
 	Instance string
 	URL      string
 }

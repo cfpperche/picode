@@ -156,7 +156,7 @@ func TestPolicySaveTerminalWireRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	term, err := st.CreateTerminal("cli", t.TempDir())
+	term, err := st.CreateTerminalIn(store.FreeWorkspaceID, "cli", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
