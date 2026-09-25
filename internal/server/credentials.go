@@ -384,6 +384,11 @@ func providerViews(spec clicreds.Spec, sources []rosterSource) []providerView {
 			// the file agree again (no write to the CLI's own file happens
 			// here — that is Use, ADR-0166).
 			credentials.Default().Harvest(s.ID, login.Cred)
+			// A nameless login's row is the file (a new sign-in, a rotated
+			// refresh token): Harvest cannot match those, Mirror does.
+			if !isPi && !credentials.Exact(login.Cred, login.Identity) {
+				credentials.Default().Mirror(s.ID, login.Cred)
+			}
 		}
 		rows := accountsFor(s.ID)
 		liveID := ""

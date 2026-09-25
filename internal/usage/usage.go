@@ -56,6 +56,16 @@ type Client struct {
 	HTTP      *http.Client
 	Now       func() time.Time
 	Endpoints map[string]string
+	// Sync, when set, brings a provider's vault rows up to date with the
+	// logins CLIs hold themselves before a fetch reads them (the server's
+	// mirror of nameless CLI logins). Nil does nothing.
+	Sync func(provider string)
+	// HeldBy, when set, names the CLI whose own live login holds this
+	// refresh token ("" = none). Such a token is never refreshed here: a
+	// vendor that rotates refresh tokens would hand the renewal to PiCode
+	// and leave the CLI signed out (one rotating refresh token, one
+	// consumer). The CLI renews it on its next use and Sync copies it back.
+	HeldBy func(provider, refresh string) string
 }
 
 // Default is the production client (real vendor URLs).
@@ -173,6 +183,9 @@ func (c *Client) fetchAccount(ctx context.Context, provider, accountID string) R
 	if id == "" {
 		return rep
 	}
+	if c.Sync != nil {
+		c.Sync(id)
+	}
 	authType, label, key, cred, okKey, okOAuth := c.resolveCred(id, accountID)
 	rep.AuthType = authType
 	rep.AccountLabel = label
@@ -199,7 +212,16 @@ func (c *Client) fetchAccount(ctx context.Context, provider, accountID string) R
 		rep.Error = "Sign in again."
 		return rep
 	}
+	held := ""
+	if c.HeldBy != nil && cred.Refresh != "" {
+		held = c.HeldBy(id, cred.Refresh)
+	}
 	if cred.Expires > 0 && c.now().UnixMilli() >= cred.Expires {
+		if held != "" {
+			rep.Status = StatusError
+			rep.Error = "Waiting for " + held + " to renew this login; it does on its next use."
+			return rep
+		}
 		next, err := c.refresh(ctx, id, cred, accountID)
 		if err != nil {
 			rep.Status = StatusAuthRequired
@@ -209,6 +231,13 @@ func (c *Client) fetchAccount(ctx context.Context, provider, accountID string) R
 		cred = next
 	}
 	out, retry := c.fetchOnce(ctx, id, cred, label)
+	if retry && held != "" {
+		out.Status = StatusError
+		out.Error = "Waiting for " + held + " to renew this login; it does on its next use."
+		out.Windows = []Window{}
+		out.Resets = nil
+		return out
+	}
 	if retry {
 		next, err := c.refresh(ctx, id, cred, accountID)
 		if err != nil {

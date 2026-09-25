@@ -217,6 +217,53 @@ func TestFetchDecisionTable(t *testing.T) {
 		client.Endpoints["anthropic.usage"] = ts.URL + "/anthropic/usage"
 	})
 
+	// A refresh token a CLI holds live is the CLI's to spend: expired or
+	// rejected, the fetch waits for the CLI instead of rotating it away.
+	t.Run("held by a CLI: never refreshed", func(t *testing.T) {
+		client.HeldBy = func(provider, refresh string) string {
+			if provider == "anthropic" && refresh == "r-held" {
+				return "Claude Code"
+			}
+			return ""
+		}
+		synced := 0
+		client.Sync = func(string) { synced++ }
+		defer func() { client.HeldBy, client.Sync = nil, nil }()
+		before := tokenHits
+		if err := catalog.PutOAuth("anthropic", map[string]any{
+			"type": "oauth", "access": "old", "refresh": "r-held", "expires": float64(1),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		rep := client.Fetch(ctx, "anthropic")
+		if rep.Status != StatusError || !strings.Contains(rep.Error, "Claude Code") || tokenHits != before {
+			t.Fatalf("expired held: %+v, token hits %d", rep, tokenHits-before)
+		}
+		if err := catalog.PutOAuth("anthropic", map[string]any{
+			"type": "oauth", "access": "stale", "refresh": "r-held",
+			"expires": float64(time.Now().Add(time.Hour).UnixMilli()),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		rep = client.Fetch(ctx, "anthropic")
+		if rep.Status != StatusError || tokenHits != before {
+			t.Fatalf("rejected held: %+v, token hits %d", rep, tokenHits-before)
+		}
+		if synced != 2 {
+			t.Fatalf("Sync ran %d times, want once per fetch", synced)
+		}
+		// Not held: the same rejection refreshes as before.
+		if err := catalog.PutOAuth("anthropic", map[string]any{
+			"type": "oauth", "access": "stale", "refresh": "r-mine",
+			"expires": float64(time.Now().Add(time.Hour).UnixMilli()),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if rep := client.Fetch(ctx, "anthropic"); tokenHits != before+1 || rep.Status != StatusOK {
+			t.Fatalf("not held: %+v, token hits %d", rep, tokenHits-before)
+		}
+	})
+
 	t.Run("xai oauth", func(t *testing.T) {
 		if err := catalog.PutOAuth("xai", map[string]any{
 			"type": "oauth", "access": "g1", "refresh": "gr",

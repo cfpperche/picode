@@ -647,6 +647,63 @@ func (s *Store) Harvest(provider string, live json.RawMessage) bool {
 	return err == nil && renewed
 }
 
+// Mirror copies a CLI's live login into the row it is, for the logins whose
+// bytes name no account (Claude Code's subscription: Exact is false, one row
+// per provider, and the pane says so). Harvest matches by refresh token and
+// so misses exactly the two things that happen to such a login: a new
+// sign-in inside the CLI, and the vendor rotating the refresh token on
+// renewal. For a nameless login the row and the file are the same login by
+// construction, so the file — the one the CLI actually uses — wins. Read-only
+// toward the CLI's file (writing there is Use, ADR-0166); never creates a
+// row. Returns whether the row changed.
+func (s *Store) Mirror(provider string, live json.RawMessage) bool {
+	var in struct {
+		Type    string `json:"type"`
+		Access  string `json:"access"`
+		Refresh string `json:"refresh"`
+		Expires int64  `json:"expires"`
+	}
+	if json.Unmarshal(live, &in) != nil || in.Type != "oauth" || !unkeyed(live) {
+		return false
+	}
+	if strings.TrimSpace(in.Access) == "" {
+		return false
+	}
+	fp := Key(live, "")
+	changed := false
+	err := s.Update(func(f *File) error {
+		slot, ok := f.Providers[provider]
+		if !ok {
+			return nil
+		}
+		for i, r := range slot.Accounts {
+			if r.FP != fp || r.Identity != "" {
+				continue
+			}
+			var saved struct {
+				Access  string `json:"access"`
+				Refresh string `json:"refresh"`
+				Expires int64  `json:"expires"`
+			}
+			if json.Unmarshal(r.Cred, &saved) == nil && saved.Access == in.Access && saved.Refresh == in.Refresh && saved.Expires == in.Expires {
+				return nil
+			}
+			merged, err := mergeOAuth(r.Cred, in.Access, in.Refresh, in.Expires)
+			if err != nil {
+				return err
+			}
+			slot.Accounts[i].Cred = merged
+			slot.Accounts[i].Type = Type(merged)
+			slot.Accounts[i].Hint = Hint(merged)
+			f.Providers[provider] = slot
+			changed = true
+			return nil
+		}
+		return nil
+	})
+	return err == nil && changed
+}
+
 func mergeOAuth(raw json.RawMessage, access, refresh string, expires int64) (json.RawMessage, error) {
 	obj := map[string]any{}
 	if len(raw) > 0 {
