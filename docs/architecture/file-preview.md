@@ -26,7 +26,7 @@ A `.md` file renders like GitHub renders it, in both apps, through
 
 ### Split (source | preview)
 
-For a markdown file the pane offers **Preview · Split · Raw**. Split puts the
+For a markdown file the pane offers **Preview · Live · Split · Raw**. Split puts the
 CodeMirror source beside the rendered document (after VS Code's side-by-side
 preview) and is offered only while the pane body is ≥880px wide; a remembered
 Split on a narrower pane reads as Preview until it widens. The last choice for
@@ -41,6 +41,25 @@ markdown is kept in `localStorage` (`picode-md-view`), per browser.
 The preview renders a deferred copy of the text (`useDeferredValue`), so a
 keystroke never waits for the markdown render. Split is desktop and browser
 only; the phone keeps Preview and Edit.
+
+### Live (markdown rendered in the editor)
+
+**Live** is the Raw editor with Obsidian-style live preview: the buffer is
+still the file's own text (nothing is parsed into a model and written back, so
+saving never reformats), but headings, emphasis, links, lists, task
+checkboxes, quotes and GitHub alerts, code blocks, rules and images render in
+place, and their syntax shows only on the lines a selection touches while the
+editor has focus. It is one `Compartment` of the same editor, so Raw ↔ Live
+keeps the cursor and the undo history.
+
+| Piece | Where | Rule |
+|---|---|---|
+| Plan | `web/browser/src/lib/mdLivePlan.js` | `planLive(state, ranges, activeLines)` walks the lezer tree (`markdownLanguage`, GFM) over the visible ranges and returns data: line classes, marks, hides, labels, bullet/task/image widgets. Tested without a DOM |
+| View | `web/browser/src/lib/mdLive.js` | a `ViewPlugin` turns the plan into decorations on doc, viewport, selection, focus and tree changes; replacements never cross a line break; the task checkbox edits `[ ]`↔`[x]` as one undoable change; images resolve like the preview (repo SVG as a `data:` image) |
+| Links | `openLink` in `FilePane` | Ctrl/⌘+click: `#frag` moves the cursor to the heading with the preview's slug (`headingPos`), a relative path opens the file (`onOpenPath`), the web opens a new tab; a plain click only places the cursor |
+
+Tables, raw HTML, math and frontmatter stay as monospace source in Live;
+Preview renders them.
 
 Styles live in `web/shared/styles/markdown-doc.css`, loaded after each app's
 sheet and scoped under `.md-doc`, so the chat's `.md` message rhythm is
