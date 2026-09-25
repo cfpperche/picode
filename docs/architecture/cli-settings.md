@@ -261,7 +261,8 @@ JSON-RPC `initialize → initialized → model/list`, offline, with
 command prints text and re-extracts 27 files under `~/.grok/docs` per run, so
 it reads `$GROK_HOME/models_cache.json`, the per-account list Grok fetches
 itself (hidden rows dropped, `reasoning_efforts` as thinking levels; no file
-yet is an error that says to sign in and open Grok once). Claude Code's
+yet asks for a sign-in, or — with `auth.json` present — for opening Grok
+once). Claude Code's
 reader (2026-09-25, adapted from orca) sends one `list_models` control
 request to `claude -p` stream-json — no API turn — with `CLAUDE_CONFIG_DIR`
 and the working directory set to a throwaway folder: every start rewrites
@@ -278,7 +279,16 @@ name, which the `model` setting holds. Codex, OpenCode, Muse, Claude Code and
 Antigravity fill their native `model` field's **Choose…**, Grok its
 `models.default` (`MODEL_READERS` / `modelPickField` in `cliModels.js`, held
 equal to `Supported()` by a Go test); the field stays typeable. No reader:
-Hermes (no public listing; its gateway mutated `auth.json`). The measurement itself
+Hermes (no public listing; its gateway mutated `auth.json`).
+
+**A list that cannot be read offers one step** (the blocked-state rule). A
+reader returns `climodels.Blocked{Msg, Action}` when PiCode can unblock it,
+and `/api/cli-models` answers 502 with `{"error", "action"}`: `signin` (Grok
+with no list and no `auth.json`, Antigravity with no or an expired sign-in)
+links the picker's footer to `#/clis/<cli>/providers/new`, the CLI's sign-in;
+`open` (Grok signed in but never started) links to `#/clis/new/<cli>`. Any
+other failure shows **Try again**, which asks with `fresh=1`
+(`modelsStep` in `cliModels.js`; `ModelsNote` in both apps' native settings). The measurement itself
 refreshed the owner's Antigravity token and Hermes `auth.json` once.
 
 ## Checks: what a CLI resolves here, and what is wrong with it (slice 4)

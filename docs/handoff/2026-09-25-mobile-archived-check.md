@@ -8,4 +8,4 @@ accent-colour checkbox. Desktop untouched.
 Verified: `make ci-scoped` PASS; scratch 390×844: row 362×44 at the 14px
 gutter, box 20×20, a real pointer tap on the text toggled it on.
 visual-review: PASS (off and on states).
-Not done / debts: none. Merge: fast-forward ready.
+Not done / debts: none. Merge: landed on main c859624e2; deployed by the owner 2026-09-25.

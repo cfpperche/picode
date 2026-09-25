@@ -141,14 +141,16 @@ func peerInputMatches(cli string, s tmux.InputSnapshot, expected string) bool {
 	if cli == "pi" {
 		return peerPiInput(s, expected)
 	}
+	// Omp's frame (the "╰─" row under the " > " status bar, nothing below)
+	// holds at a phone's width too (44 columns, measured 2026-09-25).
+	if cli == "omp" {
+		return s.Width >= 30 && peerOmpInput(s, expected)
+	}
 	if s.Width < 70 {
 		return false
 	}
 	if cli == "opencode" {
 		return peerOpenCodeInput(s, expected) || peerOpenCodeHomeInput(s, expected)
-	}
-	if cli == "omp" {
-		return peerOmpInput(s, expected)
 	}
 	if cli == "grok" && strings.HasPrefix(strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[s.CursorY], "")), "│") {
 		return peerGrokBoxInput(s, expected)

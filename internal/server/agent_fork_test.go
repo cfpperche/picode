@@ -148,21 +148,23 @@ func TestForkAgentCodexInAnotherFolder(t *testing.T) {
 	}
 }
 
-// Omp has no screen reader for the prompt door, so its fork keeps the task
-// as one launch argument: line breaks become spaces, nothing is pending.
-func TestForkAgentOmpKeepsTheTaskOnItsLaunch(t *testing.T) {
+// Omp's composer is read for unattended senders (ADR-0217), and the fork's
+// task is one: the launch carries no task, the door sends it, line breaks
+// kept, whatever its length.
+func TestForkAgentOmpSendsTheTaskThroughTheDoor(t *testing.T) {
+	shortForkTaskWait(t)
 	_, _, out, _, fork := forkSource(t, "omp", "om-1")
-	res := fork(map[string]any{"prompt": "first\nsecond"})
+	res := fork(map[string]any{"prompt": "first\nsecond " + strings.Repeat("x ", 5000)})
 	if res["status"] != "201" {
 		t.Fatalf("fork: %v", res)
 	}
 	body := res["body"].(map[string]any)
 	cleanupTerm(t, body)
-	if body["task"] != nil {
-		t.Fatalf("task = %v, want none pending", body["task"])
+	if body["task"] != "pending" {
+		t.Fatalf("task = %v, want pending", body["task"])
 	}
-	if args := readArgs(t, out); len(args) < 3 || !reflect.DeepEqual(args[:3], []string{"--fork", "om-1", "first second"}) {
-		t.Fatalf("omp fork args = %q", args)
+	if args := readArgs(t, out); len(args) < 2 || !reflect.DeepEqual(args[:2], []string{"--fork", "om-1"}) || strings.Contains(strings.Join(args, " "), "first") {
+		t.Fatalf("omp fork args = %q (the task must not ride the launch)", args)
 	}
 }
 
@@ -188,14 +190,6 @@ func TestForkAgentRefusals(t *testing.T) {
 		_, _, _, _, fork := forkSource(t, "codex", "cx-1")
 		res := fork(map[string]any{"paths": []string{"a", "b", "c"}, "files": []map[string]any{{"name": "d", "data": "ZA=="}, {"name": "e", "data": "ZQ=="}}})
 		if res["status"] != "400" {
-			t.Fatalf("got %v", res)
-		}
-	})
-	// Only a CLI whose task rides the launch (Omp, no screen reader) has
-	// the one-argument limit; the door takes any length.
-	t.Run("a task over the launch limit", func(t *testing.T) {
-		_, _, _, _, fork := forkSource(t, "omp", "om-1")
-		if res := fork(map[string]any{"prompt": strings.Repeat("x ", 5000)}); res["status"] != "400" {
 			t.Fatalf("got %v", res)
 		}
 	})
@@ -345,5 +339,18 @@ exec cat
 			t.Fatalf("task neither delivered nor reported; pane:\n%s", screen)
 		}
 		time.Sleep(300 * time.Millisecond)
+	}
+}
+
+// forkPrompt is the fallback for a CLI that forks by flag but whose screen
+// the door cannot read: the task becomes one launch argument (one line,
+// an operand even when it starts with a dash, at most 8192 characters).
+func TestForkPromptIsOneOperand(t *testing.T) {
+	got, err := forkPrompt("-fix it\nnow", []string{".picode/drop/a.txt"})
+	if err != nil || got != " -fix it now @.picode/drop/a.txt" {
+		t.Fatalf("%q %v", got, err)
+	}
+	if _, err := forkPrompt(strings.Repeat("x ", 5000), nil); err == nil {
+		t.Fatal("a task over 8192 characters was accepted")
 	}
 }

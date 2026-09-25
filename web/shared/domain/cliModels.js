@@ -19,6 +19,18 @@ export const MODEL_READERS = ["omp", "pi", "codex", "opencode", "muse", "grok", 
 const MODEL_PICK_FIELDS = { codex: "model", opencode: "model", muse: "model", grok: "models.default", "claude-code": "model", agy: "model" };
 export const modelPickField = (cli, key) => MODEL_PICK_FIELDS[cli] === key;
 
+// The one step beside a list that could not be read (the empty/blocked rule:
+// one line + one action). The server names the step when PiCode can unblock
+// the read (`action` in /api/cli-models' error: "signin", "open"); anything
+// else — a slow CLI, a missing binary — is worth asking again.
+export function modelsStep(cli, action, cliLabel = "") {
+  const id = encodeURIComponent(cli);
+  if (action === "signin") return { label: "Sign in", href: "#/clis/" + id + "/providers/new" };
+  // Opening the CLI once is starting an agent of it: the new-agent screen.
+  if (action === "open") return { label: "Open " + (cliLabel || "the CLI"), href: "#/clis/new/" + id };
+  return { label: "Try again", retry: true };
+}
+
 // The two keys the pane edits, in the CLI's own names.
 export const ALLOWED_KEY = "enabledModels";
 export const HIDDEN_KEY = "disabledProviders";

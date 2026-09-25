@@ -103,3 +103,11 @@ test("the model list fills only the model field of a CLI with a reader", async (
   assert.equal(modelPickField("grok", "models.default"), true);
   assert.equal(modelPickField("grok", "models.default_reasoning_effort"), false);
 });
+
+test("a list that could not be read offers the one step that unblocks it", async () => {
+  const { modelsStep } = await import("./cliModels.js");
+  assert.deepEqual(modelsStep("agy", "signin"), { label: "Sign in", href: "#/clis/agy/providers/new" });
+  assert.deepEqual(modelsStep("grok", "open", "Grok"), { label: "Open Grok", href: "#/clis/new/grok" });
+  assert.deepEqual(modelsStep("claude-code", ""), { label: "Try again", retry: true });
+  assert.deepEqual(modelsStep("codex", undefined), { label: "Try again", retry: true });
+});

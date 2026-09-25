@@ -10,7 +10,7 @@ import {
   roleAliases, selectorsInUse, splitSelector,
 } from "@picode/shared/domain/cliNative.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
-import { formatContext, modelPickField } from "@picode/shared/domain/cliModels.js";
+import { formatContext, modelPickField, modelsStep } from "@picode/shared/domain/cliModels.js";
 import SearchCombo from "./SearchCombo.jsx";
 import CliDoctor from "./CliDoctor.jsx";
 import { supportsCliDoctor } from "@picode/shared/domain/cliDoctor.js";
@@ -67,14 +67,17 @@ export default function CliNativeSettings({ route, workspaceId = "", workspaceNa
     return () => { clearTimeout(timer); stop(); };
   }, [cli]);
 
-  const loadModels = useCallback(() => {
+  // `fresh === true` is the error's Try again: ask the CLI again, past the
+  // server's kept answer (the picker's own open passes nothing).
+  const loadModels = useCallback((fresh) => {
     setModels((m) => {
-      if (m.state !== "idle") return m;
+      if (m.state !== "idle" && fresh !== true) return m;
       const query = new URLSearchParams({ cli });
       if (workspaceId) query.set("workspace", workspaceId);
+      if (fresh === true) query.set("fresh", "1");
       api("/api/cli-models?" + query)
         .then((rep) => setModels({ state: "ready", rows: rep?.models || [], error: "" }))
-        .catch((err) => setModels({ state: "error", rows: [], error: err.message || "" }));
+        .catch((err) => setModels({ state: "error", rows: [], error: err.message || "", step: modelsStep(cli, err.body?.action, terminalCliLabel(cli)) }));
       return { ...m, state: "loading" };
     });
   }, [cli, workspaceId]);
@@ -363,7 +366,7 @@ function RoleControl({ field, value, busy, disabled, onSet, levels, models, onLo
         collisionPadding={{ top: 56, right: 8, bottom: 8, left: 8 }}
         markCurrent
         onOpen={onLoadModels}
-        footer={note ? <p className="combo-note">{note}</p> : null}
+        footer={note ? <ModelsNote note={note} models={models} onLoadModels={onLoadModels} /> : null}
       />
       <select
         className="role-level"
@@ -501,6 +504,19 @@ function Control({ field, value, busy, disabled, onSet, levels, models, onLoadMo
   return <ModelPickText input={input} value={draft} busy={busy} disabled={disabled} models={models || { state: "idle", rows: [] }} onLoadModels={onLoadModels} onPick={(id) => { setDraft(id); onSet(id); }} label={field.label} />;
 }
 
+// The picker's footer: what the read says, and — when it failed — the one
+// step that unblocks it (sign in, open the CLI once, or ask again).
+function ModelsNote({ note, models, onLoadModels }) {
+  const step = models.state === "error" ? models.step : null;
+  return (
+    <p className="combo-note">
+      {note}
+      {step?.href ? <a className="combo-note-act" href={step.href}>{step.label}</a> : null}
+      {step?.retry ? <button type="button" className="combo-note-act" onClick={() => onLoadModels(true)}>{step.label}</button> : null}
+    </p>
+  );
+}
+
 function ModelPickText({ input, value, busy, disabled, models, onLoadModels, onPick, label }) {
   const options = models.state === "ready"
     // The hint is the id Choose… will write (and its context size), so the
@@ -534,7 +550,7 @@ function ModelPickText({ input, value, busy, disabled, models, onLoadModels, onP
         align="end"
         markCurrent
         onOpen={onLoadModels}
-        footer={note ? <p className="combo-note">{note}</p> : null}
+        footer={note ? <ModelsNote note={note} models={models} onLoadModels={onLoadModels} /> : null}
       />
     </span>
   );

@@ -433,6 +433,14 @@
   font: inherit; font-size: 12.5px;
 }
 .combo-note { margin: 0; padding: 6px 10px; font-size: 11.5px; color: var(--text-secondary); border-top: 1px solid var(--border); }
+/* The one step beside a list that could not be read: a link-weight action on
+   its own line, so the message never wraps around it. */
+.combo-note-act { display: block; margin-top: 4px; padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; text-decoration: none; }
+.combo-note-act:hover { text-decoration: underline; }
+/* A thumb-sized target on the phone: the words stay link-weight, the hit area
+   grows to the control height. */
+.combo-note-act { display: flex; align-items: center; min-height: var(--ctl-h, 36px); margin-top: 0; }
+.combo-note-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 
 /* A chain and the cycle are ordered lists: the entries stack under the label
    and move with their own buttons, because order is the value. */
