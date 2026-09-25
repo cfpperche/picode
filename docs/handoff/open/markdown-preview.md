@@ -10,6 +10,7 @@ tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split wit
 
 ## Next
 
+- Nothing queued. Shipped 2026-09-25, each with its note in `docs/handoff/2026-09-25-md-*.md`: A (GitHub-grade preview), B (Split with scroll sync), C (Live), then Live tables, Live math and Mermaid, Live and Split on the phone, and press-and-hold links on touch. What is left is the Debts below, plus the owner's call on an ADR for sanitized raw HTML.
 
 ## Debts
 
