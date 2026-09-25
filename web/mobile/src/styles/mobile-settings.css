@@ -34,6 +34,13 @@
 #m-app .m-more-page .set-row > select { max-width: 62%; }
 #m-app .m-more-page .set-row-stack > select { max-width: 100%; }
 #m-app .m-more-page :is(.reach-ctl, .folder-field-wrap, .pkg-by-source) { gap: 8px; min-width: 0; }
+/* Backup's folder: the path takes the whole row and Browse / Reveal sit
+   under it. Sharing one row with both buttons left ~150px at 390, which cut
+   the placeholder to "External drive or other fol…" (2026-09-25). */
+#m-app .m-more-page .folder-field-wrap { flex-wrap: wrap; }
+#m-app .m-more-page .folder-field-wrap > .folder-field { display: contents; }
+#m-app .m-more-page .folder-field-wrap .dlg-input { flex: 1 1 100%; }
+#m-app .m-more-page .folder-field-wrap .btn { flex: 1 1 0; justify-content: center; }
 #m-app .m-more-page :is(.reach-ctl, .pkg-by-source) > input { flex: 1; min-width: 0; margin: 0; }
 #m-app .m-more-page .pkg-by-source .btn { flex: none; height: var(--ctl-h); }
 #m-app .m-more-page .key-pane { --kbd-h: 28px; }
