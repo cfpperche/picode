@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/cfpperche/picode/internal/pipkg"
+	"github.com/cfpperche/picode/internal/pkgs"
 )
 
 // The describe lifecycle (ADR-0119 C5): the owner describes a package, the
@@ -83,13 +84,13 @@ func TestDescribeRoundTrip(t *testing.T) {
 		t.Fatalf("descriptor file not persisted: %v", err)
 	}
 
-	res, err := http.Get(ts.URL + "/api/packages")
+	res, err := http.Get(ts.URL + "/api/packages/report?cli=pi")
 	if err != nil {
 		t.Fatal(err)
 	}
-	rep := decode[pipkg.Report](t, res)
+	rep := decode[pkgs.Report](t, res)
 	stamped := false
-	for _, p := range rep.Packages {
+	for _, p := range rep.Rows {
 		if strings.Contains(p.Source, "pi-example") {
 			stamped = p.ConfigKind == "pi-example"
 		}

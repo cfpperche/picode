@@ -15,7 +15,6 @@ import (
 )
 
 func registerPackageRoutes(mux Registrar, deps Deps) {
-	mux.HandleFunc("GET /api/packages", handleListPackages(deps))
 	mux.HandleFunc("GET /api/packages/gallery", handlePackageGallery)
 	mux.HandleFunc("GET /api/packages/report", handlePackageReport(deps))
 	mux.HandleFunc("GET /api/packages/updates", handlePackageUpdates(deps))
@@ -109,20 +108,10 @@ func handlePackageGallery(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, page)
 }
 
-func handleListPackages(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		rep, err := loadPackageReport(r.Context(), deps, r.URL.Query().Get("workspace"), r.URL.Query().Get("agent"))
-		if err != nil {
-			writeErr(w, statusForStore(err), err.Error())
-			return
-		}
-		writeJSON(w, http.StatusOK, rep)
-	}
-}
-
-// loadPackageReport is GET /api/packages: Pi's driver reads the settings and
-// the agent row, and the unified report is mapped back to the JSON the pane
-// parses. One source of truth, the same bytes (ADR-0176 slice 1c).
+// loadPackageReport is Pi's package list in pipkg's shape, for PiCode's own
+// server-side readers (roles, config pages, installs): Pi's driver reads the
+// settings and the agent row, and the unified report is mapped back. The
+// GET /api/packages route that served this shape was retired 2026-09-25.
 func loadPackageReport(ctx context.Context, deps Deps, workspaceID, agentID string) (pipkg.Report, error) {
 	dir, err := packageProjectDir(deps, workspaceID)
 	if err != nil {

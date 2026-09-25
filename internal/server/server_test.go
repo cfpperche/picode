@@ -168,9 +168,9 @@ func TestPackagesEndpoint(t *testing.T) {
 	t.Cleanup(func() { pipkg.UserDir = old })
 	ts := newTestServer(t, "cat")
 
-	res, err := ts.Client().Get(ts.URL + "/api/packages")
+	res, err := ts.Client().Get(ts.URL + "/api/packages/report?cli=pi")
 	if err != nil {
-		t.Fatalf("GET /api/packages: %v", err)
+		t.Fatalf("GET /api/packages/report: %v", err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
@@ -180,8 +180,8 @@ func TestPackagesEndpoint(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := body["packages"]; !ok {
-		t.Fatalf("missing packages: %+v", body)
+	if _, ok := body["rows"]; !ok {
+		t.Fatalf("missing rows: %+v", body)
 	}
 
 	bad, _ := json.Marshal(map[string]string{"source": "npm:foo; rm"})

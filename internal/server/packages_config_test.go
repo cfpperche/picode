@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/pipkg"
+	"github.com/cfpperche/picode/internal/pkgs"
 )
 
 // Decision table (one row per test): the GUI must be able to read, edit and
@@ -286,14 +287,14 @@ func TestPackageListCarriesConfigKind(t *testing.T) {
 	pipkg.UserDir = func() string { return userDir }
 	t.Cleanup(func() { pipkg.UserDir = oldUserDir })
 
-	res, err := http.Get(ts.URL + "/api/packages?workspace=" + wk.ID + "&agent=" + wk.Agents[0].ID)
+	res, err := http.Get(ts.URL + "/api/packages/report?cli=pi&workspace=" + wk.ID + "&agent=" + wk.Agents[0].ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer res.Body.Close()
-	rep := decode[pipkg.Report](t, res)
+	rep := decode[pkgs.Report](t, res)
 	kind := map[string]string{}
-	for _, p := range rep.Packages {
+	for _, p := range rep.Rows {
 		kind[p.Source] = p.ConfigKind
 	}
 	if kind["/opt/picode/packages/pi-roles"] != "roles" {

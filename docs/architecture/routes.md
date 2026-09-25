@@ -290,9 +290,9 @@ and the vendor facts are in `docs/architecture/packages.md`). The unified read
 is `GET /api/packages/report?cli=&scope=&vendor=&workspace=&agent=&refresh=1`:
 the CLI's own driver answers its scopes, capabilities, catalog, notes and rows,
 and `cli` absent or `pi` means Pi. `GET /api/packages/updates?cli=&vendor=` is
-the badge read for every CLI, while `GET /api/packages` keeps Pi's own read, in
-Pi's JSON, answered by `pipkg` — which is also where `/api/packages/gallery`,
-`/api/packages/config` and `/api/packages/describe` live. A CLI's own verbs are
+the badge read for every CLI (Pi's own `GET /api/packages` read was retired
+2026-09-25). `pipkg` answers `/api/packages/gallery`,
+`/api/packages/config` and `/api/packages/describe`. A CLI's own verbs are
 on that same family, one path per verb: `GET /api/packages/available` and
 `GET /api/packages/marketplaces` for its catalog and its configured sources,
 `POST /api/packages` (install), `POST /api/packages/update`,

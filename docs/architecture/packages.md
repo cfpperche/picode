@@ -129,7 +129,6 @@ directly: the mappers that reconstructed their old bytes
 | `GET /api/packages/updates?cli&vendor&workspace` | the badge read: the rows the CLI's own catalog has moved ahead of (`scope` is the fallback for `vendor`) |
 | `GET /api/packages/available?cli&scope&workspace` | the CLI's own installable list (`Driver.Available`), as the unified `Report`; a CLI with no catalog refuses (`ErrNoCatalog` or the vendor's own reason) |
 | `GET /api/packages/marketplaces?cli&scope&workspace` | the CLI's own marketplace sources, in the unified row shape; a CLI that keeps none refuses (`ErrNoMarketplaces`) |
-| `GET /api/packages?workspace&agent` | Pi's read, in Pi's JSON (`Report.Legacy`) — `cli` is not consulted |
 | `POST /api/packages`, `POST /api/packages/update`, `DELETE /api/packages` | install, update and remove: Pi's own mutations through `pipkg` when the request names no CLI, the CLI's own verb (a job, or the driver's write answering the fresh report) when it names one |
 | `POST /api/packages/toggle`, `/api/packages/marketplace`, `/api/packages/inspect` | the CLI's own toggle, source management and inspection — PiCode's own calls have no such verbs |
 | `GET /api/packages/gallery`, `/api/packages/config`, `/api/packages/describe` | Pi's gallery search and its config descriptors (ADR-0099/0119) |

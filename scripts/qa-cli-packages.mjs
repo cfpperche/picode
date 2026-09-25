@@ -71,7 +71,7 @@ try {
     browser("fill", input, source);
     browser("click", ".pkg-by-source button[type=submit]");
     wait('!document.querySelector(".pkg-job")'); ready();
-    assert.ok((await api('/api/packages?workspace=' + ws + '&agent=' + id)).packages.some(p => p.scope === 'agent' && p.source === source));
+    assert.ok((await api('/api/packages/report?cli=pi&workspace=' + ws + '&agent=' + id)).rows.some(r => r.scope === 'agent' && r.source === source));
     browser("reload"); ready();
     assert.equal(ev('document.querySelector(".pkg-scope [aria-checked=true]").textContent'), "This agent");
     await capture(app + "-context");
@@ -106,7 +106,7 @@ try {
     results.push(app + ": machine/workspace mutation payloads, errors and removal confirmation");
     // List read errors remain errors and can be retried without a fabricated empty view.
     fault(`window.qaListFail=true;window.fetch=(url,opts)=>{
-      if(String(url).split("?")[0]==="/api/packages"&&(!opts?.method||opts.method==="GET")&&window.qaListFail)return Promise.resolve(new Response(JSON.stringify({error:"Package list unavailable"}),{status:503,headers:{"Content-Type":"application/json"}}));
+      if(String(url).split("?")[0]==="/api/packages/report"&&(!opts?.method||opts.method==="GET")&&window.qaListFail)return Promise.resolve(new Response(JSON.stringify({error:"Package list unavailable"}),{status:503,headers:{"Content-Type":"application/json"}}));
       return window.qaFetch(url,opts);
     }`);
     nav(root); wait('!!document.querySelector("#packages-view [role=alert]")');
@@ -120,7 +120,7 @@ try {
       if(String(url)==="/api/packages/update"&&opts?.method==="POST"){
         window.qaUpdateBody=JSON.parse(opts.body);
         if(window.qaUpdateMode==="hold")return new Promise(resolve=>{window.qaRelease=()=>resolve(new Response(JSON.stringify({error:"Update failed"}),{status:503,headers:{"Content-Type":"application/json"}}))});
-        window.qaUpdates=false;return window.qaFetch(${JSON.stringify('/api/packages?workspace='+ws+'&agent='+id)});
+        window.qaUpdates=false;return window.qaFetch(${JSON.stringify('/api/packages/report?cli=pi&workspace='+ws+'&agent='+id)});
       }
       return window.qaFetch(url,opts);
     }`);

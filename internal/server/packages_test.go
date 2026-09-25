@@ -11,7 +11,7 @@ func TestPackagesUnknownAgentStillListsMachine(t *testing.T) {
 	st := testStore(t)
 	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, AgentCmd: "cat"}).Handler)
 	t.Cleanup(ts.Close)
-	res, err := http.Get(ts.URL + "/api/packages?agent=not-an-agent")
+	res, err := http.Get(ts.URL + "/api/packages/report?cli=pi&agent=not-an-agent")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -19,13 +19,11 @@ func TestPackagesUnknownAgentStillListsMachine(t *testing.T) {
 	if res.StatusCode != 200 {
 		t.Fatalf("status %d, want 200", res.StatusCode)
 	}
-	var body struct {
-		Packages []any `json:"packages"`
-	}
+	var body map[string]json.RawMessage
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Packages == nil {
-		t.Fatal("packages missing")
+	if _, ok := body["rows"]; !ok {
+		t.Fatal("rows missing")
 	}
 }
