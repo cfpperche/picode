@@ -96,7 +96,7 @@ for (const app of ['desktop', 'mobile']) {
  await shot('light');
  assert.deepEqual(errors, []);
  evidence.checks.push(`${app}: legacy routing, empty/download/search, blocked/error, validation, credential save, cancel without mutation, load keeping others, light theme`);
- await page.goto(base + `/${app}/#/providers`);
+ await page.goto(base + `/${app}/#/clis/pi/providers`);
  const entry = page.getByRole('link', { name: /^(Manage|Set up llama.cpp)$/ }).first();
  await entry.waitFor(); await entry.scrollIntoViewIfNeeded();
  await shot('providers');
