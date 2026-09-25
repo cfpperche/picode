@@ -5,7 +5,7 @@ Plan: `docs/plans/cli-as-agents.md`
 ## Next
 
 - Owner: accept or amend ADR-0217 (written as proposed).
-- Live-run a Grok and a Hermes `start` with real logins, and one needs-you → Inbox → answer round trip.
+- One needs-you → Inbox → answer round trip on a guest `start` run (Grok and Hermes ran live 2026-09-25: 2/2 each).
 
 - [x] Fatia F landed 2026-09-20 (`284eaac7e`): message automations and the pane/graph ask reach CLI agents through the prompt door with receipts. Start runs on guest CLIs followed on 2026-09-25 (ADR-0217, `feat/cli-automation-start`).
 - ∞ (deferred): managed mode per CLI, until ADR-0091 is re-measured.

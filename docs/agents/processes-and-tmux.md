@@ -63,3 +63,18 @@
   `t.TempDir` go to disk; the suites' tmux sockets stay under `/tmp`. Do not
   delete `~/.cache/picode-gotmp` while a gate runs — its tests live there. Large scratch output belongs on disk too
   (`var/` in your worktree), and a finished session's scratchpad can go.
+
+## Live CLI checks with the owner's logins (2026-09-25)
+
+A scratch instance has its own HOME, so the agent CLIs in it are signed out
+(only Pi's login is copied). `QA_LOGINS=1 ./scripts/qa-scratch.sh start <name>`
+copies each CLI's login files and PiCode's vault into the scratch (mode 600),
+lists every copy in `var/qa/<name>/logins.list`, marks the worktree trusted in
+the copied Claude Code and Codex configs (Grok's trusted-folders file is copied
+as is), and `stop` removes exactly the listed files. The originals are never
+written. **The owner runs the start**: Claude Code's safety classifier refuses
+an agent copying credentials, and that refusal stands — ask for
+`! QA_LOGINS=1 ./scripts/qa-scratch.sh start <name>` and drive the scratch
+through its API. A fresh scratch HOME makes some CLIs do first-run work
+(Hermes installs a browser tool on its first command, ~28 s, longer than
+PiCode's 20 s preflight): the second launch goes through.

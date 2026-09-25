@@ -93,8 +93,9 @@
 #m-app .m-more-page .pkg-grid { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
 #m-app .m-more-page .pkg-card-installed .pkg-preview { display: none; }
 #m-app .m-more-page .pkg-card-body { padding: 12px; }
-#m-app .m-more-page .pkg-empty { align-items: flex-start; text-align: left; padding: 12px 0; gap: 12px; }
-#m-app .m-more-page .pkg-empty-title { font-size: 13px; font-weight: 400; color: var(--text-secondary); }
+/* Packages' empty state keeps the shared shape (centred, bold title, its
+   action under it): the phone-only left/muted variant read as a stray line
+   next to the desktop's (owner, 2026-09-25). */
 #m-app .m-more-page .pkg-toolbar { grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
 #m-app .m-more-page :is(.pkg-count, .pkg-toolbar .settings-link) { padding-inline: 6px; }
 #m-app .m-more-page :is(.mcp-tree, .mcp-row, .mcp-form) { max-width: 100%; }

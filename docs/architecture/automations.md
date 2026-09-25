@@ -59,7 +59,7 @@ Pi agent's does: that terminal is someone's. The editor offers the CLI
 and hides Pi's provider, model and thinking for the others. Measured
 2026-09-25 on a scratch instance: Claude Code 2.1.282 3/3 runs done (~$0.15
 each), Codex 0.157.0 2/2 (~$0.12), OpenCode 1.18.32 2/2 and Omp 18.2.11 2/2
-(~$0.0016); Grok and Hermes not run live. The cost cap holds only where the
+(~$0.0016), Grok 1.0.41 2/2 and Hermes 2/2 (the owner's logins through `QA_LOGINS=1`). The cost cap holds only where the
 session file is priced (`climetrics.Metered`: Claude Code, Codex, Omp); for
 OpenCode, Grok and Hermes the runs table shows "—" and the editor's hint says
 the limit does not stop them (`METERED_CLIS`, pinned by
