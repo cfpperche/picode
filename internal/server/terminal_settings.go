@@ -57,11 +57,11 @@ func ownSessions(deps Deps) []string {
 			out = append(out, tmux.ShellSessionName(t.ID))
 		}
 	}
-	// Legacy unbound agents also receive global defaults. Bound runtimes
-	// already appear above; do not apply their settings twice.
+	// Unbound agents also receive global defaults. Bound runtimes already
+	// appear above; do not apply their settings twice.
 	if agents, err := deps.Store.ListAllAgents(); err == nil {
 		for _, a := range agents {
-			if a.TerminalID == nil || deps.legacyAgentInteractive(a) {
+			if a.TerminalID == nil {
 				out = append(out, deps.agentSession(a.ID))
 			}
 		}

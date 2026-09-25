@@ -10,27 +10,28 @@ scrollback, same running CLI.
 ## What you need
 
 - SSH access to the host, **as the same Linux user that runs PiCode**. The
-  sessions live in that user's default tmux server.
+  sessions live in PiCode's own tmux server, at `~/.picode/tmux.sock` (or
+  `tmux.sock` in the data directory you started PiCode with).
 - Any SSH client works — no tmux needed on the device you type on.
 - On a tailnet box, [Tailscale SSH](#prefer-tailscale-ssh-on-a-server) is
   the comfortable path.
 
 ## Find the session
 
-On the host, `tmux ls` lists every session PiCode owns. PiCode only ever
-creates names under one prefix:
+On the host, `tmux -S ~/.picode/tmux.sock ls` lists every session PiCode
+owns. A plain `tmux ls` asks your own tmux server, which PiCode does not use.
+PiCode only ever creates names under one prefix:
 
 | Name | What it is |
 |---|---|
-| `picode-<id>` | a managed Pi agent's terminal; `<id>` is the agent id in the app's URL (`#/agent/<id>`) |
 | `picode-sh-<id>` | a project shell or an Agent CLI terminal |
 
 ## Attach
 
 ```sh
 ssh <host>                        # from any device with an SSH client
-tmux attach -t picode-sh-a1b2     # the terminal, as if you never left
-tmux attach -r -t picode-a1b2     # read-only: watch an agent work
+tmux -S ~/.picode/tmux.sock attach -t picode-sh-a1b2      # the terminal, as if you never left
+tmux -S ~/.picode/tmux.sock attach -r -t picode-sh-a1b2   # read-only: watch an agent work
 ```
 
 - Leave with the tmux detach key (`Ctrl-b` then `d`). The terminal keeps

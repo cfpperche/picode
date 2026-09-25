@@ -30,9 +30,9 @@ house spelling ADR-0143 already uses: the agent id, or `term:<id>`.
 A CLI agent's interactive process is `agents.terminal_id` (unique).
 Pi also uses this binding for newly opened interactive processes (ADR-0162).
 It is allocated lazily and atomically with its terminal and launch configuration;
-RPC-only Pi agents do not need a terminal. Existing live legacy Pi panes retain
-their original address until explicitly stopped or restarted. The resolver keeps
-old agent terminal URLs working after migration.
+RPC-only Pi agents do not need a terminal. The pre-ADR-0162 `picode-<id>`
+panes and the `/ws/term` rewrite that kept their old URLs were retired on
+2026-09-25; an agent's interactive address is its bound terminal's session.
 
 Pi's shared launch preserves agent model/provider/thinking, packages and their
 isolation, prompt, readonly tools, roles, checklist and compaction identity, cwd

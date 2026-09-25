@@ -40,9 +40,6 @@ func (deps Deps) agentTerminalView(r *http.Request, a store.Agent) map[string]an
 		return nil
 	}
 	name := tmux.ShellSessionName(t.ID)
-	if deps.agentSession(a.ID) != name {
-		return nil
-	}
 	live, _ := deps.Tmux.HasSession(r.Context(), name)
 	return liveTermView(deps, r, t, name, live)
 }
@@ -135,10 +132,6 @@ func boundAgentLock(deps Deps, termID string) func() {
 	return func() {}
 }
 
-func (deps Deps) legacyAgentInteractive(a store.Agent) bool {
-	return a.TerminalID != nil && deps.agentSession(a.ID) == tmux.SessionName(a.ID)
-}
-
 func agentAwareResumeLaunch(deps Deps, v *store.TerminalLaunch) *store.TerminalLaunch {
 	if v != nil && v.CLI == "pi" {
 		if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil && a.IsPi() {
@@ -149,17 +142,12 @@ func agentAwareResumeLaunch(deps Deps, v *store.TerminalLaunch) *store.TerminalL
 }
 
 // agentSession is the single address resolver for an agent's interactive
-// process. Unbound pre-upgrade Pi sessions retain their original address.
+// process: its bound terminal's session. An agent with no terminal answers
+// with its own name, which no live session carries outside tests (the
+// pre-ADR-0162 sessions it once addressed were retired 2026-09-25).
 func (deps Deps) agentSession(id string) string {
 	if deps.Store != nil {
 		if a, err := deps.Store.GetAgent(id); err == nil && a.TerminalID != nil {
-			// Preparing a replacement can bind an old live session. Keep its
-			// address until the explicit stop actually succeeds.
-			if deps.Tmux != nil && deps.Tmux.Available() {
-				if has, e := deps.Tmux.HasSession(context.Background(), tmux.SessionName(id)); e == nil && has {
-					return tmux.SessionName(id)
-				}
-			}
 			return tmux.ShellSessionName(*a.TerminalID)
 		}
 	}

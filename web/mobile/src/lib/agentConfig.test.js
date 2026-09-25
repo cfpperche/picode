@@ -32,7 +32,7 @@ test("missing agent never writes", async () => {
 
 for (const failure of ["", "/close", "/open"]) test("legacy configuration migration cleanup: " + (failure || "success"), async () => {
   const closed = [], calls = [];
-  const run = () => saveAgentConfig({ id: "a", terminalId: "t", mode: "interactive", legacyInteractive: true }, { opMode: "readonly" }, async url => {
+  const run = () => saveAgentConfig({ id: "a", terminalId: "t", mode: "interactive" }, { opMode: "readonly" }, async url => {
     calls.push(url);
     if (failure && url.endsWith(failure)) throw Error("Offline");
   }, key => closed.push(key));

@@ -163,7 +163,6 @@ function applyFleetRaw(state, ev) {
         freeAgents: freeAgents.filter((a) => a.id !== d.id),
       };
     case "agent.status": {
-      if ([...freeAgents, ...workspaces.flatMap(w => w.agents || [])].some(a => a.id === d.id && a.legacyInteractive)) return null;
       // A start carries the mode the server started it in (managed |
       // interactive); a start without one cannot be applied faithfully.
       const running = d.lastStatus === "running";

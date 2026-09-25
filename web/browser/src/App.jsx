@@ -4372,7 +4372,7 @@ export default function App({ shellChrome = false } = {}) {
           {termView && !onPane && agent ? (
             agent.mode !== "managed" && (agent.mode === "interactive" || agent.terminalId) ? (
               (() => {
-                const resolved = resolveInteractiveTerminal(agent, terminals, selected && selected.path);
+                const resolved = resolveInteractiveTerminal(agent, terminals);
                 if (!resolved) return <section className="term-surface"><p className="file-pane-msg">Terminal unavailable. <button type="button" className="btn btn-sm" onClick={() => openInteractive(agent.id)}>Open terminal</button></p></section>;
                 const term = resolved.term;
                 const termId = resolved.id;

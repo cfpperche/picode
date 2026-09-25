@@ -49,14 +49,14 @@ test("canvas and tabs address the same runtime, including either tab alias", () 
       assert.equal(resolved.owned, tabs.length > 0);
     }
   }
-  assert.equal(canvasTerminalHost("agent", { id: "old", mode: "interactive" }, "/tmp", {}, ["old"]).id, "old");
+  assert.equal(canvasTerminalHost("agent", { id: "old", mode: "interactive" }, "/tmp", {}, ["old"]).id, undefined, "no fabricated pre-ADR-0162 session");
   for (const kind of ["agent", "terminal"]) {
     assert.equal(canvasTerminalHost(kind, kind === "agent" ? agent : term, "/tmp", { ...fleet, termEpochs: { a: 2 } }, []).epoch, 2);
   }
 });
 
 test("cleanup covers both legacy and bound aliases without duplicate disposal", () => {
-  assert.deepEqual(agentPaneKeys({ ...agent, legacyInteractive: true }), ["a", "t"]);
+  assert.deepEqual(agentPaneKeys(agent), ["a", "t"]);
   assert.deepEqual(agentPaneKeys({ id: "a", terminalId: "a" }), ["a"]);
   assert.deepEqual(agentPaneKeys(null), []);
 });
