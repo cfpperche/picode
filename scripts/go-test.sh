@@ -35,12 +35,22 @@ cd "$(dirname "$0")/.."
 # dirs) and `make ci` on main failed three times at the link step with
 # "no space left on device" while the disk had 772 GB free. Link outputs go
 # to a cache directory on disk instead; a GOTMPDIR set by the caller wins.
-# Test temp dirs (t.TempDir) still follow TMPDIR: tmux sockets live there,
-# and their path length is measured (internal/tmuxtest).
+# Measured: with TMPDIR unset, go test also roots t.TempDir there, so test
+# scratch leaves the tmpfs too; the suites' tmux sockets stay short under
+# /tmp (internal/tmuxtest's namespaceBase).
 if [ -z "${GOTMPDIR:-}" ]; then
-  GOTMPDIR="${XDG_CACHE_HOME:-$HOME/.cache}/picode-gotmp"
-  if mkdir -p "$GOTMPDIR" 2>/dev/null; then export GOTMPDIR; else unset GOTMPDIR; fi
+  # One directory per run, removed on the way out: a shared fixed directory
+  # vanished mid-run once (another session cleaning ~/.cache), and with it
+  # every t.TempDir of the run still going.
+  picode_gotmp_root="${XDG_CACHE_HOME:-$HOME/.cache}/picode-gotmp"
+  if mkdir -p "$picode_gotmp_root" 2>/dev/null && GOTMPDIR=$(mktemp -d "$picode_gotmp_root/run.XXXXXX" 2>/dev/null); then
+    export GOTMPDIR
+    picode_gotmp_run=$GOTMPDIR
+  else
+    unset GOTMPDIR
+  fi
 fi
+picode_gotmp_run=${picode_gotmp_run:-}
 
 SHARDS=${GO_TEST_SHARDS:-4}
 # Extra flags for every `go test` below. CI passes -race: the race detector
@@ -80,7 +90,9 @@ rest=$(printf '%s\n' $pkgs | grep -vxE "$heavy_re" || true)
 heavy=$(printf '%s\n' $pkgs | grep -xE "$heavy_re" || true)
 
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
+# One trap for both scratch dirs: this run's own, and the GOTMPDIR it made
+# (never a GOTMPDIR the caller passed in).
+trap 'rm -rf "$tmp" ${picode_gotmp_run:+"$picode_gotmp_run"}' EXIT
 status=0
 
 if [ -n "$rest" ]; then

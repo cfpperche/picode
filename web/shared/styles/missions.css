@@ -61,6 +61,10 @@
    a phone screen sits under the header, where the rule drew an empty band
    (New mission, 2026-09-25). */
 .m-missions-body > .mission-section:first-child { border-top:0; padding-top:0; }
+/* The archived filter is a whole-row tap target on the phone (44px, HIG),
+   with a checkbox a thumb can see; it was a bare 13px box beside 12px text. */
+.m-missions .mission-archived { display:flex; align-items:center; gap:10px; min-height:44px; font-size:13px; cursor:pointer; }
+.m-missions .mission-archived input { width:20px; height:20px; margin:0; flex:none; accent-color:var(--accent); }
 .m-missions .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:7px 12px; border:1px solid var(--border-strong); border-radius:var(--radius-ctl); background:var(--bg-panel); color:var(--text-primary); font:inherit; text-decoration:none; }
 .m-missions .btn-primary { background:var(--accent); color:var(--bg-base); }
 .m-missions .btn:disabled { opacity:.6; }
