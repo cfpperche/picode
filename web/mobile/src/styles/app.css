@@ -345,19 +345,6 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .mcp-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .mcp-row-actions .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .pkg-installed h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
-.dlg-use-from { width: min(440px, calc(100vw - 32px)); }
-.mcp-tree { list-style: none; margin: 12px 0 0; padding: 0; max-height: 280px; overflow: auto; }
-.mcp-tree > li + li { margin-top: 4px; }
-.mcp-tree-kids { list-style: none; margin: 0; padding: 0 0 4px; }
-.mcp-tree-row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
-.mcp-tree-chev {
-  width: 20px; height: 28px; padding: 0; border: 0; background: none;
-  color: var(--text-secondary); cursor: pointer; font-size: 12px; line-height: 1;
-}
-.mcp-tree-spc { width: 20px; flex: none; }
-.mcp-tree-label { font-size: 13px; font-weight: 550; }
-.mcp-tree-item { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-.mcp-tree-empty { font-size: 12px; color: var(--text-secondary); padding-left: 28px; }
 .mcp-empty {
   display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
 }
@@ -387,7 +374,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .mcp-form-row .pkg-scope { margin: 0; flex: none; }
 .mcp-form-row .pkg-scope-btn, .mcp-form-row .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .mcp-more { align-self: flex-start; height: var(--ctl-h); }
-.mcp-extra, .mcp-pairs { display: flex; flex-direction: column; gap: 8px; }
+.mcp-pairs { display: flex; flex-direction: column; gap: 8px; }
 .mcp-pairs > .btn { align-self: flex-start; height: var(--ctl-h); }
 .pkg-grid {
   list-style: none; padding: 0; margin: 0;
@@ -531,8 +518,6 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .gpkg-scope .pkg-scope-label { display: inline-flex; align-items: center; }
 .gpkg-scope .pkg-scope { margin: 0; align-items: center; }
 .gpkg-install { margin-top: 10px; }
-.gpkg-check { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.gpkg-check .pkg-fine { display: inline-flex; align-items: center; height: var(--ctl-h); margin: 0; }
 .pkg-type.is-update { color: var(--accent); border-color: var(--border-strong); }
 .gpkg-problem { display: flex; flex-direction: column; gap: 4px; }
 .gpkg-cmd { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -608,7 +593,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   display: flex; flex-direction: column; gap: 8px;
   background: var(--bg-panel); padding: 8px 0;
 }
-.gpkg-sticky .pkg-installed-toolbar, .gpkg-sticky .gpkg-check { margin: 0; }
+.gpkg-sticky .pkg-installed-toolbar { margin: 0; }
 
 /* Installed rows, grouped by where they came from — in the vendor's own word for
    it. A group header exists only when the list actually mixes origins: one group

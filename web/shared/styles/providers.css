@@ -79,11 +79,6 @@
 /* The pill is state, not a label: it never shrinks, the alias yields to it
    and truncates instead. */
 .prov-account .prov-auth { flex: none; }
-.prov-acc-fixed {
-  font-family: var(--mono); font-size: 12px;
-  flex: 0 1 auto; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 .prov-ident {
   font-size: 11.5px; color: var(--text-secondary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -335,7 +330,6 @@
    block — and since the page, Verify key lives beside its own field. */
 .prov-load-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .prov-load-row .btn { flex: 0 0 auto; height: var(--ctl-h); }
-.prov-adv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
 
 /* --- Custom endpoint page ---------------------------------------------------
    The form outgrew the dialog (benchmarks.md refuses modals for flows longer

@@ -26,7 +26,6 @@
   margin: 0; padding: 4px 0; border-bottom: 0;
 }
 #m-app .m-more-page :is(.pref-tab, .pkg-tab, .cli-tabs a, .llama-nav a) { flex: none; display: inline-flex; align-items: center; min-height: var(--ctl-h); margin: 0; padding: 0 10px; font-family: var(--sans); white-space: nowrap; }
-#m-app .m-more-page :is(.settings-section, .integration-main, .llama-state, .prov-acc) { min-width: 0; }
 #m-app .m-more-page .theme-card { min-width: 0; gap: 6px; padding: 12px 10px; }
 #m-app .m-more-page .theme-card-name { font-size: 13px; }
 #m-app .m-more-page .set-row { min-height: 44px; }
@@ -98,14 +97,9 @@
    next to the desktop's (owner, 2026-09-25). */
 #m-app .m-more-page .pkg-toolbar { grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
 #m-app .m-more-page :is(.pkg-count, .pkg-toolbar .settings-link) { padding-inline: 6px; }
-#m-app .m-more-page :is(.mcp-tree, .mcp-row, .mcp-form) { max-width: 100%; }
-#m-app .m-more-page .mcp-tree { max-height: none; overflow: visible; }
 #m-app .m-more-page :is(.mcp-row-actions, .llama-toolbar, .llama-actions) { flex-wrap: wrap; }
 #m-app .m-more-page .mcp-empty { align-items: flex-start; text-align: left; padding: 8px 0; gap: 12px; }
-#m-app .m-more-page .prov-accounts { padding-left: 0; }
-#m-app .m-more-page .prov-acc-top { flex-wrap: wrap; gap: 6px; }
 #m-app .m-more-page .prov-row { gap: 8px; }
-#m-app .m-more-page .prov-head .prov-id { font-family: var(--sans); font-size: 14px; }
 #m-app .m-more-page .sys-row { gap: 12px; }
 #m-app .m-more-page .sys-row > * { min-width: 0; overflow-wrap: anywhere; }
 #m-app .m-more-page .devs-actions[data-align-row] .auto-code { display: flex; align-items: center; min-height: var(--ctl-h); height: var(--ctl-h); overflow: auto; white-space: nowrap; }

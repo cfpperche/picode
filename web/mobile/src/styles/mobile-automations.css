@@ -168,9 +168,6 @@
 #m-app #automations-view .auto-grid { grid-template-columns: minmax(0, 1fr); }
 #m-app #automations-view .auto-cell-wide { grid-column: auto; }
 #m-app #automations-view .auto-cell .auto-select { min-width: 0; }
-#m-app #automations-view .auto-segmented { display: flex; flex-wrap: wrap; }
-#m-app #automations-view .auto-form-row { flex-wrap: wrap; gap: 8px; }
-#m-app #automations-view .auto-templates { grid-template-columns: minmax(0, 1fr); }
 #m-app #automations-view .auto-when { white-space: normal; }
 #m-app #automations-view .auto-empty { gap: 12px; padding: 20px 0; }
 #m-app #automations-view .auto-table-wrap { max-width: 100%; overflow-x: auto; }

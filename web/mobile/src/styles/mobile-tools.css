@@ -109,31 +109,9 @@
 .m-tool-loading .gg-skel { display: block; height: 12px; width: 85%; }
 .m-tool-loading .gg-skel:nth-last-child(2) { width: 64%; }
 .m-tool-loading .gg-skel:last-child { width: 42%; }
-.m-tool-loading .gg-skel, .m-changes .gg-skel { background: var(--border); animation: m-tool-pulse 1.4s ease-in-out infinite; }
-.m-changes .gg-detail-body > .gg-skel-line { display: block; margin: 18px var(--m-pad); }
-.m-changes { overflow: hidden; }
-.m-changes .gg-detail { min-width: 0; }
-.m-changes .gg-detail-head { justify-content: space-between; min-height: 52px; padding: 8px var(--m-pad); gap: 8px; }
-.m-changes .gg-detail-body { padding: 0; overflow-x: hidden; overscroll-behavior: contain; }
-.m-changes .gg-file { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; margin: 0; }
-.m-changes .gg-file-head { height: auto; min-height: 56px; gap: 8px; padding: 10px var(--m-pad); }
-.m-changes .gg-file-path { display: flex; flex-direction: column; gap: 3px; overflow: visible; white-space: normal; overflow-wrap: anywhere; }
-.m-change-filename { font-size: 13px; color: var(--text-primary); }
-.m-change-directory { font-size: 11px; color: var(--text-secondary); }
-.m-changes .gg-file-kind { max-width: 76px; font-size: 11px; }
-.m-changes .gg-file-stat { font-size: 11px; }
-.m-changes .diff { overflow-x: auto; font-size: 12px; padding: 4px 0 10px; }
-.m-changes .diff:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.m-changes .diff-line { min-width: 100%; width: max-content; }
-.m-changes .diff-text { white-space: pre; word-break: normal; }
-.m-changes .diff-empty { margin: 0; padding: 12px var(--m-pad); }
-@media (max-width: 359px) {
-  .m-changes .gg-file-head { flex-wrap: wrap; }
-  .m-changes .gg-file-path { flex-basis: calc(100% - 24px); }
-  .m-changes .gg-file-kind { margin-left: 20px; max-width: none; }
-}
+.m-tool-loading .gg-skel { background: var(--border); animation: m-tool-pulse 1.4s ease-in-out infinite; }
 @keyframes m-tool-pulse { 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .m-tool-loading .gg-skel, .m-changes .gg-skel { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .m-tool-loading .gg-skel { animation: none; } }
 
 .m-project-tools { display: flex; flex-direction: column; gap: 8px; }
 .m-project-tools-name { margin: 0 0 4px; color: var(--text-secondary); overflow-wrap: anywhere; }

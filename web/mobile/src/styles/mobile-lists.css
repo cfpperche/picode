@@ -67,10 +67,6 @@
 .m-v2-lists .m-list-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
 .m-v2-lists .m-list-loading { display: flex; flex-direction: column; gap: 8px; }
 .m-v2-lists .m-list-loading .m-skel { min-height: 56px; justify-content: center; border-bottom: 1px solid var(--border); }
-
-.m-work-v2 .m-work-seg { width: 100%; flex: none; border: 0; background: transparent; overflow: visible; gap: 4px; }
-.m-work-v2 .m-work-seg .dash-range-opt { height: 44px; align-items: center; min-width: 0; }
-.m-work-v2 .m-work-seg .dash-range-face { height: var(--ctl-h); border: 0; border-radius: 7px; font-family: var(--sans); font-size: 13px; }
 .m-work-v2 .m-work-group { gap: 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
 .m-work-v2 .m-work-group:last-child { border-bottom: 0; }
 .m-work-v2 .m-work-group-head { display: flex; align-items: center; gap: 8px; min-height: 44px; padding-bottom: 4px; color: var(--text-secondary); }

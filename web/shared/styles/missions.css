@@ -7,7 +7,6 @@
 .mission-form { display:grid; gap:14px; }
 .mission-form label { display:grid; gap:6px; font-weight:500; }
 .mission-form label:has(input[type=checkbox]) { display:flex; gap:8px; align-items:flex-start; font-weight:400; }
-.mission-form .mission-check { align-items:flex-start; }
 .mission-list { list-style:none; margin:0; padding:0; }
 .mission-list li + li { border-top:1px solid var(--border); }
 .mission-row { display:flex; gap:16px; justify-content:space-between; align-items:center; padding:14px 4px; color:var(--text-primary); text-decoration:none; transition:background var(--motion-fast); }
