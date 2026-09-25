@@ -31,6 +31,8 @@
 .prov-id { font-family: var(--mono); flex: 1; min-width: 0; }
 .prov-auth { color: var(--text-secondary); font-size: 11.5px; }
 .prov-auth.in { color: var(--ok); }
+/* A login two CLIs hold: they sign each other out on the first renewal. */
+.prov-auth.prov-shared { color: var(--warn); }
 
 /* One row per account. Every track is fixed or fr — never auto: an auto
    track resolves against the row's own content, which would move the fixed

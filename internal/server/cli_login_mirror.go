@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"net/http"
 	"sync"
 
 	"github.com/cfpperche/picode/internal/clicreds"
@@ -67,5 +68,64 @@ func installUsageHooks() {
 	usageHooksOnce.Do(func() {
 		usage.Default.Sync = mirrorCLILogins
 		usage.Default.HeldBy = cliHoldingRefresh
+	})
+}
+
+// refreshHolders lists every CLI — pi included — whose own live login holds
+// this refresh token. Two holders of one rotating token sign each other out
+// on the first renewal (ADR-0166 amendment 2026-09-25).
+func refreshHolders(provider, refresh string) []clicreds.Spec {
+	if refresh == "" {
+		return nil
+	}
+	var out []clicreds.Spec
+	for _, spec := range clicreds.Declarations() {
+		login, ok := clicreds.DetectProvider(spec.CLI, provider)
+		if !ok || login.Kind != "oauth" {
+			continue
+		}
+		var live struct {
+			Refresh string `json:"refresh"`
+		}
+		if json.Unmarshal(login.Cred, &live) == nil && live.Refresh == refresh {
+			out = append(out, spec)
+		}
+	}
+	return out
+}
+
+// refreshOf is an OAuth credential's refresh token ("" for anything else).
+func refreshOf(cred json.RawMessage) string {
+	var c struct {
+		Type    string `json:"type"`
+		Refresh string `json:"refresh"`
+	}
+	if json.Unmarshal(cred, &c) != nil || c.Type != "oauth" {
+		return ""
+	}
+	return c.Refresh
+}
+
+// sharedLoginHolder names another CLI that already holds this row's refresh
+// token live, which Use for target would duplicate; "" when Use is safe.
+func sharedLoginHolder(provider string, cred json.RawMessage, target string) (cli, name string) {
+	for _, spec := range refreshHolders(provider, refreshOf(cred)) {
+		if spec.CLI != target {
+			return spec.CLI, spec.Name
+		}
+	}
+	return "", ""
+}
+
+// refuseSharedLogin writes the 409 Use answers when the login is another
+// CLI's: the pane offers a separate sign-in instead.
+func refuseSharedLogin(w http.ResponseWriter, targetName, holderCLI, holderName string) {
+	writeJSON(w, http.StatusConflict, map[string]any{
+		"error": "This login is " + holderName + "'s. Using it in " + targetName +
+			" too would share one renewal, and the first CLI to renew signs the other out. Sign in to " +
+			targetName + " separately — the same account can hold two logins.",
+		"heldBy":     holderName,
+		"heldByCli":  holderCLI,
+		"signInHere": true,
 	})
 }
