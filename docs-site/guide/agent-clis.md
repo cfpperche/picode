@@ -322,7 +322,8 @@ asks for:
   the last commit) or the **Same folder** as the original.
 - **Task** — what the fork should do first, with photos, files or a
   sketch: paste a screenshot straight in, as in the terminal's attach bar.
-  Left empty, the fork opens waiting.
+  Left empty, the fork opens waiting. The task is sent as soon as the new
+  agent is ready, line breaks and all (Omp gets it on one line).
 
 ### New worktree or same folder
 

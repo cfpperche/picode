@@ -50,7 +50,23 @@ func readArgs(t *testing.T, out string) []string {
 	return strings.Split(raw, "\x00")
 }
 
+// shortForkTaskWait keeps a test's background task delivery from
+// outliving it: the fakes are not TUIs, so the door never delivers.
+func shortForkTaskWait(t *testing.T) {
+	oldWait, oldEvery := forkTaskWait, forkTaskEvery
+	forkTaskWait, forkTaskEvery = 600*time.Millisecond, 200*time.Millisecond
+	t.Cleanup(func() {
+		time.Sleep(forkTaskWait + forkTaskEvery)
+		forkTaskWait, forkTaskEvery = oldWait, oldEvery
+	})
+}
+
+// Claude Code reads its own screen for the prompt door, so the fork recipe
+// carries no task: the task (line breaks kept, the staged file named) goes
+// through the door once the TUI is at its prompt, and a restart can never
+// send it twice.
 func TestForkAgentClaudeCarriesTaskAndFiles(t *testing.T) {
+	shortForkTaskWait(t)
 	srcID, proj, out, deps, fork := forkSource(t, "claude-code", "cc-1")
 	res := fork(map[string]any{
 		"name":   "fix the race",
@@ -64,18 +80,19 @@ func TestForkAgentClaudeCarriesTaskAndFiles(t *testing.T) {
 	cleanupTerm(t, body)
 
 	args := readArgs(t, out)
-	if len(args) != 6 || !reflect.DeepEqual(args[:4], []string{"--resume", "cc-1", "--fork-session", "--session-id"}) {
-		t.Fatalf("claude fork args = %q", args)
+	if len(args) != 5 || !reflect.DeepEqual(args[:4], []string{"--resume", "cc-1", "--fork-session", "--session-id"}) {
+		t.Fatalf("claude fork args = %q (the task must not ride the launch)", args)
 	}
 	newID := args[4]
-	// The task is one line and stays an operand (a leading dash would read
-	// as a flag); the staged file follows as a mention.
-	if !strings.HasPrefix(args[5], " -fix the failure you found @.picode/drop/") || !strings.HasSuffix(args[5], "-trace.txt") {
-		t.Fatalf("prompt = %q", args[5])
+	if body["task"] != "pending" {
+		t.Fatalf("task = %v, want pending", body["task"])
 	}
-	staged := filepath.Join(proj, strings.SplitN(args[5], " @", 2)[1])
-	if b, err := os.ReadFile(staged); err != nil || string(b) != "panic: race" {
-		t.Fatalf("staged file %s: %q %v", staged, b, err)
+	drops, _ := filepath.Glob(filepath.Join(proj, ".picode", "drop", "*-trace.txt"))
+	if len(drops) != 1 {
+		t.Fatalf("staged files = %v", drops)
+	}
+	if b, err := os.ReadFile(drops[0]); err != nil || string(b) != "panic: race" {
+		t.Fatalf("staged file %s: %q %v", drops[0], b, err)
 	}
 
 	forked := body["agent"].(map[string]any)
@@ -98,6 +115,7 @@ func TestForkAgentClaudeCarriesTaskAndFiles(t *testing.T) {
 }
 
 func TestForkAgentCodexInAnotherFolder(t *testing.T) {
+	shortForkTaskWait(t)
 	_, _, out, deps, fork := forkSource(t, "codex", "cx-1")
 	wt := filepath.Join(t.TempDir(), "wt")
 	if err := os.MkdirAll(wt, 0o755); err != nil {
@@ -109,7 +127,10 @@ func TestForkAgentCodexInAnotherFolder(t *testing.T) {
 	}
 	body := res["body"].(map[string]any)
 	cleanupTerm(t, body)
-	if args := readArgs(t, out); !reflect.DeepEqual(args, []string{"fork", "cx-1", "fix it"}) {
+	if body["task"] != "pending" {
+		t.Fatalf("task = %v, want pending", body["task"])
+	}
+	if args := readArgs(t, out); !reflect.DeepEqual(args, []string{"fork", "cx-1"}) {
 		t.Fatalf("codex fork args = %q", args)
 	}
 	forked := body["agent"].(map[string]any)
@@ -124,6 +145,24 @@ func TestForkAgentCodexInAnotherFolder(t *testing.T) {
 	// Codex names the copy itself: no pin until its first turn reports.
 	if launch, _ := deps.Store.TerminalLaunch(*a.TerminalID); launch.LastSession != nil {
 		t.Fatalf("codex fork pinned early: %+v", launch.LastSession)
+	}
+}
+
+// Omp has no screen reader for the prompt door, so its fork keeps the task
+// as one launch argument: line breaks become spaces, nothing is pending.
+func TestForkAgentOmpKeepsTheTaskOnItsLaunch(t *testing.T) {
+	_, _, out, _, fork := forkSource(t, "omp", "om-1")
+	res := fork(map[string]any{"prompt": "first\nsecond"})
+	if res["status"] != "201" {
+		t.Fatalf("fork: %v", res)
+	}
+	body := res["body"].(map[string]any)
+	cleanupTerm(t, body)
+	if body["task"] != nil {
+		t.Fatalf("task = %v, want none pending", body["task"])
+	}
+	if args := readArgs(t, out); len(args) < 3 || !reflect.DeepEqual(args[:3], []string{"--fork", "om-1", "first second"}) {
+		t.Fatalf("omp fork args = %q", args)
 	}
 }
 
@@ -152,8 +191,10 @@ func TestForkAgentRefusals(t *testing.T) {
 			t.Fatalf("got %v", res)
 		}
 	})
+	// Only a CLI whose task rides the launch (Omp, no screen reader) has
+	// the one-argument limit; the door takes any length.
 	t.Run("a task over the launch limit", func(t *testing.T) {
-		_, _, _, _, fork := forkSource(t, "codex", "cx-1")
+		_, _, _, _, fork := forkSource(t, "omp", "om-1")
 		if res := fork(map[string]any{"prompt": strings.Repeat("x ", 5000)}); res["status"] != "400" {
 			t.Fatalf("got %v", res)
 		}
