@@ -89,7 +89,8 @@ export default function PinEdit({ pinId, onBack, onSaved }) {
 
   return (
     <div className="m-screen m-pin-edit">
-      <ScreenHeader title={pinId ? "Edit pin" : "New pin"} onBack={onBack} right={<button type="button" className="m-head-btn m-head-btn-text" disabled={busy || !loaded} onClick={save}>Save</button>} />
+      {/* One save action: the form's own button (a header Save duplicated it). */}
+      <ScreenHeader title={pinId ? "Edit pin" : "New pin"} onBack={onBack} />
       {loaded ? (
         <form noValidate className="m-pin-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
           {restored ? <div className="m-pin-restored" role="status">Unsaved changes restored. <button type="button" className="btn btn-sm btn-ghost" onClick={() => { clearDraft(storage(), key); setRestored(false); setDraft(base ? { title: base.title, tagsText: tagsText(base.tags), body: base.body } : { title: "", tagsText: "", body: "" }); }}>Discard</button></div> : null}
@@ -97,7 +98,7 @@ export default function PinEdit({ pinId, onBack, onSaved }) {
           <input className="dlg-input" value={draft.tagsText} placeholder="Tags, separated by commas" aria-label="Tags" onChange={(e) => setDraft({ ...draft, tagsText: e.target.value })} />
           <textarea className="dlg-input m-pin-textarea" value={draft.body} placeholder="Write… (markdown)" aria-label="Note" rows={12} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
           {stand.near ? <p className={"m-pin-limit" + (stand.over ? " over" : "")}>{(stand.bytes / 1000).toFixed(0)} KB / 100 KB</p> : null}
-          <button type="submit" className="btn btn-primary m-pin-save" disabled={busy}>{pinId ? "Save" : "Create pin"}</button>
+          <button type="submit" className="btn btn-primary m-pin-save" disabled={busy || !loaded}>{pinId ? "Save" : "Create pin"}</button>
         </form>
       ) : <p className="m-pin-msg">Loading…</p>}
     </div>

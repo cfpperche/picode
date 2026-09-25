@@ -2,8 +2,14 @@ package server
 
 import (
 	"net/http"
+	"os"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/cfpperche/picode/internal/climetrics"
+	"github.com/cfpperche/picode/internal/store"
 )
 
 // ADR-0217: the door is retried while a fresh TUI grows its composer, never
@@ -67,5 +73,42 @@ func TestHookSawPrompt(t *testing.T) {
 	ts.Set("t", TermWorking, "claude-code", sent.Add(time.Second))
 	if !hookSawPrompt(deps, "t", sent, 300*time.Millisecond) {
 		t.Fatal("the hook's working state did not confirm the prompt")
+	}
+}
+
+// The editor's METERED_CLIS is the meter's answer for every CLI a start run
+// can use: a CLI PiCode cannot price shows no cost and says its limit does
+// not apply (web/shared/domain/automationsPi.js).
+func TestMeteredCLIsMatchTheEditor(t *testing.T) {
+	body, err := os.ReadFile("../../web/shared/domain/automationsPi.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`METERED_CLIS = \[([^\]]*)\]`).FindSubmatch(body)
+	if m == nil {
+		t.Fatal("METERED_CLIS not found")
+	}
+	js := map[string]bool{}
+	for _, part := range strings.Split(string(m[1]), ",") {
+		if id := strings.Trim(strings.TrimSpace(part), `"`); id != "" {
+			js[id] = true
+		}
+	}
+	for _, cli := range store.UnattendedCLIs {
+		if js[cli] != climetrics.Metered(cli) {
+			t.Errorf("%s: editor says metered=%v, meter says %v", cli, js[cli], climetrics.Metered(cli))
+		}
+	}
+}
+
+// Omp's reader serves unattended senders only: doorReaderCLI also decides a
+// fork's task hand-over, mission dispatch and the attach's delivery modes,
+// none of them measured with Omp's reader (main went red 2026-09-25).
+func TestOmpReaderIsUnattendedOnly(t *testing.T) {
+	if doorReaderCLI["omp"] {
+		t.Fatal("omp in doorReaderCLI changes its fork, missions and attach delivery unmeasured")
+	}
+	if !unattendedReaderCLI["omp"] {
+		t.Fatal("start runs on Omp need its reader")
 	}
 }

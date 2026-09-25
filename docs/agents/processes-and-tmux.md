@@ -52,3 +52,11 @@
   "did I edit the root checkout by mistake?" (`make worktree-status` lists every
   tree with its dirty count). The root checkout is shared — a stray edit there
   is the failure mode that blocks every other session (AGENTS.md §5).
+
+- **`/tmp` is a shared 16 GB tmpfs in memory.** Every session's scratchpad,
+  every test's `t.TempDir` and, until 2026-09-25, every test binary's link
+  output lived there; that day it filled and `make ci` on `main` failed three
+  times with "no space left on device" while the disk had 772 GB free.
+  `scripts/go-test.sh` now links under `~/.cache/picode-gotmp` (`GOTMPDIR`;
+  a value the caller sets wins). Large scratch output belongs on disk too
+  (`var/` in your worktree), and a finished session's scratchpad can go.

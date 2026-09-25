@@ -15,4 +15,4 @@ terminal). Blind spot: inbox items, agent chat messages and files/git probed emp
 visual-review: PASS (Missions, New mission, New pin, New snippet, Terminal state)
 Not done / debts: none. Pre-existing, noted not fixed: New pin/snippet show both a
 header Save and a form Create; New mission has an empty band above a rule under the header.
-Merge: fast-forward ready.
+Merge: landed on main 4bdcbf1c9; deployed by the owner 2026-09-25.
