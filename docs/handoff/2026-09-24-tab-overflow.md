@@ -16,7 +16,7 @@ visual-review: PASS
 Unchanged: .pref-tabs and llama nav wrap; PiKeys .key-facets (radiogroup)
 keeps a thin scrollbar; web/mobile (ADR-0072) keeps swipe strips with thin
 scrollbars (pref/pkg/cli/llama/cli-pane) — arrows there are the owner's call.
-Merge: fast-forward ready.
+Merge: landed on main c3288ca3d; deployed by the owner 2026-09-25.
 
 ## Debts
 
