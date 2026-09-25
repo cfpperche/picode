@@ -8,9 +8,9 @@ desktop imports follow. Arrows are 36px tap targets; swipe still scrolls.
 PageFrame's reveal/hide-partial-tab effect removed (OverflowTabs reveals the
 selected tab). Two-tab Packages/Connectors/Skills bars unchanged. Phone gained a
 `.tab-list .um-label` style ("Out of view" heading was unstyled).
-Fixed (both apps): Preferences drew a second divider under the tabs on every
-section after the first (`.settings-section + .settings-section` matches after
-hidden siblings); override scoped under #preferences-view.
+Merge with main: 7fb8ca5cb fixed the Preferences double divider its own way
+(kept; this branch's override dropped) and patched PageFrame's tab mask — this
+branch removes that effect, since OverflowTabs reveals and fades instead.
 Verified: `make ci-scoped` PASS. Scratch instance at 390×844, native scrollbars
 shown: no strip scrollbar, no page overflow, selected tab in view on deep links
 (Backup via list, Codex › Connectors); overlayAudit ok on both lists. CLIs bar

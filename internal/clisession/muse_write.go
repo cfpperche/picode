@@ -219,7 +219,7 @@ func (MuseSource) Write(ctx context.Context, t transcript.Timeline, req WriteReq
 		CLI:        "muse",
 		ID:         sid,
 		Path:       log,
-		ResumeArgs: []string{"--resume", sid},
+		ResumeArgs: []string{"resume", sid},
 		Name:       clip(name, 120),
 		Cwd:        cwd,
 		CreatedAt:  stamp,

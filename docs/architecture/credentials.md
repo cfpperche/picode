@@ -129,6 +129,13 @@ holds a row's refresh token: such a token is never refreshed by PiCode; an
 expired or rejected access token reports "Waiting for <CLI> to renew this
 login", and the CLI's next use renews it and the mirror copies it back.
 
+Between two CLIs the same rule holds (amendment 2026-09-25): `Use` —
+`handleCredentialActivate` and pi's `handleAccountActivate` — refuses a row
+whose refresh token another CLI's live login holds (`sharedLoginHolder` over
+`refreshHolders`, pi included), answering 409 with `heldBy` and `signInHere`;
+the pane turns that into "Sign in to <CLI>" instead of a toast. A row two CLIs
+already hold carries `sharedWith` and shows "shared with …" in amber.
+
 ## Backup
 
 A snapshot with secrets carries `picode/credentials.json` and **not**

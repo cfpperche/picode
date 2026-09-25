@@ -27,8 +27,9 @@ import "../styles/mobile-lists.css";
 // Mobile-owned settings, loaded only when their section opens.
 export default function More({ fleetReady = true, section, apps, catalog, clis = [], clisState = "ok", system, version, themeMode, onTheme, last, onRefreshCatalog, onCatalogChange, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig, workspaces = [], freeAgents = [], legacyAgentId = "" }) {
   // The CLI panes follow the last agent opened, as desktop follows the
-  // selected one (ADR-0179); with none yet they open Pi's, the legacy address.
-  const lastCli = String(last?.agent?.cli || "").trim() || "pi";
+  // selected one (ADR-0179). An agent with no cli is a Pi agent (agentIsPi);
+  // with no agent yet there is no CLI to pick, so the catalog opens.
+  const lastCli = last?.agent ? String(last.agent.cli || "").trim() || "pi" : "";
   const [query, setQuery] = useState("");
   if (!section) {
     const groups = moreGroups(query);
@@ -47,7 +48,7 @@ export default function More({ fleetReady = true, section, apps, catalog, clis =
           <ul className="m-list m-menu m-group-list">
           {group.rows.map(([id, title, sub]) => (
             <li key={id} className="m-row">
-              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash(lastCli) : id === "pi-packages" ? cliPackagesHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "pi-skills" ? cliSkillsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "pi-settings" ? cliSettingsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "connectors" ? cliConnectorsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "integrations" ? "#/integrations/webhooks" : "#/more/" + id}>
+              <a className="m-row-main" href={!lastCli && ["pi-providers", "pi-packages", "pi-skills", "pi-settings", "connectors"].includes(id) ? "#/clis" : id === "pi-providers" ? cliProvidersHash(lastCli) : id === "pi-packages" ? cliPackagesHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "pi-skills" ? cliSkillsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "pi-settings" ? cliSettingsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "connectors" ? cliConnectorsHash(lastCli, { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "integrations" ? "#/integrations/webhooks" : "#/more/" + id}>
                 <span className="m-row-text">
                   <span className="m-row-title">{title}</span>
                   <span className="m-row-sub">{sub}</span>

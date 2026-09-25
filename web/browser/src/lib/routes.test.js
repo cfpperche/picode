@@ -42,7 +42,7 @@ test("preferences and settings are distinct", () => {
   assert.equal(prefSection("#/preferences/landing"), "landing");
   assert.equal(parseRoute("#/clis/settings"), "clis");
   assert.equal(ROUTES.preferences, "/preferences");
-  assert.equal(ROUTES.settings, "/clis/pi/settings");
+  assert.equal(ROUTES.settings, undefined, "no Pi default: go() resolves the CLI");
   assert.equal(providersLlama("#/providers/llama"), true);
   assert.equal(parseRoute("#/pins/new"), "pins");
   assert.deepEqual(pinRoute("#/pins/new"), { mode: "new", id: "" });
@@ -223,14 +223,22 @@ test("native provider navigation; the Pi-era aliases are retired", () => {
   assert.deepEqual(parseRoute("#/more/providers/llama?tab=models"), "llama");
 });
 
-test("provider command navigation opens canonical list or add", () => {
+// | agent in context | its cli   | a CLI pane command opens        |
+// | none             | —         | the catalog, #/clis             |
+// | yes              | empty     | Pi's pane (agentIsPi)           |
+// | yes              | <cli>     | that CLI's pane (ADR-0179)      |
+test("CLI pane commands open the context's CLI, or the catalog with none", () => {
   const previous = globalThis.location;
   globalThis.location = { hash: "" };
   try {
-    go("providers"); assert.equal(location.hash, "#/clis/pi/providers");
-    go("providers-new"); assert.equal(location.hash, "#/clis/pi/providers/new");
-    go("providers-custom"); assert.equal(location.hash, "#/clis/pi/providers/custom");
-    go("providers-custom", "", { customId: "cheap" }); assert.equal(location.hash, "#/clis/pi/providers/custom/cheap");
+    for (const name of ["settings", "packages", "skills", "mcps", "connectors", "providers", "providers-new", "providers-custom"]) {
+      location.hash = ""; go(name); assert.equal(location.hash, "#/clis", name);
+      location.hash = ""; go(name, "", { workspaceId: "W" }); assert.equal(location.hash, "#/clis", name + " with a workspace only");
+    }
+    go("providers", "A"); assert.equal(location.hash, "#/clis/pi/providers");
+    go("providers-new", "A"); assert.equal(location.hash, "#/clis/pi/providers/new");
+    go("providers-custom", "A", { cli: "omp" }); assert.equal(location.hash, "#/clis/omp/providers/custom");
+    go("providers-custom", "A", { cli: "pi", customId: "cheap" }); assert.equal(location.hash, "#/clis/pi/providers/custom/cheap");
     go("mcps", "A", { workspaceId: "W" });
     assert.equal(location.hash, "#/clis/pi/connectors?workspaceId=W&agentId=A");
     go("connectors", "A", { workspaceId: "W" });
@@ -246,10 +254,12 @@ test("provider command navigation opens canonical list or add", () => {
     assert.match(location.hash, /^#\/clis\/codex\/connectors/);
     go("providers", "C", { cli: "omp" }); assert.equal(location.hash, "#/clis/omp/providers");
     // The catalog view follows the same rule: a selected agent opens its own
-    // CLI's page; no agent in context keeps the legacy first-row address.
+    // CLI's page; no agent in context opens the catalog.
     go("clis", "C", { workspaceId: "W", cli: "claude-code" });
     assert.equal(location.hash, "#/clis/claude-code");
-    go("clis", "C", {});
+    go("clis", "P", {});
+    assert.equal(location.hash, "#/clis/pi");
+    go("clis", "", {});
     assert.equal(location.hash, "#/clis");
   }
   finally { globalThis.location = previous; }

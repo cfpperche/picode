@@ -563,6 +563,11 @@ type cliTerminalRequest struct {
 	WorkspaceID string              `json:"workspaceId"`
 	Cwd         string              `json:"cwd"`
 	Overrides   clilaunch.Overrides `json:"overrides"`
+	// session, server-side only, runs once the agent exists and before its
+	// first start, and names the conversation file the agent owns (a Pi
+	// fork made in the new agent's own session folder). An error removes
+	// the agent.
+	session func(store.Agent) (string, error)
 }
 
 // checkCLILaunch resolves the CLI's stored settings with overrides and
@@ -634,6 +639,14 @@ func createCLIAgent(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTerminal
 	agent, status, err := newLaunchAgent(deps, wsID, cwd, cli.ID, v.Name, work, &ov)
 	if err != nil {
 		return agent, nil, status, err
+	}
+	if v.session != nil {
+		path, err := v.session(agent)
+		if err != nil {
+			_ = deps.Store.DeleteAgent(agent.ID)
+			return store.Agent{}, nil, http.StatusBadGateway, err
+		}
+		session = path
 	}
 	if session != "" {
 		updated, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &session})

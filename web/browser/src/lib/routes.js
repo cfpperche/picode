@@ -12,13 +12,9 @@ export const ROUTES = {
   workspace: "/",
   preferences: "/preferences",
   clis: "/clis",
-  settings: "/clis/pi/settings",
   system: "/system",
-  providers: "/clis/pi/providers",
   llama: "/llama/models",
-  mcps: "/clis/pi/connectors",
   integrations: "/integrations/webhooks",
-  packages: "/clis/pi/packages",
   devices: "/devices",
   browser: "/browser",
   computer: "/computer",
@@ -242,32 +238,36 @@ export function providersLlama(hash) {
   return h === "/providers/llama";
 }
 
+// The commands that open one CLI's pane: with no CLI in context they open the
+// catalog instead of guessing one.
+const CLI_PANE_COMMANDS = new Set(["settings", "packages", "skills", "mcps", "connectors", "providers", "providers-new", "providers-custom"]);
+
 export function go(name, agentId, extra = {}) {
   const ctx = { agentId: extra.agentId || agentId || "", workspaceId: extra.workspaceId || "" };
   // The generic CLI panes open on the selected agent's CLI (ADR-0179: Pi is
-  // one CLI among nine); with no agent in context they keep Pi's pane, the
-  // legacy address these commands had before every CLI had one.
-  const cli = String(extra.cli || "").trim() || "pi";
+  // one CLI among nine). An agent with no cli is a Pi agent (agentIsPi); with
+  // no agent in context there is no CLI to pick, so the catalog opens.
+  const cli = String(extra.cli || "").trim() || (ctx.agentId ? "pi" : "");
+  if (!cli && CLI_PANE_COMMANDS.has(name)) { location.hash = "#/clis"; return; }
   if (name === "settings") { location.hash = cliSettingsHash(cli, ctx); return; }
   if (name === "packages") { location.hash = cliPackagesHash(cli, ctx); return; }
   if (name === "skills") { location.hash = cliSkillsHash(cli, { workspaceId: ctx.workspaceId }); return; }
   if (name === "mcps" || name === "connectors") { location.hash = cliConnectorsHash(cli, ctx); return; }
-  // The catalog follows the same rule when a CLI rides the context (the rail
-  // button with an agent selected); without one it keeps #/clis, whose first
-  // row is the same Pi the legacy address always showed.
-  if (name === "clis" && extra.cli) { location.hash = cliPaneHash(String(extra.cli).trim() || "pi"); return; }
-  if (name === "providers" && extra.cli) { location.hash = cliProvidersHash(cli); return; }
+  // The catalog follows the same rule (the rail button with an agent
+  // selected opens that agent's CLI); without one it is #/clis.
+  if (name === "clis" && cli) { location.hash = cliPaneHash(cli); return; }
+  if (name === "providers") { location.hash = cliProvidersHash(cli); return; }
   if (typeof name === "string" && name.startsWith("preferences")) {
     const sec = name === "preferences" ? "" : name.slice("preferences-".length);
     location.hash = sec ? "#/preferences/" + sec : "#/preferences";
     return;
   }
   if (name === "providers-new") {
-    location.hash = cliProvidersHash("pi", { add: true });
+    location.hash = cliProvidersHash(cli, { add: true });
     return;
   }
   if (name === "providers-custom") {
-    location.hash = cliProvidersHash("pi", { custom: true, customId: extra.customId || "" });
+    location.hash = cliProvidersHash(cli, { custom: true, customId: extra.customId || "" });
     return;
   }
   if (name === "providers-llama") {

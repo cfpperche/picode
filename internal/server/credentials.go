@@ -121,6 +121,10 @@ const (
 type accountView struct {
 	catalog.Account
 	Activatable bool `json:"activatable"`
+	// SharedWith names the CLIs whose own live logins hold this row's refresh
+	// token, listed only when two or more do: they sign each other out on the
+	// first renewal (ADR-0166 amendment 2026-09-25).
+	SharedWith []string `json:"sharedWith,omitempty"`
 	// Usage is the cached report for this row. The key is absent when the
 	// cache holds none: a pane load never calls a vendor, and the pane renders
 	// "unknown" with Check instead of a guessed bar (ADR-0031).
@@ -406,6 +410,11 @@ func providerViews(spec clicreds.Spec, sources []rosterSource) []providerView {
 			if s.Native != nil {
 				if row, ok, err := credentials.Default().Row(s.ID, a.ID); err == nil && ok {
 					_, view.Activatable = clicreds.RenderLogin(s.Native.Format, s.ID, row.Cred, existing)
+					if holders := refreshHolders(s.ID, refreshOf(row.Cred)); len(holders) > 1 {
+						for _, h := range holders {
+							view.SharedWith = append(view.SharedWith, h.Name)
+						}
+					}
 				}
 			}
 			views = append(views, view)
@@ -984,6 +993,10 @@ func handleCredentialActivate(deps Deps) http.HandlerFunc {
 		if n := liveTerminalsFor(deps, cli); n > 0 {
 			writeErr(w, http.StatusConflict, fmt.Sprintf(
 				"Close the %d running %s terminal(s) first — writing a login under a running agent can corrupt its session.", n, spec.Name))
+			return
+		}
+		if holder, name := sharedLoginHolder(provider, row.Cred, cli); holder != "" {
+			refuseSharedLogin(w, spec.Name, holder, name)
 			return
 		}
 		path, backup, status, err := writeCLILogin(deps, spec, decl, provider, row)
