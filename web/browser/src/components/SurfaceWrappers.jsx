@@ -5,17 +5,18 @@ import { toast, toastError } from "../lib/toast.js";
 
 // Surface wrapper policies (ADR-0138 tmux guard, ADR-0180 browser
 // hand-off): PATH wrappers for every terminal PiCode opens. They are not
-// tmux options and not settings of the CLI selected below, so they do not
+// tmux options and not settings of any one CLI, so they do not
 // live on Terminal defaults — that page is font, color and options a
-// terminal inherits. Both default on; the switches are the opt-out.
+// terminal inherits. Both default on; the switches are the opt-out. They
+// render as the Settings tab of Agent CLIs (#/clis/settings).
 const ROWS = [
   {
     id: "tmux-guard",
     label: "tmux guard",
     on: "On — refuses kill-server, pattern kills and other terminals’ sessions inside every PiCode terminal. Your own sessions stay killable by exact name.",
     off: "Off — every tmux command reaches the server, including kill-server.",
-    toastOn: "Terminal guard is on for terminals opened from now on.",
-    toastOff: "Terminal guard is off for terminals opened from now on.",
+    toastOn: "tmux guard is on for terminals opened from now on.",
+    toastOff: "tmux guard is off for terminals opened from now on.",
     docs: "https://cfpperche.github.io/picode/guide/agent-clis#tmux-guard",
   },
   {
@@ -33,6 +34,7 @@ export default function SurfaceWrappers({ hidden }) {
   const [rows, setRows] = useState({});
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -44,6 +46,7 @@ export default function SurfaceWrappers({ hidden }) {
       }
       setRows(next);
       setErr("");
+      setLoaded(true);
     } catch (e) {
       setErr(e?.message || "Could not read the wrapper states.");
     }
@@ -72,6 +75,8 @@ export default function SurfaceWrappers({ hidden }) {
     }
   }
 
+  if (!loaded && !err) return <div className="cli-loading" aria-label="Loading settings"><div /><div /></div>;
+  if (loaded && !err && !Object.keys(rows).length) return <p className="cli-guard-empty">No terminal settings on this server.</p>;
   return (
     <>
       {ROWS.map((spec) => {
@@ -85,8 +90,8 @@ export default function SurfaceWrappers({ hidden }) {
                 {row?.wired ? spec.on : row ? spec.off : "Checking whether it is on."}
               </p>
               <p>
-                Every PiCode terminal, not the CLI selected below. Applies to terminals opened from now on.{" "}
-                <a href={spec.docs} target="_blank" rel="noreferrer">How it works ↗</a>
+                Every PiCode terminal, whichever CLI runs in it. Applies to terminals opened from now on.{" "}
+                <a href={spec.docs} target="_blank" rel="noreferrer">{"How it\u00a0works ↗"}</a>
               </p>
               {err ? (
                 <div className="cli-notice is-error" role="alert">

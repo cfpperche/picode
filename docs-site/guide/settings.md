@@ -43,9 +43,7 @@ agent and layer you came from, so going back lands where you left.
 
 Contextual links use `?agentId=<id>`; the pane adds the layer it is editing
 (`?scope=global|workspace|agent`, the same words every setup tab uses) to the URL, so a reload or a bookmark lands on
-the same view. Old `#/settings` and mobile `#/more/settings` links redirect
-here, and a `?tab=keys` link from the day the map was a sub-tab lands on the
-Keyboard pane. Workspace values override machine
+the same view. Workspace values override machine
 values; agent values override both.
 
 
