@@ -22,7 +22,17 @@ left needs the owner's call before it goes.
 - [x] WebTab pre-ADR-0161 hide-and-freeze path (coverDecision, verifyPreviewUrl, subscribeFloatingLayers, still backdrop, data-covered; ADR-0161 amended) — retired 2026-09-25 (feat/legacy-dead-code)
 - [x] Pi package mutation responses in pipkg shape: POST/DELETE /api/packages and update now answer the unified report (writePiPackageReport) — retired 2026-09-25 (feat/legacy-dead-code)
 - [ ] Owner: first live run of the work-browser tab after the pre-ADR-0161 path removal (menu/palette/toast over a web page)
-- [ ] preview.rs comment still calls btab_preview the "legacy hide/capture path"; it now serves annotation captures only — fix at the next shell rebuild
+- [x] preview.rs comment still calls btab_preview the "legacy hide/capture path"; it now serves annotation captures only — fix at the next shell rebuild — paid 2026-09-25 (feat/legacy-sweep-2)
+- [x] QA scripts on retired links (qa-cli-settings, -recovery, qa-cli-packages, qa-cli-providers, qa-llama, qa-mobile-settings) moved to canonical CLI addresses; qa-cli-providers' unsupported row now an unknown CLI id — retired 2026-09-25 (feat/legacy-sweep-2)
+- [x] cmd/uicheck (stale, unreferenced) and the picode-dash-scope localStorage cleanup — retired 2026-09-25 (feat/legacy-sweep-2)
+- [x] Go tray migration (ADR-0142 amended): --tray/runRetiredTray, startup-repair --retarget-shell, RetargetTask/retargetTask/CanRetarget, TrayArgs, task.ps1 'retarget' and '--tray' — retired 2026-09-25 (feat/legacy-sweep-2)
+- [x] recoverPiReceiverRuntime /proc environ fallback (hello without runtimePid recovers nothing) — retired 2026-09-25 (feat/legacy-sweep-2)
+- [x] desktop-shell: disk_report --stream retry fallback; btab_cdp_call optional domains (now required Vec<String>) — retired 2026-09-25 (feat/legacy-sweep-2)
+- [x] store.CreateTerminal (callers use CreateTerminalIn with FreeWorkspaceID) — retired 2026-09-25 (feat/legacy-sweep-2)
+- [ ] qa-cli-providers.mjs is stale since ADR-0169 (2026-09-21): waits for #providers-view .prov-bar; needs a rewrite for the one-pane Providers
+- [ ] qa-cli-settings.mjs fails the keyboard density assertion at line ~158 on picode-docs-fixture; its later sections (edited 2026-09-25) have not run
+- [ ] qa-cli-packages, qa-llama, qa-mobile-settings, qa-cli-settings-recovery not run after the 2026-09-25 link edits
+- [ ] Owner: first build/run of the shell after btab.rs/disk.rs edits (make desktop-restart) and of startup-repair after the task.ps1 edit
 
 ## Kept on purpose (not debts)
 
