@@ -4,7 +4,7 @@ Decision: ADR-0196. Plan: `docs/plans/skills.md`. Study: `docs/benchmarks/2026-0
 
 ## Next
 
-- Slice 7 `feat/skills-doctor`, if the debts below still matter: locally modified skills, broken links, diverged copies.
+- Slice 7 `feat/skills-doctor` is on hold (owner, 2026-09-25): build it only if a real case shows up — a skill edited by hand that needs Restore, a broken link, or a copy that fell behind its original. Today "edited" already marks the first; links hold on this WSL machine.
 
 ## Debts
 
