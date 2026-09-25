@@ -22,4 +22,4 @@ Merge: fast-forward ready.
 
 ## Debts
 
-- Scrollbar hide-until-hover unverified in Firefox and with a real mouse in the Windows shell (WebView2).
+- Scrollbar hide-until-hover unverified in Firefox (owner confirmed it live with a real mouse after the deploy, 2026-09-24).
