@@ -26,7 +26,7 @@ const agent = workspace.agents.find(a => a.name === "Atlas");
 assert.equal(agent?.mode, "stopped", "QA must not start or restart a real agent");
 const id = agent.id;
 const saved = async () => (await readFleet()).flatMap(w => w.agents).find(a => a.id === id);
-const waitSaved = () => browser("wait", "--fn", '!document.querySelector(".m-agent-config-fields").disabled');
+const waitSaved = () => browser("wait", "--fn", '!document.querySelector(".pi-settings-fields").disabled');
 const click = name => browser("find", "role", "button", "click", "--name", name);
 async function capture(name, audit = false) {
   await settle();
