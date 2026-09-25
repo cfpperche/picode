@@ -100,3 +100,15 @@ func TestMeteredCLIsMatchTheEditor(t *testing.T) {
 		}
 	}
 }
+
+// Omp's reader serves unattended senders only: doorReaderCLI also decides a
+// fork's task hand-over, mission dispatch and the attach's delivery modes,
+// none of them measured with Omp's reader (main went red 2026-09-25).
+func TestOmpReaderIsUnattendedOnly(t *testing.T) {
+	if doorReaderCLI["omp"] {
+		t.Fatal("omp in doorReaderCLI changes its fork, missions and attach delivery unmeasured")
+	}
+	if !unattendedReaderCLI["omp"] {
+		t.Fatal("start runs on Omp need its reader")
+	}
+}

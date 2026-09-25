@@ -15,3 +15,4 @@ Plan: `docs/plans/cli-as-agents.md`
 - [ ] `start` runs on guest CLIs do not read the final message back; the Inbox result only points at the session (ADR-0217).
 - [ ] OpenCode, Grok and Hermes `start` runs have no measured cost (`climetrics.Metered`), so the cost cap does not stop them; the editor and the runs table say so. OpenCode keeps sessions in SQLite, Grok and Hermes have no priced session file yet.
 - [ ] Antigravity (composer unmeasured) and Muse (hooks not attributable to a terminal, no end-of-turn signal) cannot take `start` runs (ADR-0217).
+- [ ] Omp's composer reader is scoped to unattended senders (`unattendedReaderCLI`). Moving it into `doorReaderCLI` would change Omp's fork (task pasted after start instead of a launch argument), mission dispatch and attach delivery; each needs a live measurement first.
