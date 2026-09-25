@@ -12,4 +12,4 @@ reached the row, which still showed "in use" by id.
 
 ## Debts
 
-- pi's own use of an Anthropic vault row still refreshes it; if the same account is also Claude Code's, the two can rotate each other out.
+- pi's own use of an Anthropic vault row still refreshes it; if the same account is also Claude Code's, the two can rotate each other out. — paid 2026-09-25 (feat/one-refresh-owner): Use refuses the share and the roster marks an existing one.

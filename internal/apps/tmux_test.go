@@ -241,6 +241,33 @@ func TestTmuxAppSocketsViewListsServers(t *testing.T) {
 	}
 }
 
+// A count badge at zero is dropped: the Sockets tab said "0" when no
+// tmux server was running (AGENTS.md: never a "0" count badge).
+func TestTmuxAppSocketsViewNoRunningServerHasNoBadge(t *testing.T) {
+	src := &fakeTmuxServer{
+		available: true,
+		sockets:   []tmux.MachineSocket{{Path: "/home/goat/.picode/tmux.sock", Name: "tmux.sock", Ours: true, Running: false}},
+	}
+	v, err := tmuxApp{}.View(context.Background(), Host{Tmux: src}, "sockets")
+	if err != nil {
+		t.Fatalf("view: %v", err)
+	}
+	if len(v.Tabs) != 3 || v.Tabs[2].Badge != "" {
+		t.Fatalf("tabs = %+v, want no badge on sockets with no running server", v.Tabs)
+	}
+}
+
+func TestCountBadge(t *testing.T) {
+	for _, c := range []struct {
+		n    int
+		want string
+	}{{-1, ""}, {0, ""}, {1, "1"}, {37, "37"}} {
+		if got := countBadge(c.n); got != c.want {
+			t.Errorf("countBadge(%d) = %q, want %q", c.n, got, c.want)
+		}
+	}
+}
+
 func TestTmuxAppSocketsViewWithoutTmux(t *testing.T) {
 	app := tmuxApp{}
 	v, err := app.View(context.Background(), Host{Tmux: &fakeTmuxServer{available: false}}, "sockets")

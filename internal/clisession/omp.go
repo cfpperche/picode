@@ -82,6 +82,31 @@ func ompSessionsRoot() string {
 	return filepath.Join(home, ".omp", "agent", "sessions")
 }
 
+// OmpAgentSessionsRoot is where PiCode keeps its workspace agents' Omp
+// transcripts: one directory per agent (<dataDir>/omp-sessions/<agentID>),
+// passed to omp as --session-dir. The launch, the agent history and the
+// handoff reader all resolve it here, so the three agree on one tree.
+func OmpAgentSessionsRoot(dataDir string) string {
+	if strings.TrimSpace(dataDir) == "" {
+		return ""
+	}
+	return filepath.Join(dataDir, "omp-sessions")
+}
+
+// ompReadable: path is a session file under omp's own root or under one of
+// the extra roots a caller vouches for (Ref.Roots).
+func ompReadable(path string, roots []string) bool {
+	if underRoot(ompSessionsRoot(), path) {
+		return true
+	}
+	for _, r := range roots {
+		if underRoot(r, path) {
+			return true
+		}
+	}
+	return false
+}
+
 // ompBucket is the observed encoding: every "/" becomes "-", nothing trimmed
 // (/tmp/omp-probe → -tmp-omp-probe).
 func ompBucket(root, cwd string) string {

@@ -1,4 +1,4 @@
-import { go, prefSection } from "./routes.js";
+import { prefSection } from "./routes.js";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mobileRoute, mobileHash, toolHash, tabOf, parentHash } from "./mobileRoutes.js";
@@ -43,15 +43,13 @@ describe("mobileRoute", () => {
     assert.deepEqual(mobileRoute("#/inspector/t/t%201?root=%2Fw%2Fapp&view=pr"), { screen: "inspector", id: "t 1", section: "term", root: "/w/app", view: "pr" });
     assert.equal(mobileHash("inspector", "t1", "term"), "#/inspector/t/t1");
     assert.deepEqual(mobileRoute("#/more"), { screen: "more", id: "", section: "" });
-    assert.deepEqual(mobileRoute("#/more/providers"), { screen: "more", id: "", section: "clis" });
+    assert.deepEqual(mobileRoute("#/more/providers"), { screen: "more", id: "", section: "" });
     assert.deepEqual(mobileRoute("#/more/nope"), { screen: "more", id: "", section: "" });
   });
   it("maps desktop hashes to the closest mobile section instead of a dead end", () => {
     assert.equal(mobileRoute("#/preferences/notifications").section, "preferences");
-    assert.equal(mobileRoute("#/providers/new").section, "clis");
     assert.equal(mobileRoute("#/termset/t1").section, "preferences");
     assert.equal(mobileRoute("#/app/inbox").screen, "inbox");
-    assert.equal(mobileRoute("#/sessions/w1").section, "clis");
     assert.equal(mobileRoute("#/file/a/x/y").screen, "files");
     assert.equal(mobileRoute("#/whatever").screen, "now");
   });
@@ -103,7 +101,7 @@ it("opens complete automation and session workflows without dropping nested link
     assert.equal(mobileRoute(hash).section, "automations");
     assert.equal(tabOf(mobileRoute(hash)), "more");
   }
-  for (const hash of ["#/clis/sessions", "#/clis/sessions/w1?cli=claude", "#/sessions/w1", "#/clis/codex/sessions", "#/clis/pi/sessions/w1"]) {
+  for (const hash of ["#/clis/codex/sessions", "#/clis/pi/sessions/w1"]) {
     assert.equal(mobileRoute(hash).section, "clis");
   }
 });
@@ -173,16 +171,12 @@ it("native packages links use Agent CLIs; the Pi-era addresses are retired", () 
   }
 });
 
-it("native provider navigation and compatibility aliases", () => {
-  for (const hash of ["#/clis/providers/pi", "#/clis/providers/pi/new", "#/providers", "#/providers/new", "#/more/providers", "#/more/providers/new", "#/clis/providers/codex", "#/clis/providers/%ZZ"]) assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "clis" });
+it("native provider navigation; the Pi-era aliases are retired", () => {
+  for (const hash of ["#/clis/pi/providers", "#/clis/pi/providers/new", "#/clis/codex/providers"]) assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "clis" });
+  for (const hash of ["#/providers", "#/providers/new", "#/more/providers", "#/more/providers/new"]) assert.notEqual(mobileRoute(hash).section, "clis", hash);
   assert.deepEqual(mobileRoute("#/more/providers/llama?tab=models"), { screen: "more", id: "", section: "llama" });
 });
 
-it("provider command navigation opens canonical list or add", () => {
-  const previous = globalThis.location; globalThis.location = { hash: "" };
-  try { go("providers"); assert.equal(location.hash, "#/clis/pi/providers"); go("providers-new"); assert.equal(location.hash, "#/clis/pi/providers/new"); }
-  finally { globalThis.location = previous; }
-});
 
 it("Preferences knows the Landing work tab", () => {
   assert.equal(prefSection("#/preferences/landing"), "landing");

@@ -1,4 +1,4 @@
-import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
+import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import { cliConnectorsHash } from "@picode/shared/domain/integrations.js";
@@ -12,13 +12,9 @@ export const ROUTES = {
   workspace: "/",
   preferences: "/preferences",
   clis: "/clis",
-  settings: "/clis/pi/settings",
   system: "/system",
-  providers: "/clis/pi/providers",
   llama: "/llama/models",
-  mcps: "/clis/pi/connectors",
   integrations: "/integrations/webhooks",
-  packages: "/clis/pi/packages",
   devices: "/devices",
   browser: "/browser",
   computer: "/computer",
@@ -64,7 +60,6 @@ export function parseRoute(hash) {
   if (cliSettingsLocation(h)) return "clis";
   if (h === "/system") return "system";
   if (h === "/llama" || h.startsWith("/llama/") || ["/providers/llama", "/more/providers/llama"].includes(h.split("?")[0])) return "llama";
-  if (cliProvidersLocation(h)) return "clis";
   if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
   if (h === "/devices") return "devices";
   if (h === "/browser") return "browser";
@@ -76,9 +71,6 @@ export function parseRoute(hash) {
   if (h === "/snippets" || h.startsWith("/snippets/")) return "snippets";
   if (h === "/outcomes") return "outcomes";
   if (h === "/history") return "history";
-  // Legacy #/sessions* deep links render the Agent CLIs shell; AgentClis
-  // redirects the hash to #/clis/<cli>/sessions* (ADR-0079).
-  if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "clis";
   if (h.startsWith("/web/")) return "workspace";
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
@@ -241,42 +233,41 @@ export function prefSection(hash) {
   return "appearance";
 }
 
-export function providersNew(hash) {
-  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
-  return !!cliProvidersLocation(h)?.add;
-}
-
 export function providersLlama(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
   return h === "/providers/llama";
 }
 
+// The commands that open one CLI's pane: with no CLI in context they open the
+// catalog instead of guessing one.
+const CLI_PANE_COMMANDS = new Set(["settings", "packages", "skills", "mcps", "connectors", "providers", "providers-new", "providers-custom"]);
+
 export function go(name, agentId, extra = {}) {
   const ctx = { agentId: extra.agentId || agentId || "", workspaceId: extra.workspaceId || "" };
   // The generic CLI panes open on the selected agent's CLI (ADR-0179: Pi is
-  // one CLI among nine); with no agent in context they keep Pi's pane, the
-  // legacy address these commands had before every CLI had one.
-  const cli = String(extra.cli || "").trim() || "pi";
+  // one CLI among nine). An agent with no cli is a Pi agent (agentIsPi); with
+  // no agent in context there is no CLI to pick, so the catalog opens.
+  const cli = String(extra.cli || "").trim() || (ctx.agentId ? "pi" : "");
+  if (!cli && CLI_PANE_COMMANDS.has(name)) { location.hash = "#/clis"; return; }
   if (name === "settings") { location.hash = cliSettingsHash(cli, ctx); return; }
   if (name === "packages") { location.hash = cliPackagesHash(cli, ctx); return; }
   if (name === "skills") { location.hash = cliSkillsHash(cli, { workspaceId: ctx.workspaceId }); return; }
   if (name === "mcps" || name === "connectors") { location.hash = cliConnectorsHash(cli, ctx); return; }
-  // The catalog follows the same rule when a CLI rides the context (the rail
-  // button with an agent selected); without one it keeps #/clis, whose first
-  // row is the same Pi the legacy address always showed.
-  if (name === "clis" && extra.cli) { location.hash = cliPaneHash(String(extra.cli).trim() || "pi"); return; }
-  if (name === "providers" && extra.cli) { location.hash = cliProvidersHash(cli); return; }
+  // The catalog follows the same rule (the rail button with an agent
+  // selected opens that agent's CLI); without one it is #/clis.
+  if (name === "clis" && cli) { location.hash = cliPaneHash(cli); return; }
+  if (name === "providers") { location.hash = cliProvidersHash(cli); return; }
   if (typeof name === "string" && name.startsWith("preferences")) {
     const sec = name === "preferences" ? "" : name.slice("preferences-".length);
     location.hash = sec ? "#/preferences/" + sec : "#/preferences";
     return;
   }
   if (name === "providers-new") {
-    location.hash = cliProvidersHash("pi", { add: true });
+    location.hash = cliProvidersHash(cli, { add: true });
     return;
   }
   if (name === "providers-custom") {
-    location.hash = cliProvidersHash("pi", { custom: true, customId: extra.customId || "" });
+    location.hash = cliProvidersHash(cli, { custom: true, customId: extra.customId || "" });
     return;
   }
   if (name === "providers-llama") {

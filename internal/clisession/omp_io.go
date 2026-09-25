@@ -44,8 +44,7 @@ type ompEntry struct {
 // one user message resumes — minimal writes are native writes.
 func (OmpSource) Read(ctx context.Context, ref Ref) (transcript.Timeline, error) {
 	path := ref.Path
-	root := ompSessionsRoot()
-	if root == "" || !underRoot(root, path) {
+	if !ompReadable(path, ref.Roots) {
 		return transcript.Timeline{}, ErrNotUnderRoot
 	}
 	t := transcript.Timeline{Header: transcript.Header{SourceCLI: "omp", SourcePath: path, SourceID: ref.ID, Cwd: ref.Cwd}}

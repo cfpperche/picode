@@ -231,6 +231,11 @@ func planHandoff(ctx context.Context, deps Deps, src clilaunch.CLI, req handoffR
 		return nil, http.StatusBadRequest, errors.New("landing must be agent or terminal")
 	}
 	p.ref = clisession.Ref{ID: strings.TrimSpace(req.ID), Path: strings.TrimSpace(req.Path), Cwd: strings.TrimSpace(req.Cwd)}
+	if src.ID == "omp" {
+		// A workspace agent's Omp conversation lives in PiCode's per-agent
+		// directory, not under ~/.omp; the agent's pin names that file.
+		p.ref.Roots = []string{clisession.OmpAgentSessionsRoot(deps.DataDir)}
+	}
 	if p.ref.ID == "" && p.ref.Path == "" {
 		return nil, http.StatusBadRequest, errors.New("session id or path required")
 	}

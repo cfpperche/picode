@@ -68,7 +68,7 @@ func seedClaudeTranscript(t *testing.T, home, proj string) string {
 
 func TestCapabilitiesOf(t *testing.T) {
 	cases := map[string]Capabilities{
-		"pi":          {List: true, Read: true, Write: true, Prompt: true},
+		"pi":          {List: true, Read: true, Write: true, Prompt: true, Fork: true},
 		"claude-code": {List: true, Read: true, Write: true, Prompt: true, Fork: true},
 		"codex":       {List: true, Read: true, Write: true, Prompt: true, Fork: true},
 		"grok":        {List: true, Read: true, Write: true, Prompt: true, Fork: true},
@@ -813,9 +813,20 @@ func TestForkArgs(t *testing.T) {
 	if got := f.ForkArgs(Ref{ID: "s1"}, "", "new"); !reflect.DeepEqual(got.Args, []string{"--fork", "s1"}) {
 		t.Errorf("omp by id: %v", got.Args)
 	}
-	// No fork from the command line (Hermes, Muse, Antigravity: in-TUI
-	// only), and Pi agents own their session file (--session is reserved).
-	for _, cli := range []string{"hermes", "muse", "agy", "pi"} {
+	// No fork from the command line (Hermes, Antigravity: in-TUI only), and
+	// Pi agents own their session file (--session is reserved). Muse forks
+	// through its protocol instead (muse_fork_test.go).
+	if _, ok := ForkerFor("muse"); ok {
+		t.Error("muse has no fork flag")
+	}
+	// Pi forks too, but as an AgentForker (pi_fork.go): no launch recipe.
+	if _, ok := ForkerFor("pi"); ok {
+		t.Fatal("pi has no fork launch recipe; it forks into the new agent's folder")
+	}
+	if !CapabilitiesOf("pi").Fork {
+		t.Fatal("pi capabilities must claim the agent fork")
+	}
+	for _, cli := range []string{"hermes", "agy"} {
 		if _, ok := ForkerFor(cli); ok {
 			t.Errorf("%s must not advertise a fork", cli)
 		}

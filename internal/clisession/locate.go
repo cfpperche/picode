@@ -41,9 +41,7 @@ func NewLocator() *Locator { return &Locator{lists: map[string][]Summary{}} }
 // normal store.
 func NewAgentHistoryLocator(dataDir string) *Locator {
 	l := NewLocator()
-	if dataDir != "" {
-		l.privateOmpRoot = filepath.Join(dataDir, "omp-sessions")
-	}
+	l.privateOmpRoot = OmpAgentSessionsRoot(dataDir)
 	return l
 }
 

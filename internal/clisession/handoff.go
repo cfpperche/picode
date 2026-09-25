@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -31,6 +32,11 @@ type Ref struct {
 	// MaxReadBytes (a brief of the recent turns). Native reads leave it
 	// false and get ErrTooLarge.
 	Tail bool
+	// Roots are extra session directories the caller vouches for, read
+	// beside the CLI's own root. PiCode's per-agent Omp directories
+	// (OmpAgentSessionsRoot) are the one use: a workspace agent's live
+	// conversation lives there, not under ~/.omp.
+	Roots []string
 }
 
 // Reader projects a native session into the portable timeline. It never
@@ -67,14 +73,47 @@ type Forker interface {
 	ForkArgs(src Ref, prompt, newID string) Fork
 }
 
+// SessionForker forks through the CLI's own program instead of launch
+// flags, for a CLI whose fork is a protocol call (Muse Code's `muse serve`
+// session/fork). start builds the CLI's command with its configured
+// executable, environment and the session's folder (ADR-0094's runner);
+// the returned Fork opens the copy that already exists.
+type SessionForker interface {
+	ForkSession(ctx context.Context, src Ref, start func(ctx context.Context, args ...string) *exec.Cmd) (Fork, error)
+}
+
+// AgentForker forks into the new agent's own session folder, for a CLI
+// whose agent owns its conversation file (Pi: `--session` is the agent's,
+// sessions live in its private folder, ADR-0040). The caller creates the
+// agent, then asks for the copy in dir under newID before the first start,
+// and pins the returned file as the agent's session: a restart reopens the
+// copy instead of forking again. start builds the CLI's command in the
+// copy's working folder.
+type AgentForker interface {
+	ForkIntoDir(ctx context.Context, src Ref, dir, newID string, start func(ctx context.Context, args ...string) *exec.Cmd) (string, error)
+}
+
+// LiveSessionFinder names the conversation a running TUI is writing when
+// the CLI records it only at exit (Muse Code), so a fork can start from a
+// terminal that has no pinned session yet: its id and the arguments that
+// resume it. An empty id means none was found. taken reports sessions the
+// caller knows belong elsewhere (pinned by another terminal, or a copy a
+// fork made) — in a shared folder they are newer candidates, not this one.
+type LiveSessionFinder interface {
+	LiveSession(ctx context.Context, cwd string, since time.Time, taken func(id string) bool, start func(ctx context.Context, args ...string) *exec.Cmd) (id string, resumeArgs []string, err error)
+}
+
 // Fork is one composed fork launch. ID and ResumeArgs are set only when
-// the CLI took the pre-assigned id: the copy is known before it starts, so
-// the new terminal can pin it at once. Otherwise both are empty and the
-// terminal's pinned session resolves the copy on its first turn.
+// the copy's id is known before it starts (pre-assigned, or made by a
+// SessionForker), so the new terminal can pin it at once. Otherwise both
+// are empty and the terminal's pinned session resolves the copy on its
+// first turn. TaskAfterLaunch marks a launch that cannot carry the task:
+// the caller delivers it through the prompt door once the TUI is ready.
 type Fork struct {
-	Args       []string
-	ID         string
-	ResumeArgs []string
+	Args            []string
+	ID              string
+	ResumeArgs      []string
+	TaskAfterLaunch bool
 }
 
 // WriteRequest parameterizes one native write.
@@ -124,7 +163,10 @@ func CapabilitiesOf(cli string) Capabilities {
 	_, read := src.(Reader)
 	_, write := src.(Writer)
 	_, prompt := src.(Prompter)
-	_, fork := src.(Forker)
+	_, forker := src.(Forker)
+	_, sessionForker := src.(SessionForker)
+	_, agentForker := src.(AgentForker)
+	fork := forker || sessionForker || agentForker
 	return Capabilities{List: true, Read: read, Write: write, Prompt: prompt, Fork: fork}
 }
 
@@ -154,6 +196,24 @@ func PrompterFor(cli string) (Prompter, bool) {
 	}
 	p, ok := src.(Prompter)
 	return p, ok
+}
+
+func AgentForkerFor(cli string) (AgentForker, bool) {
+	src, ok := Get(cli)
+	if !ok {
+		return nil, false
+	}
+	f, ok := src.(AgentForker)
+	return f, ok
+}
+
+func SessionForkerFor(cli string) (SessionForker, bool) {
+	src, ok := Get(cli)
+	if !ok {
+		return nil, false
+	}
+	f, ok := src.(SessionForker)
+	return f, ok
 }
 
 func ForkerFor(cli string) (Forker, bool) {

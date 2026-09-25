@@ -359,7 +359,9 @@ func writeLeaf(t *testing.T, dir string, dns []string, ips []net.IP) {
 
 // 2026-09-24: the owner's mkcert certificate (from setup-cert.sh) covered
 // localhost, picode.local, a Tailscale name and two LAN addresses, but not
-// 127.0.0.1 or ::1. A reissue adds them and keeps every name it had.
+// 127.0.0.1 or ::1. A reissue adds them and keeps every DNS name it had;
+// addresses come from the interfaces as they are now, so an old one (a
+// Docker bridge, a LAN the machine left) is not carried forward.
 func TestCertStepReissuesACertificateWithoutLoopback(t *testing.T) {
 	oldLook, oldRun := lookPath, run
 	t.Cleanup(func() { lookPath, run = oldLook, oldRun })
@@ -368,7 +370,7 @@ func TestCertStepReissuesACertificateWithoutLoopback(t *testing.T) {
 	run = func(name string, args ...string) error { got = append([]string{name}, args...); return nil }
 
 	dir := filepath.Join(t.TempDir(), "data")
-	writeLeaf(t, dir, []string{"localhost", "picode.local", "Box-1.Tail057039.ts.net"}, []net.IP{net.ParseIP("192.168.15.28")})
+	writeLeaf(t, dir, []string{"localhost", "picode.local", "Box-1.Tail057039.ts.net"}, []net.IP{net.ParseIP("192.168.15.28"), net.ParseIP("203.0.113.77")})
 	env := Env{DataDir: dir}
 	st := certStep().Check(env)
 	if st.Status != StatusFix || !strings.Contains(st.Detail, "127.0.0.1") || !strings.Contains(st.Detail, "::1") {
@@ -378,10 +380,14 @@ func TestCertStepReissuesACertificateWithoutLoopback(t *testing.T) {
 		t.Fatal(err)
 	}
 	joined := " " + strings.Join(got, " ") + " "
-	for _, want := range []string{"mkcert", " box-1.tail057039.ts.net ", " 192.168.15.28 ", " 127.0.0.1 ", " ::1 ", " localhost ", " picode.local "} {
+	for _, want := range []string{"mkcert", " box-1.tail057039.ts.net ", " 127.0.0.1 ", " ::1 ", " localhost ", " picode.local "} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("mkcert args %q lack %q", joined, strings.TrimSpace(want))
 		}
+	}
+	// 203.0.113.77 (documentation range) is on no interface of any machine.
+	if strings.Contains(joined, " 203.0.113.77 ") {
+		t.Errorf("an old address was carried into the reissue: %q", joined)
 	}
 }
 

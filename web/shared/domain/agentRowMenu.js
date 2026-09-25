@@ -37,9 +37,17 @@ export function agentRowMenu(ag = {}, { clis, term } = {}) {
     const running = ((ag && ag.mode) || "stopped") !== "stopped";
     const handoffTerm = agentHandoffTerm(ag);
     const handoff = handoffTerm ? terminalHandoffMenu(handoffTerm, clis) : null;
+    // Fork agent… for Pi: the server copies the agent's own conversation
+    // with pi's --fork into the new agent's folder (agent_fork_pi.go), so a
+    // Pi agent that has a session or has run once can fork.
+    const piCli = (clis || []).find((c) => c && c.id === "pi");
+    const fork = piCli && piCli.sessions && piCli.sessions.fork && (handoffTerm || ag.lastStartedAt)
+      ? { id: "fork", label: "Fork agent…", title: "Start a new agent on a copy of this conversation, with a task of its own." }
+      : null;
+    const conversation = [...(fork ? [fork] : []), ...(handoff ? [handoff] : [])];
     return [
       ...mission,
-      ...(handoff ? [handoff, { sep: true }] : []),
+      ...(conversation.length ? [...conversation, { sep: true }] : []),
       running
         ? { id: "restart", label: "Restart agent", title: "Restart this agent in its current mode." }
         : { id: "start", label: "Start agent", title: "Start this agent." },
