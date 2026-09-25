@@ -26,6 +26,8 @@ func registerSkillRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("DELETE /api/skills", handleSkillsRemove(deps, mgr))
 	mux.HandleFunc("POST /api/skills/update", handleSkillsUpdate(deps, mgr))
 	mux.HandleFunc("GET /api/skills/updates", handleSkillsUpdates(deps, mgr))
+	// Slice 5: the Marketplace catalog, its sources and the skills.sh switch.
+	registerSkillCatalogRoutes(mux, deps)
 	// Slice 3: each CLI's own per-skill switch, written in its own file.
 	mux.HandleFunc("POST /api/skills/toggle", handleSkillsToggle(deps))
 }

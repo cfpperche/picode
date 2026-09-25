@@ -4,7 +4,7 @@ Decision: ADR-0196. Plan: `docs/plans/skills.md`. Study: `docs/benchmarks/2026-0
 
 ## Next
 
-- Slice 5 `feat/skills-marketplace`: the catalog; the seed sources are the owner's call (`docs/plans/skills.md`).
+- Slice 6 `feat/skills-outcomes`: record each launch's skill set and compare runs with and without a skill in Outcomes.
 
 ## Debts
 
@@ -36,3 +36,6 @@ Decision: ADR-0196. Plan: `docs/plans/skills.md`. Study: `docs/benchmarks/2026-0
 - [ ] Switches: a file with no final newline gains one on a round trip, and a CRLF file gains a blank line when a user-written Codex element is removed.
 - [ ] Switches: under Grok's name-keyed switch, a shadowed copy of a disabled skill still reads "Shadowed" although both copies are off (QA 2026-09-24).
 - [ ] `#/clis/antigravity/skills` (the id is `agy`) shows Pi's header above an "unknown cli" error; the header and the pane disagree (QA 2026-09-24).
+- [ ] The Marketplace shows no third-party audits: skills.sh's `/api/search` carries none, so a skills.sh card links to its page. A skills.sh audits endpoint, if one is published, would put them on the card.
+- [ ] Installing a skills.sh card fetches the whole repository (the search names the repository, not the folder); a card with 20 siblings reads all 20 to preview one.
+- [ ] A source is re-read only when someone searches and it is a day old; nothing refreshes the catalog while no pane is open.

@@ -10,13 +10,30 @@ import { conflictChoices, criticalFindings, installBlocker, installLine, sizeLab
 // explicit consent. PiCode never vouches: the findings are shown, not judged.
 // With an agent (slice 4), the skill can go to that agent alone: a copy in
 // PiCode's cache its CLI receives at the next start.
-export default function AddSkillDialog({ open, onClose, workspaceId = "", workspaceName = "", agentId = "", agentName = "", initialScope = "", onDone }) {
+// A candidate chosen for the person (a Marketplace card) is scrolled into the
+// list once, so the checked radio is the one in view.
+function revealPick(el) {
+  if (el && !el.dataset.seen) {
+    el.dataset.seen = "1";
+    el.scrollIntoView({ block: "nearest" });
+  }
+}
+
+export default function AddSkillDialog({ open, onClose, workspaceId = "", workspaceName = "", agentId = "", agentName = "", initialScope = "", initialSource = "", pickName = "", onDone }) {
   const fallback = initialScope === "agent" && agentId ? "agent" : initialScope === "machine" || !workspaceId ? "machine" : "workspace";
   const [step, setStep] = useState("source");
   const [source, setSource] = useState("");
   const [scope, setScope] = useState(fallback);
   // Each opening starts where the pane's chip is.
   useEffect(() => { if (open) setScope(fallback); }, [open, fallback]);
+  useEffect(() => {
+    if (open && initialSource) {
+      setSource(initialSource);
+      read(initialSource, pickName);
+    }
+    // Only a new opening reads; typing afterwards is the person's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialSource, pickName]);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -29,15 +46,21 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
   };
   const close = () => { reset(); onClose(); };
 
-  const look = async (e) => {
+  const look = (e) => {
     e.preventDefault();
-    const parsed = skillSourceSchema.safeParse({ source });
+    read(source);
+  };
+  // A Marketplace card opens the dialog on its source and its skill: the
+  // preview, the scan and the consent are the same as for a typed source.
+  const read = async (value, want = "") => {
+    const parsed = skillSourceSchema.safeParse({ source: value });
     if (!parsed.success) { setErr(parsed.error.issues[0].message); return; }
     setBusy(true); setErr("");
     try {
       const p = await api("/api/skills/preview", { method: "POST", body: JSON.stringify({ source: parsed.data.source }) });
       setPreview(p);
-      setPick(p.candidates.length === 1 ? p.candidates[0].path : "");
+      const wanted = want ? p.candidates.find((c) => c.name === want) : null;
+      setPick(wanted ? wanted.path : p.candidates.length === 1 ? p.candidates[0].path : "");
       setAccepted(false); setQuestion(null);
       setStep("review");
     } catch (x) {
@@ -69,6 +92,20 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
     }
   };
 
+  // Where it installs: on both steps, so a card that opens on the review
+  // step still lets the person choose.
+  const scopeChips = (
+    <div className="pkg-scope skill-add-scope" role="radiogroup" aria-label="Where to install">
+      <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "machine"} onClick={() => setScope("machine")}><ScopeIcon scope="machine" />Global</button>
+      {workspaceId ? (
+        <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}><ScopeIcon scope="workspace" />{workspaceName || "This workspace"}</button>
+      ) : null}
+      {agentId ? (
+        <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "agent"} onClick={() => setScope("agent")}><ScopeIcon scope="agent" />{agentName || "This agent"}</button>
+      ) : null}
+    </div>
+  );
+
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) close(); }}>
       <Dialog.Portal>
@@ -93,15 +130,7 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
                   onChange={(e) => { setErr(""); setSource(e.target.value); }}
                 />
               </label>
-              <div className="pkg-scope skill-add-scope" role="radiogroup" aria-label="Where to install">
-                <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "machine"} onClick={() => setScope("machine")}><ScopeIcon scope="machine" />Global</button>
-                {workspaceId ? (
-                  <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}><ScopeIcon scope="workspace" />{workspaceName || "This workspace"}</button>
-                ) : null}
-                {agentId ? (
-                  <button type="button" className="pkg-scope-btn" role="radio" aria-checked={scope === "agent"} onClick={() => setScope("agent")}><ScopeIcon scope="agent" />{agentName || "This agent"}</button>
-                ) : null}
-              </div>
+              {scopeChips}
               <p className="skill-add-note">{installLine(scope, workspaceName, agentName)}</p>
               <p className="form-error" role="alert" hidden={!err}>{err}</p>
               <div className="dlg-actions" data-align-row data-align-wrap>
@@ -115,11 +144,11 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
                 <fieldset className="skill-add-list">
                   <legend title={preview.source.input}>{preview.candidates.length} skills in {sourceLabel(preview.source)}</legend>
                   {preview.candidates.map((c) => (
-                    <label key={c.path || c.name} className={"skill-add-cand" + (pick === c.path ? " is-on" : "")}>
+                    <label key={c.path || c.name} className={"skill-add-cand" + (pick === c.path ? " is-on" : "")} ref={pick === c.path ? revealPick : undefined}>
                       <input type="radio" name="skill-pick" checked={pick === c.path} onChange={() => { setPick(c.path); setAccepted(false); setQuestion(null); setErr(""); }} />
                       <span className="skill-add-cand-name">{c.name}</span>
                       <span className="skill-add-cand-desc">{c.description || "No description"}</span>
-                      {criticalFindings(c).length ? <span className="skill-add-flag is-critical">{criticalFindings(c).length} critical</span> : null}
+                      {criticalFindings(c).length ? <span className="skill-add-flag is-critical" title="The safety scan noticed something to read before installing">{criticalFindings(c).length === 1 ? "1 scan warning" : criticalFindings(c).length + " scan warnings"}</span> : null}
                     </label>
                   ))}
                 </fieldset>
@@ -129,6 +158,7 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
                 <div className="skill-add-detail">
                   <p className="skill-add-head"><strong>{cand.name}</strong> · {cand.files.length} {cand.files.length === 1 ? "file" : "files"} · {sizeLabel(cand.size)}</p>
                   <p className="skill-add-desc">{cand.description}</p>
+                  {cand.folder ? <p className="skill-add-note">Its folder at the source is called {cand.folder}; it installs as {cand.name}.</p> : null}
                   {(cand.problems || []).length ? <p className="skill-add-problem">{cand.problems.join("; ")}.</p> : null}
                   {(cand.findings || []).length ? (
                     <ul className="skill-add-findings" aria-label="Scan findings">
@@ -143,6 +173,7 @@ export default function AddSkillDialog({ open, onClose, workspaceId = "", worksp
                     <summary>Files</summary>
                     <ul>{cand.files.map((f) => <li key={f}>{f}</li>)}</ul>
                   </details>
+                  {scopeChips}
                   <p className="skill-add-note">{installLine(scope, workspaceName, agentName)}</p>
                   {critical.length ? (
                     <label className="skill-add-accept">

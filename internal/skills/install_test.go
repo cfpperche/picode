@@ -207,8 +207,18 @@ func TestInstallRefusals(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(wsDir, ".agents/skills/notes/SKILL.md")); !strings.Contains(string(b), "mine") {
 		t.Fatal("adopt must not touch the files")
 	}
-	if _, err := m.Install(InstallReq{Preview: p.ID, Path: "wrong", Scope: Workspace, Workspace: wsDir}); conflictCode(err) != "invalid" {
-		t.Fatalf("mismatch: %v", err)
+	// A name that differs from its source folder installs under the name
+	// (owner's call, 2026-09-24): the installed layout follows the spec.
+	for _, c := range p.Candidates {
+		if c.Path == "wrong" && (c.Folder != "wrong" || len(c.Problems) != 0) {
+			t.Fatalf("mismatch candidate %+v", c)
+		}
+	}
+	if res, err := m.Install(InstallReq{Preview: p.ID, Path: "wrong", Scope: Workspace, Workspace: wsDir}); err != nil || res.Dir != filepath.Join(wsDir, ".agents/skills/other") {
+		t.Fatalf("mismatch: %+v %v", res, err)
+	}
+	if _, err := os.Stat(filepath.Join(wsDir, ".agents/skills/other/SKILL.md")); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := m.Install(InstallReq{Preview: p.ID, Path: "danger", Scope: Workspace, Workspace: wsDir}); conflictCode(err) != "critical" {
 		t.Fatalf("critical: %v", err)
