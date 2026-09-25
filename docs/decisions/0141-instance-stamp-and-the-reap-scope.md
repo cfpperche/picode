@@ -107,3 +107,7 @@ reads the receipt, is where the answer is.
   with a lifecycle of its own; deriving ownership from it means a future
   change to the hook address silently rewrites who may be killed. Rejected;
   the stamp exists so the two concerns stay separable.
+
+## Amendment 2026-09-25 — port fallback retired (owner)
+
+A session without `PICODE_INSTANCE` is no longer judged by the port in its `PICODE_TERM_URL`; `Host.LoopbackURL` is gone. An unstamped session is not called another instance's. Measured before removal: all 20 live production sessions carried the stamp, and every binary since this ADR writes it.

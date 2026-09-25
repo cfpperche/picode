@@ -47,4 +47,4 @@ The Inbox is a PiCode surface. Its model and primitive-tree presentation live in
 
 ## Amendment 2026-09-25 — old addresses retired (owner)
 
-The owner retired the compatibility addresses this ADR kept. The old `#/app/inbox[/item/<id>]` hash no longer redirects on desktop or mobile; the API aliases this ADR keeps are unchanged. An old bookmark now lands where any unknown address does.
+The owner retired the compatibility addresses this ADR kept. The old `#/app/inbox[/item/<id>]` hash no longer redirects on desktop or mobile, and (same day, later) the `/api/apps/inbox/{view,action}` API aliases were retired too: the UI reads `/api/inbox/*`, and only tests still used the aliases. An old bookmark now lands where any unknown address does.

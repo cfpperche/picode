@@ -514,23 +514,19 @@ func TestTmuxReapDecisionTable(t *testing.T) {
 		}
 	})
 
-	t.Run("a pre-stamp session follows its port, not its name", func(t *testing.T) {
-		// No PICODE_INSTANCE: the sessions created before ADR-0140. The port
-		// in the session's own PICODE_TERM_URL is the only identity left.
-		receipt := func(u string) map[string]tmux.SessionReceipt {
-			return map[string]tmux.SessionReceipt{name: {Name: name, SessionID: "$7", Created: time.Unix(1789311380, 0).UTC(), PaneID: "%3", PanePID: 4242, URL: u}}
+	t.Run("an unstamped session is not called another instance's", func(t *testing.T) {
+		// The port fallback for pre-ADR-0140 sessions was retired 2026-09-25
+		// (every binary since stamps PICODE_INSTANCE; production held no
+		// unstamped session). Without a stamp there is no claim of another
+		// owner, so the session is this instance's to judge.
+		src := &fakeTmuxServer{available: true, instance: "/mine", receipts: map[string]tmux.SessionReceipt{
+			name: {Name: name, SessionID: "$7", Created: time.Unix(1789311380, 0).UTC(), PaneID: "%3", PanePID: 4242, URL: "https://localhost:8445"},
+		}}
+		if _, err := (tmuxApp{}).Action(context.Background(), Host{Tmux: src}, ActionRequest{Action: "reap", Args: good}); err != nil {
+			t.Fatalf("Action: %v", err)
 		}
-		other := &fakeTmuxServer{available: true, instance: "/mine", receipts: receipt("https://localhost:8445")}
-		_, err := tmuxApp{}.Action(context.Background(), Host{Tmux: other, LoopbackURL: "https://localhost:8475"}, ActionRequest{Action: "reap", Args: good})
-		if err == nil || len(other.killed) != 0 {
-			t.Fatalf("err = %v killed = %v, want the other port refused", err, other.killed)
-		}
-		mine := &fakeTmuxServer{available: true, instance: "/mine", receipts: receipt("https://localhost:8475")}
-		if _, err := (tmuxApp{}).Action(context.Background(), Host{Tmux: mine, LoopbackURL: "https://localhost:8475"}, ActionRequest{Action: "reap", Args: good}); err != nil {
-			t.Fatalf("own port: %v", err)
-		}
-		if len(mine.killed) != 1 {
-			t.Fatalf("killed = %v, want our own pre-stamp leftover removed", mine.killed)
+		if len(src.killed) != 1 {
+			t.Fatalf("killed = %v, want the unstamped leftover removed", src.killed)
 		}
 	})
 

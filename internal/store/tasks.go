@@ -174,11 +174,10 @@ func (s *Store) ClaimTask(agentID, taskID string) (Task, error) {
 }
 
 // PendingReplyTasks lists reply-correlated tasks that never reached a final
-// state, for boot reconciliation (ADR-0060). Legacy inbox-burst sources from
-// ADR-0059 are included.
+// state, for boot reconciliation (ADR-0060).
 func (s *Store) PendingReplyTasks() ([]Task, error) {
 	rows, err := s.db.Query(`SELECT `+taskCols+` FROM tasks
-		WHERE (source LIKE 'inbox-tui:%' OR source LIKE 'inbox-burst:%') AND status IN (?, ?)
+		WHERE source LIKE 'inbox-tui:%' AND status IN (?, ?)
 		ORDER BY created_at`, TaskQueued, TaskDelivering)
 	if err != nil {
 		return nil, fmt.Errorf("store: pending reply tasks: %w", err)
@@ -272,8 +271,7 @@ func (s *Store) FinishTask(id, status string, taskErr string) error {
 // EndInboxReply closes one correlated reply task and optionally reopens its
 // source Inbox item with the previous human response preserved. Failure before
 // durable materialization must offer a truthful retry, not leave a green
-// "done" item whose reply never reached the session. Legacy inbox-burst
-// sources from ADR-0059 are still reconciled.
+// "done" item whose reply never reached the session.
 func (s *Store) EndInboxReply(id, status, taskErr, reopenNote string) error {
 	if status != TaskFailed && status != TaskCancelled {
 		return fmt.Errorf("store: reply burst may end only failed or cancelled")
@@ -300,8 +298,8 @@ func (s *Store) EndInboxReply(id, status, taskErr, reopenNote string) error {
 	if err := s.AppendEventTx(tx, "task.finished", &agentID, nil, map[string]string{"id": id, "status": status}); err != nil {
 		return err
 	}
-	if strings.TrimSpace(reopenNote) != "" && (strings.HasPrefix(source, "inbox-tui:") || strings.HasPrefix(source, "inbox-burst:")) {
-		itemID := strings.TrimPrefix(strings.TrimPrefix(source, "inbox-tui:"), "inbox-burst:")
+	if strings.TrimSpace(reopenNote) != "" && strings.HasPrefix(source, "inbox-tui:") {
+		itemID := strings.TrimPrefix(source, "inbox-tui:")
 		note := "\n\n> " + reopenNote
 		res, err := tx.Exec(`UPDATE inbox_items SET state = ?, responded_at = NULL, snoozed_until = NULL,
 			body = CASE WHEN ? = '' OR instr(body, ?) > 0 THEN body ELSE body || ? END, updated_at = ?
@@ -326,8 +324,7 @@ func (s *Store) EndInboxReply(id, status, taskErr, reopenNote string) error {
 // so there is no lease to recover — only truth to reconcile. A pending task
 // with a timestamp-correlated JSONL user row is finalized as delivered; all
 // other pending reply tasks fail and reopen the exact item with the previous
-// response preserved for prefill. Legacy inbox-burst sources (ADR-0059) are
-// reconciled the same way.
+// response preserved for prefill.
 func (s *Store) recoverPendingInboxReplies() (int, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -344,7 +341,7 @@ func (s *Store) recoverPendingInboxReplies() (int, error) {
 		createdAt string
 	}
 	rows, err := tx.Query(`SELECT id, agent_id, source, status, kind, payload, created_at FROM tasks
-		WHERE (source LIKE 'inbox-tui:%' OR source LIKE 'inbox-burst:%') AND status IN (?, ?)`, TaskQueued, TaskDelivering)
+		WHERE source LIKE 'inbox-tui:%' AND status IN (?, ?)`, TaskQueued, TaskDelivering)
 	if err != nil {
 		return 0, fmt.Errorf("store: find interrupted bursts: %w", err)
 	}
@@ -372,7 +369,7 @@ func (s *Store) recoverPendingInboxReplies() (int, error) {
 	const message = "Reply delivery was interrupted by a PiCode restart. Send it again from this item."
 	now := nowUTC()
 	for _, row := range pending {
-		itemID := strings.TrimPrefix(strings.TrimPrefix(row.source, "inbox-tui:"), "inbox-burst:")
+		itemID := strings.TrimPrefix(row.source, "inbox-tui:")
 		var sessionPath string
 		_ = tx.QueryRow(`SELECT session_path FROM inbox_items WHERE id = ?`, itemID).Scan(&sessionPath)
 		if row.status == TaskDelivering && replyTaskMaterialized(sessionPath, row.payload, row.createdAt) {

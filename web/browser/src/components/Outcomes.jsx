@@ -71,8 +71,8 @@ export default function Outcomes({ hidden, workspaces = [] }) {
     Promise.all([
       api("/api/agent-exits" + query({ ...base, outcome })),
       api("/api/agent-exits/summary" + query(base)),
-      // With and without each skill (ADR-0196 slice 6); an older server
-      // answers 404 and the section stays away.
+      // With and without each skill (ADR-0196 slice 6); a failed read keeps
+      // the section away instead of failing the page.
       api("/api/agent-exits/skills" + query(base)).catch(() => null),
     ]).then(([list, sum, skills]) => {
       if (n !== seq.current) return;

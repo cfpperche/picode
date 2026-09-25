@@ -158,3 +158,7 @@ See `docs/screenshots/adr-0059-burst-*.png`.
 | Suspend TUI with `SIGSTOP`, then resume it | Avoids concurrent writes, but the resumed process keeps stale in-memory session state and cannot honestly reflect the RPC turn. |
 | Kill and recreate the tmux session | Technically simple, but breaks the stable terminal attachment and visibly closes the TUI. Pane respawn preserves the container. |
 | Inject the reply with `tmux send-keys` | Avoids the temporary RPC process but is screen/input timing, not a delivery protocol. It remains the explicit fallback if the RPC burst fails dogfood. |
+
+## Amendment 2026-09-25 — `inbox-burst:` reconciliation retired (owner)
+
+Boot reconciliation and reply closing no longer read `inbox-burst:` task sources; replies are `inbox-tui:` (ADR-0060). Measured before removal: production held no `inbox-burst:` task at all.

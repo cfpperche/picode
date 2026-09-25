@@ -2,7 +2,7 @@
 // Grouping lives here, client-side — the wire stays a flat list.
 export const FREE_WS = "ws_free";
 
-// A payload without the field (older server, cached state) is a free terminal.
+// A payload without the field (a partial record) is a free terminal.
 export function termWorkspaceId(t) {
   return (t && t.workspaceId) || FREE_WS;
 }

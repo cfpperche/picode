@@ -109,9 +109,9 @@ func handlePackageGallery(w http.ResponseWriter, r *http.Request) {
 }
 
 // loadPackageReport is Pi's package list in pipkg's shape, for PiCode's own
-// server-side readers (roles, config pages, installs): Pi's driver reads the
-// settings and the agent row, and the unified report is mapped back. The
-// GET /api/packages route that served this shape was retired 2026-09-25.
+// server-side readers (roles, config pages): Pi's driver reads the settings
+// and the agent row, and the unified report is mapped back. No HTTP response
+// carries this shape any more (retired 2026-09-25).
 func loadPackageReport(ctx context.Context, deps Deps, workspaceID, agentID string) (pipkg.Report, error) {
 	dir, err := packageProjectDir(deps, workspaceID)
 	if err != nil {
@@ -135,6 +135,31 @@ func loadPackageReport(ctx context.Context, deps Deps, workspaceID, agentID stri
 		return pipkg.Report{}, err
 	}
 	return rep.Legacy(), nil
+}
+
+// writePiPackageReport answers a Pi mutation with the fresh list in the
+// unified shape GET /api/packages/report?cli=pi reads (the pipkg-shaped body
+// was retired 2026-09-25; the pane reloads the report anyway). A read that
+// fails after a mutation that succeeded is still a success.
+func writePiPackageReport(w http.ResponseWriter, r *http.Request, deps Deps, workspaceID, agentID string) {
+	dir, err := packageProjectDir(deps, workspaceID)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		return
+	}
+	q := pkgs.Query{WorkspacePath: dir}
+	if agentID != "" && deps.Store != nil {
+		if a, err := deps.Store.GetAgent(agentID); err == nil {
+			q.AgentSources = a.Packages
+			q.AgentIsolated = a.PackagesIsolated
+		}
+	}
+	rep, err := pkgs.DriverFor("pi").List(r.Context(), q)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		return
+	}
+	writeJSON(w, http.StatusOK, rep)
 }
 
 // packageMutateReq is one install, removal or update as this family takes it.
@@ -184,12 +209,12 @@ func handleInstallPackage(deps Deps) http.HandlerFunc {
 			return
 		}
 		if req.Scope == "agent" {
-			rep, err := mutateAgentPackage(r.Context(), deps, req.AgentID, req.Source, true)
+			wsID, err := mutateAgentPackage(r.Context(), deps, req.AgentID, req.Source, true)
 			if err != nil {
 				writeErr(w, statusForStore(err), err.Error())
 				return
 			}
-			writeJSON(w, http.StatusOK, rep)
+			writePiPackageReport(w, r, deps, wsID, req.AgentID)
 			return
 		}
 		opts, dir, err := packageMutate(deps, req.Scope, req.WorkspaceID)
@@ -203,13 +228,8 @@ func handleInstallPackage(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		rep, err := loadPackageReport(r.Context(), deps, req.WorkspaceID, req.AgentID)
-		if err != nil {
-			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-			return
-		}
 		_ = dir
-		writeJSON(w, http.StatusOK, rep)
+		writePiPackageReport(w, r, deps, req.WorkspaceID, req.AgentID)
 	}
 }
 
@@ -239,13 +259,8 @@ func handleUpdatePackage(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		rep, err := loadPackageReport(r.Context(), deps, req.WorkspaceID, req.AgentID)
-		if err != nil {
-			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-			return
-		}
 		_ = dir
-		writeJSON(w, http.StatusOK, rep)
+		writePiPackageReport(w, r, deps, req.WorkspaceID, req.AgentID)
 	}
 }
 
@@ -271,12 +286,12 @@ func handleRemovePackage(deps Deps) http.HandlerFunc {
 		wsID = firstNonEmpty(wsID, req.WorkspaceID)
 		agentID = firstNonEmpty(agentID, req.AgentID)
 		if scope == "agent" {
-			rep, err := mutateAgentPackage(r.Context(), deps, agentID, source, false)
+			agentWS, err := mutateAgentPackage(r.Context(), deps, agentID, source, false)
 			if err != nil {
 				writeErr(w, statusForStore(err), err.Error())
 				return
 			}
-			writeJSON(w, http.StatusOK, rep)
+			writePiPackageReport(w, r, deps, agentWS, agentID)
 			return
 		}
 		opts, dir, err := packageMutate(deps, scope, wsID)
@@ -291,25 +306,20 @@ func handleRemovePackage(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		rep, err := loadPackageReport(r.Context(), deps, wsID, agentID)
-		if err != nil {
-			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-			return
-		}
-		writeJSON(w, http.StatusOK, rep)
+		writePiPackageReport(w, r, deps, wsID, agentID)
 	}
 }
 
-func mutateAgentPackage(ctx context.Context, deps Deps, agentID, source string, add bool) (pipkg.Report, error) {
+func mutateAgentPackage(ctx context.Context, deps Deps, agentID, source string, add bool) (string, error) {
 	if deps.Store == nil || strings.TrimSpace(agentID) == "" {
-		return pipkg.Report{}, errNeedAgent
+		return "", errNeedAgent
 	}
 	if err := pipkg.ValidSource(source); err != nil {
-		return pipkg.Report{}, err
+		return "", err
 	}
 	a, err := deps.Store.GetAgent(agentID)
 	if err != nil {
-		return pipkg.Report{}, err
+		return "", err
 	}
 	next := []string{}
 	if add {
@@ -323,10 +333,9 @@ func mutateAgentPackage(ctx context.Context, deps Deps, agentID, source string, 
 	}
 	a, err = deps.Store.SetAgentPackages(agentID, next)
 	if err != nil {
-		return pipkg.Report{}, err
+		return "", err
 	}
-	wsID := a.WorkspaceID
-	return loadPackageReport(ctx, deps, wsID, agentID)
+	return a.WorkspaceID, nil
 }
 
 func packageProjectDir(deps Deps, id string) (string, error) {

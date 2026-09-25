@@ -107,8 +107,8 @@ The bridge is restricted to the trusted `main-content` webview and the
 existing Tauri origin ACL. External pages never receive layer permissions.
 Tab/route changes still hide inactive pages. Explicit screenshots and
 annotation captures retain their own APIs; the new overlay path calls none
-of them. An older shell without the injected protocol marker keeps the
-legacy frozen-backdrop path until the shell is upgraded too.
+of them. The frozen-backdrop path for shells without the injected protocol
+marker was retired 2026-09-25 (the installed shell carries the marker).
 
 The shared overlay vocabulary still drives the geometry audit; native
 composition additionally includes modal backdrops, tooltips and focus-edge
@@ -202,9 +202,9 @@ Rules that are load-bearing:
 |---|---|
 | Daemon (policy, verbs, hub, domains) | Go tests: `internal/browser/*_test.go`, the decision tables in `policy_test.go` and `domains_test.go` |
 | The shell's re-checks and catalogs | host tests where they are pure (`permissions.rs`, `origins.rs`, `annotate.rs`, `preview.rs` — run with `rustc --edition 2021 --test src/<file>.rs`; host `cargo test` is broken here) and `cargo xwin build` for the whole shell |
-| The page's logic | `web/browser/src/lib/*.test.js` (channel, prefs, annotations, overlay vocabulary, the legacy still/cover decisions) |
+| The page's logic | `web/browser/src/lib/*.test.js` (channel, prefs, annotations, overlay vocabulary, preview bytes) |
 | The injected overlay | a real browser harness (`scripts/fixtures/annotate-hotkey.html` + the script injected) — behavior, screenshots, key shields |
-| Windows-only paths | the owner's live run: the COM capture and native hide behind `preview.rs`'s decisions, the Ask deferral and its watchdog, the navigation re-inject hook. The capture's decision rows (valid, empty, failed, not painted, timeout, tab gone) and the hide/restore table (`coverDecision`) are host-tested; the COM calls and the on-screen stacking are not |
+| Windows-only paths | the owner's live run: the COM capture behind `preview.rs`'s decisions, the Ask deferral and its watchdog, the navigation re-inject hook. The capture's decision rows (valid, empty, failed, not painted, timeout, tab gone) are host-tested; the COM calls and the on-screen stacking are not |
 
 ## Traps (architecture-level; the dated list is in the topic file)
 
