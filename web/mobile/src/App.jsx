@@ -60,6 +60,7 @@ import ScreenBoundary, { ScreenError, ScreenLoading } from "./components/ScreenB
 import NativeAppNotice from "./components/NativeAppNotice.jsx";
 import { saveAgentConfig } from "./lib/agentConfig.js";
 import { fleetRouteReady } from "./lib/fleetReads.js";
+import ForkAgentSheet from "./components/ForkAgentSheet.jsx";
 import { deliverGitCommand } from "./lib/gitDelivery.js";
 import "./mobile.css";
 
@@ -78,6 +79,7 @@ export default function MobileApp() {
   const [clis, setClis] = useState([]);
   const [clisState, setClisState] = useState("loading"); // loading | ok | error
   const [termHandoff, setTermHandoff] = useState(null);
+  const [forkSource, setForkSource] = useState(null); // { agent, cliName, workspaceId }
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
   const [semver, setSemver] = useState("");
@@ -471,6 +473,35 @@ export default function MobileApp() {
       const term = terminals.find((t) => t.id === agent.terminalId) || null;
       return openTermHandoff(term || agentHandoffTerm(agent), extra);
     }
+    if (id === "fork") {
+      const term = terminals.find((t) => t.id === agent.terminalId) || null;
+      const cliId = (term && term.lastSession && term.lastSession.cli) || agent.cli || "pi";
+      const cli = clis.find((c) => c.id === cliId);
+      const ws = findAgent(workspaces, freeAgents, agent.id);
+      return setForkSource({ agent, cliName: (cli && cli.name) || cliId, workspaceId: ws?.workspace?.id || "" });
+    }
+  }
+
+  // Fork agent… (ForkAgentSheet): the new agent's terminal opens once it
+  // starts; a worktree command that waits for Enter opens its terminal first.
+  async function onForkDone(res) {
+    setForkSource(null);
+    await reload({ force: true }).catch(() => {});
+    const forked = res && res.agent;
+    const next = res && res.terminal;
+    if (next && next.launchError) { toastError(new Error(next.launchError)); return; }
+    if (forked) {
+      toast.ok((forked.name || "The fork") + (res.task === "pending"
+        ? " is starting on a copy of the conversation. Its task is sent as soon as it is ready."
+        : " is starting on a copy of the conversation."));
+    }
+    if (next && next.id) openTerm(next.id);
+  }
+  async function onForkPrepared(sent, name) {
+    setForkSource(null);
+    await reload({ force: true }).catch(() => {});
+    openTerm(sent.id);
+    toast.info("Press Enter in the git terminal to create the worktree. " + (name || "The fork") + " starts when it appears.");
   }
 
   async function renameAgent(agent) {
@@ -721,6 +752,17 @@ export default function MobileApp() {
       <WhatsNew open={whatsNewOpen} onClose={closeWhatsNew} currentSemver={whatsNewCurrent} seenVersion={whatsNewSeen} notes={RELEASE_NOTES} unseenOnly={whatsNewMode === "auto"} />
       <ConfirmDialog />
       <PromptDialog />
+      <ForkAgentSheet
+        open={!!forkSource}
+        agent={forkSource ? forkSource.agent : null}
+        cliName={forkSource ? forkSource.cliName : ""}
+        workspaceId={forkSource ? forkSource.workspaceId : ""}
+        terminals={terminals}
+        onClose={() => setForkSource(null)}
+        onDone={onForkDone}
+        onPrepared={onForkPrepared}
+        onBackgroundError={(e) => toastError(e)}
+      />
       <SessionHandoffDialog
         open={!!termHandoff}
         session={termHandoff ? termHandoff.session : null}

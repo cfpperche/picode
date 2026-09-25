@@ -416,6 +416,47 @@ func TestNativePiResumeComposer(t *testing.T) {
 	}
 }
 
+// A phone attached to the terminal narrows the pane to its width; pi then
+// cuts the footer before "%/". The rows below are a real 44-column capture
+// (2026-09-25): still Pi's empty editor. Other CLIs keep the 70-column gate.
+func TestNativePiComposerOnANarrowPane(t *testing.T) {
+	rule := "\x1b[38;2;178;148;187m" + strings.Repeat("─", 44)
+	lines := []string{
+		rule,
+		"\x1b[7m\x1b[39m \x1b[0m",
+		rule,
+		"\x1b[38;2;102;102;102m/home/goat/picode/.worktrees/mobile-fork ...",
+		"↑23k ↓3.8k R132k CH99.0% $0.134 (sub) 4.6\x1b[39m...",
+		"compact on · 22,769 / 250,000 · zai/glm-5\x1b[38;2;102;102;102m...",
+	}
+	s := tmux.InputSnapshot{Width: 44, CursorX: 0, CursorY: 1, Lines: lines}
+	if !peerInputMatches("pi", s, "") {
+		t.Fatal("Pi's empty editor at 44 columns refused")
+	}
+	if state, known := peerComposerState("pi", s); !known || state != "empty" {
+		t.Fatalf("composer = %q %v", state, known)
+	}
+	for _, bad := range [][]string{
+		{rule, "draft", rule, lines[3], lines[4]},
+		{rule, "", strings.Repeat("─", 30), lines[3], lines[4]},
+		{rule, "", rule, "Choose a permission", lines[4]},
+		{rule, "", rule, lines[3], ""},
+	} {
+		s.Lines = bad
+		if peerInputMatches("pi", s, "") {
+			t.Fatal("unsafe narrow Pi composer", bad)
+		}
+	}
+	tiny := tmux.InputSnapshot{Width: 20, CursorX: 0, CursorY: 1, Lines: []string{strings.Repeat("─", 20), "", strings.Repeat("─", 20), "/w", "x"}}
+	if peerInputMatches("pi", tiny, "") {
+		t.Fatal("a pane too narrow to trust was accepted")
+	}
+	claude := tmux.InputSnapshot{Width: 44, CursorX: 2, CursorY: 0, Lines: []string{"❯ ", "", ""}}
+	if peerInputMatches("claude-code", claude, "") {
+		t.Fatal("other CLIs keep the 70-column gate")
+	}
+}
+
 func TestPeerClaudeSingleFooter(t *testing.T) {
 	for _, tc := range []struct {
 		footer string
