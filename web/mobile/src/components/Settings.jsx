@@ -21,6 +21,8 @@ import { prefSection } from "../lib/routes.js";
 import LandingWork from "./LandingWork.jsx";
 import { z } from "zod";
 
+const PREF_TAB_KEY = "picode-pref-tab";
+
 const publicUrlSchema = z.string().trim().regex(/^https?:\/\/[^\s/]+\/?$/, "An origin like https://box.tailxxxx.ts.net:8445").or(z.literal(""));
 
 // What an agent's finished turn looks like, so the preferences above can
@@ -143,7 +145,15 @@ export default function Settings({ hidden, themeMode, onTheme, workspaces = [], 
   // The tab lives in component state: the mobile hash space (#/more/…)
   // cannot carry a /preferences/<tab> deep link, so hash-derived tabs lost
   // the chosen section on phone navigation.
-  const [sec, setSec] = useState(prefSection);
+  // The phone's hash cannot carry the tab (#/more/…), so the last tab is
+  // remembered per viewer instead of falling back to Appearance on reload.
+  const [sec, setSecState] = useState(() => {
+    const fromHash = prefSection();
+    if (fromHash !== "appearance") return fromHash;
+    try { const kept = localStorage.getItem(PREF_TAB_KEY); if (kept && prefSection("#/preferences/" + kept) === kept) return kept; } catch { /* storage is optional */ }
+    return fromHash;
+  });
+  const setSec = (id) => { setSecState(id); try { localStorage.setItem(PREF_TAB_KEY, id); } catch { /* storage is optional */ } };
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
       <nav className="pref-tabs" role="tablist" aria-label="Preferences">

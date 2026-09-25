@@ -201,7 +201,9 @@ export default function App({ shellChrome = false } = {}) {
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [whatsNewMode, setWhatsNewMode] = useState("manual");
   const [whatsNewSeen, setWhatsNewSeen] = useState(readSeenVersion);
-  const [host, setHost] = useState("local");
+  // "" until /api/system answers: the account chip shows a placeholder, not
+  // a "local" that flips to the machine name a moment later.
+  const [host, setHost] = useState("");
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [route, setRoute] = useState(() => parseRoute());
   useEffect(() => { setNavigationOpen(false); }, [route, selectedId]);
@@ -845,7 +847,7 @@ export default function App({ shellChrome = false } = {}) {
         setSemver(ver.semver || ver.version || "");
         setReleaseBuild(!!ver.release);
         setHost((sys.host && sys.host.name) || "local");
-      }, () => { /* offline */ });
+      }, () => setHost("local"));
       side.catalog.then(setCatalog, () => { /* pi missing */ });
       try {
         const got = await fleet;
