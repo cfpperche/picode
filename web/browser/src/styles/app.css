@@ -2942,6 +2942,24 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
    pane's width and scrolls the table inside itself. */
 .file-cm .cm-md-live .cm-md-table-widget { contain: inline-size; overflow-x: auto; padding: 4px 0 12px; cursor: text; }
 .file-cm .cm-md-live .cm-md-table-widget.cm-md-table-quoted { border-left: .25em solid color-mix(in srgb, var(--text-secondary) 45%, transparent); padding: 4px 0 4px 1em; }
+/* Math and Mermaid (mdLiveMath.js): rendered while the cursor is elsewhere,
+   source on the line or block being edited. Wide output scrolls inside its
+   own box, like a wide table. */
+.file-cm .cm-md-live .cm-md-math-block { contain: inline-size; overflow-x: auto; overflow-y: hidden; padding: 8px 0; cursor: text; }
+.file-cm .cm-md-live .cm-md-math-block .katex-display { margin: 0; }
+.file-cm .cm-md-live .cm-md-math .katex, .file-cm .cm-md-live .cm-md-math-block .katex { color: inherit; font-size: 1.08em; }
+.file-cm .cm-md-live .cm-md-math-src { font-family: var(--code); font-size: 90%; color: var(--text-secondary); }
+.file-cm .cm-md-live .cm-md-mermaid { contain: inline-size; overflow-x: auto; padding: 12px 0; text-align: center; cursor: text; }
+.file-cm .cm-md-live .cm-md-mermaid svg { display: inline-block; max-width: 100%; height: auto; }
+.file-cm .cm-md-live .cm-md-math-block { text-align: center; }
+.file-cm .cm-md-live .katex-error { color: var(--danger) !important; }
+.file-cm .cm-md-live .cm-md-math-lines { font-family: var(--code); font-size: 13px; color: var(--text-secondary); }
+/* A rendered block is also a way into its source: say so on hover. */
+.file-cm .cm-md-live :is(.cm-md-math-block, .cm-md-mermaid, .cm-md-table-widget) { border-radius: 6px; transition: box-shadow var(--motion-fast); }
+.file-cm .cm-md-live :is(.cm-md-math-block, .cm-md-mermaid):hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+/* The cursor line inside a code block keeps the code panel. */
+.file-cm .cm-editor.cm-md-live .cm-activeLine.cm-md-codeblock { background: var(--bg-panel); }
+.file-cm .cm-md-live :is(.cm-md-rendering, .cm-md-render-failed) { padding: 12px 0; font-size: 13px; color: var(--text-secondary); text-align: left; }
 .file-cm .cm-md-live .cm-md-table-widget table { border-collapse: collapse; font-size: 14px; line-height: 1.5; }
 /* The editor wraps anywhere (.cm-lineWrapping); a cell must not, or a wide
    table shrinks to one letter per column instead of scrolling. */
