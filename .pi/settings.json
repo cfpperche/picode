@@ -1,6 +1,8 @@
 {
   "$schema": "https://pi.dev/schemas/settings.json",
-  "tuiMode": "fullscreen",
+  "defaultModel": "glm-5.3-flash",
+  "defaultProvider": "zai",
+  "defaultThinkingLevel": "max",
   "packages": [
     "../packages/pi-inbox",
     "../packages/pi-roles",
@@ -9,5 +11,6 @@
     "../packages/pi-diff",
     "../packages/pi-browser-capture",
     "../packages/pi-browser"
-  ]
+  ],
+  "tuiMode": "fullscreen"
 }
