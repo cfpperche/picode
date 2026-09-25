@@ -10,7 +10,10 @@ export default function CliPackages({ hidden, route, catalog, onPackageUpdates, 
     {route.invalid ?
       <div className="cli-notice" role="status"><span>This package link is invalid.</span></div>
       : !hidden ? <Packages
-        key={[route.id, route.workspaceId, route.agentId, route.scope, route.pkg || "", describe ? "describe" : ""].join(":")}
+        // A config page keeps one draft per layer across a layer switch
+        // (PackagesConfig), so the scope is not part of its identity; the
+        // roster remounts per scope because each scope is a fresh report.
+        key={[route.id, route.workspaceId, route.agentId, route.pkg ? "" : route.scope, route.pkg || "", describe ? "describe" : ""].join(":")}
         route={route} catalog={catalog} describe={describe} onPackageUpdates={onPackageUpdates}
       /> : null}
   </section>;

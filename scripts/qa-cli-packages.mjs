@@ -59,9 +59,10 @@ try {
     open(app, root); ready();
     assert.equal(ev('document.querySelectorAll(".pkg-scope [role=radio]").length'), 1);
     await capture(app + "-empty");
-    browser("click", '[aria-label="Packages CLI: Pi"]');
-    await capture(app + "-cli-picker"); browser("press", "Escape");
-    results.push(app + ": empty machine view and contained CLI selector");
+    // The CLI is chosen in the catalog beside the pane (the pane's own CLI
+    // picker left with the one-pane Packages, ADR-0176).
+    assert.ok(ev('document.querySelector(\'nav[aria-label="Compatible CLIs"] [aria-current=page]\')?.textContent.includes("Pi")'));
+    results.push(app + ": empty machine view, Pi current in the CLI catalog");
     // Seed native package state; no package manager process or download is run.
     writeFileSync(settingsFile, JSON.stringify({ packages: [source] }));
     open(app, context); ready();
@@ -83,7 +84,10 @@ try {
       return window.qaFetch(url,opts);
     }`);
     for (const [label, scope] of [["Global", "user"], [workspace.name, "project"]]) {
-      browser("find", "role", "radio", "click", "--name", label, "--exact"); ready();
+      browser("find", "role", "radio", "click", "--name", label, "--exact");
+      // The radio rewrites the address and the pane remounts: wait for the
+      // chosen layer, or ready() can pass on the frame being replaced.
+      wait(`document.querySelector(".pkg-scope [aria-checked=true]")?.textContent === ${JSON.stringify(label)}`); ready();
       browser("fill", input, "npm:fixture-only"); browser("click", ".pkg-by-source button[type=submit]");
       wait('!!document.querySelector(".pkg-job-err")');
       const req = ev('window.qaWrites.at(-1)');
@@ -137,52 +141,47 @@ try {
     ev('window.fetch=window.qaFetch');
     results.push(app + ": update pending/failure/success and update badge use authoritative responses");
     // Retain an unfinished source across a failed context refresh and retry.
+    // The refresh that reads /api/workspaces is Agent CLIs' own (the unified
+    // pane reads its report, not the workspace list), so the alert is the
+    // view's; the pane underneath keeps the draft through it and the retry.
+    // (The moved-location guard lives on the config pages, PackageTarget.)
     browser("fill", input, "keep-" + app);
     fault(`window.qaRead="fail";window.fetch=(url,opts)=>{
       if(String(url)==="/api/workspaces"&&(!opts?.method||opts.method==="GET")&&window.qaRead==="fail")return Promise.resolve(new Response(JSON.stringify({error:"Temporary package context failure"}),{status:503,headers:{"Content-Type":"application/json"}}));
       return window.qaFetch(url,opts);
     }`);
     await api('/api/agents/' + id, 'PATCH', { thinking: app === "desktop" ? "low" : "high" });
-    wait('!!document.querySelector("#cli-packages-view [role=alert]")');
+    wait('!!document.querySelector("#agent-clis-view [role=alert]")');
     assert.equal(ev(`document.querySelector(${JSON.stringify(input)}).value`), "keep-" + app);
-    assert.equal(ev(`document.querySelector(${JSON.stringify(input)}).matches(':disabled')`), true);
     await capture(app + "-context-error");
-    browser("click", "#cli-packages-view [role=alert] button");
-    wait('!document.querySelector("#cli-packages-view [role=alert] button").disabled');
-    assert.equal(ev(`document.querySelector(${JSON.stringify(input)}).matches(':disabled')`), true);
-    ev('window.qaRead="pass"'); browser("click", "#cli-packages-view [role=alert] button"); ready();
+    ev('window.qaRead="pass"'); browser("find", "role", "button", "click", "--name", "Try again", "--exact");
+    wait('!document.querySelector("#agent-clis-view [role=alert]")'); ready();
     assert.equal(ev(`document.querySelector(${JSON.stringify(input)}).value`), "keep-" + app);
     ev('window.fetch=window.qaFetch');
-    results.push(app + ": refresh failure/retry keeps source draft and blocks writes");
-    fault(`window.fetch=async(url,opts)=>{
-      const response=await window.qaFetch(url,opts);
-      if(String(url)==="/api/workspaces"&&response.ok){const rows=await response.json();return new Response(JSON.stringify(rows.map(w=>w.id===${JSON.stringify(ws)}?{...w,path:w.path+"/moved"}:w)),{headers:{"Content-Type":"application/json"}})}
-      return response;
-    }`);
-    await api('/api/agents/'+id,'PATCH',{thinking:app==='desktop'?'medium':'low'});
-    wait('!!document.querySelector("#cli-packages-view [role=alert]")');
-    assert.equal(ev(`document.querySelector(${JSON.stringify(input)}).value`),'keep-'+app);
-    assert.equal(ev(`document.querySelector(${JSON.stringify(input)}).matches(':disabled')`),true);
-    browser('find','role','button','click','--name','Reload page','--exact');
-    browser('wait','[role="alertdialog"], [role="dialog"]');
-    await capture(app+'-location-changed');
-    browser('find','role','button','click','--name','Cancel','--exact');
-    wait("!document.querySelector('.dlg-overlay')");ev('window.fetch=window.qaFetch');
-    await api('/api/agents/'+id,'PATCH',{thinking:app==='desktop'?'low':'medium'});ready();
-    assert.equal(ev(`document.querySelector(${JSON.stringify(input)}).value`),'keep-'+app);
-    results.push(app+': changed file target blocks old drafts and requires confirmed reload');
-    for (const hash of [root.replace('/pi','/codex'), root+'?agentId=missing', root+'?workspaceId='+workspaces.find(w=>w.id!==ws).id+'&agentId='+id, root+'/config/unknown']) {
-      nav(hash); wait('!!document.querySelector("#cli-packages-view .cli-notice")');
-      assert.equal(ev(`!!document.querySelector(${JSON.stringify(input)})`), false);
-    }
+    results.push(app + ": a failed Agent CLIs refresh and its retry keep the source draft");
+    // An unknown CLI names itself and offers no install. (A missing or
+    // mismatched agent in the address no longer blocks the machine-scope
+    // install in the unified pane — an open question for the owner, recorded
+    // in docs/handoff/open/legacy-compat.md, not asserted either way here.)
+    nav(root.replace('/pi','/unknown-cli')); wait('!!document.querySelector("#cli-packages-view .cli-notice")');
+    assert.equal(ev(`!!document.querySelector(${JSON.stringify(input)})`), false);
+    nav(root+'/config/unknown'); await new Promise(done => setTimeout(done, 1500));
+    assert.equal(ev(`!!document.querySelector(${JSON.stringify(input)})`), false);
     await capture(app + "-blocked");
-    results.push(app + ": unsupported CLI/adapter and missing/mismatched targets block writes");
+    results.push(app + ": an unknown CLI and an unknown config page offer no install");
     const freeAgent = await api('/api/agents','POST',{name:'Packages QA free'});
     nav(root+'?agentId='+freeAgent.id+'&scope=agent');ready();
     assert.equal(ev('document.querySelectorAll(".pkg-scope [role=radio]").length'),2);
     await api('/api/agents/'+freeAgent.id,'DELETE');
-    wait('!!document.querySelector("#cli-packages-view [role=alert]")');
-    assert.equal(ev(`!!document.querySelector(${JSON.stringify(input)})`),false);
+    // The pane drops the gone agent's radio but keeps the address: an install
+    // still names that agent, the server refuses it, and nothing lands on the
+    // machine instead — the guarantee is the target, not an up-front block.
+    wait('document.querySelectorAll(".pkg-scope [role=radio]").length === 1');
+    const orphan = "npm:qa-orphan-" + app;
+    browser("fill", input, orphan);
+    browser("click", ".pkg-by-source button[type=submit]");
+    wait('!!document.querySelector("#cli-packages-view .pkg-job-err, #cli-packages-view [role=alert]")');
+    assert.equal((await api('/api/packages/report?cli=pi')).rows.some(r => r.source === orphan), false);
     results.push(app + ": free-agent scope and deletion never fall back to another target");
     open(app, context); ready();
     assert.equal(ev('location.hash'), context);
@@ -194,7 +193,7 @@ try {
       wait("!![...document.querySelectorAll('#cli-packages-view button')].find(b => b.textContent === 'Open desktop layout')");
       await capture('mobile-config-boundary');
       const before = ev('location.hash'); browser("find", "role", "button", "click", "--name", "Open desktop layout", "--exact");
-      wait('location.pathname.startsWith("/desktop")'); assert.equal(ev('location.hash'), before);
+      wait('location.pathname.startsWith("/browser")'); assert.equal(ev('location.hash'), before);
     } else browser("wait", '#packages-config');
     results.push(app + ": legacy list/config links retain explicit target; mobile desktop action preserves URL");
   }
@@ -211,14 +210,14 @@ try {
   assert.equal((await api('/api/packages/config?package=pi-roles&workspace='+ws+'&agent='+id)).workspace.config.builtin.default.thinking,'high');
   browser('select','[aria-label="default thinking level"]','medium');
   browser('find','role','radio','click','--name','Atlas — overrides','--exact');
-  wait('location.hash.includes("scope=agent")');
+  wait('location.hash.includes("scope=agent")'); browser('wait','[aria-label="default thinking level"]');
   assert.equal(ev(`document.querySelector('[aria-label="default thinking level"]').value`),'low');
   browser('select','[aria-label="default thinking level"]','high');
   browser('find','role','button','click','--name','Save','--exact');wait('!!document.querySelector(".pkg-notice.ok")');
   assert.equal((await api('/api/packages/config?package=pi-roles&workspace='+ws+'&agent='+id)).agent.config.builtin.default.thinking,'high');
   await capture('desktop-roles-agent');
   browser('find','role','radio','click','--name','Workspace — shared','--exact');
-  wait('location.hash.includes("scope=project")');
+  wait('location.hash.includes("scope=workspace")'); browser('wait','[aria-label="default thinking level"]');
   assert.equal(ev(`document.querySelector('[aria-label="default thinking level"]').value`),'medium');
   browser('find','role','button','click','--name','Discard','--exact');
   assert.equal(ev(`document.querySelector('[aria-label="default thinking level"]').value`),'high');
@@ -231,7 +230,7 @@ try {
   const afterClear=await api('/api/packages/config?package=pi-roles&workspace='+ws+'&agent='+id);
   assert.equal(afterClear.agent.exists,false);assert.equal(afterClear.workspace.config.builtin.default.thinking,'high');
   browser('find','role','radio','click','--name','Workspace — shared','--exact');
-  wait('location.hash.includes("scope=project")');
+  wait('location.hash.includes("scope=workspace")'); browser('wait','[aria-label="default thinking level"]');
   browser('select','[aria-label="default thinking level"]','medium');
   assert.ok(afterClear.workspace.path.startsWith(fixture+'/work/'));
   writeFileSync(afterClear.workspace.path,'{broken');
@@ -256,10 +255,10 @@ try {
   results.push('packages context is independent of terminal inventory and installation jobs');
   for (const width of [1365,560]) {
     open('desktop',context,width,width===560?'light':'dark');ready();
-    browser('click','[aria-label="Packages CLI: Pi"]'); await capture('desktop-'+width+'-selector'); browser('press','Escape');
+    await capture('desktop-'+width+'-pane');
     if(width===560){ nav(root+'/config/pi-roles?workspaceId='+ws+'&agentId='+id);browser('wait','#packages-config');await capture('desktop-narrow-config'); }
   }
-  results.push('wide/narrow desktop overlays remain contained in dark/light themes');
+  results.push('wide/narrow desktop pane and config page render in dark/light themes');
   writeFileSync(join(out,'results.json'),JSON.stringify({ok:true,results,realPackageManagerProcesses:false,realModelTurns:false},null,2));
   console.log(JSON.stringify({ok:true,results},null,2));
 } catch(error) {

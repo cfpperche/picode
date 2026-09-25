@@ -11,7 +11,7 @@ export default function CliPackages({ hidden, route, catalog, onPackageUpdates }
     {route.invalid ?
       <div className="cli-notice" role="status"><span>This package link is invalid.</span></div>
       : !hidden ? <Packages
-        key={[route.id, route.workspaceId, route.agentId, route.scope, route.pkg || ""].join(":")}
+        key={[route.id, route.workspaceId, route.agentId, route.pkg ? "" : route.scope, route.pkg || ""].join(":")}
         route={route} catalog={catalog} onPackageUpdates={onPackageUpdates}
       /> : null}
   </section>;
