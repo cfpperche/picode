@@ -301,6 +301,17 @@ func certStep() Step {
 			if left < renewWithin {
 				return needsFix("certificate expires %s", notAfter.Format(time.DateOnly))
 			}
+			// A certificate that does not cover the loopback names fails the
+			// moment a client dials 127.0.0.1 instead of localhost (the desktop
+			// shell's probes, a script reading server.json on a specific
+			// bind). setup-cert.sh skipped 127.* until 2026-09-24. Only mkcert
+			// can reissue it trusted; without it the self-signed pair already
+			// covers them.
+			if missing := missingLoopback(path); len(missing) > 0 {
+				if _, err := lookPath("mkcert"); err == nil {
+					return needsFix("certificate does not cover %s", strings.Join(missing, ", "))
+				}
+			}
 			return ok("valid until %s", notAfter.Format(time.DateOnly))
 		},
 		Fix: func(env Env) error {
@@ -421,16 +432,75 @@ func certExpiry(path string) (time.Time, error) {
 	return c.NotAfter, nil
 }
 
-func issueWithMkcert(dataDir string) error {
-	args := []string{
-		"-cert-file", filepath.Join(dataDir, tlsutil.CertFile),
-		"-key-file", filepath.Join(dataDir, tlsutil.KeyFile),
+// loopbackNames are the names every client on this machine may dial.
+var loopbackNames = []string{"localhost", "127.0.0.1", "::1"}
+
+// missingLoopback lists the loopback names the certificate at path does not
+// cover; nil when it covers all of them or cannot be read.
+func missingLoopback(path string) []string {
+	c, err := readLeaf(path)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, n := range loopbackNames {
+		if c.VerifyHostname(n) != nil {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+func readLeaf(path string) (*x509.Certificate, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	blk, _ := pem.Decode(b)
+	if blk == nil {
+		return nil, fmt.Errorf("%s is not PEM", path)
+	}
+	return x509.ParseCertificate(blk.Bytes)
+}
+
+// mkcertNames is what a reissue covers: every name the current certificate
+// already has — a Tailscale name or a LAN address the owner issued it for
+// must survive a renewal — plus this machine's local names and loopback.
+func mkcertNames(certPath string) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(n string) {
+		n = strings.ToLower(strings.TrimSpace(n))
+		if n != "" && !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
 	}
 	dns, ips := tlsutil.LocalNames()
-	args = append(args, dns...)
-	for _, ip := range ips {
-		args = append(args, ip.String())
+	for _, n := range dns {
+		add(n)
 	}
+	for _, ip := range ips {
+		add(ip.String())
+	}
+	if c, err := readLeaf(certPath); err == nil {
+		for _, n := range c.DNSNames {
+			add(n)
+		}
+		for _, ip := range c.IPAddresses {
+			add(ip.String())
+		}
+	}
+	return out
+}
+
+func issueWithMkcert(dataDir string) error {
+	certPath := filepath.Join(dataDir, tlsutil.CertFile)
+	args := []string{
+		"-cert-file", certPath,
+		"-key-file", filepath.Join(dataDir, tlsutil.KeyFile),
+	}
+	args = append(args, mkcertNames(certPath)...)
 	if err := run("mkcert", args...); err != nil {
 		return fmt.Errorf("mkcert: %w", err)
 	}

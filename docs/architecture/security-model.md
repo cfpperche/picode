@@ -3,7 +3,8 @@
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
 - **HTTPS always** (bind 0.0.0.0): mkcert-issued cert via
-  `scripts/setup-cert.sh` (SANs: localhost + LAN + tailscale; CA exported to
+  `scripts/setup-cert.sh` (SANs: localhost, picode.local, 127.0.0.1, ::1 +
+  LAN + tailscale; CA exported to
   the Windows trust store on WSL) or a generated self-signed cert as the
   zero-config bootstrap. `PICODE_INSECURE=1` disables TLS (dev only).
 - **Port and bind**: default range `8445-8455` on `0.0.0.0`, first free

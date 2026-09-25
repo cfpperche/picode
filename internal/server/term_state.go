@@ -203,8 +203,10 @@ func loopbackURL(deps Deps) string {
 	if snap.Current == 0 {
 		return ""
 	}
-	// HTTPS certs are issued for localhost (mkcert), not 127.0.0.1 — using
-	// the IP made the reporter's curl fail SAN check (2026-09-03 dogfood).
+	// Certificates issued before 2026-09-24 cover localhost but not
+	// 127.0.0.1 (setup-cert.sh skipped it) — using the IP made the reporter's
+	// curl fail the SAN check (2026-09-03 dogfood). New and reissued ones
+	// cover both; localhost stays because old ones are still in the field.
 	host := "localhost"
 	scheme := "https"
 	if deps.Insecure {

@@ -78,7 +78,7 @@ fi
 
 # --------------------------------------------------------------------------
 bold "[3/6] discovering names/IPs for this machine"
-SAN=("localhost" "picode.local")
+SAN=("localhost" "picode.local" "127.0.0.1" "::1") # loopback: a client may dial 127.0.0.1 or ::1 instead of localhost
 add_ip() {
     [[ -n "$1" ]] || return 0
     for s in "${SAN[@]}"; do [[ "$s" == "$1" ]] && return 0; done

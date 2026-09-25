@@ -1,12 +1,20 @@
 package provision
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"github.com/cfpperche/picode/internal/tlsutil"
+	"math/big"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // withConf points the wsl.conf step at a scratch file seeded with content.
@@ -323,5 +331,78 @@ func TestTailnetCertStep(t *testing.T) {
 	_ = os.Rename(filepath.Join(dir, tlsutil.KeyFile), filepath.Join(dir, tlsutil.TailscaleKeyFile))
 	if got := tailnetCertStep().Check(env); got.Status != StatusFix || !strings.Contains(got.Detail, "another name") {
 		t.Fatalf("other name: %+v", got)
+	}
+}
+
+// writeLeaf writes a self-signed certificate with the given names, valid
+// for a year, to <dir>/cert.pem.
+func writeLeaf(t *testing.T, dir string, dns []string, ips []net.IP) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := x509.Certificate{SerialNumber: big.NewInt(1), DNSNames: dns, IPAddresses: ips,
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(365 * 24 * time.Hour)}
+	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	if err := os.WriteFile(filepath.Join(dir, "cert.pem"), out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// 2026-09-24: the owner's mkcert certificate (from setup-cert.sh) covered
+// localhost, picode.local, a Tailscale name and two LAN addresses, but not
+// 127.0.0.1 or ::1. A reissue adds them and keeps every name it had.
+func TestCertStepReissuesACertificateWithoutLoopback(t *testing.T) {
+	oldLook, oldRun := lookPath, run
+	t.Cleanup(func() { lookPath, run = oldLook, oldRun })
+	lookPath = func(string) (string, error) { return "/usr/bin/mkcert", nil }
+	var got []string
+	run = func(name string, args ...string) error { got = append([]string{name}, args...); return nil }
+
+	dir := filepath.Join(t.TempDir(), "data")
+	writeLeaf(t, dir, []string{"localhost", "picode.local", "Box-1.Tail057039.ts.net"}, []net.IP{net.ParseIP("192.168.15.28")})
+	env := Env{DataDir: dir}
+	st := certStep().Check(env)
+	if st.Status != StatusFix || !strings.Contains(st.Detail, "127.0.0.1") || !strings.Contains(st.Detail, "::1") {
+		t.Fatalf("check = %q (%s), want fix naming 127.0.0.1 and ::1", st.Status, st.Detail)
+	}
+	if err := certStep().Fix(env); err != nil {
+		t.Fatal(err)
+	}
+	joined := " " + strings.Join(got, " ") + " "
+	for _, want := range []string{"mkcert", " box-1.tail057039.ts.net ", " 192.168.15.28 ", " 127.0.0.1 ", " ::1 ", " localhost ", " picode.local "} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("mkcert args %q lack %q", joined, strings.TrimSpace(want))
+		}
+	}
+}
+
+func TestCertStepLeavesLoopbackAloneWithoutMkcert(t *testing.T) {
+	old := lookPath
+	t.Cleanup(func() { lookPath = old })
+	lookPath = func(string) (string, error) { return "", errors.New("no mkcert") }
+	dir := filepath.Join(t.TempDir(), "data")
+	writeLeaf(t, dir, []string{"localhost"}, nil)
+	if st := certStep().Check(Env{DataDir: dir}); st.Status != StatusOK {
+		t.Fatalf("check = %q (%s): without mkcert nothing can reissue it trusted", st.Status, st.Detail)
+	}
+}
+
+func TestCertStepAcceptsACertificateThatCoversLoopback(t *testing.T) {
+	old := lookPath
+	t.Cleanup(func() { lookPath = old })
+	lookPath = func(string) (string, error) { return "/usr/bin/mkcert", nil }
+	dir := filepath.Join(t.TempDir(), "data")
+	writeLeaf(t, dir, []string{"localhost"}, []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")})
+	if st := certStep().Check(Env{DataDir: dir}); st.Status != StatusOK {
+		t.Fatalf("check = %q (%s), want ok", st.Status, st.Detail)
 	}
 }
