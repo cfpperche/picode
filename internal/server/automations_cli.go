@@ -6,15 +6,18 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/cfpperche/picode/internal/automate"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/climetrics"
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/pricing"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
+	"github.com/cfpperche/picode/internal/transcript"
 )
 
 // Unattended start runs on guest CLIs (ADR-0217): the automation's own agent
@@ -160,18 +163,75 @@ func killTerminalPane(deps Deps, ctx context.Context, id, name string) error {
 	return nil
 }
 
-// cliRunCost prices the terminal's current session from its file.
+// cliRunCost prices the terminal's current session where its CLI keeps it.
 func cliRunCost(deps Deps, t store.Terminal, cli string) (float64, bool) {
 	pinCLITerminalLastSession(deps, t.ID, t)
 	l, err := deps.Store.TerminalLaunch(t.ID)
-	if err != nil || l == nil || l.LastSession == nil || l.LastSession.Path == "" {
+	if err != nil || l == nil || l.LastSession == nil || (l.LastSession.Path == "" && l.LastSession.SessionID == "") {
 		return 0, false
 	}
-	c, ok := climetrics.MeterSession(cli, l.LastSession.Path, l.LastSession.SessionID, pricing.Current())
+	path := clisession.StoreFor(cli, l.LastSession.SessionID, l.LastSession.Path, t.Cwd)
+	c, ok := climetrics.MeterSession(cli, path, l.LastSession.SessionID, pricing.Current())
 	if !ok {
 		return 0, false
 	}
 	return c.Cost, true
+}
+
+// cliRunFinal is the run's answer: the newest assistant message of the
+// terminal's session, read the way a handoff reads it (clisession.Reader),
+// as Pi's run carries its final message. The CLI's end-of-turn hook can
+// land a moment before its session store has the message, so an empty or
+// older read is retried briefly; "" means the result points at the session.
+func cliRunFinal(ctx context.Context, deps Deps, t store.Terminal, cli string, since time.Time) string {
+	reader, ok := clisession.ReaderFor(cli)
+	if !ok {
+		return ""
+	}
+	for i := 0; ; i++ {
+		if text := cliSessionFinal(ctx, deps, reader, t, cli, since); text != "" || i >= cliFinalTries {
+			return text
+		}
+		select {
+		case <-ctx.Done():
+			return ""
+		case <-time.After(cliFinalEvery):
+		}
+	}
+}
+
+// Knobs for cliRunFinal; vars so tests can shrink them.
+var (
+	cliFinalTries = 5
+	cliFinalEvery = 600 * time.Millisecond
+)
+
+func cliSessionFinal(ctx context.Context, deps Deps, reader clisession.Reader, t store.Terminal, cli string, since time.Time) string {
+	pinCLITerminalLastSession(deps, t.ID, t)
+	l, err := deps.Store.TerminalLaunch(t.ID)
+	if err != nil || l == nil || l.LastSession == nil || (l.LastSession.Path == "" && l.LastSession.SessionID == "") {
+		return ""
+	}
+	ref := clisession.Ref{ID: l.LastSession.SessionID, Path: clisession.StoreFor(cli, l.LastSession.SessionID, l.LastSession.Path, t.Cwd), Cwd: t.Cwd, Tail: true}
+	if cli == "omp" {
+		ref.Roots = []string{clisession.OmpAgentSessionsRoot(deps.DataDir)}
+	}
+	tl, err := reader.Read(ctx, ref)
+	if err != nil {
+		return ""
+	}
+	for i := len(tl.Events) - 1; i >= 0; i-- {
+		e := tl.Events[i]
+		if e.Kind != transcript.KindMessage || e.Role != "assistant" || strings.TrimSpace(e.Text) == "" {
+			continue
+		}
+		// A message older than the prompt is another conversation's.
+		if !e.Timestamp.IsZero() && e.Timestamp.Before(since.Add(-2*time.Second)) {
+			return ""
+		}
+		return strings.TrimSpace(e.Text)
+	}
+	return ""
 }
 
 func (r automationRunner) cliStartRun(ctx context.Context, a store.Automation, f automate.Firing, body string) (store.Run, error) {
@@ -267,8 +327,12 @@ func (r automationRunner) driveCLIRun(w *runWatch, t store.Terminal, body string
 				w.eventCost = c
 				w.mu.Unlock()
 			}
+			final := cliRunFinal(ctx, deps, t, w.a.CLI, delivered)
 			if w.finish(store.RunDone, "", false) {
-				done := "The run finished. Open " + w.a.Name + " to read its session."
+				done := final
+				if done == "" {
+					done = "The run finished. Open " + w.a.Name + " to read its session."
+				}
 				r.notify(w.a, store.InboxResult, "automation finished", w.a.Name+" ran", done)
 				if run, err := deps.Store.GetRun(w.run.ID); err == nil {
 					r.notifyOut(w.a, run, store.RunDone, "", done, nil)
