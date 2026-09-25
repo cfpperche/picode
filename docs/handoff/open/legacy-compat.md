@@ -27,7 +27,7 @@ left needs the owner's call before it goes.
 ## Kept on purpose (not debts)
 
 - Plaintext credentials vault import; M1 workspaces.json import.
-- Non-partitioned webapps; pre-ADR-0161 desktop shells; third-party CLI file formats.
+- Non-partitioned webapps; third-party CLI file formats. (The pre-ADR-0161 shell path was retired 2026-09-25, feat/legacy-dead-code.)
 - cli DEFAULT 'pi' and UI `cli || "pi"`: data rule (empty cli is Pi); server IsPi and others rely on it.
 - notice.js toast shim.
 - termGroups/workBack null guards (comments corrected 2026-09-25).
