@@ -71,6 +71,14 @@ func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string,
 			}
 		}
 	}
+	if cli == "grok" || cli == "hermes" || cli == "opencode" {
+		// Their hooks may name no file, or a file inside Grok's session
+		// folder: pin where the conversation is kept, so its cost, final
+		// message and exit read it (ADR-0217).
+		if terminal, err := deps.Store.GetTerminal(term); err == nil {
+			path = clisession.StoreFor(cli, id, path, terminal.Cwd)
+		}
+	}
 	if !stale {
 		if live.SessionID != id || live.SessionPath != path {
 			launch, err := deps.Store.TerminalLaunch(term)

@@ -45,8 +45,9 @@ bottom row), a run:
    `needs-you` files one Inbox item saying the run is waiting for the person
    at that terminal and keeps waiting; the two-hour timeout and the cost cap
    (the session priced every 30 seconds) stop it;
-4. prices the session, finishes the run, and closes the terminal (the
-   session stays with the agent to reopen).
+4. prices the session, reads its last assistant message back (the handoff
+   reader, `clisession.Reader`) as the run's result, finishes the run, and
+   closes the terminal (the session stays with the agent to reopen).
 
 The cost cap holds for every `start` CLI (`climetrics.Metered`; OpenCode,
 Grok and Hermes joined the same day). It counts only what is priced: a turn
@@ -67,8 +68,9 @@ and Muse's hooks cannot be tied to a terminal, so nothing says its turn ended.
   approving on the person's behalf; the Inbox item says where to answer.
 - The end of a turn is the CLI's hook, not an RPC event: a CLI whose hooks
   stop reporting reads as a run that never settles and ends at the timeout.
-- The final message is not read back in this slice: the Inbox result says
-  the run finished and points at the agent's session.
+- The final message is read from the CLI's session store after its
+  end-of-turn hook, retried for about three seconds; a message older than
+  the prompt, or none, leaves the Inbox result pointing at the session.
 - If we are wrong about the composer readers (a CLI update changes its TUI),
   the door refuses as `unrecognized`, the run is skipped with that reason —
   nothing is pasted blind.
