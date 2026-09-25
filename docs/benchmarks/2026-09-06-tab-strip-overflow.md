@@ -55,7 +55,7 @@ Receipts: VS Code [multiEditorTabsControl.ts](https://github.com/microsoft/vscod
    webkit fallback), so tabs get the full 40 px back (Zed, Firefox, MUI).
 2. **Active tab always revealed** on selection and on open, moving the
    strip as little as possible (Firefox `nearest`, VS Code, MUI):
-   `lib/tabStrip.js` computes the offset, `scroll-behavior: smooth` unless
+   `web/shared/domain/tabStrip.js` computes the offset, `scroll-behavior: smooth` unless
    reduced motion, an instant jump on the first paint. Shipped in phase 1
    together with item 1.
 3. **Vertical wheel scrolls the strip** with the dominant-axis rule, only
@@ -82,7 +82,7 @@ Receipts: VS Code [multiEditorTabsControl.ts](https://github.com/microsoft/vscod
 6. **"All tabs" list** (a list button after the right arrow, shown only
    while overflowing) listing every tab with its face, name and status
    dot, the hidden ones first under "Out of view" (JetBrains, Sublime,
-   Firefox, VS Code). Radix DropdownMenu, `hiddenTabs` in `lib/tabStrip.js`.
+   Firefox, VS Code). Radix DropdownMenu, `hiddenTabs` in `web/shared/domain/tabStrip.js`.
    Shipped in phase 3.
 7. **Keyboard:** `Alt+[` / `Alt+]` for previous / next tab (owner decision;
    Ctrl+Tab, Ctrl+PgUp/PgDn and Ctrl+W are browser-reserved), rebindable
@@ -139,5 +139,13 @@ the page's own navigation. Two differences from the editor strip: the
 vertical wheel stays with the page (`useTabStrip(…, { wheel: false })`),
 because these bars sit inside a page that scrolls vertically, and there
 is no position indicator — on a card's top edge it read as a stray
-scrollbar thumb. Bars that wrap instead (Preferences, llama) and the phone app
-(swipe, ADR-0072 keeps it separate) are unchanged.
+scrollbar thumb. Bars that wrap instead (Preferences, llama) stay as they are on
+the desktop.
+
+**Phone (2026-09-25).** The phone app carries its own copy of the hook and
+the component (ADR-0072: independent presentation) over the one shared
+logic module, `web/shared/domain/tabStrip.js`. It covers Preferences, the
+CLI sections, the CLIs bar and llama.cpp's sections — the bars that
+scrolled with a thin scrollbar on a phone; the arrows are 36px tap targets
+and a swipe still scrolls the strip. The two-tab Packages / Connectors /
+Skills bars fit any phone and keep plain scrolling.

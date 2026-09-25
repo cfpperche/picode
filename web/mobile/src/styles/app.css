@@ -2151,6 +2151,41 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 }
 .pref-tab:hover { color: var(--text-primary); }
 .pref-tab[aria-selected="true"] { color: var(--text-primary); border-bottom-color: var(--accent); }
+/* In-page tab bars that outgrow the phone (OverflowTabs, the desktop's
+   editor-strip overflow chrome): no scrollbar; while the tabs overflow, a
+   fade on the side that still has tabs, arrows sized for a thumb, and an
+   "All sections" list. Swiping the strip still scrolls it. The strip
+   reaches 1px over the bar's border so a -1px underline is not clipped. */
+.ovt { display: flex; align-items: stretch; flex: 0 1 auto; min-width: 0; }
+.ovt-scroller { position: relative; display: flex; flex: 1 1 auto; min-width: 0; }
+.ovt-strip {
+  flex: 1 1 auto; min-width: 0; position: relative;
+  overflow-x: auto; overflow-y: hidden;
+  padding-bottom: 1px; margin-bottom: -1px;
+  scrollbar-width: none; scroll-behavior: smooth; overscroll-behavior-x: contain;
+}
+.ovt-strip::-webkit-scrollbar { display: none; width: 0; height: 0; }
+@media (prefers-reduced-motion: reduce) { .ovt-strip { scroll-behavior: auto; } }
+.ovt-strip[data-at-start="false"] { mask-image: linear-gradient(to right, transparent, #000 24px); }
+.ovt-strip[data-at-end="false"] { mask-image: linear-gradient(to left, transparent, #000 24px); }
+.ovt-strip[data-at-start="false"][data-at-end="false"] {
+  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+.ovt-arrow {
+  flex: none; align-self: center; width: var(--ctl-h); height: var(--ctl-h); margin: 0; padding: 0;
+  border: 0; border-radius: var(--radius-ctl);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+}
+.ovt-arrow:hover:not(:disabled), .ovt-arrow:active:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
+.ovt-arrow:disabled { opacity: .35; cursor: default; }
+.ovt-arrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tab-list { width: min(300px, calc(100vw - 16px)); }
+.tab-list .um-label {
+  padding: 6px 8px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-secondary);
+}
+.tab-list-item[aria-current="true"] .um-name { color: var(--accent); }
 .settings-section { padding: 0; border: 0; }
 /* Only after a VISIBLE section: Preferences hides the other tabs' sections,
    and a hidden one before the first shown drew a second rule under the tabs. */

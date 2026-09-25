@@ -3,7 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { locate, displayAgentName } from "@picode/shared/domain/tree.js";
 import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot, isAppTab, tabAppId, isWebTab, tabWebId } from "../lib/routes.js";
 import { repoNameFromKey } from "../lib/gitgraph.js";
-import { revealLeft } from "../lib/tabStrip.js";
+import { revealLeft } from "@picode/shared/domain/tabStrip.js";
 import { useTabStrip } from "../lib/useTabStrip.js";
 import { matchAction } from "../lib/appKeys.js";
 import { webappIdFromTab } from "../lib/webapps.js";
@@ -111,7 +111,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
   live.current = { ids, selectedId, onSelect, onClose };
 
   // The strip has no scrollbar, so selecting or opening a tab must bring it
-  // into view (every benchmark does; see lib/tabStrip.js). The first reveal
+  // into view (every benchmark does; see shared/domain/tabStrip.js). The first reveal
   // after mount jumps — a smooth glide from 0 on page load reads as motion
   // nobody asked for; later reveals follow the strip's scroll-behavior.
   useLayoutEffect(() => {

@@ -33,6 +33,7 @@
     "./domain/agentExit.js": "./domain/agentExit.js",
     "./domain/agentHistory.js": "./domain/agentHistory.js",
     "./domain/instructions.js": "./domain/instructions.js",
+    "./domain/tabStrip.js": "./domain/tabStrip.js",
     "./domain/workspaceRowMenu.js": "./domain/workspaceRowMenu.js",
     "./domain/workspaceSettings.js": "./domain/workspaceSettings.js",
     "./domain/appGroups.js": "./domain/appGroups.js",

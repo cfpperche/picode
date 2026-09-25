@@ -13,6 +13,14 @@ import { toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
 import { IconDocs } from "./Icons.jsx";
 import { DOCS_BASE } from "../lib/commandDocs.js";
+import OverflowTabs from "./OverflowTabs.jsx";
+
+const LLAMA_TABS = [
+  { id: "models", label: "Models", href: "#/llama/models" },
+  { id: "server", label: "Server", href: "#/llama/server" },
+  { id: "activity", label: "Activity", href: "#/llama/activity" },
+  { id: "service", label: "Local service", href: "#/llama/service" },
+];
 
 function bytes(n) {
   if (!n) return "";
@@ -248,12 +256,9 @@ export default function LlamaPanel({ onRefresh }) {
 
   return (
     <PageFrame id="llama-manager" title="llama.cpp" wide>
-      <nav className="llama-nav" aria-label="llama.cpp sections">
-        <a className={section === "models" ? "active" : ""} href="#/llama/models" aria-current={section === "models" ? "page" : undefined}>Models</a>
-        <a className={section === "server" ? "active" : ""} href="#/llama/server" aria-current={section === "server" ? "page" : undefined}>Server</a>
-        <a className={section === "activity" ? "active" : ""} href="#/llama/activity" aria-current={section === "activity" ? "page" : undefined}>Activity</a>
-        <a className={section === "service" ? "active" : ""} href="#/llama/service" aria-current={section === "service" ? "page" : undefined}>Local service</a>
-      </nav>
+      <OverflowTabs className="llama-nav" frameClassName="llama-nav-frame" label="llama.cpp sections" listLabel="All sections" items={LLAMA_TABS} selectedId={section}>
+        {LLAMA_TABS.map((t) => <a key={t.id} data-tab={t.id} className={section === t.id ? "active" : ""} href={t.href} aria-current={section === t.id ? "page" : undefined}>{t.label}</a>)}
+      </OverflowTabs>
       {section !== "service" ? <div className="llama-status" role="status">
         <div className="llama-state"><span className={"llama-dot " + (checking ? "checking" : ok ? "ready" : endpoint ? "down" : "")}></span>
         <span>{checking ? "Checking connection…" : connection.message}</span></div>

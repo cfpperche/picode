@@ -10,10 +10,20 @@
 #m-app .m-more-page .btn { min-height: var(--ctl-h); font-family: var(--sans); white-space: nowrap; }
 #m-app .m-more-page .btn-sm { position: relative; }
 #m-app .m-more-page .btn-sm::after { content: ""; position: absolute; inset: -4px; }
-#m-app .m-more-page :is(.pref-tabs, .pkg-tabs, .cli-tabs, .llama-nav) {
+/* Two-tab bars fit any phone and scroll natively if they ever do not. */
+#m-app .m-more-page .pkg-tabs {
   display: flex; flex-wrap: nowrap; flex-shrink: 0; gap: 4px;
   overflow-x: auto; max-width: 100%; scrollbar-width: thin;
   margin: 0 0 16px; padding: 4px 0;
+}
+/* Longer bars scroll inside OverflowTabs (arrows + "All sections" list,
+   no scrollbar); the frame carries the spacing and the rule under them. */
+#m-app .m-more-page :is(.pref-tabs-frame, .cli-tabs-frame, .llama-nav-frame) {
+  flex-shrink: 0; max-width: 100%; margin: 0 0 16px; border-bottom: 1px solid var(--border);
+}
+#m-app .m-more-page :is(.pref-tabs, .cli-tabs, .llama-nav) {
+  display: flex; flex-wrap: nowrap; gap: 4px;
+  margin: 0; padding: 4px 0; border-bottom: 0;
 }
 #m-app .m-more-page :is(.pref-tab, .pkg-tab, .cli-tabs a, .llama-nav a) { flex: none; display: inline-flex; align-items: center; min-height: var(--ctl-h); margin: 0; padding: 0 10px; font-family: var(--sans); white-space: nowrap; }
 #m-app .m-more-page :is(.settings-section, .integration-main, .llama-state, .prov-acc) { min-width: 0; }

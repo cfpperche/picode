@@ -20,6 +20,9 @@ import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { prefSection } from "../lib/routes.js";
 import LandingWork from "./LandingWork.jsx";
 import { z } from "zod";
+import OverflowTabs from "./OverflowTabs.jsx";
+
+const PREF_TABS = [["appearance", "Appearance"], ["layout", "Layout"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["landing", "Landing work"], ["server", "Server"], ["backup", "Backup"]];
 
 const PREF_TAB_KEY = "picode-pref-tab";
 
@@ -156,10 +159,11 @@ export default function Settings({ hidden, themeMode, onTheme, workspaces = [], 
   const setSec = (id) => { setSecState(id); try { localStorage.setItem(PREF_TAB_KEY, id); } catch { /* storage is optional */ } };
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
-      <nav className="pref-tabs" role="tablist" aria-label="Preferences">
-        {[["appearance", "Appearance"], ["layout", "Layout"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["landing", "Landing work"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
+      <OverflowTabs className="pref-tabs" frameClassName="pref-tabs-frame" role="tablist" label="Preferences" listLabel="All sections" items={PREF_TABS.map(([id, label]) => ({ id, label }))} selectedId={sec} onPick={setSec}>
+        {PREF_TABS.map(([id, label]) => (
           <button
             key={id}
+            data-tab={id}
             type="button"
             className="pref-tab"
             role="tab"
@@ -167,7 +171,7 @@ export default function Settings({ hidden, themeMode, onTheme, workspaces = [], 
             onClick={() => setSec(id)}
           >{label}</button>
         ))}
-      </nav>
+      </OverflowTabs>
 
       <section className="settings-section" hidden={sec !== "appearance"}>
         <h3 className="sr-only">Appearance</h3>

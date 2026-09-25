@@ -1892,7 +1892,7 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
   position: relative;
   /* No layout scrollbar on the strip — Zed, Firefox, Material. A classic
      bar stole 10px of the 40px chrome. The active tab is revealed by code
-     instead (AgentTabs, lib/tabStrip.js); the cues around the strip are
+     instead (AgentTabs, shared/domain/tabStrip.js); the cues around the strip are
      phases 2–3 of docs/benchmarks/2026-09-06-tab-strip-overflow.md. */
   scrollbar-width: none;
   scroll-behavior: smooth;
