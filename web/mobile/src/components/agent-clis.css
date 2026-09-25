@@ -156,6 +156,12 @@
      after a stacked row keeps the same rhythm. With the row's own 12px gap
      the name sat closer to the field above than to its own (review). */
   :is(#cli-settings-view, #cli-models-view) .set-row:not(.set-row-role) { margin-top: 10px; }
+  /* Pi's Defaults (provider · model · thinking): each select took its text's
+     width and the pair wrapped short of the edge (x 363 vs 376). Provider
+     takes its own line; model stretches beside thinking. */
+  #cli-settings-view .cfg-fields.cfg-row > select[aria-label="Provider"] { flex: 1 1 100%; }
+  #cli-settings-view .cfg-fields.cfg-row > select[aria-label="Model"] { flex: 1 1 0; min-width: 0; }
+  #cli-settings-view .cfg-fields.cfg-row > select[aria-label="Thinking"] { flex: none; }
   :is(#cli-settings-view, #cli-models-view) .set-row:not(.set-row-role):has(> .set-ctl :is(select, textarea, input:not([type=checkbox]):not([type=radio]))) { row-gap: 6px; }
   :is(#cli-settings-view, #cli-models-view) .set-row:not(.set-row-role) > .set-ctl > :is(select, textarea, input:not([type=checkbox]):not([type=radio]), .model-pick) { width: 100%; max-width: none; }
   .cli-tabs-frame { padding: 0; }
