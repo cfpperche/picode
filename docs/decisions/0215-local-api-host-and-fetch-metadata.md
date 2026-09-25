@@ -45,8 +45,14 @@ name the owner set up.
   `Sec-Fetch-Site` absent (curl, scripts), `same-origin` or `none` (a typed
   address). A `same-site` page, such as another dev server on
   `localhost:3000`, gets 401. It can still use an existing cookie, which
-  the browser sends same-site, but it is never handed a new one.
-- **The Host allowlist** accepts:
+  the browser sends same-site, but it is never handed a new one. Over
+  plain HTTP (`PICODE_INSECURE=1`) the Host must also be a loopback name
+  (`localhost`, `*.localhost`, a loopback IP): browsers send no fetch
+  metadata to an untrustworthy `http://picode.local`, and a LAN peer can
+  answer mDNS for it, so a rebound page would otherwise look first-party.
+- **The Host allowlist** accepts (the hostname compared by its first label,
+  since `os.Hostname` can be a full name such as macOS's
+  `Name-MacBook-Pro.local`):
   - IP literals;
   - `localhost` and `*.localhost`;
   - `picode.local`;
@@ -55,7 +61,9 @@ name the owner set up.
     `home.arpa`, `localdomain`, `internal`, or `<one tailnet label>.ts.net`;
   - every DNS name, wildcard included, covered by the certificates the
     daemon serves (`tlsutil.CertNames`, re-read when the file changes);
-  - the public URL's host.
+  - the public URL's host: the Settings value, else `PICODE_PUBLIC_URL`
+    (a gateway member is given its public URL only by the environment,
+    and the gateway forwards that name as `Host`).
 
   Any other `*.local` or `*.ts.net`, and the hostname under any other
   domain, are refused.
@@ -80,6 +88,18 @@ name the owner set up.
   because both routes (`/ws/term`, `/ws/agent`) are under `/ws/`, which is
   guarded, and `Wrap` checks the Origin of every upgrade. `/pair` keeps
   the check decided on 2026-09-22 (cross-site submissions only).
+
+## Review (2026-09-24)
+
+An adversarial review of the first cut found no bypass and three things to
+fix, all folded into the decision above: gateway members lost their Host
+(the env public URL was never consulted), a full hostname refused the
+owner's own Tailscale name, and plain-HTTP mode could still auto-pair a
+rebound `picode.local` / `box.local`. Left as notes: browsers without
+fetch metadata (Safari < 16.4, Firefox < 90) keep the old behaviour, where
+a cross-site request can rotate an idle session but never read anything;
+and `box.<any tailnet>.ts.net` is admitted by the twin rule, which is not
+exploitable because only Tailscale's DNS answers those names.
 
 ## Alternatives considered
 

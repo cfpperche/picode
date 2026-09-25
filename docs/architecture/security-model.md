@@ -37,7 +37,11 @@
   except the exempt ones (`/api/health` carries CORS for the `:8470` trust
   page), and only a first-party request (no fetch metadata, `same-origin`
   or `none`) is handed a loopback session — a `same-site` page on another
-  localhost port gets 401.
+  localhost port gets 401 — and over plain HTTP only on a loopback Host
+  name (`localhost`, `*.localhost`, a loopback IP), since an untrustworthy
+  `http://picode.local` carries no fetch metadata and mDNS can be spoofed.
+  The public URL the gate admits is the Settings value, else
+  `PICODE_PUBLIC_URL` (how a gateway member gets it).
   A browser-like first-party loopback visit with no cookie reuses the newest live
   session with its user-agent label (secret rotated in place, presence
   asked first so an active browser keeps its cookie — ADR-0049

@@ -232,6 +232,28 @@ func firstParty(r *http.Request) bool {
 	return false
 }
 
+// pairableHost: over plain HTTP (PICODE_INSECURE=1) browsers send no fetch
+// metadata to a name that is not "potentially trustworthy", and a LAN peer
+// can answer mDNS for picode.local or box.local — a rebinding page would
+// then look first-party on a loopback connection. So without TLS only a
+// loopback name is auto-paired: localhost, *.localhost, a loopback IP.
+// With TLS the certificate refuses a rebound name before it gets here.
+func (s *Service) pairableHost(hostport string) bool {
+	if !s.cfg.Insecure {
+		return true
+	}
+	host := strings.ToLower(hostport)
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = strings.ToLower(h)
+	}
+	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 func mutating(r *http.Request) bool {
 	switch r.Method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:
@@ -316,6 +338,10 @@ func machineName(host, hostname string) bool {
 	if host == hostname {
 		return true
 	}
+	// os.Hostname can be a full name (macOS: "Name-MacBook-Pro.local",
+	// some Linux setups: "box.example.com"); the network names use its
+	// first label.
+	hostname, _, _ = strings.Cut(hostname, ".")
 	first, rest, ok := strings.Cut(host, ".")
 	if !ok || !(first == hostname || tailscaleTwin(first, hostname)) {
 		return false
@@ -436,6 +462,7 @@ func denied(w http.ResponseWriter, code int, msg string) {
 //	mode off                                     → pass, anonymous
 //	mode remote + loopback + no principal
 //	  + first party (no/same-origin/none)        → mint a browser session, set cookie, pass
+//	  + plain HTTP and a non-loopback Host name  → 401 pairing required (ADR-0215)
 //	  + same-site                                → 401 pairing required (ADR-0215)
 //	otherwise                                    → 401 pairing required
 func (s *Service) Wrap(next http.Handler) http.Handler {
@@ -492,7 +519,7 @@ func (s *Service) Wrap(next http.Handler) http.Handler {
 		if p == nil {
 			switch {
 			case mode == ModeOff:
-			case mode == ModeRemote && Loopback(r) && firstParty(r):
+			case mode == ModeRemote && Loopback(r) && firstParty(r) && s.pairableHost(r.Host):
 				if !browserLike(r) {
 					// curl and scripts on this machine pass without a row:
 					// a session per request would only fill the table.

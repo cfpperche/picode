@@ -134,6 +134,11 @@ func TestDecisionTable(t *testing.T) {
 		{"hostname under any domain refused", call{method: "GET", path: "/api/workspaces", host: "box.attacker.example:8445", cookie: secret}, 403, ""},
 		{"any .local refused", call{method: "GET", path: "/api/workspaces", host: "printer.local:8445", cookie: secret}, 403, ""},
 		{"hostname.local allowed", call{method: "GET", path: "/api/workspaces", host: "box.local:8445", cookie: secret}, 200, "browser"},
+		// Plain HTTP (this service is Insecure): a rebindable name is never auto-paired.
+		{"plain http: picode.local on loopback is not paired", call{method: "GET", path: "/api/workspaces", host: "picode.local:8445", remote: "127.0.0.1:1", ua: "Mozilla/5.0"}, 401, ""},
+		{"plain http: hostname on loopback is not paired", call{method: "GET", path: "/api/workspaces", host: "box:8445", remote: "127.0.0.1:1", ua: "Mozilla/5.0"}, 401, ""},
+		{"plain http: loopback IP pairs", call{method: "GET", path: "/api/workspaces", host: "127.0.0.1:8445", remote: "127.0.0.1:1", ua: "Mozilla/5.0"}, 200, "browser"},
+		{"plain http: named host with a cookie passes", call{method: "GET", path: "/api/workspaces", host: "picode.local:8445", cookie: secret}, 200, "browser"},
 
 		// Pairing: the one door reachable before you are paired. A
 		// submission from another tab is refused, and nothing else about it
@@ -454,5 +459,32 @@ func TestHostAllowed(t *testing.T) {
 	public = "https://box.public.example"
 	if !s.HostAllowed("box.public.example") {
 		t.Error("the public URL host must be allowed")
+	}
+}
+
+// ADR-0215 review: os.Hostname can be a full name (macOS "Name-MacBook-Pro.local");
+// the network names use its first label.
+func TestHostAllowedWithAFullHostname(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	s, err := New(Config{Store: st, DataDir: dir, Hostname: "Name-MacBook-Pro.local"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for host, want := range map[string]bool{
+		"name-macbook-pro.local":                  true,
+		"name-macbook-pro.tail1.ts.net":           true,
+		"name-macbook-pro-1.tail1.ts.net":         true,
+		"name-macbook-pro.lan":                    true,
+		"name-macbook-pro.attacker.example":       false,
+		"name-macbook-pro.local.attacker.example": false,
+	} {
+		if got := s.HostAllowed(host); got != want {
+			t.Errorf("HostAllowed(%q) = %v, want %v", host, got, want)
+		}
 	}
 }
