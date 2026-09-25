@@ -585,7 +585,7 @@ fn build_main_window(
             .data_directory(browserlab::webview_profile())
             .disable_drag_drop_handler()
             .transparent(true)
-            .initialization_script("window.__PICODE_LIVE_LAYERS__ = true;")
+            .initialization_script(&shell_announce())
             .auto_resize(),
         tauri::LogicalPosition::new(0., 0.),
         win.inner_size()?.to_logical::<f64>(win.scale_factor()?),
@@ -609,6 +609,23 @@ fn build_main_window(
         });
     }
     Ok(win)
+}
+
+/// The shell's side of the client handshake (ADR-0216). The page the
+/// daemon serves is always as new as the daemon; this binary may not be. The
+/// page reads `window.__PICODE_SHELL__` before calling a command, so a
+/// feature that needs a newer shell hides instead of failing with "not
+/// allowed by ACL". Bump SHELL_PROTOCOL when the command set or a command's
+/// contract changes; web/browser/src/lib/shellVersion.js names what each
+/// protocol brought.
+const SHELL_PROTOCOL: u32 = 1;
+
+fn shell_announce() -> String {
+    format!(
+        "window.__PICODE_LIVE_LAYERS__ = true; window.__PICODE_SHELL__ = Object.freeze({{ version: \"{}\", protocol: {} }});",
+        env!("CARGO_PKG_VERSION"),
+        SHELL_PROTOCOL
+    )
 }
 
 /// WebView2's browser accelerators (Ctrl+R, F5, Ctrl+P, F12, …) fire on

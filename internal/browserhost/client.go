@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/cfpperche/picode/internal/version"
 )
 
 // Client talks to a running PiCode server. Resolve is called per request so
@@ -351,6 +353,7 @@ func down(req Request, err error) Reply {
 // authorize adds the bearer: remote.json's token when a remote is
 // configured, else the install token (<data>/token, ADR-0049).
 func authorize(req *http.Request) {
+	req.Header.Set(version.ClientHeader, version.ClientValue("picode-browser-host")) // ADR-0216
 	if rc, ok := ReadRemote(); ok {
 		if rc.Token != "" {
 			req.Header.Set("Authorization", "Bearer "+rc.Token)

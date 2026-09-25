@@ -36,7 +36,10 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/health` and `/api/version` — liveness and build identity. The
   version response includes `semver`, display `version`, and `release`, which
   tells the shells whether the bundled What’s New notes may auto-open
-  (ADR-0063).
+  (ADR-0063), plus `protocol` and `minClientProtocol` for the client
+  handshake (ADR-0216): an out-of-process client sends `X-PiCode-Client:
+  <kind>/<build>; protocol=<n>` and gets 426 with what to restart when it
+  is older than the daemon serves.
 - `POST /api/workspaces/{id}/agents` `{name, cli?, …}` — create an agent in
   that folder (ADR-0160). `cli` defaults to Pi; a launchable catalog CLI
   creates the agent plus its interactive terminal, not a managed RPC

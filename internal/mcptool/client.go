@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/grant"
+	"github.com/cfpperche/picode/internal/version"
 )
 
 // Identity is the house identity tuple (ADR-0143): a managed agent's id,
@@ -174,6 +175,8 @@ func (d *HTTPDaemon) do(ctx context.Context, method, path string, body []byte) (
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	// ADR-0216: an MCP server outlives a deploy; the daemon says so (426).
+	req.Header.Set(version.ClientHeader, version.ClientValue("picode-mcp"))
 	if d.Token != nil {
 		if t := d.Token(); t != "" {
 			req.Header.Set("Authorization", "Bearer "+t)
