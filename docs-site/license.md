@@ -1,10 +1,11 @@
 # License
 
-PiCode is **source-available**, not OSI open source.
+PiCode is **open source** under the [Apache License 2.0](https://github.com/cfpperche/picode/blob/main/LICENSE). Use it at home and at work, change it and share it.
 
-| Use | License |
+| Part | License |
 |---|---|
-| Personal, hobby, education, research, charities, government | [PolyForm Noncommercial 1.0.0](https://github.com/cfpperche/picode/blob/main/LICENSE) |
-| Commercial / enterprise (including internal use at a company) | Signed license — open a GitHub issue titled `Enterprise license` |
+| PiCode | Apache-2.0 |
+| Installable CLI packages (`packages/`) | MIT |
+| Paid team features (`ee/`, none yet) | Commercial license |
 
-Copyright stays with the author. Older MIT tags stay MIT. Details: [LICENSING.md](https://github.com/cfpperche/picode/blob/main/LICENSING.md).
+Older versions keep the license they shipped with. Details: [LICENSING.md](https://github.com/cfpperche/picode/blob/main/LICENSING.md).

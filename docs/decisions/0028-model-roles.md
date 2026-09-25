@@ -1,6 +1,7 @@
 # ADR-0028: Model roles as an opt-in pi package
 
 - **Status**: accepted
+- **Amended by**: [ADR-0218](0218-apache-license.md) — the root is Apache-2.0, no longer PolyForm Noncommercial; the MIT carve-out below stays.
 - **Date**: 2026-08-30
 
 ## Context
