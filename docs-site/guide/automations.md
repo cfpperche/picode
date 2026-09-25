@@ -126,8 +126,9 @@ affected.
 
 A start run on one of these opens the automation's agent in its terminal,
 types the prompt once the CLI is ready, and closes the terminal when the CLI
-says it is done — the conversation stays with the agent, so you can open it
-later. PiCode never approves anything on the CLI's behalf: if the run stops
+says it is done. The CLI's last answer becomes the run's result in the
+Inbox and in the Notify message, as it is for Pi; the conversation stays
+with the agent, so you can open it later. PiCode never approves anything on the CLI's behalf: if the run stops
 at a question (an approval, a choice), the Inbox tells you and the run waits
 until you answer in that terminal. If the CLI shows a screen PiCode does not
 recognize at start (a sign-in, a trust question, a new menu), nothing is

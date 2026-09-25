@@ -190,3 +190,35 @@ func TestLocatePrivateOmpAgentSession(t *testing.T) {
 		t.Fatalf("unrelated data directory found session: %+v", got)
 	}
 }
+
+// A hook may pin a conversation with no path, or with a file inside Grok's
+// session folder: StoreFor names where the conversation is kept.
+func TestStoreFor(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("GROK_HOME", home)
+	oldH, oldO := HermesTestDB, OpenCodeTestDB
+	HermesTestDB, OpenCodeTestDB = "/h/state.db", "/o/opencode.db"
+	t.Cleanup(func() { HermesTestDB, OpenCodeTestDB = oldH, oldO })
+	sess := filepath.Join(home, "sessions", "%2Frepo", "g1")
+	if err := os.MkdirAll(sess, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	chat := filepath.Join(sess, "chat_history.jsonl")
+	if err := os.WriteFile(chat, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct{ cli, id, path, cwd, want string }{
+		{"hermes", "h1", "", "/repo", "/h/state.db"},
+		{"hermes", "h1", "/other/state.db", "/repo", "/other/state.db"},
+		{"opencode", "o1", "", "/repo", "/o/opencode.db"},
+		{"grok", "g1", "", "/repo", sess},
+		{"grok", "g1", chat, "/repo", sess},
+		{"grok", "g1", sess, "", sess},
+		{"claude-code", "c1", "", "/repo", ""},
+		{"codex", "x1", "/x.jsonl", "/repo", "/x.jsonl"},
+	} {
+		if got := StoreFor(c.cli, c.id, c.path, c.cwd); got != c.want {
+			t.Errorf("%s %q %q = %q, want %q", c.cli, c.id, c.path, got, c.want)
+		}
+	}
+}

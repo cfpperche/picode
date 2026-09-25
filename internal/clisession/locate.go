@@ -252,3 +252,30 @@ func locatePi(path, cwd string) (*Summary, error) {
 	}
 	return &out, nil
 }
+
+// StoreFor names where a CLI keeps one conversation when the report that
+// pinned it gave no usable path: Grok's session folder (from the folder and
+// id, or a file inside it), OpenCode's and Hermes' SQLite stores. Other CLIs,
+// and a path that already names the store, come back unchanged.
+func StoreFor(cli, id, path, cwd string) string {
+	switch cli {
+	case "hermes":
+		if path == "" {
+			return hermesStatePath()
+		}
+	case "opencode":
+		if path == "" {
+			return opencodeDBPath()
+		}
+	case "grok":
+		if path != "" && id != "" && filepath.Base(filepath.Dir(path)) == id {
+			if st, err := os.Stat(path); err == nil && !st.IsDir() {
+				return filepath.Dir(path) // a file of the session, e.g. chat_history.jsonl
+			}
+		}
+		if dir := grokSessionDir(grokSessionsRoot(), Ref{ID: id, Path: path, Cwd: cwd}); dir != "" {
+			return dir
+		}
+	}
+	return path
+}

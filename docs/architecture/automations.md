@@ -50,8 +50,18 @@ terminal and starts it again (a new conversation), then `driveCLIRun`:
    turn; each new `needs-you` files one Inbox question and the run waits;
    the session is priced every 30 s against the cost cap
    (`climetrics.MeterSession` on the pinned last session); 2 h times out;
-4. prices the session, finishes the run (Inbox result, notify URL) and
-   closes the terminal with the ADR-0085 escalation (`killTerminalPane`).
+4. prices the session, reads its newest assistant message
+   (`cliRunFinal`: the handoff `clisession.Reader`, retried ~3 s because
+   the hook can beat the store; older than the prompt counts as none) as the
+   Inbox result and notify body, as a Pi run's final message is, finishes
+   the run and closes the terminal with the ADR-0085 escalation
+   (`killTerminalPane`).
+
+Grok, Hermes and OpenCode hooks may pin a session with no file (or a file
+inside Grok's session folder); `clisession.StoreFor` turns that into where
+the conversation is kept — Grok's folder, Hermes' and OpenCode's SQLite
+store — at pin time (`recordNativeTerminalObservation`) and again when a
+run reads it, so the cost, the final message and the exit all find it.
 
 A `start` whose agent's terminal is open skips as `agent in terminal`, as a
 Pi agent's does: that terminal is someone's. The editor offers the CLI
