@@ -91,16 +91,16 @@ function sessionsLocation(cli, workspace) {
   return { view: "clis", id, pane: "sessions", ...(workspace ? { workspace } : {}), redirect: cliPaneHash(id, "sessions", workspace) };
 }
 
-export function cliLocation(hash = "", legacy = {}) {
+export function cliLocation(hash = "") {
   const providers = cliProvidersLocation(hash);
   if (providers) return providers;
-  const packages = cliPackagesLocation(hash, legacy.packageContext || {});
+  const packages = cliPackagesLocation(hash);
   if (packages) return packages;
   const keys = cliKeysLocation(hash);
   if (keys) return keys;
   const settings = cliSettingsLocation(hash);
   if (settings) return settings;
-  const connectors = cliConnectorsLocation(hash, legacy.packageContext || {});
+  const connectors = cliConnectorsLocation(hash);
   if (connectors) return connectors;
   const [path, query] = hash.split("?");
   const parts = path.replace(/^#\//, "").split("/");

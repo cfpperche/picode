@@ -8,8 +8,9 @@ describe("mobileRoute", () => {
     const webhooks = mobileRoute("#/integrations/webhooks");
     assert.equal(webhooks.section, "integrations");
     assert.equal(tabOf(webhooks), "more");
+    // `#/integrations*` stopped meaning Pi's connectors on 2026-09-25.
     for (const hash of ["#/more/integrations", "#/integrations", "#/integrations/connectors"]) {
-      assert.equal(mobileRoute(hash).section, "clis", hash);
+      assert.equal(mobileRoute(hash).section, "integrations", hash);
     }
   });
   it("opens Apps on the phone and keeps the Inbox route", () => {
@@ -163,9 +164,12 @@ it("pins on the phone: list under More, read-only screen, new and edit forms", (
   assert.equal(parentHash({ screen: "pinEdit", id: "" }), "#/more/pins");
 });
 
-it("native packages and legacy configuration links use Agent CLIs", () => {
-  for (const hash of ["#/packages", "#/more/packages", "#/packages/config/pi-roles", "#/clis/packages/pi?agentId=a", "#/clis/packages/pi/config/pi-roles?workspaceId=w", "#/clis/pi/packages", "#/integrations", "#/mcps"]) {
+it("native packages links use Agent CLIs; the Pi-era addresses are retired", () => {
+  for (const hash of ["#/clis/pi/packages", "#/clis/pi/packages/config/pi-roles?workspaceId=w", "#/clis/codex/connectors"]) {
     assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "clis" });
+  }
+  for (const hash of ["#/packages", "#/more/packages", "#/packages/config/pi-roles", "#/mcps", "#/more/mcps"]) {
+    assert.notEqual(mobileRoute(hash).section, "clis", hash);
   }
 });
 

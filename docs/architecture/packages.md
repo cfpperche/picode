@@ -154,9 +154,10 @@ is never reported as "none installed". A refusal whose fix is a command only a
 person in a terminal can answer carries that command in the body, rendered by
 the same builder the request executed.
 
-The pane's own routes and hashes are unchanged: `#/clis/<cli>/packages`,
-`/config/<pkg>` for a config page, and the redirects for `#/packages*`,
-`#/clis/packages*` and mobile `#/more/packages*` (ADR-0167).
+The pane's own routes and hashes are unchanged: `#/clis/<cli>/packages` and
+`/config/<pkg>` for a config page. The Pi-era redirects for `#/packages*`,
+`#/clis/packages*` and mobile `#/more/packages*` (ADR-0167) were retired on
+2026-09-25.
 
 ## The job lane, and the verbs that answer directly
 

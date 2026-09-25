@@ -14,7 +14,7 @@ import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./route
 //   route := { screen: now|inbox|work|agent|term|changes|app|more, id, section }
 //   changes: `#/changes/<a|t|w>/<id>` — the owner's uncommitted working tree,
 //   read-only (ADR-0044 phase 3); section carries the owner kind.
-export const MORE_SECTIONS = ["pins", "snippets", "outcomes", "history", "llama", "devices", "preferences", "system", "providers", "mcps", "packages", "notifications", "apps", "clis", "integrations", "automations"];
+export const MORE_SECTIONS = ["pins", "snippets", "outcomes", "history", "llama", "devices", "preferences", "system", "providers", "notifications", "apps", "clis", "integrations", "automations"];
 export const WORK_SECTIONS = ["workspaces", "agents", "terminals"];
 const WORK_KEY = "picode-mobile-work";
 
@@ -34,9 +34,7 @@ const DESKTOP_TO_MORE = {
   providers: "providers",
   devices: "devices",
   system: "system",
-  mcps: "mcps",
   integrations: "integrations",
-  packages: "packages",
   termset: "preferences",
   pins: "pins",
   snippets: "snippets",

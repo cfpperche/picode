@@ -88,28 +88,17 @@ test("canonical links round-trip CLI, package, scope and explicit context", () =
   const context = { workspaceId: "w /&", agentId: "a /?", scope: "agent", pkg: "@scope/roles" };
   const route = cliPackagesLocation(cliPackagesHash("pi", context));
   for (const [key, value] of Object.entries(context)) assert.equal(route[key], value);
-  assert.equal(route.legacy, false);
   assert.equal(route.redirect, "");
   assert.equal(cliLocation(cliPackagesHash("pi", context)).pane, "packages");
 });
 
-test("legacy links adopt a pane only when they have no explicit context", () => {
-  for (const prefix of ["#/packages", "#/more/packages"]) {
-    const route = cliPackagesLocation(prefix + "/config/pi-roles", { workspaceId: "w", agentId: "a" });
-    assert.equal(route.adoptPane, true);
-    assert.equal(route.redirect, "#/clis/pi/packages/config/pi-roles?workspaceId=w&agentId=a");
-    assert.equal(cliPackagesLocation(prefix + "?workspaceId=x", { agentId: "a" }).agentId, "");
-    assert.equal(cliPackagesLocation(prefix + "?agentId=", { agentId: "a" }).agentId, "");
+test("only the canonical address is a packages link", () => {
+  // The Pi-era addresses were retired on 2026-09-25: none of them names a CLI.
+  for (const hash of ["#/packages", "#/more/packages", "#/packages/config/pi-roles", "#/clis/packages", "#/clis/packages/pi", "#/providers"]) {
+    assert.equal(cliPackagesLocation(hash), null, hash);
   }
-  assert.equal(cliPackagesLocation("#/clis/pi/packages", { workspaceId: "w", agentId: "a" }).adoptPane, undefined);
-});
-
-test("canonical machine links never inherit the current pane", () => {
-  const route = cliPackagesLocation("#/clis/pi/packages", { workspaceId: "w", agentId: "a" });
+  const route = cliPackagesLocation("#/clis/pi/packages");
   assert.equal(route.workspaceId, ""); assert.equal(route.agentId, "");
-  assert.equal(cliPackagesLocation("#/clis/packages").redirect, "#/clis/pi/packages");
-  assert.equal(cliPackagesLocation("#/clis/packages/pi").redirect, "#/clis/pi/packages");
-  assert.equal(cliPackagesLocation("#/providers"), null);
 });
 
 test("a package link carries any CLI, and a malformed one never becomes a target", () => {
@@ -117,9 +106,7 @@ test("a package link carries any CLI, and a malformed one never becomes a target
   // unknown id by naming the drivers); the route only carries the id.
   assert.equal(cliPackagesLocation("#/clis/codex/packages").id, "codex");
   assert.equal(cliPackagesLocation("#/clis/pi/packages").id, "pi");
-  for (const hash of ["#/packages/nope", "#/clis/pi/packages?scope=everyone"]) {
-    assert.equal(cliPackagesLocation(hash).invalid, true, hash);
-  }
+  assert.equal(cliPackagesLocation("#/clis/pi/packages?scope=everyone").invalid, true);
   assert.equal(cliLocation("#/clis/pi/packages/config/").invalid, true);
 });
 

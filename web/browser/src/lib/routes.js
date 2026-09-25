@@ -65,8 +65,7 @@ export function parseRoute(hash) {
   if (h === "/system") return "system";
   if (h === "/llama" || h.startsWith("/llama/") || ["/providers/llama", "/more/providers/llama"].includes(h.split("?")[0])) return "llama";
   if (cliProvidersLocation(h)) return "clis";
-  if (h === "/integrations/webhooks" || h.startsWith("/integrations/webhooks")) return "integrations";
-  if (h === "/mcps" || h === "/integrations" || h.startsWith("/integrations/")) return "clis";
+  if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
   if (h === "/devices") return "devices";
   if (h === "/browser") return "browser";
   if (h === "/computer") return "computer";
@@ -91,13 +90,6 @@ export function parseRoute(hash) {
 }
 
 // Compatibility helpers; canonical package URLs carry their own context.
-export function packagesConfigRoute(hash) {
-  return cliPackagesLocation(hash || (typeof location !== "undefined" ? location.hash : ""))?.pkg || null;
-}
-export function packagesConfigHash(pkg, context = {}) {
-  return cliPackagesHash("pi", { ...context, pkg });
-}
-
 export function agentRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
   const m = /^\/agent\/([^/]+)$/.exec(h);

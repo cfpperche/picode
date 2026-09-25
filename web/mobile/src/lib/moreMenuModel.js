@@ -24,7 +24,7 @@ export const MORE_SECTIONS = [
   ["system", "System", "Version, host, paths"],
 ];
 
-export const MORE_TITLES = { ...Object.fromEntries(MORE_SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
+export const MORE_TITLES = { ...Object.fromEntries(MORE_SECTIONS.map(([id, t]) => [id, t])) };
 
 export const MORE_GROUPS = [
   ["Tools", ["missions", "pins", "snippets", "outcomes", "history", "clis", "automations", "apps", "llama"]],

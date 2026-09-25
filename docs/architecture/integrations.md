@@ -4,8 +4,9 @@
 
 The core owns `#/integrations/webhooks` for subscription lifecycle and generic
 outbound HTTP delivery. Connectors (MCP) live at `#/clis/<cli>/connectors`
-(the install scope travels on the route — `?scope=global|workspace|agent`, the shared scope words — and
-`#/mcps`, `#/integrations`, `#/integrations/connectors` rewrite there).
+(the install scope travels on the route — `?scope=global|workspace|agent`, the shared scope words).
+The Pi-era `#/mcps` and `#/integrations/connectors` addresses were retired on
+2026-09-25; `#/integrations*` opens Webhooks.
 Vendor tools remain external MCP servers or optional Pi packages; there is no
 in-process vendor adapter, second package manager or credential database.
 `packages/pi-connector-deepwiki` exercises the existing adapter's `pi.mcp`

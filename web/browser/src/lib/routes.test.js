@@ -25,11 +25,12 @@ test("workspace overview is a page route, not an editor tab", () => {
 });
 
 test("integrations deep links remain reload-safe", () => {
-  assert.equal(parseRoute("#/integrations/webhooks"), "integrations");
-  for (const hash of ["#/integrations", "#/integrations/connectors", "#/mcps"]) assert.equal(parseRoute(hash), "clis");
+  for (const hash of ["#/integrations", "#/integrations/webhooks"]) assert.equal(parseRoute(hash), "integrations");
+  // `#/mcps` and `#/integrations/connectors` stopped meaning Pi's connectors on 2026-09-25.
+  assert.notEqual(parseRoute("#/mcps"), "clis");
 });
 import { isWebTab, tabWebId, webTabId, webHash, webRoute, boundWorkTab } from "./routes.js";
-import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId, snippetRoute, snippetsHash } from "./routes.js";
+import { parseRoute, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId, snippetRoute, snippetsHash } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -213,12 +214,9 @@ test("llama manager owns its routes and the legacy link", () => {
  assert.equal(parseRoute("#/providers/new"), "clis");
 });
 
-test("packages config lives under Agent CLIs and retains legacy parsing", () => {
-  assert.equal(parseRoute("#/packages"), "clis");
-  assert.equal(parseRoute("#/packages/config/pi-roles"), "clis");
-  assert.equal(packagesConfigRoute("#/packages/config/pi-roles"), "pi-roles");
-  assert.equal(packagesConfigRoute("#/packages"), null);
-  assert.equal(packagesConfigHash("pi-roles"), "#/clis/pi/packages/config/pi-roles");
+test("packages config lives under Agent CLIs; the Pi-era address is retired", () => {
+  assert.equal(parseRoute("#/clis/pi/packages/config/pi-roles"), "clis");
+  assert.notEqual(parseRoute("#/packages"), "clis");
 });
 
 test("native provider navigation and compatibility aliases", () => {

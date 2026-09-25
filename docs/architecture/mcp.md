@@ -231,7 +231,7 @@ Installed is the roster as built above; Marketplace is the add surface.
 - The connector-packages section (packages declaring `pi.mcp`) stays on the
   Installed side, unchanged.
 
-`#/mcps`, `#/integrations*` and both apps' `ConnectorsPane` render this view
+`#/clis/<cli>/connectors` and both apps' `ConnectorsPane` render this view
 embedded — there is no separate "MCPs" page.
 
 A configured row carries the status (only while an agent runs — `Live`,

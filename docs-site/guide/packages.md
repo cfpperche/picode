@@ -143,8 +143,7 @@ that asks for one says so instead of opening a page.
 
 Each CLI has its own pane at `#/clis/<cli>/packages` — Pi's is the global view
 at `#/clis/pi/packages`. Links opened from an agent
-retain that agent and its workspace through reloads. Old `#/packages` links
-redirect to the new view. Missing targets show a recovery action.
+retain that agent and its workspace through reloads. Missing targets show a recovery action.
 
 ## Configure a package
 

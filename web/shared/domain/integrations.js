@@ -97,38 +97,23 @@ export function cliConnectorsHash(cli = "pi", { workspaceId = "", agentId = "", 
   return "#/clis/" + encodeURIComponent(cli || "pi") + "/connectors" + (query.size ? "?" + query : "");
 }
 
-export function cliConnectorsLocation(hash = "", legacyContext = {}) {
+export function cliConnectorsLocation(hash = "") {
   const [path, query = ""] = hash.replace(/^#/, "").split("?");
-  if (path === "/integrations/webhooks" || path === "/more/integrations/webhooks") return null;
   const extra = /^\/clis\/([^/]+)\/connectors\//.exec(path);
   const nested = /^\/clis\/([^/]+)\/connectors$/.exec(path);
-  const strip = path === "/clis/connectors";
-  const legacy = path === "/mcps" || path === "/more/mcps" || path === "/integrations" || path === "/integrations/connectors"
-    || path === "/more/integrations" || path === "/more/integrations/connectors";
-  if (!legacy && !strip && !nested && !extra) return null;
+  if (!nested && !extra) return null;
   const params = new URLSearchParams(query);
-  let id = "pi";
-  try {
-    if (extra) id = decodeURIComponent(extra[1]);
-    else if (nested) id = decodeURIComponent(nested[1]);
-  } catch { id = ""; }
-  if (extra) return { view: "clis", pane: "connectors", id, workspaceId: "", agentId: "", scope: "user", invalid: true, legacy: false, redirect: "" };
-  const explicit = params.has("workspaceId") || params.has("agentId");
-  const adoptPane = !!(legacy && !explicit);
-  const fallback = adoptPane ? legacyContext : {};
-  const workspaceId = params.get("workspaceId") || fallback.workspaceId || "";
-  const agentId = params.get("agentId") || fallback.agentId || "";
+  let id = "";
+  try { id = decodeURIComponent((extra || nested)[1]); } catch { id = ""; }
+  if (extra) return { view: "clis", pane: "connectors", id, workspaceId: "", agentId: "", scope: "user", invalid: true, redirect: "" };
+  const workspaceId = params.get("workspaceId") || "";
+  const agentId = params.get("agentId") || "";
   const read = readScope(params, PACKAGE_WORDS);
   const scope = read.value || "user";
   const invalid = read.invalid;
   const canonical = cliConnectorsHash(id, { workspaceId, agentId, scope });
-  return { view: "clis", pane: "connectors", id, workspaceId, agentId, scope, ...(read.kind ? { scopeKind: read.kind } : {}), invalid, legacy: legacy || strip,
-    ...(adoptPane ? { adoptPane: true } : {}),
-    redirect: !invalid && (!nested || read.alias) ? canonical : "" };
-}
-
-export function integrationSection(hash = "") {
-  return hash.replace(/^#/, "").split("/").includes("webhooks") ? "webhooks" : "connectors";
+  return { view: "clis", pane: "connectors", id, workspaceId, agentId, scope, ...(read.kind ? { scopeKind: read.kind } : {}), invalid,
+    redirect: !invalid && read.alias ? canonical : "" };
 }
 
 export const webhookPresets = [
