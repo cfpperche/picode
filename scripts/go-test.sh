@@ -35,8 +35,9 @@ cd "$(dirname "$0")/.."
 # dirs) and `make ci` on main failed three times at the link step with
 # "no space left on device" while the disk had 772 GB free. Link outputs go
 # to a cache directory on disk instead; a GOTMPDIR set by the caller wins.
-# Test temp dirs (t.TempDir) still follow TMPDIR: tmux sockets live there,
-# and their path length is measured (internal/tmuxtest).
+# Measured: with TMPDIR unset, go test also roots t.TempDir there, so test
+# scratch leaves the tmpfs too; the suites' tmux sockets stay short under
+# /tmp (internal/tmuxtest's namespaceBase), and the full gate is green.
 if [ -z "${GOTMPDIR:-}" ]; then
   GOTMPDIR="${XDG_CACHE_HOME:-$HOME/.cache}/picode-gotmp"
   if mkdir -p "$GOTMPDIR" 2>/dev/null; then export GOTMPDIR; else unset GOTMPDIR; fi

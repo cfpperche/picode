@@ -148,9 +148,25 @@ func TestForkAgentCodexInAnotherFolder(t *testing.T) {
 	}
 }
 
-// Omp has no screen reader for the prompt door, so its fork keeps the task
-// as one launch argument: line breaks become spaces, nothing is pending.
-func TestForkAgentOmpKeepsTheTaskOnItsLaunch(t *testing.T) {
+// withoutDoorReader makes a flag-forking CLI one the prompt door cannot read
+// for the test: the fork keeps its task as one launch argument then. Every
+// flag-forking CLI has a reader since Omp's (ADR-0217, 2026-09-25), so the
+// branch is exercised through this switch, not through a CLI.
+func withoutDoorReader(t *testing.T, cli string) {
+	t.Helper()
+	had := doorReaderCLI[cli]
+	delete(doorReaderCLI, cli)
+	t.Cleanup(func() {
+		if had {
+			doorReaderCLI[cli] = true
+		}
+	})
+}
+
+// A flag-forking CLI the door cannot read keeps the task as one launch
+// argument: line breaks become spaces, nothing is pending.
+func TestForkAgentWithoutAReaderKeepsTheTaskOnItsLaunch(t *testing.T) {
+	withoutDoorReader(t, "omp")
 	_, _, out, _, fork := forkSource(t, "omp", "om-1")
 	res := fork(map[string]any{"prompt": "first\nsecond"})
 	if res["status"] != "201" {
@@ -163,6 +179,24 @@ func TestForkAgentOmpKeepsTheTaskOnItsLaunch(t *testing.T) {
 	}
 	if args := readArgs(t, out); len(args) < 3 || !reflect.DeepEqual(args[:3], []string{"--fork", "om-1", "first second"}) {
 		t.Fatalf("omp fork args = %q", args)
+	}
+}
+
+// Omp's screen is read since ADR-0217: its fork launches without the task
+// and the task waits for the prompt door, like every other reader.
+func TestForkAgentOmpSendsTheTaskThroughTheDoor(t *testing.T) {
+	_, _, out, _, fork := forkSource(t, "omp", "om-1")
+	res := fork(map[string]any{"prompt": "first\nsecond"})
+	if res["status"] != "201" {
+		t.Fatalf("fork: %v", res)
+	}
+	body := res["body"].(map[string]any)
+	cleanupTerm(t, body)
+	if body["task"] == nil {
+		t.Fatalf("task = nil, want it pending for the prompt door")
+	}
+	if args := readArgs(t, out); len(args) < 2 || !reflect.DeepEqual(args[:2], []string{"--fork", "om-1"}) || len(args) > 2 && strings.Contains(strings.Join(args[2:], " "), "first") {
+		t.Fatalf("omp fork args = %q, want the fork without the task", args)
 	}
 }
 
@@ -191,9 +225,10 @@ func TestForkAgentRefusals(t *testing.T) {
 			t.Fatalf("got %v", res)
 		}
 	})
-	// Only a CLI whose task rides the launch (Omp, no screen reader) has
-	// the one-argument limit; the door takes any length.
+	// Only a CLI whose task rides the launch (no screen reader) has the
+	// one-argument limit; the door takes any length.
 	t.Run("a task over the launch limit", func(t *testing.T) {
+		withoutDoorReader(t, "omp")
 		_, _, _, _, fork := forkSource(t, "omp", "om-1")
 		if res := fork(map[string]any{"prompt": strings.Repeat("x ", 5000)}); res["status"] != "400" {
 			t.Fatalf("got %v", res)
