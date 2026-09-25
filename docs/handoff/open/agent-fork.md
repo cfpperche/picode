@@ -11,7 +11,7 @@ slice from `feat/agent-fork`: Claude Code, Codex, Grok, OpenCode, Omp.
 
 ## Debts
 
-- [ ] Omp's fork still carries its task as one launch argument (line breaks become spaces; a Restart before its first turn re-sends it): the prompt door has no screen reader for Omp (`doorReaderCLI`), and a blind paste into a TUI still opening could be lost. Measuring Omp's prompt for the door reader would move it to the door.
+- [x] Omp's fork still carries its task as one launch argument (line breaks become spaces; a Restart before its first turn re-sends it): the prompt door has no screen reader for Omp (`doorReaderCLI`), and a blind paste into a TUI still opening could be lost. Measuring Omp's prompt for the door reader would move it to the door. **Paid 2026-09-25 (`feat/omp-fork-door`):** ADR-0217's Omp reader serves unattended senders, which the fork's delivery is; the reader also accepts Omp at a phone's width. Live-tested with the real omp at 100 and 44 columns.
 
 - [x] Muse Code forks natively through `muse serve` (`session/fork`), opens the copy with `muse resume <id>` and gets its task through the prompt door (branch `feat/muse-fork`, 2026-09-24).
 
