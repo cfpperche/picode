@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -50,6 +51,9 @@ func LocalNames() ([]string, []net.IP) {
 	seen := map[string]bool{}
 	ifaces, _ := net.Interfaces()
 	for _, ifc := range ifaces {
+		if skipInterface(ifc.Name, ifc.Flags) {
+			continue
+		}
 		addrs, _ := ifc.Addrs()
 		for _, a := range addrs {
 			var ip net.IP
@@ -70,6 +74,19 @@ func LocalNames() ([]string, []net.IP) {
 		}
 	}
 	return dns, ips
+}
+
+// skipInterface drops interfaces nobody reaches PiCode through: loopback
+// (127.0.0.1 and ::1 are already listed; WSL parks 10.255.255.254 there)
+// and Docker's virtual bridges. By name, not by address range: 172.16/12 is
+// also a real LAN on some networks, and dropping it by range would leave
+// that LAN's address out of the certificate (scripts/setup-cert.sh keeps
+// the same rule).
+func skipInterface(name string, flags net.Flags) bool {
+	if flags&net.FlagLoopback != 0 {
+		return true
+	}
+	return name == "docker0" || strings.HasPrefix(name, "br-") || strings.HasPrefix(name, "veth")
 }
 
 func generate(certPath, keyPath string) (tls.Certificate, error) {

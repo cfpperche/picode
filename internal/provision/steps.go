@@ -463,9 +463,12 @@ func readLeaf(path string) (*x509.Certificate, error) {
 	return x509.ParseCertificate(blk.Bytes)
 }
 
-// mkcertNames is what a reissue covers: every name the current certificate
-// already has — a Tailscale name or a LAN address the owner issued it for
-// must survive a renewal — plus this machine's local names and loopback.
+// mkcertNames is what a reissue covers: every DNS name the current
+// certificate already has — a Tailscale name or an alias the owner issued it
+// for must survive a renewal — plus this machine's local names and
+// addresses as they are now. Old IP addresses are not carried: they are
+// facts about the interfaces at the time, so a moved LAN or a Docker bridge
+// an earlier issue picked up would otherwise stay in every renewal.
 func mkcertNames(certPath string) []string {
 	seen := map[string]bool{}
 	var out []string
@@ -486,9 +489,6 @@ func mkcertNames(certPath string) []string {
 	if c, err := readLeaf(certPath); err == nil {
 		for _, n := range c.DNSNames {
 			add(n)
-		}
-		for _, ip := range c.IPAddresses {
-			add(ip.String())
 		}
 	}
 	return out

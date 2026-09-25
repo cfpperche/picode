@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"math/big"
+	"net"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -101,5 +102,53 @@ func TestCertNamesFollowsTheFileOnDisk(t *testing.T) {
 	}
 	if got := strings.Join(names(), ","); !strings.Contains(got, "box-1.tail.ts.net") {
 		t.Fatalf("tailscale leaf not picked up (lowercased): %q", got)
+	}
+}
+
+func TestSkipInterface(t *testing.T) {
+	cases := []struct {
+		name  string
+		flags net.Flags
+		skip  bool
+	}{
+		{"lo", net.FlagUp | net.FlagLoopback, true},
+		{"docker0", net.FlagUp, true},
+		{"br-8649fff496d0", net.FlagUp, true},
+		{"veth1a2b3c", net.FlagUp, true},
+		{"eth0", net.FlagUp, false},
+		{"eth1", net.FlagUp, false},
+		{"tailscale0", net.FlagUp, false},
+		{"wlan0", net.FlagUp, false},
+		{"bridge0", net.FlagUp, false}, // a host's own LAN bridge is not Docker's
+	}
+	for _, c := range cases {
+		if got := skipInterface(c.name, c.flags); got != c.skip {
+			t.Errorf("skipInterface(%q) = %v, want %v", c.name, got, c.skip)
+		}
+	}
+}
+
+// On this machine the result must still hold loopback and nothing from a
+// Docker bridge.
+func TestLocalNamesKeepsLoopbackAndDropsBridges(t *testing.T) {
+	_, ips := LocalNames()
+	have := map[string]bool{}
+	for _, ip := range ips {
+		have[ip.String()] = true
+	}
+	if !have["127.0.0.1"] || !have["::1"] {
+		t.Fatalf("loopback missing: %v", ips)
+	}
+	ifaces, _ := net.Interfaces()
+	for _, ifc := range ifaces {
+		if !skipInterface(ifc.Name, ifc.Flags) || ifc.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, _ := ifc.Addrs()
+		for _, a := range addrs {
+			if n, ok := a.(*net.IPNet); ok && have[n.IP.String()] {
+				t.Errorf("%s from %s is in LocalNames", n.IP, ifc.Name)
+			}
+		}
 	}
 }

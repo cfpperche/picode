@@ -88,15 +88,19 @@ add_ip() {
 if command -v tailscale &>/dev/null; then
     add_ip "$(tailscale ip -4 2>/dev/null || true)"
 fi
-# every interface IPv4, excluding loopback / link-local / docker bridges
-for ip in $(hostname -I 2>/dev/null); do
-    [[ "$ip" == *:* ]] && continue # IPv6: browsers hit the v4 names
+# every interface IPv4, skipping loopback, link-local and Docker's virtual
+# bridges — by interface name, not by 172.16/12, which is also a real LAN on
+# some networks (same rule as tlsutil.LocalNames' skipInterface)
+while read -r ifname cidr; do
+    case "$ifname" in
+        lo|docker0|br-*|veth*) continue ;;
+    esac
+    ip="${cidr%/*}"
     case "$ip" in
         127.*|169.254.*) continue ;;
-        172.1[6-9].*|172.2[0-9].*|172.3[01].*) continue ;; # docker bridge range
         *) add_ip "$ip" ;;
     esac
-done
+done < <(ip -o -4 addr show 2>/dev/null | awk '{sub(/@.*/, "", $2); print $2, $4}')
 ok "SANs: ${SAN[*]}"
 
 # --------------------------------------------------------------------------
