@@ -6642,13 +6642,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .pin-remind-current { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notice-face.is-pin { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); }
 
-/* Window frame mode (ADR-0121): when a shell sets data-picode-frame on the
-   root, every view whose bar touches the window's top edge pads itself
-   clear of the shell's own controls. (No shell sets it as of 2026-09-25 —
-   an open question for the owner; the rules stay with the ADR.) */
-:root[data-picode-frame] .main-tabs { padding-right: 134px; }
-:root[data-picode-frame] .dash-head { padding-right: 134px; }
-
 /* ── Shell merged top row (ADR-0122) ─────────────────────────────────────
    In the desktop shell the window's whole top edge is one row: the brand,
    the sidebar rail tabs, the agent tabs and the Windows caption buttons.

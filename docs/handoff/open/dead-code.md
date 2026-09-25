@@ -19,5 +19,5 @@ decision behind it — each is the owner's call. Method: grep + `deadcode -test`
 - [ ] Scripts — referenced by nothing, may be run by hand: install-systemd.sh (superseded by `picode install`), verify-browser-capture-sidecar.mjs, qa-peer-communication.mjs, qa-agent-menu.mjs, qa-agent-tui.mjs, qa-mobile-v2.mjs.
 - [ ] Go reachable only from tests — session/stats StatsRoot + statsAcc; tmux New/IsolatedEnv/KillIsolatedServer/MarkIsolated; the cli* packages' Supported/Read/List/Panes/Installed; clicreds.ProvidersFor/CanUse/EnvVar; ~60 in all. Removing each means deleting its tests.
 - [ ] JS — 35 exports used only by their own tests (e.g. agentEvents markSent/markUndelivered/markAborted, routes sessionsRoute/providersLlama); CSS — 141 classes marked uncertain because a runtime-built name (`is-${x}`, `cli-${x}`) could produce them.
-- [ ] ADR-0121 frame mode: no shell sets data-picode-frame today, so the :root[data-picode-frame] rules never apply — retire the convention (amend the ADR) or restore the setter.
+- [x] ADR-0121 frame mode: ADR-0122 already reverted it (2026-09-12); the two leftover :root[data-picode-frame] rules were removed 2026-09-25 (feat/retire-frame-mode)
 - [ ] Flake: TestResolveInstalledCLIRetriesThroughAnUpdateWindow failed once under `make ci-scoped` load (2026-09-25); passed 3/3 alone and on rerun.
