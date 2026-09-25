@@ -183,7 +183,15 @@ HTTP API (Go 1.22 method patterns):
   `?workspace=<id>` unions the shared cwd bucket with each of that
   workspace's agents' private dirs (`workspaceSessionDirs`, ADR-0040),
   unfiltered by ownership (unlike the per-agent picker, ADR-0039 — this
-  view's job is to show everything). `POST /api/clis/pi/sessions/delete`
+  view's job is to show everything). Omp scopes the same way: `?workspace=`
+  adds the top-level files of each of the workspace's Omp agents'
+  `<dataDir>/omp-sessions/<agentID>` (`workspaceOmpAgentDirs`), and those
+  rows resume by their exact path, because omp looks an id up only in
+  `~/.omp`. Removed agents' folders are left to the agent history; `?cwd=`
+  and the machine-wide list read omp's own tree only. An Omp row that an
+  agent's terminal is pinned to carries `inUseBy` too, and the view offers
+  Open agent instead of Resume as agent (a second Omp on the same file
+  would interleave two writers). `POST /api/clis/pi/sessions/delete`
   `{path}` removes one orphan (in-use → 409, outside the pi root → 400);
   `GET/PUT
   /api/clis/pi/sessions/cleanup` is the orphan auto-clean preference in
