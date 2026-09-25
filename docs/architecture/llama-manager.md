@@ -55,8 +55,12 @@ Reviews expire after five minutes and bind revision, targets and consumers;
 model reservations share the lifecycle lock. Updates retain the old release
 and recover it if a running replacement fails readiness. The private same-binary
 supervisor owns a router process group: parent pipe EOF kills the entire group,
-including after a daemon crash. Startup marks unfinished jobs interrupted and
-does not relaunch the service. No process name or external PID is adopted.
+including after a daemon crash. A router that exits on its own is killed as a
+group before it is reaped (`waitid` with `WNOWAIT`), so the group's number
+cannot have been reused by then. Not covered: a SIGKILL of the supervisor
+itself leaves the router's per-model children running (the router gets its
+parent-death signal; its children do not). Startup marks unfinished jobs
+interrupted and does not relaunch the service. No process name or external PID is adopted.
 
 The initial CPU profiles use explicit GPU zero, Jinja/autoload switches and
 1–4 generation/batch threads. Model cache ownership is recorded only after a
@@ -68,6 +72,13 @@ snapshot links are never adopted. Cleanup removes the recorded snapshot link
 with its blob and refuses shared blobs, changed links or agent references to
 any quantization of the same repository. Cleanup requires a stopped service,
 no active model jobs and no configured agent references, with file revalidation.
+The SHA-256 of each selected file is taken before the service lock and kept by
+file identity (same file, size, mode, modification and change time;
+`hash_memo.go`); the checks under the lock answer from it and rehash any file
+that moved (the release check before a start always rehashes), so a
+cleanup of large models no longer stalls status and model operations. A
+download's starting file list is dropped when the download ends any way but
+success, and startup drops lists left by jobs that are over.
 Unknown, changed and referenced files stay intact. Diagnostics use an allowlist
 instead of exporting logs or credentials. Linux x64 has real CPU acceptance;
 ARM64 and GPU execution remain unverified. Filesystem checks assume the owner's

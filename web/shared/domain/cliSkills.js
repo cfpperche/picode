@@ -411,3 +411,17 @@ export function askLabel(ask) {
   if (ask.verb === "promote") return ask.extra?.replace ? "Replace it" : ask.extra?.acceptCritical ? "Promote anyway" : "Promote";
   return "Update anyway";
 }
+
+// The agent row's warning when some of its own skills lost their cached
+// copy (the launch leaves them out): one line and where to fix it.
+export function agentSkillsMissing(agent) {
+  const gone = ((agent && agent.skills) || []).filter((s) => s && s.missing).map((s) => s.name);
+  if (!gone.length) return null;
+  const cli = (agent && agent.cli) || "pi";
+  const workspaceId = agent.workspaceId && agent.workspaceId !== "ws_free" ? agent.workspaceId : "";
+  return {
+    text: gone.length === 1 ? gone[0] + " skill missing" : gone.length + " skills missing",
+    title: "PiCode's copy of " + gone.join(", ") + " is gone, so the next start leaves " + (gone.length === 1 ? "it" : "them") + " out. Add " + (gone.length === 1 ? "it" : "them") + " again.",
+    href: cliSkillsHash(cli, { workspaceId, agentId: agent.id, scope: "agent" }),
+  };
+}

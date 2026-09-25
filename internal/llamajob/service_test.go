@@ -434,3 +434,34 @@ func TestRestartedUnloadStillLoadedIsInterrupted(t *testing.T) {
 		t.Fatal("checking the result must not replay the unload")
 	}
 }
+
+// The download owner hears about every ended download, not only a success:
+// an abandoned one lets go of what it recorded at the start.
+func TestAbandonedDownloadIsReported(t *testing.T) {
+	_, _, st, url := fixture(t, false)
+	got := make(chan store.LlamaJob, 1)
+	s, err := New(st, func() (string, string) { return url, "key" }, func(j store.LlamaJob) { got <- j })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	j, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "d1", Endpoint: url, ConnectionID: identity(url, "key"), Model: "a", Operation: "download"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.State = "unknown"
+	if _, err = st.UpdateLlamaJob(j); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Abandon(j.ID); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case r := <-got:
+		if r.ID != j.ID || r.State != "abandoned" {
+			t.Fatalf("reported %+v", r)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("an abandoned download was never reported")
+	}
+}

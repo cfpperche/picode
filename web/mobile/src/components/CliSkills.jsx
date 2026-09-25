@@ -112,6 +112,8 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
     try {
       const q = new URLSearchParams();
       if (workspaceId) q.set("workspace", workspaceId);
+      // The agent's own skills are checked against their sources too.
+      if (data?.agent && agentId) q.set("agent", agentId);
       const res = await api("/api/skills/updates?" + q);
       setUpdates(res.rows || []);
     } catch (x) {

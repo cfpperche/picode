@@ -70,7 +70,8 @@ func TestAgentHistoryPiRestoreAndRefusals(t *testing.T) {
 	if back["id"] != id || back["name"] != "fixer" || back["sessionPath"] != path || back["model"] != "sonnet" || back["checklist"] != "always" || res["resume"] != false {
 		t.Fatalf("restored = %v", res)
 	}
-	if got, _ := deps.Store.GetAgent(id); len(got.Skills) != 1 || got.Skills[0] != own {
+	// Its folder was never written, so the read marks it missing (read-time only).
+	if got, _ := deps.Store.GetAgent(id); len(got.Skills) != 1 || got.Skills[0].Name != own.Name || got.Skills[0].Digest != own.Digest || got.Skills[0].Dir != own.Dir || !got.Skills[0].Missing {
 		t.Fatalf("restored skills = %+v", got.Skills)
 	}
 	if got, _ := deps.Store.GetAgentExit(exitID); got.UndoneAt == nil || got.RestoredAgentID != back["id"] {

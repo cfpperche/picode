@@ -75,8 +75,8 @@ func readExitRequest(w http.ResponseWriter, r *http.Request) (exitRequest, error
 // while the files still exist.
 func exitMeter() store.ExitMeter {
 	prices := pricing.Current()
-	return func(cli, path string) (store.ExitCost, bool) {
-		c, ok := climetrics.MeterSessionFile(cli, path, prices)
+	return func(cli, path, id string) (store.ExitCost, bool) {
+		c, ok := climetrics.MeterSession(cli, path, id, prices)
 		if !ok {
 			return store.ExitCost{}, false
 		}

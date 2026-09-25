@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -118,4 +119,54 @@ func writeClaudeAgentPlugin(runDir string, a store.Agent) (string, error) {
 		}
 	}
 	return root, nil
+}
+
+// agentSkillsPlan is the Launch pane's view of the agent's own skills: the
+// flag each CLI takes them by, the folders it reads, and the ones left out
+// because their cached copy is gone. nil when the terminal's agent has no
+// skills of its own, or its CLI takes none at launch.
+func agentSkillsPlan(deps Deps, cliID, terminalID, runDir string) *clilaunch.IntegrationPlan {
+	if deps.Store == nil {
+		return nil
+	}
+	a, err := deps.Store.AgentByTerminal(terminalID)
+	if err != nil || len(a.Skills) == 0 {
+		return nil
+	}
+	dirs := a.SkillDirs()
+	missing := len(a.Skills) - len(dirs)
+	p := &clilaunch.IntegrationPlan{Branches: []clilaunch.Injection{}, Files: append([]string{}, dirs...), Environment: map[string]string{}}
+	var args []string
+	switch {
+	case a.IsPi() && cliID == "pi":
+		for _, d := range dirs {
+			args = append(args, "--skill", d)
+		}
+	case cliID == "omp" && a.CLI == "omp":
+		if len(dirs) > 0 {
+			args = []string{"--config", filepath.Join(deps.DataDir, "skills", "agents", a.ID, "omp.yml")}
+		}
+	case cliID == "claude-code" && a.CLI == "claude-code":
+		if len(dirs) > 0 {
+			args = []string{"--plugin-dir", filepath.Join(runDir, claudeAgentPlugin)}
+		}
+	default:
+		return nil
+	}
+	n := len(dirs)
+	p.Summary = fmt.Sprintf("%d skill%s of %s's own", n, plural(n), a.Name)
+	if missing > 0 {
+		p.Summary += fmt.Sprintf("; %d gone from PiCode's copy, left out", missing)
+	}
+	if len(args) > 0 {
+		p.Branches = append(p.Branches, clilaunch.Injection{When: "Every start", Args: args})
+	}
+	return p
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
