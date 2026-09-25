@@ -4165,8 +4165,8 @@ export default function App({ shellChrome = false } = {}) {
               if (cmd.run === "session-tree") { openTree("tree"); return; }
               if (cmd.run === "session-fork") { openTree("fork"); return; }
               if (cmd.run === "session-clone") { cloneSession(); return; }
-              if (cmd.run === "go-providers") { go("providers"); return; }
-              if (cmd.run === "go-providers-new") { go("providers-new"); return; }
+              if (cmd.run === "go-providers") { go("providers", agent?.id, { cli: agent?.cli }); return; }
+              if (cmd.run === "go-providers-new") { go("providers-new", agent?.id, { cli: agent?.cli }); return; }
               if (cmd.run === "llama") { go("llama"); return; }
               if (cmd.run === "automate") { await startAutomate(""); return; }
               if (cmd.run === "session-info") { setSessionOpen(true); return; }
@@ -4271,7 +4271,7 @@ export default function App({ shellChrome = false } = {}) {
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               roleState, onRoleCommand: (cmd) => sendTask(cmd),
-              slashExtra, atAgents, onAgentPage: (name) => go(name, agent?.id, { workspaceId: paneWs?.id }), pkgUpdates,
+              slashExtra, atAgents, onAgentPage: (name) => go(name, agent?.id, { workspaceId: paneWs?.id, cli: agent?.cli }), pkgUpdates,
               onCaptureSnippet: openSnipCapture,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               tuiWorking: tuiBusy,

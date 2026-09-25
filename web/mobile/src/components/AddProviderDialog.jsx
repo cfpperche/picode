@@ -4,7 +4,6 @@ import { Command, defaultFilter } from "cmdk";
 import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { apiKeySchema, llamaLoginSchema, parseForm } from "@picode/shared/contracts/schemas.js";
-import { go } from "../lib/routes.js";
 import { cliProvidersHash, cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 import { providerName } from "@picode/shared/domain/credentials.js";
 
@@ -287,14 +286,12 @@ export default function AddProviderDialog({ open, catalog, onClose, onSaved, cli
   // modal.
   function startCustom() {
     close();
-    if (guest) { location.hash = cliProvidersHash(cli, { custom: true }); return; }
-    go("providers-custom");
+    location.hash = cliProvidersHash(cli, { custom: true });
   }
 
   function editCustom(p) {
     close();
-    if (guest) { location.hash = cliProvidersHash(cli, { custom: true, customId: p.id }); return; }
-    go("providers-custom", p.id);
+    location.hash = cliProvidersHash(cli, { custom: true, customId: p.id });
   }
 
   return (
