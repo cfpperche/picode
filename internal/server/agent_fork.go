@@ -142,8 +142,10 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 		fork.TaskAfterLaunch = true
 		task = buildPromptPaste(req.Prompt, paths)
 	} else if flagFork {
-		// No screen reader for this CLI (Omp): a blind paste into a TUI
-		// still opening could be lost, so the task stays a launch argument.
+		// No screen reader for this CLI: a blind paste into a TUI still
+		// opening could be lost, so the task stays a launch argument. (Every
+		// command-line fork has a reader since Omp's, ADR-0217; this stays
+		// for the next CLI that forks before it has one.)
 		prompt, err := forkPrompt(req.Prompt, paths)
 		if err != nil {
 			return nil, http.StatusBadRequest, err
