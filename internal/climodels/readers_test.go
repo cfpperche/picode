@@ -185,3 +185,58 @@ func TestGrokReadsItsOwnFileAndRunsNothing(t *testing.T) {
 		t.Fatalf("report = %+v", rep)
 	}
 }
+
+func TestParseClaude(t *testing.T) {
+	raw, err := os.ReadFile("testdata/claude-list-models.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := parseClaude(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, r := range rows {
+		ids = append(ids, r.Selector)
+	}
+	if strings.Join(ids, ",") != "opus[1m],claude-fable-5-1,sonnet,haiku" {
+		t.Fatalf("selectors = %v; the default row is a mirror and must be left out", ids)
+	}
+	if rows[0].Name != "Opus (1M context)" || strings.Join(rows[0].Thinking, ",") != "low,medium,high,xhigh,max" || !rows[0].Reasoning {
+		t.Fatalf("row 0 = %+v", rows[0])
+	}
+	if rows[3].Reasoning || len(rows[3].Thinking) != 0 {
+		t.Fatalf("haiku states no effort levels: %+v", rows[3])
+	}
+	disabled := `{"type":"control_response","response":{"subtype":"success","request_id":"p","response":{"models":[{"value":"cc-update-required-1","displayName":"Fable (disabled)","disabled":true},{"value":"sonnet","displayName":"Sonnet"}]}}}`
+	if rows, err := parseClaude([]byte(disabled)); err != nil || len(rows) != 1 || rows[0].ID != "sonnet" {
+		t.Fatalf("a disabled placeholder must never be offered: %+v %v", rows, err)
+	}
+	old := `{"type":"control_response","response":{"subtype":"error","request_id":"p","error":"Unsupported control request subtype: list_models"}}`
+	if _, err := parseClaude([]byte(old)); err == nil || !strings.Contains(err.Error(), "update it") {
+		t.Fatalf("an old Claude Code must be named: %v", err)
+	}
+	if _, err := parseClaude([]byte("not json")); err == nil {
+		t.Error("output PiCode cannot read must be an error that says so")
+	}
+}
+
+func TestClaudeExtrasComeFromTheOwnersConfigReadOnly(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), ".claude.json")
+	body := `{"additionalModelOptionsCache":[{"value":"claude-fable-5-1[1m]","label":"Fable","description":"Fable 5.1"},{"value":"sonnet","label":"dup"}],"other":1}`
+	if err := os.WriteFile(cfg, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.Stat(cfg)
+	rows := addClaudeExtras([]Model{{ID: "sonnet", Selector: "sonnet"}}, cfg)
+	if len(rows) != 2 || rows[1].Selector != "claude-fable-5-1[1m]" || rows[1].Name != "Fable" {
+		t.Fatalf("rows = %+v", rows)
+	}
+	after, _ := os.Stat(cfg)
+	if !after.ModTime().Equal(before.ModTime()) {
+		t.Error("the owner's config must never be written")
+	}
+	if got := addClaudeExtras([]Model{{ID: "sonnet"}}, filepath.Join(t.TempDir(), "missing")); len(got) != 1 {
+		t.Errorf("no config adds nothing: %+v", got)
+	}
+}
