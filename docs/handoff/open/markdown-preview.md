@@ -5,12 +5,11 @@ reference tools. Researched options, cheapest first: A) GitHub-grade preview,
 B) VS Code-style source | preview split with scroll sync, C) Obsidian-style
 live preview inside CodeMirror 6, D) WYSIWYG (Milkdown/MDXEditor/Tiptap) —
 D refused for repository files because it re-serializes the file and rewrites
-tables, lists and emphasis on save. A shipped on `feat/md-preview`
+tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split with scroll sync) on `feat/md-split`
 (`docs/architecture/file-preview.md`, "Markdown as a document").
 
 ## Next
 
-- B: a Split mode beside Preview/Raw — CodeMirror source and MarkdownDoc side by side, scroll sync both ways from source line positions (`data-line` on blocks, as VS Code does), double-click in the preview jumps to the line.
 - C: Live preview in CodeMirror (syntax hidden off the cursor line; references: blueberrycongee/codemirror-live-markdown, kenforthewin/atomic-editor — both young, adapt rather than depend).
 
 ## Debts
@@ -18,3 +17,4 @@ tables, lists and emphasis on save. A shipped on `feat/md-preview`
 - [ ] Relative file links are inert text in canvas file panels and chat file cards (no `onOpenPath` at those mounts); tree, file tab and mobile Files open them.
 - [ ] Opening `other.md#section` opens the file at its top; the fragment is not scrolled to after load.
 - [ ] Raw HTML in markdown now renders after GitHub's sanitizer allow-list (no script, style, event handlers or unprefixed ids). No ADR was written: the owner may want one, since it widens what file content reaches the app DOM.
+- [ ] `.workspace-view.file-on` is `overflow: hidden` with content taller than its box, so any `scrollIntoView` inside a file tab can scroll the clipped ancestor and push the file toolbar off-screen; MarkdownDoc avoids scrollIntoView for this reason.

@@ -36,6 +36,16 @@ var openURLWrappers = []string{"picode-open", "xdg-open", "wslview"}
 const openURLWrapper = `#!/bin/sh
 # PiCode intercept — browser hand-off (ADR-0180). Session PATH only.
 name=__NAME__
+# Another PiCode wrapper is never the real binary: two instances' bin dirs
+# on one PATH (a scratch terminal inside PiCode) made each wrapper exec the
+# other forever, one pid at full CPU (2026-09-25). Same test as the Go side's
+# isCLIWrapper, in shell builtins only.
+picode_wrapper() {
+  { IFS= read -r picode_l1 && IFS= read -r picode_l2; } < "$1" 2>/dev/null || return 1
+  [ "$picode_l1" = "#!/bin/sh" ] || return 1
+  case "$picode_l2" in "# PiCode "*) return 0 ;; esac
+  return 1
+}
 here=${0%/*}
 [ "$here" = "$0" ] && here=.
 real=
@@ -43,8 +53,8 @@ extra=
 IFS=:
 for d in $PATH; do
   [ "$d" = "$here" ] && continue
-  if [ -z "$real" ] && [ -x "$d/$name" ]; then real=$d/$name; fi
-  if [ -z "$extra" ] && [ "$name" != "xdg-open" ] && [ -x "$d/xdg-open" ]; then extra=$d/xdg-open; fi
+  if [ -z "$real" ] && [ -x "$d/$name" ] && ! picode_wrapper "$d/$name"; then real=$d/$name; fi
+  if [ -z "$extra" ] && [ "$name" != "xdg-open" ] && [ -x "$d/xdg-open" ] && ! picode_wrapper "$d/xdg-open"; then extra=$d/xdg-open; fi
 done
 unset IFS
 [ -n "$real" ] || real=$extra

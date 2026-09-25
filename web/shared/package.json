@@ -85,6 +85,7 @@
     "./domain/mdDocument.js": "./domain/mdDocument.js",
     "./domain/mdPipeline.js": "./domain/mdPipeline.js",
     "./domain/mdSafe.js": "./domain/mdSafe.js",
+    "./domain/scrollSync.js": "./domain/scrollSync.js",
     "./domain/notice.js": "./domain/notice.js",
     "./domain/overlayAudit.js": "./domain/overlayAudit.js",
     "./domain/pathFilter.js": "./domain/pathFilter.js",
