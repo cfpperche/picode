@@ -41,7 +41,7 @@ func agyInputs(command, _ string) []string {
 func probeAgy(ctx context.Context, command, dir string) (Report, error) {
 	token, err := os.ReadFile(agyTokenFile())
 	if err != nil {
-		return Report{}, fmt.Errorf("Antigravity is not signed in — sign in to Antigravity first")
+		return Report{}, &Blocked{Msg: "Antigravity is not signed in — sign in to see its models", Action: ActionSignIn}
 	}
 	scratch, err := os.MkdirTemp("", "picode-agy-models-")
 	if err != nil {
@@ -58,6 +58,10 @@ func probeAgy(ctx context.Context, command, dir string) (Report, error) {
 	// exec keeps the last of duplicate keys, so this HOME wins.
 	out, err := runQuiet(ctx, scratch, []string{"HOME=" + scratch}, command, "models")
 	if err != nil {
+		// A sign-in that no longer holds reads like none at all to agy.
+		if strings.Contains(strings.ToLower(err.Error()), "sign in") {
+			return Report{}, &Blocked{Msg: "Antigravity's sign-in has expired — sign in again to see its models", Action: ActionSignIn}
+		}
 		return Report{}, fmt.Errorf("agy models: %s", err)
 	}
 	models := parseAgy(out)

@@ -37,14 +37,21 @@ func grokInputs(_, _ string) []string {
 func probeGrok(_ context.Context, _, dir string) (Report, error) {
 	raw, err := os.ReadFile(filepath.Join(grokRoot(), "models_cache.json"))
 	if errors.Is(err, fs.ErrNotExist) {
-		return Report{}, fmt.Errorf("Grok has not saved its model list yet — sign in and open Grok once")
+		// Grok fetches the list when it starts signed in: without a sign-in
+		// that is the step, with one it is starting Grok.
+		if _, err := os.Stat(filepath.Join(grokRoot(), "auth.json")); err != nil {
+			return Report{}, &Blocked{Msg: "Grok is not signed in — sign in to see its models", Action: ActionSignIn}
+		}
+		return Report{}, &Blocked{Msg: "Grok hasn't fetched its models yet — open it once", Action: ActionOpen}
 	}
 	if err != nil {
 		return Report{}, fmt.Errorf("grok models: %w", err)
 	}
 	models, err := parseGrok(raw)
 	if err != nil {
-		return Report{}, err
+		// The parser's words mean nothing to the owner; Grok rewrites the
+		// file on its next start, so asking again is the step.
+		return Report{}, fmt.Errorf("Grok's saved model list is damaged — open Grok, then try again")
 	}
 	return Report{CLI: "grok", Dir: dir, Models: models, Kinds: []string{"chat"}}, nil
 }

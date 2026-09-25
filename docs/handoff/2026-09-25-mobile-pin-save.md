@@ -9,4 +9,4 @@ Verified: `make ci-scoped` PASS; scratch at 390px: no header Save on either
 screen, Create pin from the form created and opened the pin. Blind spot: edit
 screens of an existing item not captured; on a long body the form button sits
 below the textarea (the header Save was always visible). visual-review: PASS
-Not done / debts: none. Merge: fast-forward ready.
+Not done / debts: none. Merge: landed on main 2b7aac93c; deployed by the owner 2026-09-25.
