@@ -259,6 +259,21 @@ func TestCLIRestartPreparationFailureAndWorkspaceCleanup(t *testing.T) {
 	session := tmux.ShellSessionName(id)
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), session) })
 	pid := panePIDSoon(t, session)
+	// A pane that dies keeps its session (and so the suite's private server)
+	// with remain-on-exit, so the flake below reports which of its two
+	// causes it was: our process exiting (dead pane, its status and last
+	// lines) or something ending the session or server (privateTmuxReport).
+	if out, err := exec.Command("tmux", "set-option", "-t", session+":", "remain-on-exit", "on").CombinedOutput(); err != nil {
+		t.Fatalf("remain-on-exit: %v %s", err, out)
+	}
+	// The pane existing is not the script running: tmux reports the pane's
+	// pid as soon as it forks /bin/sh, and a loaded machine can take longer
+	// than that to open launch.sh. Renaming its folder first made sh fail
+	// to open the script, the pane died, and — the only session on the
+	// suite's private server — took the server with it: the "no server
+	// running" flake (2026-09-23..25). The launch banner is the script's
+	// first line, so it proves sh is past the open.
+	scriptRunning(t, session, "Starting Pi...")
 	root := filepath.Join(data, "cli-launch", id)
 	if err := os.Rename(root, root+"-held"); err != nil {
 		t.Fatal(err)
@@ -267,6 +282,7 @@ func TestCLIRestartPreparationFailureAndWorkspaceCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	cliRequest(t, ts, "POST", "/api/terminals/"+id+"/launch/restart", map[string]any{"confirm": true}, 400)
+	paneAlive(t, session)
 	if got := panePIDSoon(t, session); got != pid {
 		t.Fatal("preparation failure killed the old process")
 	}
@@ -307,6 +323,37 @@ func panePIDSoon(t *testing.T, session string) int {
 			t.Fatalf("pane pid of %s: %v (pid %d)\n%s", session, err, pid, privateTmuxReport())
 		}
 		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// scriptRunning waits until the pane shows want, the proof its launch script
+// is executing rather than merely forked.
+func scriptRunning(t *testing.T, session, want string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		out, _ := exec.Command("tmux", "capture-pane", "-p", "-t", session+":").CombinedOutput()
+		if strings.Contains(string(out), want) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s never showed %q\n--- pane ---\n%s\n%s", session, want, out, privateTmuxReport())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// paneAlive fails with the pane's exit status and last lines when its
+// process has died (the session survives it under remain-on-exit).
+func paneAlive(t *testing.T, session string) {
+	t.Helper()
+	out, err := exec.Command("tmux", "display-message", "-p", "-t", session+":", "#{pane_dead} #{pane_dead_status} #{pane_dead_signal}").CombinedOutput()
+	if err != nil {
+		t.Fatalf("pane state of %s: %v %s\n%s", session, err, out, privateTmuxReport())
+	}
+	if f := strings.Fields(string(out)); len(f) > 0 && f[0] == "1" {
+		lines, _ := exec.Command("tmux", "capture-pane", "-p", "-S", "-40", "-t", session+":").CombinedOutput()
+		t.Fatalf("the pane's process died (status/signal %v) — the restart must not touch it\n--- pane ---\n%s", f[1:], lines)
 	}
 }
 
