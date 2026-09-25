@@ -17,6 +17,7 @@ Not done / debts: publishing, `ee/LICENSE`, trademark and the copyright
 holder are tracked in `docs/handoff/open/licensing.md`.
 Merge: fast-forward ready (bb75fa4f1 plus this note).
 Follow-up feat/adr-new-title: `make adr` escapes TITLE for sed and writes via a temp file (no orphan on failure).
+Same branch: markdown Live tests read a full parse (flaked twice on today's gates; proven with a 22 KB doc).
 
 ## Next up
 

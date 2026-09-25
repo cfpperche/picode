@@ -5,9 +5,18 @@ import { ensureSyntaxTree } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { inlineTokens, planTables, tableSkip } from "./mdLiveTables.js";
 
+// syntaxTree(state) is the tree the state was created with; ensureSyntaxTree
+// finishes the parse in the shared context but leaves that field alone. When
+// creation ran out of its parse budget (a cold start under load) the code
+// under test saw a partial tree. A no-op update carries the full parse in.
+function parsed(doc) {
+  const created = EditorState.create({ doc, extensions: [markdown({ base: markdownLanguage })] });
+  ensureSyntaxTree(created, doc.length, 5000);
+  return created.update({}).state;
+}
+
 function tables(doc, active = []) {
-  const state = EditorState.create({ doc, extensions: [markdown({ base: markdownLanguage })] });
-  ensureSyntaxTree(state, doc.length, 5000);
+  const state = parsed(doc);
   return planTables(state, new Set(active));
 }
 
@@ -49,8 +58,7 @@ test("inlineTokens", () => {
 
 test("tableSkip stops vertical motion at a table instead of jumping it", () => {
   const doc = "above\n\n| a |\n|---|\n| 1 |\n\nbelow\n";
-  const state = EditorState.create({ doc, extensions: [markdown({ base: markdownLanguage })] });
-  ensureSyntaxTree(state, doc.length, 5000);
+  const state = parsed(doc);
   const t = planTables(state, new Set());
   const blank = doc.indexOf("\n\n") + 1;
   const below = doc.indexOf("below");
