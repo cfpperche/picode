@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -150,6 +151,16 @@ func New(st *store.Store, dataDir string, consumers func() ([]string, error)) (*
 		if s.doc.Jobs[i].State == "running" || s.doc.Jobs[i].State == "queued" {
 			s.doc.Jobs[i].State = "interrupted"
 			s.doc.Jobs[i].Message = "PiCode restarted. Review the service before retrying."
+			changed = true
+		}
+	}
+	// A download's starting file list outlives its job only by the leak that
+	// ObserveDownload now closes; drop what earlier runs left (a job that is
+	// over, or no longer in the store). A store error keeps the entry.
+	for id := range s.doc.Downloads {
+		j, e := st.LlamaJob(id)
+		if errors.Is(e, sql.ErrNoRows) || (e == nil && !j.Active()) {
+			delete(s.doc.Downloads, id)
 			changed = true
 		}
 	}
@@ -339,10 +350,15 @@ func (s *Service) preview(req Request) (Preview, error) {
 func (s *Service) Preview(req Request) (Preview, error) {
 	s.mu.Lock()
 	resolve := s.resolveJobs
+	var warm []string
+	if req.Action == "cleanup" {
+		warm = s.cleanupPaths(req.Files)
+	}
 	s.mu.Unlock()
 	if resolve != nil {
 		resolve() // settle jobs on a stopped owned endpoint before the guard reads them
 	}
+	warmHashes(warm) // the long part, outside the lock (hash_memo.go)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, err := s.preview(req)
@@ -364,6 +380,12 @@ func (s *Service) Preview(req Request) (Preview, error) {
 }
 func (s *Service) Execute(key string, interrupt bool) (Job, error) {
 	s.mu.Lock()
+	if p, ok := s.previews[key]; ok && p.Request.Action == "cleanup" {
+		warm := s.cleanupPaths(p.Request.Files)
+		s.mu.Unlock()
+		warmHashes(warm)
+		s.mu.Lock()
+	}
 	defer s.mu.Unlock()
 	for _, j := range s.doc.Jobs {
 		if j.ID == key {
@@ -413,6 +435,14 @@ func (s *Service) run(req Request) {
 	var err error
 	if req.Action == "install" || req.Action == "update" {
 		installed, err = s.install(req.Version)
+	}
+	if req.Action == "cleanup" {
+		// busy already refuses competing changes; hash before the lock so
+		// the recheck under it answers from memory.
+		s.mu.Lock()
+		warm := s.cleanupPaths(req.Files)
+		s.mu.Unlock()
+		warmHashes(warm)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -633,10 +663,17 @@ type CacheFile struct {
 
 func (s *Service) Cache() []CacheFile {
 	s.mu.Lock()
+	var warm []string
+	for name := range s.doc.Archives {
+		warm = append(warm, filepath.Join(s.root, "cache", name))
+	}
+	s.mu.Unlock()
+	warmHashes(warm)
+	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := []CacheFile{}
 	for name, pin := range s.doc.Archives {
-		h, size, err := hashRegular(filepath.Join(s.root, "cache", name))
+		h, size, err := hashKnown(filepath.Join(s.root, "cache", name))
 		eligible := err == nil && h == pin && !s.busy && s.process == nil
 		reason := "Verified installer download; the installed copy is retained."
 		if !eligible {

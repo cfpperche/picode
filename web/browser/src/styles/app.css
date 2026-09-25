@@ -3818,6 +3818,8 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 .ws-fork-line { display: flex; align-items: center; gap: 4px; min-width: 0; margin: 3px 8px 0 23px; font-size: 11.5px; line-height: 16px; color: var(--text-secondary); }
 .ws-fork-line svg { flex: none; }
 .ws-fork-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-skill-warn { border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px; text-align: left; cursor: pointer; color: var(--warn); }
+.ws-skill-warn:hover span { text-decoration: underline; }
 button.ws-check-line { display: flex; align-items: center; gap: 4px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; font-style: italic; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
 button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
 button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text { color: var(--text-primary); }

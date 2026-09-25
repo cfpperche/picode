@@ -531,7 +531,7 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 		Checklist:        a.Checklist,
 		Packages:         append([]string{}, a.Packages...),
 		PackagesIsolated: a.PackagesIsolated,
-		Skills:           append([]AgentSkill(nil), a.Skills...),
+		Skills:           exitSkills(a.Skills),
 		ExtraPrompt:      deref(a.ExtraPrompt),
 		WorkPath:         deref(a.WorkPath),
 	}
@@ -1155,4 +1155,18 @@ func nullStr(v sql.NullString) *string {
 	}
 	s := v.String
 	return &s
+}
+
+// exitSkills is the agent's list as a restore puts it back: what it was
+// given, without the read-time Missing mark.
+func exitSkills(list []AgentSkill) []AgentSkill {
+	if len(list) == 0 {
+		return nil
+	}
+	out := make([]AgentSkill, len(list))
+	for i, sk := range list {
+		sk.Missing = false
+		out[i] = sk
+	}
+	return out
 }

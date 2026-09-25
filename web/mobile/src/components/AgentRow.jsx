@@ -2,13 +2,14 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import {
   IconChevronRight, IconEllipsis, IconChat, IconMonitor, IconPencil,
-  IconPlay, IconReload, IconStop, IconTrash, IconFork, IconSettings } from "./Icons.jsx";
+  IconPlay, IconReload, IconStop, IconTrash, IconFork, IconSettings, IconWarn } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import StateChip, { agentState } from "./StateChip.jsx";
 import { checklistLine } from "@picode/shared/domain/checklist.js";
 import { agentSubtitleWithFork, forkLine } from "@picode/shared/domain/managedPrincipal.js";
+import { agentSkillsMissing } from "@picode/shared/domain/cliSkills.js";
 import { agentStatusStamp } from "@picode/shared/domain/agentStatus.js";
 import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMenu.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
@@ -47,6 +48,8 @@ export default function AgentRow({ agent, workspace, workingIds, checklist, busy
   // where it came from to whichever line is shown.
   const base = [model, path === workspace?.path ? "" : shortPath(path)].filter(Boolean).join(" · ");
   const context = base ? [base, forkLine(agent)].filter(Boolean).join(" · ") : "";
+  // Its own skills whose cached copy is gone: the next start leaves them out.
+  const skillWarn = agentSkillsMissing(agent);
   // A legacy interactive Pi pane has no bound terminal to restart; the
   // row drops the item instead of offering a no-op.
   const rows = agentRowMenu(agent, { clis, term }).filter((r) => r.id !== "restart" || agent.terminalId);
@@ -58,6 +61,7 @@ export default function AgentRow({ agent, workspace, workingIds, checklist, busy
           <span className="m-row-title">{name}</span>
           <span className="m-row-sub">{check && check.kind === "step" ? check.position + "/" + check.total + " · " + check.text : context || agentSubtitleWithFork(agent)}</span>
           {check && check.kind === "step" ? <span className="m-row-context">{context || agentSubtitleWithFork(agent)}</span> : null}
+          {skillWarn ? <span className="m-row-context m-row-warn" title={skillWarn.title}><IconWarn size={11} /> {skillWarn.text}</span> : null}
         </span>
         <StateChip state={status} age={age} term={term} />
         <IconChevronRight size={16} className="m-row-chev" />
