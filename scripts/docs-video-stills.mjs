@@ -77,7 +77,7 @@ const openMobile = (tag) => openDark("mobile", tag);
 const goTo = (hash) => { evalJs(`location.hash = ${JSON.stringify(hash)}; 'nav'`); sleep(1800); };
 function atlasId() {
   const out = evalJs(
-    `fetch('/api/workspaces').then(r=>r.json()).then(a=>{const ws=(Array.isArray(a)?a:[]).find(w=>w.agent&&w.agent.name==='Atlas'); return ws&&ws.agent ? 'ID:'+ws.agent.id : 'ID:NO'}).catch(()=>'ID:ERR')`,
+    `fetch('/api/workspaces').then(r=>r.json()).then(a=>{const ag=(Array.isArray(a)?a:[]).flatMap(w=>w.agents||[]).find(x=>x.name==='Atlas'); return ag ? 'ID:'+ag.id : 'ID:NO'}).catch(()=>'ID:ERR')`,
   );
   const m = out.match(/ID:([A-Za-z0-9-_]+)/);
   return m ? m[1] : null;

@@ -176,7 +176,7 @@ func TestAgentBashMatrix(t *testing.T) {
 	ts := bashTestServer(t)
 	proj := t.TempDir()
 	wk := addWorkspaceWithAgent(t, ts, "App", proj)
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 
 	rows := []struct {
 		name string
@@ -213,7 +213,7 @@ func TestAgentBashRunsWithFakeRPC(t *testing.T) {
 		t.Fatal(err)
 	}
 	wk := addWorkspaceWithAgent(t, ts, "App", proj)
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 
 	start := postJSON(t, ts, "/api/agents/"+id+"/managed/start", map[string]string{})
 	if start.StatusCode != http.StatusCreated {

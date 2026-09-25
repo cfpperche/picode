@@ -651,14 +651,14 @@ func TestSnipExpandAndRun(t *testing.T) {
 	}
 	wk := addWorkspaceWithAgent(t, ts, "App", proj)
 	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+id+"/run", map[string]any{
-		"target": map[string]string{"type": "agent", "id": wk.Agent.ID}, "values": map[string]string{"pr": "9"},
+		"target": map[string]string{"type": "agent", "id": wk.Agents[0].ID}, "values": map[string]string{"pr": "9"},
 	})
 	if code != http.StatusConflict || out["reason"] != "stopped" {
 		t.Fatalf("stopped run = %d %v", code, out)
 	}
 
 	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+id+"/run", map[string]any{
-		"target": map[string]string{"type": "agent", "id": wk.Agent.ID}, "values": map[string]string{},
+		"target": map[string]string{"type": "agent", "id": wk.Agents[0].ID}, "values": map[string]string{},
 	})
 	if code != http.StatusBadRequest {
 		t.Fatalf("missing run = %d %v", code, out)

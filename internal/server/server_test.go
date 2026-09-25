@@ -386,7 +386,7 @@ func TestOpenCloseLifecycle(t *testing.T) {
 	resList := do(t, client, mustGet(t, ts.URL+"/api/workspaces"))
 	var list []workspaceView
 	_ = json.NewDecoder(resList.Body).Decode(&list)
-	if len(list) != 1 || !list[0].Agent.Running {
+	if len(list) != 1 || !list[0].Agents[0].Running {
 		t.Fatalf("running flag after open: %+v", list)
 	}
 
@@ -399,7 +399,7 @@ func TestOpenCloseLifecycle(t *testing.T) {
 	resList2 := do(t, client, mustGet(t, ts.URL+"/api/workspaces"))
 	var list3 []workspaceView
 	_ = json.NewDecoder(resList2.Body).Decode(&list3)
-	if len(list3) != 1 || list3[0].Agent.Running {
+	if len(list3) != 1 || list3[0].Agents[0].Running {
 		t.Fatalf("running flag after close: %+v", list3)
 	}
 }
@@ -433,7 +433,7 @@ func TestTaskEndpoints(t *testing.T) {
 	proj := t.TempDir()
 
 	wsv := addWorkspaceWithAgent(t, ts, "Tasks", proj)
-	agentID := wsv.Agent.ID
+	agentID := wsv.Agents[0].ID
 	if agentID == "" {
 		t.Fatal("default agent missing from workspace view")
 	}
@@ -493,7 +493,7 @@ func TestManagedModeFlow(t *testing.T) {
 	proj := t.TempDir()
 
 	wsv := addWorkspaceWithAgent(t, ts, "Managed", proj)
-	agentID := wsv.Agent.ID
+	agentID := wsv.Agents[0].ID
 
 	// Start managed.
 	resStart := do(t, client, mustPost(t, ts.URL+"/api/agents/"+agentID+"/managed/start"))
@@ -589,7 +589,7 @@ func TestAddWorkspaceStartsEmpty(t *testing.T) {
 	}
 	var wk2 workspaceView
 	_ = json.NewDecoder(again.Body).Decode(&wk2)
-	if wk2.ID != wk.ID || len(wk2.Agents) != 0 || wk2.Agent != nil {
+	if wk2.ID != wk.ID || len(wk2.Agents) != 0 {
 		t.Fatalf("re-add = %+v", wk2)
 	}
 }

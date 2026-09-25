@@ -1,7 +1,6 @@
 export function agentsOf(ws) {
   if (!ws) return [];
-  const list = (ws.agents && ws.agents.length) ? ws.agents : (ws.agent && ws.agent.id ? [ws.agent] : []);
-  return list.filter((a) => a && a.id);
+  return (ws.agents || []).filter((a) => a && a.id);
 }
 
 // ownerOfTerminal: the agent bound to a terminal (a CLI agent's launch

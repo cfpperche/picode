@@ -50,7 +50,7 @@ func TestAgentPromptHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	wk := addWorkspaceWithAgent(t, ts, "App", proj)
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 
 	body, _ := json.Marshal(map[string]any{
 		"kind":    "prompt",

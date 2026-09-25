@@ -338,11 +338,11 @@ func TestCleanupMatrix(t *testing.T) {
 		proj := t.TempDir()
 		wk := addWorkspaceWithAgent(t, ts, "Solo", proj)
 		sess := writeSession(t, proj)
-		p := getCleanup(t, ts, "/api/agents/"+wk.Agent.ID+"/cleanup")
+		p := getCleanup(t, ts, "/api/agents/"+wk.Agents[0].ID+"/cleanup")
 		if !p.LastOccupant || p.CanPurgeWork || p.Sessions != 1 {
 			t.Fatalf("preview = %+v", p)
 		}
-		del(t, ts, "/api/agents/"+wk.Agent.ID+"?sessions=1&work=1")
+		del(t, ts, "/api/agents/"+wk.Agents[0].ID+"?sessions=1&work=1")
 		if exists(sess) {
 			t.Fatal("sessions should be gone")
 		}

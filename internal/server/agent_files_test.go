@@ -95,7 +95,7 @@ func TestAgentFilesHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	wk := addWorkspaceWithAgent(t, ts, "App", proj)
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 	if id == "" {
 		t.Fatal("no agent")
 	}
@@ -202,7 +202,7 @@ func TestAgentTextHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	wk := addWorkspaceWithAgent(t, ts, "App", proj)
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+id+"/text?path=main.go"))
 	if got.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d", got.StatusCode)
@@ -263,7 +263,7 @@ func TestAgentTextPutHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	wk := addWorkspaceWithAgent(t, ts, "App", proj)
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+id+"/text?path=a.txt"))
 	var page map[string]any
 	_ = json.NewDecoder(got.Body).Decode(&page)

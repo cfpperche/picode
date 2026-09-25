@@ -30,7 +30,7 @@ func TestListSessionsScopedPerAgent(t *testing.T) {
 		t.Fatal(err)
 	}
 	wsv := addWorkspaceWithAgent(t, ts, "App", proj)
-	agentA := wsv.Agent.ID
+	agentA := wsv.Agents[0].ID
 
 	bRes := postJSON(t, ts, "/api/workspaces/"+wsv.ID+"/agents", map[string]string{"name": "second"})
 	if bRes.StatusCode != http.StatusCreated {
@@ -133,7 +133,7 @@ func TestListSessionsEmptyForFreshAgent(t *testing.T) {
 	// A session nobody has resumed onto this (or any) agent yet.
 	_ = writeManageSession(t, proj, "stray.jsonl", 0)
 
-	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wsv.ID+"/sessions?agent="+wsv.Agent.ID))
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wsv.ID+"/sessions?agent="+wsv.Agents[0].ID))
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("list = %d", res.StatusCode)
 	}
@@ -182,7 +182,7 @@ func TestListSessionsResolvesFreshSessionPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	wsv := addWorkspaceWithAgent(t, ts, "App", proj)
-	agentID := wsv.Agent.ID
+	agentID := wsv.Agents[0].ID
 
 	// Simulate what rpc.Runtime.Start / Deps.spawnFlags do at spawn time
 	// for a fresh agent: mint a session id before any file exists.
@@ -317,7 +317,7 @@ func TestListSessionsSeesPrivateDirSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	wsv := addWorkspaceWithAgent(t, ts, "App", proj)
-	agentA := wsv.Agent.ID
+	agentA := wsv.Agents[0].ID
 
 	bRes := postJSON(t, ts, "/api/workspaces/"+wsv.ID+"/agents", map[string]string{"name": "second"})
 	if bRes.StatusCode != http.StatusCreated {

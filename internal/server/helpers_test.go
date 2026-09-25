@@ -34,7 +34,6 @@ func addWorkspaceWithAgent(t *testing.T, ts *httptest.Server, name, dir string) 
 		t.Fatalf("decode agent: %v", err)
 	}
 	ares.Body.Close()
-	wk.Agent = &av
 	wk.Agents = []agentView{av}
 	return wk
 }

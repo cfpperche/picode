@@ -101,7 +101,7 @@ func TestPrivateAgentDirManageAndSweep(t *testing.T) {
 		t.Fatal(err)
 	}
 	wsv := addWorkspaceWithAgent(t, ts, "App", proj)
-	agentID := wsv.Agent.ID
+	agentID := wsv.Agents[0].ID
 
 	// Old (sweep-eligible), owned via agent_sessions but never "current".
 	owned := writeAgentSession(t, agentID, "owned.jsonl", 40*24*time.Hour)

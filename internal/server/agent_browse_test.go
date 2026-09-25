@@ -88,7 +88,7 @@ func TestBrowseHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	wk := addWorkspaceWithAgent(t, ts, "App", proj)
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+id+"/browse"))
 	if got.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d", got.StatusCode)

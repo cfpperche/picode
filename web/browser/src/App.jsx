@@ -121,7 +121,7 @@ import { isSearchTool, hitsFromResult } from "@picode/shared/domain/searchCards.
 import ConfirmDialog from "./components/ConfirmDialog.jsx";
 import PromptDialog from "./components/PromptDialog.jsx";
 import { askPrompt } from "./lib/prompt.js";
-import { locate, ownerOfTerminal, firstAgentId, displayAgentName, mentionAgents } from "@picode/shared/domain/tree.js";
+import { agentsOf, locate, ownerOfTerminal, firstAgentId, displayAgentName, mentionAgents } from "@picode/shared/domain/tree.js";
 import { leafUserId } from "./lib/sessionCards.js";
 
 function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
@@ -2169,8 +2169,10 @@ export default function App({ shellChrome = false } = {}) {
     const next = selectedRef.current === id ? pickNextTab(tabsRef.current, [id]) : null;
     setTabs((t) => t.filter((x) => x !== id));
     setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
-    if (ws && ws.agent) closeAgentShell(ws.agent);
-    if (panelRef.current && ws && ws.agent && panelRef.current.agentId === ws.agent.id) closePanel();
+    for (const a of agentsOf(ws)) {
+      closeAgentShell(a);
+      if (panelRef.current && panelRef.current.agentId === a.id) closePanel();
+    }
     if (selectedRef.current === id) adoptTab(next);
   }
 
@@ -3150,7 +3152,6 @@ export default function App({ shellChrome = false } = {}) {
         method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ exit: { origin: "desktop" } }),
       });
       const ids = (ws.agents || []).map((a) => a.id);
-      if (ws.agent) ids.push(ws.agent.id);
       // The workspace's terminals died with it (ADR-0026): drop them from
       // the list and close their tabs, like removeTerminal does.
       const deadTerms = terminals.filter((t) => termWorkspaceId(t) === ws.id);
@@ -3160,7 +3161,7 @@ export default function App({ shellChrome = false } = {}) {
       const removedTabs = [ws.id, ...ids, ...deadTerms.map((t) => termTabId(t.id))];
       const next = removedTabs.includes(selectedRef.current) ? pickNextTab(tabsRef.current, removedTabs) : null;
       for (const id of [...new Set(ids)]) {
-        const ownedAgent = (ws.agents || []).find((candidate) => candidate.id === id) || (ws.agent && ws.agent.id === id ? ws.agent : null);
+        const ownedAgent = (ws.agents || []).find((candidate) => candidate.id === id);
         closeAgentShell(ownedAgent || { id });
         if (panelRef.current && panelRef.current.agentId === id) closePanel();
       }

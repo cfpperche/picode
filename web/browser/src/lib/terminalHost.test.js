@@ -70,8 +70,8 @@ test("closing either tab preserves the runtime owned by its other alias", () => 
   assert.deepEqual(closingPaneKeys("file:x", [], ["file:x"]), []);
 });
 
-test("workspace ownership supports both current and compatibility fleet shapes", () => {
-  assert.deepEqual(fleetAgents({ workspaces: [{ agent }, { agents: [{ id: "b" }] }] }).map((a) => a.id), ["a", "b"]);
+test("workspace ownership reads every workspace's agents (the single `agent` field retired 2026-09-25)", () => {
+  assert.deepEqual(fleetAgents({ workspaces: [{ agents: [agent] }, { agents: [{ id: "b" }] }, { agent }] }).map((a) => a.id), ["a", "b"]);
 });
 
 test("terminal menu never promises xterm scroll-to-end for application-owned history", () => {

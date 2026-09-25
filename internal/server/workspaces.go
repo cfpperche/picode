@@ -16,12 +16,11 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-// workspaceView is a workspace plus its agents (ADR-0011). Agent is a
-// pointer on purpose: a workspace can be empty (ADR-0027), and a zero-value
-// object here would read as a truthy agent with an empty id in the UI.
+// workspaceView is a workspace plus its agents (ADR-0011). A workspace can be
+// empty (ADR-0027). The `agent` field (the first agent, for single-agent
+// clients) was retired 2026-09-25; every reader walks `agents`.
 type workspaceView struct {
 	store.Workspace
-	Agent      *agentView    `json:"agent,omitempty"` // first agent; kept for older clients
 	Agents     []agentView   `json:"agents"`
 	Git        *gitinfo.Info `json:"git,omitempty"`
 	HasFavicon bool          `json:"hasFavicon"`
@@ -116,11 +115,7 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 		views = append(views, agentView{MissionID: deps.Store.AgentMissionID(a.ID), Agent: a, Running: mode != modeStopped, Mode: string(mode),
 			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl, Terminal: deps.agentTerminalView(r, a), ForkedFrom: origins[a.ID]})
 	}
-	var first *agentView
-	if len(views) > 0 {
-		first = &views[0]
-	}
-	v := workspaceView{Workspace: w, Agent: first, Agents: views, Git: gitinfo.Inspect(w.Path), HasFavicon: workspaceHasFavicon(w.Path)}
+	v := workspaceView{Workspace: w, Agents: views, Git: gitinfo.Inspect(w.Path), HasFavicon: workspaceHasFavicon(w.Path)}
 	if v.Git != nil {
 		v.Remote = gitinfo.RemoteOf(w.Path)
 	}

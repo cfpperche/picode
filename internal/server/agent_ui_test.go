@@ -14,7 +14,7 @@ func TestAgentUIDecisionTable(t *testing.T) {
 	ts := bashTestServer(t)
 	proj := t.TempDir()
 	wk := addWorkspaceWithAgent(t, ts, "Ask", proj)
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 
 	// Row 8: stopped → no card / 409.
 	stopped := postJSON(t, ts, "/api/agents/"+id+"/ui", map[string]any{"id": "ui-ask", "cancelled": true})
@@ -103,7 +103,7 @@ func TestAgentUIDecisionTable(t *testing.T) {
 func TestAgentQueueWhileWaiting(t *testing.T) {
 	ts := bashTestServer(t)
 	wk := addWorkspaceWithAgent(t, ts, "Queue", t.TempDir())
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 	start := postJSON(t, ts, "/api/agents/"+id+"/managed/start", map[string]string{})
 	if start.StatusCode != http.StatusCreated && start.StatusCode != http.StatusOK {
 		t.Fatalf("start = %d", start.StatusCode)
@@ -175,7 +175,7 @@ func waitWSType(t *testing.T, ws *websocket.Conn, typ string, d time.Duration) m
 func TestWorkspaceListCarriesWaitingDialog(t *testing.T) {
 	ts := bashTestServer(t)
 	wk := addWorkspaceWithAgent(t, ts, "Phone", t.TempDir())
-	id := wk.Agent.ID
+	id := wk.Agents[0].ID
 	start := postJSON(t, ts, "/api/agents/"+id+"/managed/start", map[string]string{})
 	if start.StatusCode != http.StatusCreated && start.StatusCode != http.StatusOK {
 		t.Fatalf("start = %d", start.StatusCode)

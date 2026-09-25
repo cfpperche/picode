@@ -92,9 +92,9 @@ describe("fleetStats", () => {
     assert.deepEqual(f.units.map((u) => u.key), ["terminal:grid-layout-3a1c81", "agent:a1"]);
   });
 
-  it("handles the legacy single-agent workspace shape via agentsOf", () => {
+  it("ignores the retired single-agent `agent` field (2026-09-25)", () => {
     const f = fleetStats([{ id: "w1", agent: { id: "a1", mode: "managed" } }], [], [], {});
-    assert.deepEqual([f.agents.running, f.agents.total], [1, 1]);
+    assert.deepEqual([f.agents.running, f.agents.total], [0, 0]);
   });
 
   it("is zero-safe on empty input", () => {
