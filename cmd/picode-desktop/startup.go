@@ -20,31 +20,15 @@ func runStartupCheck() error {
 	return nil
 }
 
-func runStartupRepair(retargetShell bool) error {
+func runStartupRepair() error {
 	if runtime.GOOS != "windows" {
 		return fmt.Errorf("startup-repair runs on Windows")
 	}
-	return repairStartup(osRunner{}, elevate, os.Stdout, retargetShell)
+	return repairStartup(osRunner{}, elevate, os.Stdout)
 }
 
-func repairStartup(r desktop.Runner, requestElevation func() (bool, error), w io.Writer, retargetShell bool) error {
-	act := "repaired"
-	repair := desktop.RepairTask
-	if retargetShell {
-		act = "retargeted to the shell resident"
-		self, err := os.Executable()
-		if err != nil {
-			return err
-		}
-		shell, err := desktop.ShellExe(self, os.Getenv("LOCALAPPDATA"))
-		if err != nil {
-			return err
-		}
-		repair = func(r desktop.Runner) (desktop.TaskStatus, error) {
-			return desktop.RetargetTask(r, shell, desktop.ShellArgs)
-		}
-	}
-	status, err := repair(r)
+func repairStartup(r desktop.Runner, requestElevation func() (bool, error), w io.Writer) error {
+	status, err := desktop.RepairTask(r)
 	if desktop.TaskAccessDenied(err) {
 		if relaunched, elevateErr := requestElevation(); elevateErr != nil {
 			return elevateErr
@@ -59,7 +43,7 @@ func repairStartup(r desktop.Runner, requestElevation func() (bool, error), w io
 	if status.Backup == "" {
 		fmt.Fprintf(w, "Startup policy already matches; nothing changed (still %s).\n", residentName(status.Arguments))
 	} else {
-		fmt.Fprintf(w, "Startup policy %s. No process was started or stopped.\n", act)
+		fmt.Fprintln(w, "Startup policy repaired. No process was started or stopped.")
 		fmt.Fprintf(w, "Previous task definition: %s\n", status.Backup)
 	}
 	printStartupStatus(w, status, nil)

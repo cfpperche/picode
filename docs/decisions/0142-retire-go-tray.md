@@ -61,3 +61,7 @@ supervision and systray dependency, so a second tray cannot regress.
 | Shell supervises a headless Go `keepalive` helper | The heartbeat would depend on a second exe the shell must also supervise — one more failure hop for the duty that matters most |
 | Tauri autostart plugin instead of the scheduled task | A second autostart mechanism; the task keeps the ADR-0071 resident policy, the UAC story and the existing inspect/repair surface |
 | Merge the Go CLIs into the shell binary | The Go tools are tested, release-published and drive the provision JSON contract; a port buys nothing |
+
+## Amendment 2026-09-25 — migration code retired (owner)
+
+The migration's own compatibility is gone: `picode-desktop` no longer parses `--tray` (the retired-tray message), `startup-repair --retarget-shell` and `RetargetTask` / the PowerShell `retarget` operation are removed, `ResidentKind` and `repair` accept only the shell launch (`--hidden`), and `scripts/desktop-swap.sh` refuses a task that does not start `picode-shell.exe` instead of relaunching a tray. Measured before removal: the owner's `PiCodeDesktop` task runs `picode-shell.exe --hidden`, and PiCode runs only on that machine.
