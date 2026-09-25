@@ -1,0 +1,12 @@
+# 2026-09-25 — cli-run-final-message: a start run on a guest CLI reports the CLI's last answer
+
+Follow-up to cli-cost-meters. Before this, a start run on Claude Code, Codex, Grok, Hermes, OpenCode or Omp ended with only "Open X to read its session".
+Shipped: `cliRunFinal` in `internal/server/automations_cli.go`. At turn end it reads the pinned session through the handoff `clisession.Reader` (`Tail`; Omp uses `OmpAgentSessionsRoot`). The newest assistant message becomes the Inbox result and the notify body, as for a Pi run. It retries 5×600ms because the hook can arrive before the store. A message older than the prompt (with 2s slack) counts as no answer and falls back to the old "Open X to read its session" line.
+Found while building: `pinTerminalLastSession` skips grok and hermes. They are pinned only by native hooks, and a hook report may carry no session path. Which hook sends what was not checked live, and the production DB has no grok/hermes pins to check. `MeterSession` (yesterday's cost meter) needs a path for hermes/grok, so their cost may have gone unmeasured without any error.
+Fix: `clisession.StoreFor(cli, id, path, cwd)` finds the store: for Grok, the session folder from cwd+id or from a file inside it; for Hermes and OpenCode, their store paths. It runs at pin time in `recordNativeTerminalObservation` and in `cliRunCost`/`cliRunFinal`.
+Tests: `TestCLIRunFinalReadsTheSessionsLastAnswer` (Hermes fixture, a pin with no path, the stale-answer guard, an unknown CLI) and a `TestStoreFor` table.
+Live check (2026-09-25, a temporary probe on the owner's real sessions, now deleted): the last answer was read for grok, hermes and opencode (through `StoreFor` with no path) and for claude-code, codex and omp (with their paths). One opencode session and one omp session had no assistant text, so their final was empty and they got the fallback line.
+Not done: no real start run on a scratch instance after this change (the owner starts one with `QA_LOGINS=1 ./scripts/qa-scratch.sh start <name>`). The final text is not clipped in the Inbox (same as Pi); notify clips it at 1500 chars.
+Debts: the one in `docs/handoff/open/managed-principals.md` is paid.
+`make close` reported "docs/decisions/README.md: new ADR is not in the index". This is a false positive: ADR-0217 was only edited and is already indexed (line 223).
+Not deployed (owner's call). Merge: through `make land` after `make close`; main has moved (10 behind), so merge it and rerun (ADR-0124).
