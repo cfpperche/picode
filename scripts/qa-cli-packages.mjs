@@ -82,7 +82,7 @@ try {
       if(String(url).startsWith("/api/packages")&&opts?.method && opts.method!=="GET")return Promise.resolve(new Response(JSON.stringify({error:"Package operation failed"}),{status:503,headers:{"Content-Type":"application/json"}}));
       return window.qaFetch(url,opts);
     }`);
-    for (const [label, scope] of [["This machine", "user"], [workspace.name, "project"]]) {
+    for (const [label, scope] of [["Global", "user"], [workspace.name, "project"]]) {
       browser("find", "role", "radio", "click", "--name", label, "--exact"); ready();
       browser("fill", input, "npm:fixture-only"); browser("click", ".pkg-by-source button[type=submit]");
       wait('!!document.querySelector(".pkg-job-err")');

@@ -41,7 +41,11 @@ const paneClick = label => evaluate(`[...document.querySelectorAll(".cli-pane-ta
 // reached pi). Ask the wrapper; an earlier version read the first section and
 // silently answered "".
 const layerOf = () => evaluate('document.querySelector("#pi-settings-view [data-layer]")?.dataset.layer || ""');
-const globalHash = "#/clis/pi/settings";
+const settingsHash = "#/clis/pi/settings";
+// The machine layer, named: the pane follows the selected workspace (the
+// ADR-0179 context rule), so a bare address lands on that workspace's layer
+// once the sidebar holds one of its terminals.
+const globalHash = settingsHash + "?scope=global";
 const canonicalContext = "#/clis/pi/settings?agentId=" + encodeURIComponent(id);
 const contextHash = canonicalContext;
 // The fixture's machine layer is disposable: start every run from empty so a
@@ -136,7 +140,7 @@ try {
     // platform it binds for, the chords a browser keeps.
     paneClick("Keyboard");
     browser("wait", "--fn", '!!document.querySelector("#keys-filter")');
-    assert.equal(evaluate('location.hash.endsWith("/keyboard")'), true);
+    assert.equal(evaluate('location.hash.split("?")[0].endsWith("/keyboard")'), true);
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .pkg-tabs, #pi-settings-view .settings-layer").length'), 0);
     const keyReport = await api("/api/cli-keys?cli=pi");
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .key-row").length'), keyReport.actions.length);
@@ -151,11 +155,14 @@ try {
     // and a 700px void between a label and its chord (2026-09-21). Each row is
     // one line of action, one line of chords, one optional note; the label cell
     // is never taller than a line; and the keycaps sit next to the action they
-    // belong to, not at the far edge of the card.
+    // belong to, not at the far edge of the card. A two-chord row with a
+    // browser-reserved warning (Page down: PageDown + Ctrl+PageDown) wraps its
+    // note to three lines at 1365px — 106px measured 2026-09-25 — so the
+    // per-row ceiling is 112; the total still catches the "screens of air".
     assert.ok(evaluate('[...document.querySelectorAll("#pi-settings-view .key-label")].every(l => l.getBoundingClientRect().height <= 44)'), "a label cell must be one line, not a stretched flex item");
     assert.ok(evaluate('(() => { const rows = [...document.querySelectorAll("#pi-settings-view .key-row")]; const name = rows[0].querySelector(".key-name"); const keys = rows[0].querySelector(".key-keys"); const label = name.getBoundingClientRect(); const chip = keys.querySelector(".key-chip").getBoundingClientRect(); return Math.abs(label.top - chip.top) <= 12; })()'), "the action and its keycap belong on one line");
     assert.ok(evaluate('(() => { const row = document.querySelector("#pi-settings-view .key-row"); const gap = row.querySelector(".key-keys").getBoundingClientRect().left - row.querySelector(".key-name").getBoundingClientRect().right; return gap <= 48; })()'), "the keycaps follow the label instead of floating at the card's edge");
-    assert.ok(evaluate(`(() => { const rows = [...document.querySelectorAll("#pi-settings-view .key-row")]; const heights = rows.map(r => r.getBoundingClientRect().height); const total = heights.reduce((a, b) => a + b, 0); return Math.max(...heights) <= ${app === "desktop" ? 96 : 128} && total <= ${app === "desktop" ? 4000 : 6200}; })()`), "90 rows stay a list, not six screens of air");
+    assert.ok(evaluate(`(() => { const rows = [...document.querySelectorAll("#pi-settings-view .key-row")]; const heights = rows.map(r => r.getBoundingClientRect().height); const total = heights.reduce((a, b) => a + b, 0); return Math.max(...heights) <= ${app === "desktop" ? 112 : 128} && total <= ${app === "desktop" ? 4000 : 6200}; })()`), "90 rows stay a list, not six screens of air");
     assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .key-row .key-alt").length') >= 8, "the rows pi binds differently elsewhere say so");
     assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .key-note.is-warn").length') >= 5, "the chords the browser keeps are marked");
     assert.ok(evaluate('document.querySelectorAll("#pi-settings-view .key-note:not(.is-warn)").length') > 20, "shared chords are reported, not hidden");
@@ -325,12 +332,14 @@ try {
     if (app === "desktop") {
       navigate("#/term/" + encodeURIComponent(terminal.id));
       await new Promise(resolve => setTimeout(resolve, 400));
-      navigate("#/clis/pi/settings");
-      ready();
+      navigate(settingsHash);
+      // The route carries the terminal's workspace now; the pane under it may
+      // be that folder's (untrusted) layer, so wait for the route, not a form.
+      browser("wait", "--fn", 'location.hash.startsWith("#/clis/pi/settings") && !!document.querySelector(".cli-pane-tabs a")');
       paneClick("Keyboard");
       browser("wait", "--fn", '!!document.querySelector("#keys-filter")');
       await new Promise(resolve => setTimeout(resolve, 1200));
-      assert.equal(evaluate('location.hash.endsWith("/keyboard")'), true, "the pane rewrite must not undo a pane click");
+      assert.equal(evaluate('location.hash.split("?")[0].endsWith("/keyboard")'), true, "the pane rewrite must not undo a pane click");
       results.push(app + ": a Keyboard click survives the pane's own route rewrite");
       // Back to the machine layer: the provenance step below reads its toggle.
       navigate(globalHash);
@@ -360,7 +369,7 @@ try {
     await capture(app + "-other-cli");
     results.push(app + ": another CLI's pane refuses the Pi editor");
 
-    navigate(globalHash + "?agentId=missing-settings-fixture-agent");
+    navigate(settingsHash + "?agentId=missing-settings-fixture-agent");
     browser("wait", "[role=alert]");
     assert.equal(evaluate('document.querySelectorAll("#g-compactionEnabled").length'), 0);
     await capture(app + "-missing-agent");
@@ -372,12 +381,12 @@ try {
     ready();
     assert.equal(evaluate("location.hash"), canonicalContext);
     assert.equal(layerOf(), "agent");
-    assert.deepEqual(evaluate('[...document.querySelectorAll("#pi-settings-view .settings-layer .pkg-scope-btn")].map(b=>b.textContent)'), ["This machine", "picode", "Atlas"]);
+    assert.deepEqual(evaluate('[...document.querySelectorAll("#pi-settings-view .settings-layer .pkg-scope-btn")].map(b=>b.textContent)'), ["Global", "picode", "Atlas"]);
     await capture(app + "-context", true);
     if (!(await api("/api/pi-settings?agentId=" + encodeURIComponent(id))).writable.project) {
       browser("find", "role", "radio", "click", "--name", "picode", "--exact");
       browser("wait", "--fn", '!!document.querySelector("#pi-settings-view .cli-notice")');
-      assert.equal(evaluate('document.querySelectorAll("#w-steer").length'), 0);
+      assert.equal(evaluate('document.querySelectorAll("#w-steeringMode").length'), 0);
       browser("find", "role", "radio", "click", "--name", "Atlas", "--exact");
       browser("wait", "--fn", '!!document.querySelector("#ag-set-thinking")');
       results.push(app + ": untrusted workspace blocks project controls");
@@ -395,10 +404,10 @@ try {
     results.push(app + ": external agent changes arrive through feed");
 
     // Switching layer rewrites the route; a reload lands on the same layer.
-    browser("find", "role", "radio", "click", "--name", "This machine", "--exact");
+    browser("find", "role", "radio", "click", "--name", "Global", "--exact");
     // The hash moves first; wait for the rendered layer, not the URL.
     browser("wait", "--fn", 'document.querySelector("#pi-settings-view [data-layer]")?.dataset.layer === "global"');
-    assert.equal(evaluate('location.hash.includes("layer=global")'), true);
+    assert.equal(evaluate('location.hash.includes("scope=global")'), true);
     browser("reload"); ready();
     assert.equal(layerOf(), "global");
     assert.equal(evaluate('!!document.querySelector("#pi-settings-view .settings-file")'), true);
@@ -460,14 +469,17 @@ try {
   mkdirSync(untrustedPath);
   const untrustedWorkspace = await api("/api/workspaces", "POST", { name: "Settings untrusted", path: untrustedPath });
   const untrustedAgent = await api("/api/workspaces/" + untrustedWorkspace.id + "/agents", "POST", { name: "Settings scope" });
-  browser("open", new URL("/mobile/?theme=dark" + globalHash + "?agentId=" + encodeURIComponent(untrustedAgent.id) + "&layer=project", base).href); ready();
-  assert.equal(evaluate('document.querySelectorAll("#w-steer").length'), 0);
+  browser("open", new URL("/mobile/?theme=dark" + settingsHash + "?agentId=" + encodeURIComponent(untrustedAgent.id) + "&scope=workspace", base).href);
+  // An untrusted folder's layer is a notice with the trust link, not a form.
+  browser("wait", "--fn", '!!document.querySelector(\'[data-layer="project"]\')');
+  assert.equal(evaluate('document.querySelectorAll("#w-steeringMode").length'), 0);
   // A plain anchor: the shell's own notices can sit over it on a phone, so
   // navigate it directly and assert the route the app lands on.
   browser("wait", "--fn", '!!document.querySelector(\'[data-layer="project"] a\')');
   evaluate('document.querySelector(\'[data-layer="project"] a\').click(); true');
   browser("wait", "--fn", `location.hash===${JSON.stringify("#/agent/" + untrustedAgent.id)}`);
-  browser("back"); ready();
+  browser("back");
+  browser("wait", "--fn", '!!document.querySelector(\'[data-layer="project"]\')');
   evaluate('document.querySelector("[data-layer=project]").scrollIntoView({block:"center"})');
   await capture("mobile-untrusted-workspace");
   const rejected = await fetch(new URL("/api/pi-settings", base), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: untrustedAgent.id, layer: "project", patch: { steeringMode: "all" } }) });
@@ -480,14 +492,14 @@ try {
   // Trust acceptance uses the real endpoint on this disposable workspace.
   await api("/api/agents/" + encodeURIComponent(id) + "/trust", "POST");
   browser("open", new URL("/mobile/?theme=light" + contextHash + "&scope=workspace", base).href); ready();
-  browser("wait", "#w-steer");
-  browser("select", "#w-steer", "all"); ready();
+  browser("wait", "#w-steeringMode");
+  browser("select", "#w-steeringMode", "all"); ready();
   assert.equal((await api("/api/pi-settings?agentId=" + encodeURIComponent(id))).project.steeringMode, "all");
   await capture("mobile-trusted-workspace");
   results.push("trusted workspace: project round-trip");
   const free = await api("/api/agents", "POST", { name: "Settings QA free" });
   assert.ok(free.id);
-  browser("open", new URL("/mobile/" + globalHash + "?agentId=" + encodeURIComponent(free.id), base).href); ready();
+  browser("open", new URL("/mobile/" + settingsHash + "?agentId=" + encodeURIComponent(free.id), base).href); ready();
   assert.equal(evaluate('document.querySelectorAll("[data-layer=project]").length'), 0);
   assert.equal(evaluate('document.querySelectorAll("[data-layer=agent]").length'), 1);
   assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .settings-layer .pkg-scope-btn").length'), 2);

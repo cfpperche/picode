@@ -58,7 +58,7 @@ try {
   for (const app of ["desktop", "mobile"]) {
     browser("set", "viewport", ...(app === "desktop" ? ["1365", "1000"] : ["390", "844"]));
     open(app, contextHash); ready();
-    selectLayer("This machine", "global");
+    selectLayer("Global", "global");
     const pattern = "keep-" + app + "-*";
     browser("fill", '[aria-label="Model pattern"]', pattern);
     // The keyboard map is its own pane (`#/clis/pi/keyboard`) reading its own
@@ -84,7 +84,7 @@ try {
     // The agent layer is blocked by the same stale context.
     selectLayer("Atlas", "agent");
     assert.equal(ev('document.querySelector("#ag-set-thinking").matches(":disabled")'), true);
-    selectLayer("This machine", "global");
+    selectLayer("Global", "global");
     ev('document.querySelector("#agent-clis-view [role=alert]").scrollIntoView({block:"center"})');
     await capture(app + "-refresh-error");
     browser("click", "#agent-clis-view [role=alert] button");
@@ -92,13 +92,13 @@ try {
     assert.equal(draft(), pattern);
     selectLayer("Atlas", "agent");
     assert.equal(ev('document.querySelector("#ag-set-thinking").matches(":disabled")'), true);
-    selectLayer("This machine", "global");
+    selectLayer("Global", "global");
     ev('window.qaReadMode="hold"');
     browser("click", "#agent-clis-view [role=alert] button");
     wait('typeof window.qaRelease==="function"');
     selectLayer("Atlas", "agent");
     assert.equal(ev('document.querySelector("#ag-set-thinking").matches(":disabled")'), true);
-    selectLayer("This machine", "global");
+    selectLayer("Global", "global");
     assert.equal(draft(), pattern);
     ev('window.qaReadMode="pass";window.qaRelease();true'); ready();
     assert.equal(draft(), pattern);
