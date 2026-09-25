@@ -582,10 +582,25 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
       confirmLabel: "Use",
     });
     if (!ok) return;
+    let held = null;
     await run("use:" + account.id, async () => {
-      const res = await api(credPath(provider.id, account.id, "/activate"), json("POST", { cli }));
-      return res;
-    }, (res) => toast.ok(res && res.backup ? "Now using " + label + ". Original kept at " + res.backup : "Now using " + label + "."));
+      try {
+        return await api(credPath(provider.id, account.id, "/activate"), json("POST", { cli }));
+      } catch (ex) {
+        // Another CLI already holds this login (ADR-0166): sharing it would
+        // let the first renewal sign the other out, so offer a login of
+        // this CLI's own instead of a toast.
+        if (ex.status === 409 && ex.body && ex.body.signInHere) { held = ex.body; return null; }
+        throw ex;
+      }
+    }, (res) => { if (!held) toast.ok(res && res.backup ? "Now using " + label + ". Original kept at " + res.backup : "Now using " + label + "."); });
+    if (!held) return;
+    const again = await askConfirm({
+      title: label + " is signed in to " + held.heldBy,
+      message: "Using it in " + cliName + " too would share one login, and the first to renew it signs the other out. Sign in to " + cliName + " separately — the same account can hold two logins.",
+      confirmLabel: "Sign in to " + cliName,
+    });
+    if (again) startSignin();
   }
 
   async function signOut(provider, account) {
@@ -1039,6 +1054,7 @@ function AccountRow({
   const source = sourceLabel(account.origin);
   const chip = healthChip(account.health);
   const state = [kind, account.paused ? "paused" : account.active ? "in use" : ""].filter(Boolean).join(" · ");
+  const shared = Array.isArray(account.sharedWith) && account.sharedWith.length > 1 ? account.sharedWith : null;
   const checked = chip
     ? [chip.message, chip.age ? (chip.age === "now" ? "Checked just now." : "Checked " + chip.age + " ago.") : ""].filter(Boolean).join(" ")
     : "";
@@ -1059,6 +1075,11 @@ function AccountRow({
       <span className="prov-cell prov-account">
         <span className="cred-label" title={label}>{label}</span>
         {state ? <span className={"prov-auth" + (account.active && !account.paused ? " in" : "")}>{state}</span> : null}
+        {shared ? (
+          <span className="prov-auth prov-shared" title={"One login in " + shared.join(" and ") + ": the first to renew it signs the other out. Sign in to one of them separately."}>
+            shared with {shared.filter((n) => n !== cliName).join(", ") || shared.join(", ")}
+          </span>
+        ) : null}
         {source ? <span className="cred-chip">{source}</span> : null}
         {chip ? <span className={"cred-chip is-" + chip.tone} title={checked || undefined}>{chip.label}</span> : null}
         {verdict ? (

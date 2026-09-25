@@ -120,3 +120,13 @@ answered 401 since 09-14 while Claude Code's own login worked:
    (ADR-0013).
 
 Boundary: security model (who may spend a credential), no new persistence.
+
+## Amendment 2026-09-25 — one refresh token, one CLI
+
+The same rule between two CLIs: Use refuses (409, `heldBy`, `signInHere`) to
+write a row whose refresh token another CLI's own live login already holds —
+pi included, on both of its routes — because the first of the two to renew
+would sign the other out. The pane offers a separate sign-in for the CLI
+instead: the same account can hold two logins, each with its own refresh
+token. A share made before this rule is named on the row (`sharedWith`, two or
+more holders). Use on the CLI that already holds the login is not a share.
