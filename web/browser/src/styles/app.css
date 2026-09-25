@@ -22,32 +22,14 @@ html, body {
   height: 100vh; max-height: 100vh;
   overflow: hidden;
 }
-/* Scrollbars: the look for every surface lives in
-   @picode/shared/styles/scrollbars.css (loaded before this sheet), with the
-   note on why the standard properties stay inside @supports. Only this
-   app's own tweaks are here. */
+/* Scrollbars: the look and the hide-until-hover rule for every surface
+   live in @picode/shared/styles/scrollbars.css (loaded before this sheet),
+   with the note on why the standard properties stay inside @supports. Only
+   this app's own tweaks are here. */
 @supports not selector(::-webkit-scrollbar) {
-  .side-scroll {
-    scrollbar-color: transparent transparent;
-    transition: scrollbar-color .18s ease;
-  }
-  #sidebar:hover .side-scroll, #sidebar:focus-within .side-scroll {
-    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
-  }
   @media (max-width: 700px) {
     .conversation.with-rail { scrollbar-width: thin; }
   }
-}
-/* Sidebar scrollbar hides until the sidebar is hovered or focused —
-   the rail stays invisible at rest (Linear/VS Code). The gutter stays
-   reserved, so the reveal is a pure thumb fade with no reflow. Firefox's
-   scrollbar-color half of this lives in the @supports block above. */
-.side-scroll::-webkit-scrollbar-thumb {
-  background: transparent;
-  transition: background .18s ease;
-}
-#sidebar:hover .side-scroll::-webkit-scrollbar-thumb, #sidebar:focus-within .side-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-secondary) 40%, transparent);
 }
 /* Author `display:` beats the UA [hidden] rule. One global override so
    hideDock / empty / form / tabs actually disappear. */
