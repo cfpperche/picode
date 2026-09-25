@@ -257,7 +257,14 @@ wrapper for every terminal opened from then on, and it is not a setting of
 the CLI selected under it. The wrapper resolves the real binary with pure
 shell (`${0%/*}`) — a guard that shells out to `dirname` under a minimal
 PATH found itself in its own bin dir and exec'd in an endless loop, caught
-by its own test suite on 2026-09-15.
+by its own test suite on 2026-09-15. Every wrapper — the guard, the CLI
+integrations (`wrapperFindReal`) and the browser hand-off — also skips any
+other PiCode wrapper (`#!/bin/sh` then `# PiCode …`, the Go side's
+`isCLIWrapper` test, in shell builtins): with two instances' bin dirs on
+one PATH (a scratch terminal opened inside PiCode) each guard found the
+other's and the two exec'd each other forever, one pid at full CPU for half
+an hour (2026-09-25; `TestWrappersSkipOtherInstancesWrappers`). New wrappers
+reach disk the next time PiCode writes them (a restart, or the switch).
 
 **PiCode's own tmux calls skip the guard.** `tmux.Binary()` resolves the
 first `tmux` on PATH that is not a PiCode intercept wrapper (`# PiCode

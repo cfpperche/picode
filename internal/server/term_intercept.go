@@ -127,12 +127,22 @@ func interceptSessionPath(dataDir string) string {
 	return "PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH")
 }
 
-const wrapperFindReal = `here=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+const wrapperFindReal = `# Another PiCode wrapper is never the real binary: two instances' bin dirs
+# on one PATH (a scratch terminal inside PiCode) made each wrapper exec the
+# other forever, one pid at full CPU (2026-09-25). Same test as the Go side's
+# isCLIWrapper, in shell builtins only.
+picode_wrapper() {
+  { IFS= read -r picode_l1 && IFS= read -r picode_l2; } < "$1" 2>/dev/null || return 1
+  [ "$picode_l1" = "#!/bin/sh" ] || return 1
+  case "$picode_l2" in "# PiCode "*) return 0 ;; esac
+  return 1
+}
+here=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 real=
 IFS=:
 for d in $PATH; do
   [ "$d" = "$here" ] && continue
-  if [ -x "$d/$name" ]; then real="$d/$name"; break; fi
+  if [ -x "$d/$name" ] && ! picode_wrapper "$d/$name"; then real="$d/$name"; break; fi
 done
 unset IFS
 if [ -z "$real" ]; then
@@ -971,13 +981,23 @@ exec "$real" "$@"
 // the computed `here` was wrong, and the guard found *itself* in the bin
 // dir and exec'd in an endless self-loop (caught 2026-09-15). A guard must
 // not depend on the environment it polices: ${0%/*} is pure shell.
-const guardFindReal = `here=${0%/*}
+const guardFindReal = `# Another PiCode wrapper is never the real binary: two instances' bin dirs
+# on one PATH (a scratch terminal inside PiCode) made each wrapper exec the
+# other forever, one pid at full CPU (2026-09-25). Same test as the Go side's
+# isCLIWrapper, in shell builtins only.
+picode_wrapper() {
+  { IFS= read -r picode_l1 && IFS= read -r picode_l2; } < "$1" 2>/dev/null || return 1
+  [ "$picode_l1" = "#!/bin/sh" ] || return 1
+  case "$picode_l2" in "# PiCode "*) return 0 ;; esac
+  return 1
+}
+here=${0%/*}
 [ "$here" = "$0" ] && here=.
 real=
 IFS=:
 for d in $PATH; do
   [ "$d" = "$here" ] && continue
-  if [ -x "$d/$name" ]; then real="$d/$name"; break; fi
+  if [ -x "$d/$name" ] && ! picode_wrapper "$d/$name"; then real="$d/$name"; break; fi
 done
 unset IFS
 if [ -z "$real" ]; then
