@@ -94,7 +94,8 @@ job — and its `Install`/`Remove`/`Update`/`Toggle`/
 mutations run through `pipkg` in the server's own handlers on the same
 `POST /api/packages`, `POST /api/packages/update` and `DELETE /api/packages`
 paths, told apart from a CLI's own verb by the `cli` the request carries (none,
-for PiCode's own call), and they answer the CLI's fresh list directly. A read
+for PiCode's own call), and they answer the CLI's fresh list directly, in the
+unified report shape (the pipkg-shaped body was retired 2026-09-25). A read
 that named no workspace or no agent declares
 no radio for that layer (`scopesForContext`), so a control that could not work
 is never offered.
