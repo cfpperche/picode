@@ -4000,6 +4000,7 @@ export default function App({ shellChrome = false } = {}) {
             changed={fileTabChanged}
             root={(fileTabWT && fileTabWT.root) || ""}
             worktree={(fileTabWT && fileTabWT.ref) || ""}
+            onOpenPath={(p) => { if (fileTabInfo) openFileTab(fileTabInfo.kind, fileTabInfo.id, p, "file", fileTabWT); }}
           />
           {/* Same rule as the trees below: the loaded history, the open
               commit, the search and the branch filter belong to the tab. */}

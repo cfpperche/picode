@@ -1,4 +1,4 @@
-# File preview: HTML (ADR-0136, ADR-0137)
+# File preview: Markdown and HTML (ADR-0136, ADR-0137)
 
 > Part of PiCode's architecture (ADR-0105: one file per subsystem). Edit here; the index only links.
 
@@ -7,6 +7,27 @@ The file pane has one kind registry (`web/shared/domain/filePreview.js`):
 `video` and `model3d` (blob). Every other kind renders in the app as a
 component; HTML is a page, so it gets an origin — a sandboxed one, or its
 own.
+
+## Markdown as a document
+
+A `.md` file renders like GitHub renders it, in both apps, through
+`MarkdownDoc` (one copy per app, ADR-0072) on one shared pipeline:
+
+| Piece | Where | Rule |
+|---|---|---|
+| Pipeline | `web/shared/domain/mdPipeline.js` | `remark-gfm` + `remark-math` → `rehype-raw` → `rehype-sanitize` (hast-util-sanitize's default schema, which is GitHub's allow-list) → `rehype-katex` → alerts → heading ids. Only the steps **after** the sanitizer add classes; the author's HTML never reaches the DOM unsanitized |
+| Document rules | `web/shared/domain/mdDocument.js` | frontmatter split (flat `key: value` → table, else raw YAML), github-slugger ids, `> [!NOTE]`-style alerts at the top level, link and image resolution |
+| Ids | `DOC_ID_PREFIX` | every id is `user-content-…`, as on GitHub, so a heading can never shadow an id the app looks up; `#frag` links try the prefixed id first |
+| Links | `resolveDocLink` | `#frag` scrolls inside the pane (the app routes by hash, so the page hash never moves); `http(s)`/`mailto` open a new tab; a relative path opens that file where the mount passes `onOpenPath` — the same pane in the file tree and mobile Files, a new file tab from a file tab — and is inert text elsewhere (canvas file panels, chat file cards); any other scheme or a path above the root is inert |
+| Images | `resolveDocImage` | web and `data:image/` URLs as before (`safeImgSrc`); a relative path loads through the owner's `blob` file route — the same API the pane reads with, never a filesystem path in the page. An SVG is read through the `text` route and shown as a `data:` image (an `<img>` never runs its scripts), so the file API never serves SVG as a document on the app's origin |
+| Code | `mdComponents` | the chat's SourceBlock (highlight, copy), MermaidBlock and diff fences; no Run button in a file |
+| Outline | `MarkdownDoc` | read back from the rendered `h1`–`h3`, shown as a second column only when the pane is ≥1040px wide (container query) and there are ≥3 headings |
+| Scrolling | `scrollToHeading` | jumps scroll the pane's own scroll box, never `scrollIntoView` — that also moves clipped ancestors and pushed the pane header out of reach; the outline's current entry follows a scroll listener on the same box |
+
+Styles live in `web/shared/styles/markdown-doc.css`, loaded after each app's
+sheet and scoped under `.md-doc`, so the chat's `.md` message rhythm is
+untouched. `MarkdownDoc` is a lazy chunk: previews of other kinds do not load
+the highlighter, KaTeX or the sanitizer.
 
 ## Route family
 
