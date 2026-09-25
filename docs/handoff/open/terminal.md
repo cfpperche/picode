@@ -6,6 +6,8 @@
 
 ## Debts
 
+- [ ] `TestCLIAdapterPreviewMatchesExecution` failed again twice on 2026-09-25 in the `make land` gate on main (`TempDir RemoveAll cleanup: … directory not empty`), after the 2026-09-23 fix under Traps; both reruns of `make ci` were green. Something still writes into the test's TempDir after it returns — reopen the diagnosis.
+
 - [x] **The 3.7c re-measure.** Paid 2026-09-24 on a private 3.7c server (no
   tmux server was running on the machine at all — the socket under
   `/tmp/tmux-1000` was stale — so the next one is 3.7c by construction):

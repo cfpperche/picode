@@ -6,6 +6,8 @@
 
 ## Debts
 
+- [ ] Two more gate flakes seen once each on 2026-09-25 (merge gate on main, both pass isolated, reruns green): `internal/gitinfo` `TestInspectCountsDirtyFiles` (`Dirty:0, want Dirty 2`, 5/5 alone) and `internal/clisession` `TestWriteTextToolsModeAndNeverOverwrites` (`pi overwrote an existing session`, 10/10 alone; the test swaps the package-global `session.TestRoot`, the likely race under load).
+
 - [ ] **`internal/server` in one `-race` process on a two-core runner has
   outgrown its timeout.** Measured 2026-09-23: 1691 s on the 0.5.0-era suite
   (94% of the 30m ceiling), then `FAIL internal/server 1800.070s` — a red gate

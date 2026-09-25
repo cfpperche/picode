@@ -21,4 +21,7 @@ tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split wit
 - [ ] Relative file links are inert text in canvas file panels and chat file cards (no `onOpenPath` at those mounts); tree, file tab and mobile Files open them.
 - [ ] Opening `other.md#section` opens the file at its top; the fragment is not scrolled to after load.
 - [ ] Raw HTML in markdown now renders after GitHub's sanitizer allow-list (no script, style, event handlers or unprefixed ids). No ADR was written: the owner may want one, since it widens what file content reaches the app DOM.
+- [ ] Phone: after a link opens another file (Preview or Live), Back returns to the Files tree, not to the file the link was in (existing `selectFile` navigation).
+- [ ] Live: raw HTML (`<kbd>`, `<details>`) and frontmatter stay source, and raw HTML tags take the link colour; Preview renders them.
+- [ ] Live tables: a click on a cell puts the cursor at the start of the cell's text, not at the clicked character.
 - [ ] `.workspace-view.file-on` is `overflow: hidden` with content taller than its box, so any `scrollIntoView` inside a file tab can scroll the clipped ancestor and push the file toolbar off-screen; MarkdownDoc avoids scrollIntoView for this reason.
