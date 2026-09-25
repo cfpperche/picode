@@ -10,7 +10,7 @@ import { bootReads } from "./lib/bootReads.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
-import { sessionHostTab } from "./lib/sessionBrowser.js";
+import { sessionHostTab, sessionReveal } from "./lib/sessionBrowser.js";
 import { enabledKeys } from "./lib/computerChannel.js";
 import { matchAction } from "./lib/appKeys.js";
 import { isReloadKey, desktopReloadAction } from "./lib/desktopReload.js";
@@ -1843,7 +1843,18 @@ export default function App({ shellChrome = false } = {}) {
     return id;
   }
   // ADR-0172: a session drive opens the split beside that principal's tab
-  // and selects it, so the human sees the page the agent is driving.
+  // and selects it, so the human sees the page the agent is driving. Once the
+  // split exists, the other verbs run where it is and leave the human's tab
+  // alone (sessionReveal); onScreen/reveal let a verb that needs pixels
+  // bring it forward only when it has to.
+  function revealSession(host) {
+    if (!tabsRef.current.includes(host)) {
+      if (isTermTab(host)) openTermTab(tabTermId(host));
+      else openTab(host);
+    } else if (selectedRef.current !== host) {
+      setSelectedId(host);
+    }
+  }
   function ensureSession(cmd) {
     const agents = fleetAgents({ freeAgents: freeAgentsRef.current, workspaces: workspacesRef.current });
     const ag = agents.find((a) => a && a.id === cmd?.agent);
@@ -1854,14 +1865,34 @@ export default function App({ shellChrome = false } = {}) {
       agentTerminalId: ag?.terminalId || "",
     });
     if (!host) return { error: "this caller has no session tab to bind a browser to" };
-    if (!tabsRef.current.includes(host)) {
-      if (isTermTab(host)) openTermTab(tabTermId(host));
-      else openTab(host);
-    } else if (selectedRef.current !== host) {
-      setSelectedId(host);
-    }
+    const reveal = sessionReveal({
+      hostOpen: tabsRef.current.includes(host),
+      splitExists: !!agentPanesRef.current[host],
+      method: cmd?.method || "",
+    });
+    // The receipt the events verb hands back: which host this command bound
+    // to and why the view moved (or did not) — read from the agent side
+    // instead of guessed from the code.
+    const decision = {
+      host,
+      reveal,
+      hostOpen: tabsRef.current.includes(host),
+      splitKey: agentPanesRef.current[host] || "",
+      selected: selectedRef.current || "",
+      agent: cmd?.agent || "",
+      term: cmd?.term || "",
+      boundTerminal: ag?.terminalId || "",
+      splits: Object.keys(agentPanesRef.current),
+    };
+    if (reveal !== "none") revealSession(host);
     const id = openAgentSplit(host);
-    return id ? { id } : { error: "could not open the browser beside this session" };
+    if (!id) return { error: "could not open the browser beside this session" };
+    return {
+      id,
+      onScreen: reveal !== "none" || (selectedRef.current === host && parseRoute(location.hash) === "workspace"),
+      reveal: () => revealSession(host),
+      decision,
+    };
   }
   ensureSessionRef.current = ensureSession;
   function closeAgentSplit(key) {

@@ -25,7 +25,7 @@ function fakeSource() {
   };
 }
 
-function harness({ tab = "w:7", invoke, post, ensureSession = null } = {}) {
+function harness({ tab = "w:7", invoke, post, ensureSession = null, hiddenPixelWait = 4000, revealSettle = 400 } = {}) {
   const source = fakeSource();
   const calls = { invoke: [], post: [], errors: [] };
   const channel = createBrowserChannel({
@@ -44,6 +44,8 @@ function harness({ tab = "w:7", invoke, post, ensureSession = null } = {}) {
         calls.post.push(result);
       }),
     onError: (message, err) => calls.errors.push(String(err?.message || err || message)),
+    hiddenPixelWait,
+    revealSettle,
   });
   return { source, calls, channel };
 }
@@ -175,4 +177,68 @@ test("a computer frame on a page without a runner is answered, not hung", async 
   assert.deepEqual(calls.invoke, []);
   assert.equal(calls.post.length, 1);
   assert.match(calls.post[0].error, /^not_connected/);
+});
+
+// The session split off screen (ADR-0172): a verb runs where the split is and
+// never asks the page to reveal it, except a screenshot that does not paint.
+const until = (cond) => new Promise((resolve) => {
+  const tick = () => (cond() ? resolve() : setTimeout(tick, 1));
+  tick();
+});
+
+test("a hidden session split answers a screenshot without being revealed", async () => {
+  let reveals = 0;
+  const { source, calls } = harness({
+    ensureSession: async () => ({ id: "3", onScreen: false, reveal: () => { reveals += 1; } }),
+    hiddenPixelWait: 20,
+  });
+  source.frame(JSON.stringify({ id: "h1", session: true, agent: "ag-1", method: "Page.captureScreenshot" }));
+  await until(() => calls.post.length === 1);
+  assert.equal(reveals, 0);
+  assert.equal(calls.invoke.length, 1);
+  assert.deepEqual(calls.post[0].output, { ok: "btab_cdp_call" });
+});
+
+test("a hidden split that does not paint is revealed once and asked again", async () => {
+  let reveals = 0;
+  let n = 0;
+  const { source, calls } = harness({
+    ensureSession: async () => ({ id: "3", onScreen: false, reveal: () => { reveals += 1; } }),
+    hiddenPixelWait: 10,
+    revealSettle: 1,
+    invoke: async () => {
+      n += 1;
+      if (n === 1) return new Promise(() => {}); // a hidden WebView2 that never paints
+      return { data: "png" };
+    },
+  });
+  source.frame(JSON.stringify({ id: "h2", session: true, agent: "ag-1", method: "Page.captureScreenshot" }));
+  await until(() => calls.post.length === 1);
+  assert.equal(reveals, 1);
+  assert.equal(n, 2);
+  assert.deepEqual(calls.post[0].output, { data: "png" });
+  assert.match(calls.errors[0], /did not paint/);
+});
+
+test("other verbs on a hidden split never reveal it", async () => {
+  let reveals = 0;
+  const { source, calls } = harness({
+    ensureSession: async () => ({ id: "3", onScreen: false, reveal: () => { reveals += 1; } }),
+    hiddenPixelWait: 1,
+  });
+  for (const method of ["Runtime.evaluate", "Input.dispatchMouseEvent", "Accessibility.getFullAXTree"]) {
+    source.frame(JSON.stringify({ id: method, session: true, agent: "ag-1", method }));
+  }
+  await until(() => calls.post.length === 3);
+  assert.equal(reveals, 0);
+});
+
+test("the events verb on a session drive carries the binding decision", async () => {
+  const { source, calls } = harness({
+    ensureSession: async () => ({ id: "3", onScreen: false, decision: { host: "ag-1", reveal: "none" } }),
+    invoke: async () => ({ events: [], last: 0 }),
+  });
+  source.frame(JSON.stringify({ id: "e1", session: true, agent: "ag-1", method: "shell.events" }));
+  await settle();
+  assert.deepEqual(calls.post[0].output, { events: [], last: 0, session: { host: "ag-1", reveal: "none" } });
 });

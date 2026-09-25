@@ -89,3 +89,14 @@ test("kinds read as words", () => {
   assert.equal(kindLabel("tiny"), "Small");
   assert.equal(kindLabel("mystery"), "mystery");
 });
+
+test("the model list fills only the model field of a CLI with a reader", async () => {
+  const { MODEL_READERS, modelPickField } = await import("./cliModels.js");
+  assert.deepEqual(MODEL_READERS, ["omp", "pi", "codex", "opencode", "muse"]);
+  assert.equal(modelPickField("codex", "model"), true);
+  assert.equal(modelPickField("opencode", "model"), true);
+  assert.equal(modelPickField("muse", "model"), true);
+  assert.equal(modelPickField("muse", "provider"), false);
+  assert.equal(modelPickField("claude-code", "model"), false, "no reader: the field stays text only");
+  assert.equal(modelPickField("grok", "model"), false);
+});

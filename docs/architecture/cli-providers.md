@@ -3,8 +3,8 @@
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
 Providers is a pane of the selected CLI at `#/clis/<cli>/providers`; `/new`
-opens Add provider. A shared route/capability helper names Pi explicitly and
-redirects legacy desktop/mobile links (`#/clis/providers*`, `#/providers*`). Unsupported identities and explicit
+opens Add provider. The Pi-era aliases (`#/clis/providers*`, `#/providers*`,
+mobile `#/more/providers*`) were retired on 2026-09-25. Unsupported identities and explicit
 agent/workspace scopes block editing; accounts still belong to the machine.
 The editor loads its catalog independently of terminal inventory, retains
 successful rows and drafts during refresh failures and offers retry. Successful

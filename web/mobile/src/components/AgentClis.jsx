@@ -44,7 +44,7 @@ function Notice({ children, action, onAction, danger = false }) {
 
 export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, onAgentConfig, onPackageUpdates, onReloadAgent }) {
   const [hash, setHash] = useState(location.hash);
-  const route = cliLocation(hash, { packageContext: legacyPackageContext, agentId: legacyAgentId });
+  const route = cliLocation(hash);
   const setupCtx = cliPaneSetupContext(route, { workspaceId: legacyPackageContext.workspaceId || "", agentId: legacyPackageContext.agentId || legacyAgentId || "" });
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -68,9 +68,8 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     return () => window.removeEventListener("hashchange", update);
   }, []);
   useEffect(() => {
-    if (hidden || route.view === "messages") return;
+    if (hidden || route.view === "messages" || route.view === "settings") return;
     if (hash === "#/preferences/status") location.replace("#/clis");
-    if (route.adoptPane && !legacyContextReady) return;
     if (route.redirect && route.redirect !== hash) location.replace(route.redirect);
     if (!legacyContextReady || route.invalid) return;
     const paneName = route.pane || "launch";
@@ -79,9 +78,9 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     if (!setupCtx.workspaceId && !setupCtx.agentId) return;
     const next = cliSetupHref(route.id || "pi", paneName, setupCtx, route.workspace || "");
     if (next && next !== hash) location.replace(next);
-  }, [hidden, hash, route.view, route.redirect, route.adoptPane, route.invalid, route.pane, route.id, route.workspace, route.workspaceId, route.agentId, setupCtx.workspaceId, setupCtx.agentId, setupCtx.scope, setupCtx.focus, legacyContextReady]);
+  }, [hidden, hash, route.view, route.redirect, route.invalid, route.pane, route.id, route.workspace, route.workspaceId, route.agentId, setupCtx.workspaceId, setupCtx.agentId, setupCtx.scope, setupCtx.focus, legacyContextReady]);
   useEffect(() => {
-    if (hidden || route.view === "messages") return;
+    if (hidden || route.view === "messages" || route.view === "settings") return;
     refresh();
     // ADR-0087: refresh stale update checks once per visit, server-side
     // cached — never a polling timer.
@@ -164,10 +163,10 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   };
 
   if (route.view === "messages") return <PeerMessages hidden={hidden} ownerKey={route.id} />;
+  if (route.view === "settings") return <AgentClisFrame hidden={hidden}><CliTabs view="settings" /><SurfaceWrappers hidden={hidden} /></AgentClisFrame>;
 
   return <AgentClisFrame hidden={hidden}>
     <CliTabs view={route.view} />
-    {route.view === "clis" ? <SurfaceWrappers hidden={hidden} /> : null}
     {error ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
     {!data && !error ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}

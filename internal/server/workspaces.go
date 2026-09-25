@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/osopen"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -261,6 +262,7 @@ func handleRemove(deps Deps) http.HandlerFunc {
 			Meter:             exitMeter(),
 			PiSessionFallback: piSessionFallback,
 			Instructions:      exitInstructions,
+			Skills:            func(a store.Agent) []clilaunch.SkillUse { return launchSkills(deps, a) },
 			Origin:            exitOriginOf(req),
 			SessionsPurged:    queryFlag(r, "sessions"),
 			WorkPurged:        queryFlag(r, "work") && preview.LastOccupant && preview.CanPurgeWork,

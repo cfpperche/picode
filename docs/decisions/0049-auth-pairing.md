@@ -2,6 +2,7 @@
 
 - **Status**: accepted (supersedes ADR-0007's "no app-level auth"; first step of the remote-modes roadmap, `docs/design/remote-modes-roadmap.md`)
 - **Date**: 2026-09-01
+- **Amended by**: [ADR-0215](0215-local-api-host-and-fetch-metadata.md) — the Host allowlist below is narrowed (no bare `*.local` / `*.ts.net`, no hostname under any domain; certificate SANs added), cross-site reads are refused, and loopback sessions are minted only for first-party requests.
 
 ## Context
 

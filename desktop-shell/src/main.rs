@@ -36,6 +36,7 @@ mod input;
 mod keepalive;
 mod status;
 mod uia;
+mod waiting;
 mod wslconfig;
 
 // The undecorated window's frame — drag handles and window controls — is
@@ -43,6 +44,7 @@ mod wslconfig;
 // depend on which UI build the daemon happens to serve. Local pages
 // (tauri.localhost) own their chrome and are skipped. Kept as one plain
 // script: no build step lives between the shell and its window frame.
+use picode_shell::waitstate::{Cert, Stage};
 use std::process::Command;
 use std::sync::OnceLock;
 use tauri::{
@@ -164,6 +166,8 @@ fn main() {
             clean::clean_apply,
             wslconfig::wslconfig_read,
             wslconfig::wslconfig_write,
+            waiting::waiting_state,
+            waiting::waiting_action,
         ])
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second launch means someone wanted PiCode on screen: focus the
@@ -181,7 +185,9 @@ fn main() {
             // the whole app on Windows (frozen captions, blank page).
             browserlab::init(app);
             computerlab::init(app);
-            let main_win = build_main_window(app.handle(), main_target(app.handle()))?;
+            // The window opens at once on the waiting page; the health loop
+            // navigates it to /desktop/ when the daemon answers.
+            let main_win = build_main_window(app.handle(), waiting_target())?;
             if hidden {
                 let _ = main_win.hide();
             }
@@ -282,22 +288,36 @@ fn main() {
 }
 
 // How often the resident asks PiCode whether it is up: one curl to a
-// loopback port, cheap enough for a timer.
+// loopback port, cheap enough for a timer. While the window shows the
+// waiting page someone is looking at it, so the loop asks faster.
 const POLL_EVERY_SECS: u64 = 5;
+const WAITING_POLL_SECS: u64 = 2;
 
 fn poll_loop() {
     let Some(board) = board::get() else { return };
+    let app = board.app().clone();
     let mut url: Option<String> = None;
     let mut boot_id = String::new();
+    // When the daemon stopped answering; drives Starting → Not answering.
+    let mut failing_since: Option<std::time::Instant> = None;
     loop {
+        let every = if waiting::on_waiting_page(&app) {
+            WAITING_POLL_SECS
+        } else {
+            POLL_EVERY_SECS
+        };
         if url.is_none() {
             // Discovery runs `wsl.exe -d <distro>`, which starts a stopped
             // distro — never while a flow holds it down.
             if hold::distro_held() {
                 board.set_health(false, "paused while WSL work runs");
-                std::thread::sleep(std::time::Duration::from_secs(POLL_EVERY_SECS));
+                waiting::set(&app, Stage::Paused);
+                waiting::nap(every);
                 continue;
             }
+            // Only the first lookup is announced as "starting Linux": later
+            // lookups re-read a moved port and must not flicker the stage.
+            waiting::set_if_unset(&app, Stage::Linux);
             match discover_server() {
                 Some((distro, found)) => {
                     // Before any window loads from it: a daemon off the
@@ -309,7 +329,8 @@ fn poll_loop() {
                 }
                 None => {
                     board.set_health(false, "PiCode has not started yet");
-                    std::thread::sleep(std::time::Duration::from_secs(POLL_EVERY_SECS));
+                    waiting::set(&app, Stage::NotFound);
+                    waiting::nap(POLL_EVERY_SECS);
                     continue;
                 }
             }
@@ -317,6 +338,7 @@ fn poll_loop() {
         let base = url.clone().expect("discovered above");
         match health::fetch(&base) {
             Ok(h) => {
+                failing_since = None;
                 // The port can move inside its range (8445-8455), so a
                 // failed probe invalidates the cached address rather than
                 // being reported forever — and a changed boot id names the
@@ -330,19 +352,38 @@ fn poll_loop() {
                 board.set_health(true, &detail);
                 board.note_url(Some(base.clone()));
                 disk::maybe_daily_sample();
+                if waiting::on_waiting_page(&app) {
+                    open_from_waiting(&app, &base);
+                }
             }
             Err(_) => {
+                let since = *failing_since.get_or_insert_with(std::time::Instant::now);
                 url = None;
                 board.note_url(None);
                 board.set_health(false, "not answering");
+                waiting::set(&app, waiting::unanswered(since));
             }
         }
         board.ensure_keepalive();
-        std::thread::sleep(std::time::Duration::from_secs(POLL_EVERY_SECS));
+        waiting::nap(every);
     }
 }
 
-fn restart_flow() {
+/// The daemon answers and the window still shows the waiting page: check
+/// that Windows trusts the certificate (otherwise the webview lands on an
+/// error page), wait for /desktop/ itself, then navigate.
+fn open_from_waiting(app: &tauri::AppHandle, base: &str) {
+    if health::cert(base) == Cert::Untrusted {
+        waiting::set(app, Stage::Untrusted);
+        return;
+    }
+    waiting::set(app, Stage::Opening);
+    if await_desktop_ready(base) {
+        waiting::navigate(app, base);
+    }
+}
+
+pub(crate) fn restart_flow() {
     let Some(board) = board::get() else { return };
     let Some(distro) = board.distro() else {
         dialog::alert("PiCode", "The distro is not known yet — wait for the tray to come up.");
@@ -364,9 +405,10 @@ fn restart_flow() {
     }
     // The next health tick reports the truth; until then say what is true.
     board.set_health(false, "restarting…");
+    waiting::note_restart(board.app());
 }
 
-fn logs_flow() {
+pub(crate) fn logs_flow() {
     let Some(board) = board::get() else { return };
     let Some(distro) = board.distro() else {
         dialog::alert("PiCode", "The distro is not known yet — wait for the tray to come up.");
@@ -404,15 +446,29 @@ fn resolve_user(distro: &str) -> Option<String> {
     Some(name.to_string())
 }
 
+/// One command inside the distro, as the service's user, decoded from the
+/// console's UTF-16. None when wsl.exe fails or the command exits non-zero.
+pub(crate) fn wsl_output(distro: &str, argv: &[&str]) -> Option<String> {
+    let mut cmd = std::process::Command::new("wsl.exe");
+    cmd.args(["-d", distro]);
+    if let Some(user) = resolve_user(distro) {
+        cmd.args(["-u", &user]);
+    }
+    cmd.arg("--").args(argv);
+    hide_console(&mut cmd);
+    let out = cmd.output().ok()?;
+    out.status.success().then(|| console_string(&out.stdout))
+}
+
 #[cfg(windows)]
-fn hide_console(cmd: &mut std::process::Command) {
+pub(crate) fn hide_console(cmd: &mut std::process::Command) {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     cmd.creation_flags(CREATE_NO_WINDOW);
 }
 
 #[cfg(not(windows))]
-fn hide_console(_cmd: &mut std::process::Command) {}
+pub(crate) fn hide_console(_cmd: &mut std::process::Command) {}
 
 // open_management_window opens the Management page on demand — the second
 // window of the shell: the WSL disk view, the cache prunes and the
@@ -477,38 +533,26 @@ fn build_management_window(app: &tauri::AppHandle, mut url: tauri::Url) {
 /// that dead body forever (2026-09-18: back-to-back deploys bricked the
 /// resident until a manual restart). Wait — bounded — for a real 200; the
 /// UI reloads itself on boot changes, so this gate only has to cover the
-/// shell's navigations.
-fn await_desktop_ready(base: &str) {
+/// shell's navigations. False when the bound runs out: the waiting page
+/// stays and the next tick tries again, instead of navigating onto the 404.
+fn await_desktop_ready(base: &str) -> bool {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-    while !health::status_ok(base, "/desktop/") && std::time::Instant::now() < deadline {
+    loop {
+        if health::status_ok(base, "/desktop/") {
+            return true;
+        }
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
 }
 
-/// What the main window loads: the daemon's /desktop/ when it answers,
-/// the bundled offline page until then.
-fn main_target(app: &tauri::AppHandle) -> WebviewUrl {
-    // The address the health loop already answers on, when there is one: a
-    // rebuild from the tray then costs no wsl.exe on the event thread.
-    // Before the first answer (setup) the address is looked up.
-    let known = board::get()
-        .and_then(|b| b.url())
-        .and_then(|s| tauri::Url::parse(&s).ok());
-    match known.or_else(|| discover_server().map(|(_distro, u)| u)) {
-        Some(mut u) => {
-            // The gate probes the daemon's origin. It was handed the distro
-            // name until 2026-09-23 ("Ubuntu/desktop/" never answers), so
-            // every main-window build waited out the full 30 s and the
-            // restart-404 guard never guarded anything.
-            daemon_acl::grant(app, &u);
-            let base = u.origin().ascii_serialization();
-            await_desktop_ready(&base);
-            u.set_path("/desktop/");
-            u.set_query(None);
-            WebviewUrl::External(u)
-        }
-        None => WebviewUrl::App("offline.html".into()),
-    }
+/// What the main window loads first: the bundled waiting page, always. It
+/// costs no wsl.exe and no readiness wait on the thread that builds the
+/// window, and the health loop navigates it to /desktop/ (waiting.rs).
+fn waiting_target() -> WebviewUrl {
+    WebviewUrl::App("waiting.html".into())
 }
 
 /// The main window's build, in one place: setup creates it, and Open PiCode
@@ -541,7 +585,7 @@ fn build_main_window(
             .data_directory(browserlab::webview_profile())
             .disable_drag_drop_handler()
             .transparent(true)
-            .initialization_script("window.__PICODE_LIVE_LAYERS__ = true;")
+            .initialization_script(&shell_announce())
             .auto_resize(),
         tauri::LogicalPosition::new(0., 0.),
         win.inner_size()?.to_logical::<f64>(win.scale_factor()?),
@@ -565,6 +609,23 @@ fn build_main_window(
         });
     }
     Ok(win)
+}
+
+/// The shell's side of the client handshake (ADR-0216). The page the
+/// daemon serves is always as new as the daemon; this binary may not be. The
+/// page reads `window.__PICODE_SHELL__` before calling a command, so a
+/// feature that needs a newer shell hides instead of failing with "not
+/// allowed by ACL". Bump SHELL_PROTOCOL when the command set or a command's
+/// contract changes; web/browser/src/lib/shellVersion.js names what each
+/// protocol brought.
+const SHELL_PROTOCOL: u32 = 1;
+
+fn shell_announce() -> String {
+    format!(
+        "window.__PICODE_LIVE_LAYERS__ = true; window.__PICODE_SHELL__ = Object.freeze({{ version: \"{}\", protocol: {} }});",
+        env!("CARGO_PKG_VERSION"),
+        SHELL_PROTOCOL
+    )
 }
 
 /// WebView2's browser accelerators (Ctrl+R, F5, Ctrl+P, F12, …) fire on
@@ -606,7 +667,7 @@ fn show_main(app: &tauri::AppHandle) {
     }
     match app.get_window("main") {
         Some(win) => show(&win),
-        None => match build_main_window(app, main_target(app)) {
+        None => match build_main_window(app, waiting_target()) {
             Ok(win) => show(&win),
             Err(e) => {
                 eprintln!("open: cannot rebuild the main window ({e})");

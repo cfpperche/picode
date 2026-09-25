@@ -553,9 +553,19 @@ func serve() {
 	// Request gate (ADR-0049): install token at <data>/token, loopback
 	// auto-pairs in the default mode, everything else pairs a device.
 	hostname, _ := os.Hostname()
+	envPublicURL, _ := config.ValidatePublicURL(os.Getenv("PICODE_PUBLIC_URL"), os.Getenv("PICODE_INSECURE") == "1")
 	gate, err := auth.New(auth.Config{
 		Store: st, DataDir: dataDir, Insecure: os.Getenv("PICODE_INSECURE") == "1", Hostname: hostname,
-		PublicURL:   func() string { v, _, _ := st.GetSetting("server.public_url"); return v },
+		CertNames: tlsutil.CertNames(dataDir), // ADR-0215: names the owner issued a certificate for
+		// The Settings value, read live, else PICODE_PUBLIC_URL: a gateway
+		// member gets its public URL only from the env (provision/member.go),
+		// and the gateway forwards that name as Host (ADR-0215 review).
+		PublicURL: func() string {
+			if v, _, _ := st.GetSetting(config.PublicURLSettingKey); strings.TrimSpace(v) != "" {
+				return v
+			}
+			return envPublicURL
+		},
 		SessionLive: devices.SessionLive, // ADR-0049 amendment: reuse must not rotate an active session's cookie
 	})
 	if err != nil {
@@ -938,6 +948,7 @@ func runPair() {
 	}
 	req, _ := http.NewRequest(http.MethodPost, base+"/api/auth/pairings", strings.NewReader("{}"))
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(tok)))
+	req.Header.Set(version.ClientHeader, version.ClientValue("picode-cli"))                                                              // ADR-0216
 	client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} //nolint:gosec
 	res, err := client.Do(req)
 	if err != nil {
@@ -971,6 +982,7 @@ func runToken(args []string) {
 		tok, _ := os.ReadFile(path)
 		req, _ := http.NewRequest(http.MethodPost, base+"/api/auth/token/rotate", nil)
 		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(tok)))
+		req.Header.Set(version.ClientHeader, version.ClientValue("picode-cli"))                                                              // ADR-0216
 		client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} //nolint:gosec
 		res, err := client.Do(req)
 		if err != nil || res.StatusCode != http.StatusOK {

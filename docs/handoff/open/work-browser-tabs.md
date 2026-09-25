@@ -399,3 +399,15 @@ gallery hit is worth a look before anyone installs it expecting this one.
 - ADR-0143's endpoint branch still has no test of its own: the resolver's
   decision rows are covered (`TestResolveCallerIsTheHouseIdentity`), the wire
   rows (`term` known/unknown, `agent`+`term` together) are not.
+- [ ] A session split off screen (2026-09-24, feat/session-browser-no-focus):
+  verbs no longer reselect the agent's tab, so they now run in a parked
+  (`wv.hide()`) WebView2. Not measured on Windows: whether
+  `Page.captureScreenshot` paints hidden (the channel waits 4 s, then reveals
+  once and retries — the console line "the hidden split did not paint" says
+  the fallback fired) and whether `Input.dispatchMouseEvent` by x/y lands on
+  a hidden page. Measure after the next deploy; if the fallback always
+  fires, try off-window bounds instead of hide before the background mode.
+- [ ] Background mode (owner asked 2026-09-24): never bring the session
+  forward, not even on `open`; an activity dot on the tab instead. Changes
+  ADR-0172's "the human's eyes are the boundary" — needs a superseding ADR
+  and the owner's approval before code.

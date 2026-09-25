@@ -120,3 +120,4 @@ decrypted
 WebSockets
 fallback
 Fallbacks
+Vercel

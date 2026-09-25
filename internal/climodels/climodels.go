@@ -2,7 +2,9 @@
 // pane that writes a model selector offers the CLI's own answer instead of a
 // text box (ADR-0181).
 //
-// omp and Pi have readers, each the vendor's own command — the
+// omp, Pi, Codex, OpenCode and Muse have readers, each the vendor's own
+// command (measured 2026-09-23; Claude Code, Grok and Antigravity can list but
+// rewrite the owner's files on every read, and Hermes has no public way), each — the
 // bounded-subprocess exception ADR-0167 already makes for plugin verbs, with
 // none of its consequences: these are read-only and change nothing.
 //
@@ -101,10 +103,13 @@ type reader struct {
 // readers are the CLIs PiCode has measured a read-only catalog command for,
 // in the order Supported lists them.
 var (
-	readerOrder = []string{"omp", "pi"}
+	readerOrder = []string{"omp", "pi", "codex", "opencode", "muse"}
 	readers     = map[string]reader{
-		"omp": {command: "omp", probe: probeOmp, inputs: ompInputs},
-		"pi":  {command: "pi", probe: probePi, inputs: piInputs},
+		"omp":      {command: "omp", probe: probeOmp, inputs: ompInputs},
+		"pi":       {command: "pi", probe: probePi, inputs: piInputs},
+		"codex":    {command: "codex", probe: probeCodex, inputs: codexInputs},
+		"opencode": {command: "opencode", probe: probeOpencode, inputs: opencodeInputs},
+		"muse":     {command: "muse", probe: probeMuse, inputs: museInputs},
 	}
 )
 

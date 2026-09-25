@@ -33,15 +33,12 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.equal(cliLocation("#/clis/pi/providers/custom/cheap/extra").invalid, true);
   assert.equal(cliLocation("#/clis/pi/providers/nope").invalid, true);
   assert.equal(cliPaneHash("pi", "providers"), "#/clis/pi/providers");
-  assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", workspaceId: "", agentId: "", focus: "", layer: "", keysTab: false, legacy: false, redirect: "" });
-  assert.deepEqual(cliLocation("#/clis/pi/packages"), { view: "clis", pane: "packages", id: "pi", pkg: "", workspaceId: "", agentId: "", scope: "user", legacy: false, invalid: false, redirect: "" });
+  assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", workspaceId: "", agentId: "", focus: "", layer: "", redirect: "" });
+  assert.deepEqual(cliLocation("#/clis/pi/packages"), { view: "clis", pane: "packages", id: "pi", pkg: "", workspaceId: "", agentId: "", scope: "user", invalid: false, redirect: "" });
   assert.equal(cliLocation("#/clis/pi/connectors").pane, "connectors");
   assert.equal(cliPaneHash("pi", "settings"), "#/clis/pi/settings");
   assert.equal(cliPaneHash("pi", "packages"), "#/clis/pi/packages");
   assert.equal(cliPaneHash("pi", "connectors"), "#/clis/pi/connectors");
-  assert.equal(cliLocation("#/clis/connectors").pane, "connectors");
-  assert.equal(cliLocation("#/clis/connectors").id, "pi");
-  assert.equal(cliLocation("#/clis/connectors").redirect, "#/clis/pi/connectors");
   assert.equal(cliLocation("#/clis/pi/settings/extra").invalid, true);
   assert.equal(cliLocation("#/clis/pi/connectors/extra").invalid, true);
   assert.equal(cliLocation("#/clis/pi/keyboard").pane, "keyboard");
@@ -55,26 +52,19 @@ test("setup panes fall back to the selected sidebar pane when the hash has no id
   assert.deepEqual(cliPaneSetupContext({}, {}), { workspaceId: "", agentId: "", scope: "", focus: "", layer: "" });
 });
 
-test("legacy package and settings hashes adopt pane context through cliLocation", () => {
-  const packages = cliLocation("#/packages", { packageContext: { workspaceId: "w", agentId: "a" }, agentId: "a" });
-  assert.equal(packages.adoptPane, true);
-  assert.equal(packages.redirect, "#/clis/pi/packages?workspaceId=w&agentId=a");
-  const settings = cliLocation("#/settings", { agentId: "a" });
-  assert.equal(settings.adoptPane, true);
-  assert.equal(settings.redirect, "#/clis/pi/settings?agentId=a");
-  assert.equal(cliLocation("#/packages").redirect, "#/clis/pi/packages");
-  const connectors = cliLocation("#/mcps", { packageContext: { workspaceId: "w", agentId: "a" } });
-  assert.equal(connectors.pane, "connectors");
-  assert.equal(connectors.redirect, "#/clis/pi/connectors?workspaceId=w&agentId=a");
+test("retired package and connector addresses no longer name Pi's pane", () => {
+  for (const hash of ["#/packages", "#/mcps", "#/integrations", "#/clis/packages", "#/clis/connectors"]) {
+    assert.notEqual(cliLocation(hash).pane, "packages", hash);
+    assert.notEqual(cliLocation(hash).pane, "connectors", hash);
+  }
 });
 
-test("legacy Sessions tab addresses rewrite onto the selected CLI's pane (ADR-0079)", () => {
-  assert.deepEqual(cliLocation("#/clis/sessions"), { view: "clis", id: "pi", pane: "sessions", redirect: "#/clis/pi/sessions" });
-  assert.deepEqual(cliLocation("#/clis/sessions/ws-9"), { view: "clis", id: "pi", pane: "sessions", workspace: "ws-9", redirect: "#/clis/pi/sessions/ws-9" });
-  assert.deepEqual(cliLocation("#/clis/sessions?cli=codex"), { view: "clis", id: "codex", pane: "sessions", redirect: "#/clis/codex/sessions" });
-  assert.deepEqual(cliLocation("#/clis/sessions/ws-9?cli=claude-code"), { view: "clis", id: "claude-code", pane: "sessions", workspace: "ws-9", redirect: "#/clis/claude-code/sessions/ws-9" });
-  assert.deepEqual(cliLocation("#/sessions"), { view: "clis", id: "pi", pane: "sessions", redirect: "#/clis/pi/sessions" });
-  assert.deepEqual(cliLocation("#/sessions/ws-9"), { view: "clis", id: "pi", pane: "sessions", workspace: "ws-9", redirect: "#/clis/pi/sessions/ws-9" });
+test("Sessions live on the CLI's pane; the Pi-era addresses are retired (ADR-0079)", () => {
+  assert.deepEqual(cliLocation("#/clis/codex/sessions/ws-9"), { view: "clis", id: "codex", pane: "sessions", workspace: "ws-9" });
+  // #/sessions* and #/clis/sessions* stopped naming Pi's pane on 2026-09-25.
+  for (const hash of ["#/sessions", "#/sessions/ws-9", "#/clis/sessions", "#/clis/sessions?cli=codex"]) {
+    assert.notEqual(cliLocation(hash).pane, "sessions", hash);
+  }
 });
 
 test("launch overrides inherit untouched fields and preserve explicit clearing", () => {

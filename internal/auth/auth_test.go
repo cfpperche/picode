@@ -121,6 +121,25 @@ func TestDecisionTable(t *testing.T) {
 		{"events with foreign origin", call{method: "GET", path: "/api/events", origin: "https://evil.example", cookie: secret}, 403, ""},
 		{"curl POST without origin", call{method: "POST", path: "/api/inbox", bearer: tok}, 200, "install"},
 
+		// ADR-0215: fetch metadata on reads, and who may be handed a
+		// loopback session.
+		{"cross-site read refused", call{method: "GET", path: "/api/workspaces", fetchSite: "cross-site", cookie: secret}, 403, ""},
+		{"cross-site read on loopback mints nothing", call{method: "GET", path: "/api/workspaces", remote: "127.0.0.1:1", ua: "Mozilla/5.0", fetchSite: "cross-site"}, 403, ""},
+		{"cross-site script read on loopback refused", call{method: "GET", path: "/api/workspaces", remote: "127.0.0.1:1", ua: "curl/8", fetchSite: "cross-site"}, 403, ""},
+		{"health readable cross-site", call{method: "GET", path: "/api/health", fetchSite: "cross-site"}, 200, ""},
+		{"same-site page on loopback is not paired", call{method: "GET", path: "/api/workspaces", remote: "127.0.0.1:1", ua: "Mozilla/5.0", fetchSite: "same-site"}, 401, ""},
+		{"same-site read with a session passes", call{method: "GET", path: "/api/workspaces", fetchSite: "same-site", cookie: secret}, 200, "browser"},
+		{"own page on loopback pairs", call{method: "GET", path: "/api/workspaces", remote: "127.0.0.1:1", ua: "Mozilla/5.0", fetchSite: "same-origin"}, 200, "browser"},
+		{"typed address on loopback pairs", call{method: "GET", path: "/api/workspaces", remote: "127.0.0.1:1", ua: "Mozilla/5.0", fetchSite: "none"}, 200, "browser"},
+		{"hostname under any domain refused", call{method: "GET", path: "/api/workspaces", host: "box.attacker.example:8445", cookie: secret}, 403, ""},
+		{"any .local refused", call{method: "GET", path: "/api/workspaces", host: "printer.local:8445", cookie: secret}, 403, ""},
+		{"hostname.local allowed", call{method: "GET", path: "/api/workspaces", host: "box.local:8445", cookie: secret}, 200, "browser"},
+		// Plain HTTP (this service is Insecure): a rebindable name is never auto-paired.
+		{"plain http: picode.local on loopback is not paired", call{method: "GET", path: "/api/workspaces", host: "picode.local:8445", remote: "127.0.0.1:1", ua: "Mozilla/5.0"}, 401, ""},
+		{"plain http: hostname on loopback is not paired", call{method: "GET", path: "/api/workspaces", host: "box:8445", remote: "127.0.0.1:1", ua: "Mozilla/5.0"}, 401, ""},
+		{"plain http: loopback IP pairs", call{method: "GET", path: "/api/workspaces", host: "127.0.0.1:8445", remote: "127.0.0.1:1", ua: "Mozilla/5.0"}, 200, "browser"},
+		{"plain http: named host with a cookie passes", call{method: "GET", path: "/api/workspaces", host: "picode.local:8445", cookie: secret}, 200, "browser"},
+
 		// Pairing: the one door reachable before you are paired. A
 		// submission from another tab is refused, and nothing else about it
 		// changes — reading the page is free, a script sends no Origin, and
@@ -141,6 +160,11 @@ func TestDecisionTable(t *testing.T) {
 				t.Fatalf("got %d %q, want %d %q (body %s)", rec.Code, rec.Header().Get("X-Principal"), c.code, c.who, rec.Body.String())
 			}
 		})
+	}
+
+	// A refused cross-site read leaves no session behind.
+	if rec := do(s, call{method: "GET", path: "/api/workspaces", remote: "127.0.0.1:1", ua: "Mozilla/5.0", fetchSite: "cross-site"}); rec.Header().Get("Set-Cookie") != "" {
+		t.Fatalf("cross-site read minted a cookie: %q", rec.Header().Get("Set-Cookie"))
 	}
 
 	// The auto-paired loopback session is a real cookie.
@@ -372,6 +396,95 @@ func TestCommunicationTokenNeverGetsOwnerAuthority(t *testing.T) {
 			if got.Code != 401 {
 				t.Fatalf("%s %s: %d", mode, path, got.Code)
 			}
+		}
+	}
+}
+
+// ADR-0215: the Host allowlist, with the names this owner's machine really
+// answers to (2026-09-24: hostname DESKTOP-BGG95NA, Tailscale name
+// desktop-bgg95na-1.tail057039.ts.net — note the "-1").
+func TestHostAllowed(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	certs := []string{"localhost", "picode.local", "desktop-bgg95na-1.tail057039.ts.net", "*.dev.example.org"}
+	public := ""
+	s, err := New(Config{Store: st, DataDir: dir, Hostname: "DESKTOP-BGG95NA",
+		CertNames: func() []string { return certs },
+		PublicURL: func() string { return public }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		host string
+		want bool
+	}{
+		{"localhost:8445", true},
+		{"LOCALHOST", true},
+		{"127.0.0.1:8445", true},
+		{"[::1]:8445", true},
+		{"192.168.15.28:8445", true},
+		{"100.87.149.83", true},
+		{"abc123.localhost:8445", true}, // preview origins
+		{"picode.local", true},
+		{"desktop-bgg95na", true},
+		{"desktop-bgg95na.local", true},
+		{"desktop-bgg95na.lan", true},
+		{"desktop-bgg95na.home.arpa", true},
+		{"desktop-bgg95na-1.tail057039.ts.net:8445", true}, // Tailscale twin
+		{"desktop-bgg95na-2.othertail.ts.net", true},       // twin rule, any tailnet
+		{"desktop-bgg95na.tail057039.ts.net", true},
+		{"desktop-bgg95na.localhost.", true}, // trailing dot
+		{"api.dev.example.org", true},        // certificate wildcard
+		{"", false},
+		{"evil.example", false},
+		{"desktop-bgg95na.attacker.example", false}, // was allowed before ADR-0215
+		{"desktop-bgg95na.local.attacker.example", false},
+		{"desktop-bgg95na-x.lan", false},
+		{"other.local", false},             // was allowed before ADR-0215
+		{"other.tail057039.ts.net", false}, // was allowed before ADR-0215
+		{"desktop-bgg95na.a.b.ts.net", false},
+		{"dev.example.org", false}, // the wildcard covers one label, not the zone
+		{"a.b.dev.example.org", false},
+		{"box.public.example", false},
+	}
+	for _, c := range cases {
+		if got := s.HostAllowed(c.host); got != c.want {
+			t.Errorf("HostAllowed(%q) = %v, want %v", c.host, got, c.want)
+		}
+	}
+	public = "https://box.public.example"
+	if !s.HostAllowed("box.public.example") {
+		t.Error("the public URL host must be allowed")
+	}
+}
+
+// ADR-0215 review: os.Hostname can be a full name (macOS "Name-MacBook-Pro.local");
+// the network names use its first label.
+func TestHostAllowedWithAFullHostname(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	s, err := New(Config{Store: st, DataDir: dir, Hostname: "Name-MacBook-Pro.local"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for host, want := range map[string]bool{
+		"name-macbook-pro.local":                  true,
+		"name-macbook-pro.tail1.ts.net":           true,
+		"name-macbook-pro-1.tail1.ts.net":         true,
+		"name-macbook-pro.lan":                    true,
+		"name-macbook-pro.attacker.example":       false,
+		"name-macbook-pro.local.attacker.example": false,
+	} {
+		if got := s.HostAllowed(host); got != want {
+			t.Errorf("HostAllowed(%q) = %v, want %v", host, got, want)
 		}
 	}
 }

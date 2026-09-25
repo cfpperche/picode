@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "waiting-page",
+  "description": "The bundled waiting page (ui/waiting.html) reads its stage and runs its buttons: try again, start PiCode, view logs, trust the certificate. Local pages only \u2014 no remote list \u2014 so the daemon's /desktop/ in the same webview can never restart PiCode or import a certificate through these commands.",
+  "local": true,
+  "windows": [
+    "main"
+  ],
+  "webviews": [
+    "main-content"
+  ],
+  "permissions": [
+    "allow-waiting-state",
+    "allow-waiting-action"
+  ]
+}

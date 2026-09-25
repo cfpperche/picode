@@ -218,3 +218,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0211](0211-restore-keeps-agent-id.md) | A restored agent keeps its id (its Pi folder, automations and pins follow), and the removal toast's Undo is a restore with `undo: true`; amends ADR-0205 and ADR-0194 | accepted (owner direction, 2026-09-24) |
 | [0212](0212-pane-command-activity.md) | A shell command in a CLI's process tree (a `!` command, a background job) is observed as `terminal.command` and shown as Running beside the hook state | accepted, amends 0062 |
 | [0213](0213-mission-native-session-binding.md) | Pi mission first-session attribution; amends ADR-0200 | proposed |
+| [0215](0215-local-api-host-and-fetch-metadata.md) | The local API refuses cross-site reads and mints loopback sessions only for first-party requests; the Host allowlist is the hostname on private suffixes plus the certificates' names | accepted, amends 0049 |
+| [0216](0216-client-version-handshake.md) | Out-of-process API clients send X-PiCode-Client with a protocol and get 426 when too old; the desktop shell announces its command protocol to the page | accepted |

@@ -91,6 +91,23 @@
         ]
       }
     },
+    "/api/agent-exits/skills": {
+      "get": {
+        "operationId": "getApiAgent-exitsSkills",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agent-exits"
+        ]
+      }
+    },
     "/api/agent-exits/summary": {
       "get": {
         "operationId": "getApiAgent-exitsSummary",
@@ -9481,9 +9498,52 @@
         ]
       }
     },
+    "/api/skills/catalog": {
+      "get": {
+        "operationId": "getApiSkillsCatalog",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
     "/api/skills/preview": {
       "post": {
         "operationId": "postApiSkillsPreview",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/skills/promote": {
+      "post": {
+        "operationId": "postApiSkillsPromote",
         "parameters": null,
         "requestBody": {
           "content": {
@@ -9511,6 +9571,82 @@
       "get": {
         "operationId": "getApiSkillsReport",
         "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/skills/skillssh": {
+      "put": {
+        "operationId": "putApiSkillsSkillssh",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/skills/sources": {
+      "delete": {
+        "operationId": "deleteApiSkillsSources",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "skills"
+        ]
+      },
+      "post": {
+        "operationId": "postApiSkillsSources",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success"

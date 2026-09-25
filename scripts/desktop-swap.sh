@@ -179,5 +179,5 @@ done
 if [[ $health == "ok" ]]; then
   echo "Done. Daemon healthy at https://localhost:8445/api/health."
 else
-  echo "desktop-swap: daemon not answering /api/health after 30s — the shell may sit on its offline page until it does (check: curl -sk https://localhost:8445/api/health)" >&2
+  echo "desktop-swap: daemon not answering /api/health after 30s — the shell shows its waiting page until it does (check: curl -sk https://localhost:8445/api/health)" >&2
 fi

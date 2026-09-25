@@ -17,6 +17,18 @@ const BRIDGE =
 // event ring (read-tier by construction) and never reaches the page.
 export const EVENTS_VERB = "shell.events";
 
+const SCREENSHOT = "Page.captureScreenshot";
+
+// withTimeout settles with { value } or { timedOut: true }; a rejection
+// before the deadline still rejects.
+function withTimeout(promise, ms) {
+  let timer;
+  return Promise.race([
+    promise.then((value) => ({ value })),
+    new Promise((resolve) => { timer = setTimeout(() => resolve({ timedOut: true }), ms); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 export function bridgeAvailable() {
   return !!BRIDGE;
 }
@@ -31,6 +43,8 @@ export function createBrowserChannel({
   post,
   runComputer = null,
   onError = (message, err) => console.error(message, err),
+  hiddenPixelWait = 4000,
+  revealSettle = 400,
 }) {
   const run = async (cmd) => {
     // ADR-0148: a computer frame is a desktop action, not a CDP method. It
@@ -41,11 +55,13 @@ export function createBrowserChannel({
       return runComputer(cmd);
     }
     let id = "";
+    let session = null;
     if (cmd.session) {
       if (!ensureSession) return { error: "no work-browser tab is open in the desktop app" };
       const opened = await ensureSession(cmd);
       if (!opened || !opened.id) return { error: opened?.error || "no work-browser tab is open in the desktop app" };
       id = opened.id;
+      session = opened;
       if (cmd.method === "shell.open") {
         const url = typeof cmd.params?.url === "string" ? cmd.params.url : "";
         try {
@@ -62,15 +78,31 @@ export function createBrowserChannel({
     try {
       if (cmd.method === EVENTS_VERB) {
         const output = await invoke("btab_cdp_events", { id, since: cmd.params?.since });
+        // A session drive also reports how the page bound it (ADR-0172).
+        if (session?.decision && output && typeof output === "object") {
+          return { output: { ...output, session: session.decision } };
+        }
         return { output };
       }
-      const output = await invoke("btab_cdp_call", {
+      const call = () => invoke("btab_cdp_call", {
         id,
         method: cmd.method,
         paramsJson: JSON.stringify(cmd.params ?? {}),
         tier: cmd.tier ?? "read",
         domains: Array.isArray(cmd.domains) ? cmd.domains : [],
       });
+      // A session split the human is not looking at stays where it is
+      // (ADR-0172). A screenshot needs painted pixels, and a hidden
+      // WebView2 may not paint: give it a short wait, then bring the split
+      // forward and ask once more rather than time the agent out.
+      if (cmd.method === SCREENSHOT && session && !session.onScreen && session.reveal) {
+        const first = await withTimeout(call(), hiddenPixelWait);
+        if (!first.timedOut) return { output: first.value };
+        onError("browser screenshot:", new Error("the hidden split did not paint; showing it"));
+        session.reveal();
+        await new Promise((resolve) => setTimeout(resolve, revealSettle));
+      }
+      const output = await call();
       return { output };
     } catch (e) {
       return { error: String(e?.message || e) };

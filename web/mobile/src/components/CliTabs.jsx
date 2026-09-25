@@ -15,7 +15,8 @@ export default function CliTabs({ view }) {
     return () => window.removeEventListener("resize", reveal);
   }, [view]);
   return <nav ref={nav} className="cli-tabs" aria-label="Agent CLIs">
-    <a href="#/clis" aria-current={view !== "messages" ? "page" : undefined}>CLIs</a>
+    <a href="#/clis" aria-current={view !== "messages" && view !== "settings" ? "page" : undefined}>CLIs</a>
     <a href="#/clis/messages" aria-current={view === "messages" ? "page" : undefined}>Messages</a>
+    <a href="#/clis/settings" aria-current={view === "settings" ? "page" : undefined}>Settings</a>
   </nav>;
 }

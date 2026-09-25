@@ -1506,6 +1506,10 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	}
 	snapshot.CLI = cli.ID
 	snapshot.Identity = executableIdentity(binary)
+	// Which skills this start loads, for Outcomes (ADR-0196 slice 6).
+	if agent != nil {
+		snapshot.Skills = launchSkills(deps, *agent)
+	}
 	if c.Integration {
 		plan, _ := launchPlan(deps, cli, c, clilaunch.Overrides{}, dir)
 		snapshot.Injection = &plan.Injection

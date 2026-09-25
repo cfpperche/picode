@@ -4,12 +4,13 @@ import ScopeIcon from "./ScopeIcon.jsx";
 import { api } from "@picode/shared/client/api.js";
 import {
   agentScopeLine, alsoLoadedLine, canRemoveSkill, skillScopes, cliSkillsHash, skillOrigin, skillStatus, skillsEmptyLine, skillsReportPath,
-  skillsSummary, skillTargetBody, installedLine, removeQuestion, noAgentScopeLine, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
+  skillsSummary, skillTargetBody, installedLine, removeQuestion, askLabel, canPromoteSkill, promoteQuestion, promoteRetry, promotedLine, trialLine, noAgentScopeLine, tokensLabel, trustLine, updatesByKey, updatesSummary, visibleSkills,
   hasSkillSwitch, noSwitchLine, skillToggleBody, toggledLine, withSkillEnabled,
 } from "@picode/shared/domain/cliSkills.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import AddSkillDialog from "./AddSkillDialog.jsx";
+import SkillsMarketplace from "./SkillsMarketplace.jsx";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { toast } from "../lib/toast.js";
 
@@ -34,6 +35,9 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
   const [flipping, setFlipping] = useState("");
   const [open, setOpen] = useState("");
   const [adding, setAdding] = useState(false);
+  // Installed | Marketplace (slice 5); a card opens the dialog on its source.
+  const [tab, setTab] = useState("installed");
+  const [market, setMarket] = useState(null);
   const [updates, setUpdates] = useState(null);
   const [checking, setChecking] = useState(false);
   const [rowBusy, setRowBusy] = useState("");
@@ -87,7 +91,9 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
   const dialog = (
     <AddSkillDialog
       open={adding}
-      onClose={() => setAdding(false)}
+      onClose={() => { setAdding(false); setMarket(null); }}
+      initialSource={market?.install || ""}
+      pickName={market?.name || ""}
       workspaceId={workspaceId}
       workspaceName={workspaceName}
       agentId={data?.agent ? agentId : ""}
@@ -139,6 +145,12 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
         await api("/api/skills", { method: "DELETE", body: JSON.stringify(body) });
         toast.ok(row.name + " removed.");
         setOpen("");
+      } else if (verb === "promote") {
+        // Slice 6: the copy the agent ran with moves into its workspace.
+        const res = await api("/api/skills/promote", { method: "POST", body: JSON.stringify({ agent: agentId, name: row.name, ...extra }) });
+        toast.ok(promotedLine(res, workspaceName));
+        (res.notes || []).forEach((n) => toast.info(n));
+        setOpen("");
       } else {
         const res = await api("/api/skills/update", { method: "POST", body: JSON.stringify(body) });
         toast.ok(res.status === "current" ? row.name + " is already current." : row.name + " updated.");
@@ -147,21 +159,41 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
       setReload((n) => n + 1);
     } catch (x) {
       const code = x.body?.code || "";
-      if (code === "modified" || code === "unlocked") setAsk({ key: row.dir, text: x.message, verb, extra: verb === "remove" ? { confirm: true } : { force: true } });
+      if (verb === "promote" && promoteRetry(code)) setAsk({ key: row.dir, text: x.message, verb, extra: { ...extra, ...promoteRetry(code) } });
+      else if (code === "modified" || code === "unlocked") setAsk({ key: row.dir, text: x.message, verb, extra: verb === "remove" ? { confirm: true } : { force: true } });
       else toast.error(x.message);
     } finally {
       setRowBusy("");
     }
   };
 
+  const tabs = (
+    <div className="pkg-tabs" role="tablist" aria-label="Skills">
+      <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "installed"} onClick={() => setTab("installed")}>
+        Installed{rows.length ? <span className="pkg-tab-count">{rows.length}</span> : null}
+      </button>
+      <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "marketplace"} onClick={() => setTab("marketplace")}>Marketplace</button>
+    </div>
+  );
+  if (tab === "marketplace") {
+    return (
+      <div className="cli-skills">
+        {tabs}
+        <SkillsMarketplace report={data} onInstall={(item) => { setMarket(item); setAdding(true); }} />
+        {dialog}
+      </div>
+    );
+  }
+
   // With an agent chip, the pane stays up even with no skill anywhere: that
   // chip is where the agent's own list starts.
   if (!rows.length && !data?.agent) {
     return (
       <>
+        {tabs}
         <div className="cli-notice" role="status">
           <span>{skillsEmptyLine(cli, { workspaceName, hasWorkspace })}</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>Add skill</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setTab("marketplace")}>Browse the Marketplace</button>
         </div>
         {noAgentScopeLine(data, cli, agentId) ? <p className="cli-memory-note">{noAgentScopeLine(data, cli, agentId)}</p> : null}
         {dialog}
@@ -171,6 +203,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
 
   return (
     <div className="cli-skills">
+      {tabs}
       <div className="pkg-scope" role="radiogroup" aria-label="Which skills to show">
         {scopes.map((s) => (
           <a
@@ -260,11 +293,14 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
                     <p className="cli-skills-path">{row.dir}</p>
                     {alsoLoadedLine(row) ? <p>{alsoLoadedLine(row)}.</p> : null}
                     {origin.modified ? <p className="is-warn">Changed since it was installed.</p> : null}
-                    {canRemoveSkill(row) ? (ask && ask.key === row.dir ? null : (
+                    {trialLine(row, { agentName: data?.agent?.name, workspaceName }) && data?.workspacePath ? <p>{trialLine(row, { agentName: data?.agent?.name, workspaceName })}</p> : null}
+                          {canRemoveSkill(row) ? (ask && ask.key === row.dir ? null : (
                       <div className="cli-skills-actions" data-align-row>
                         {updateOf[row.scope + ":" + row.name]?.status === "behind"
                           ? <button type="button" className="btn btn-primary btn-sm" disabled={rowBusy === row.dir} onClick={() => act(row, "update")}>Update</button> : null}
-                        <button type="button" className="btn btn-ghost btn-danger btn-sm" disabled={rowBusy === row.dir} onClick={() => setAsk({ key: row.dir, text: removeQuestion(row, { workspaceName, agentName: data?.agent?.name }), verb: "remove", extra: {} })}>Remove</button>
+                        {canPromoteSkill(row, data)
+                                ? <button type="button" className="btn btn-primary btn-sm" disabled={rowBusy === row.dir} onClick={() => setAsk({ key: row.dir, text: promoteQuestion(row, { workspaceName, agentName: data?.agent?.name }), verb: "promote", extra: {} })}>Promote to {workspaceName || "the workspace"}</button> : null}
+                              <button type="button" className="btn btn-ghost btn-danger btn-sm" disabled={rowBusy === row.dir} onClick={() => setAsk({ key: row.dir, text: removeQuestion(row, { workspaceName, agentName: data?.agent?.name }), verb: "remove", extra: {} })}>Remove</button>
                       </div>
                     ))
  : <p>{terminalCliLabel(cli)} manages this folder itself; PiCode removes only what lives in .agents/skills.</p>}
@@ -273,7 +309,7 @@ export default function CliSkills({ route, workspaceId = "", agentId = "", works
                         <span>{ask.text}</span>
                         <span className="cli-skills-ask">
                           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAsk(null)}>Cancel</button>
-                          <button type="button" className={"btn btn-sm " + (ask.verb === "remove" ? "btn-danger" : "btn-primary")} disabled={rowBusy === row.dir} onClick={() => act(row, ask.verb, ask.extra)}>{ask.verb === "remove" ? (ask.extra.confirm ? "Remove anyway" : "Remove") : "Update anyway"}</button>
+                          <button type="button" className={"btn btn-sm " + (ask.verb === "remove" ? "btn-danger" : "btn-primary")} disabled={rowBusy === row.dir} onClick={() => act(row, ask.verb, ask.extra)}>{askLabel(ask)}</button>
                         </span>
                       </div>
                     ) : null}

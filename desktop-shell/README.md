@@ -12,10 +12,13 @@ make desktop-shell              # from the repo root; produces:
 # desktop-shell/target/x86_64-pc-windows-msvc/release/picode-shell.exe
 ```
 
-Run the exe on Windows. It discovers the daemon address through `wsl.exe`
-(`<data>/server.json`), falls back to a local offline page when nothing
-answers, lives in the tray (left-click opens the window), and stays
-single-instance.
+Run the exe on Windows. The window opens at once on a bundled waiting page
+(`ui/waiting.html`) that shows what the shell is doing — starting Linux,
+starting PiCode, not answering, certificate not trusted — with one action
+each, and navigates to the daemon's `/desktop/` the moment it answers
+(`src/waiting.rs`; stages in `src/waitstate.rs`). The daemon address comes
+from `wsl.exe` (`<data>/server.json`). The shell lives in the tray
+(left-click opens the window) and stays single-instance.
 
 ## Coexistence
 

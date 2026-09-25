@@ -129,8 +129,8 @@ subagent, then fast-forward and run `make ci` on `main`.
 | 2 ✔ | `feat/skills-install` | sources, stage, spec validation, advisory scan, preview dialog (`ResponsiveDialog`/`MobileSheet`, Zod, `noValidate`), install/remove/update/check for machine and workspace, both locks, links with copy fallback | every install/remove/update row below; hash vectors from the real `npx skills`; extraction refuses `..`, absolute paths, links and devices; SSRF guard; 10 MiB / 25 MiB / 1000-file limits; 409 on a stale lock |
 | 3 ✔ | `feat/skills-toggles` | Claude `skillOverrides`, Codex `[[skills.config]]`, OpenCode `permission.skill`, Omp `skills.ignoredSkills`, Grok `[skills] disabled`, Hermes `skills.disabled`, Muse `muse skills disable/enable`; Pi and agy get the declaration's sentence | golden files per format (comments and bytes preserved); `TestEveryToggleIsARealSettingsKey` extended; live read-back through each vendor roster |
 | 4 ✔ | `feat/skills-agent` | migration `070_agent_skills.sql` (landed as 073), `SetAgentSkills` + event, `scope=agent`; digest-addressed cache; launch injection per the table; launch-plan preview; the restart fingerprint also covers guests (`applyTerminalLaunch`); "Try in this agent" | `TestEveryMutationAppendsAnEvent`, `mutation_coverage_test.go`; the launch rows below; argv per CLI; each flag checked against `--help` |
-| 5 | `feat/skills-marketplace` | `internal/skillcatalog`: seed repositories (confirmed in the slice), the user's sources, `.well-known` domains, opt-in skills.sh with its audits; the Marketplace tab; source management | httptest suite on the `mcpcatalog` pattern; a skills.sh failure is one line |
-| 6 | `feat/skills-outcomes` | `Snapshot.Skills` (name, digest, scope, via) on each launch → `ExitConfig` → Outcomes groups with/without; lifecycle (trying → in project → disabled → removed) with **Promote to project**; optional `claude plugin eval --ablation` job with `--max-cost-usd` | aggregation tests; QA with two agents on one task |
+| 5 ✔ | `feat/skills-marketplace` | `internal/skillcatalog`: seed repositories (confirmed in the slice), the user's sources, `.well-known` domains, opt-in skills.sh with its audits; the Marketplace tab; source management | httptest suite on the `mcpcatalog` pattern; a skills.sh failure is one line |
+| 6 ✔ | `feat/skills-outcomes` | `Snapshot.Skills` (name, digest, scope, via) on each launch → `ExitConfig` → Outcomes groups with/without; lifecycle (trying → in project → disabled → removed) with **Promote to project**; optional `claude plugin eval --ablation` job with `--max-cost-usd` | aggregation tests; QA with two agents on one task |
 | 7 | `feat/skills-doctor` (if debts remain) | locally modified skills (diff, restore), broken links, diverged copies, per-account homes | — |
 
 ## Decision table
@@ -143,7 +143,8 @@ Every row is a test in the slice that ships it.
 | install | same name, same digest | no write; "already installed" |
 | install | same name, other digest, in a lock | becomes an update (shows the diff) |
 | install | same name, in no lock | refuse; offer **Adopt** (lock only) or replace with explicit confirmation |
-| install | `name` ≠ folder, no `description`, or over the limits | refuse, naming the rule |
+| install | `name` differs from its folder at the source | install under the name; the preview says so (owner, 2026-09-24: 5 of the 73 seed skills) |
+| install | no valid `name`, no `description`, or over the limits | refuse, naming the rule |
 | install | `.well-known` digest mismatch | refuse: corrupted or tampered content |
 | install | critical scan finding or critical audit | explicit second confirmation; never in bulk |
 | install | the CLI needs trust (Hermes, Muse) | install; show the vendor's command with **Copy command**; never trust for the user |
@@ -187,8 +188,9 @@ Every row is a test in the slice that ships it.
 
 - **Slice 2's digest gate.** If Go cannot match `computedHash`, choose between
   a PiCode digest that is marked as such and not writing Vercel's locks.
-- **Slice 5's seed sources.** The list is proposed in the slice and approved by
-  the owner.
+- **Slice 5's seed sources.** Decided 2026-09-24: `anthropics/skills`,
+  `openai/skills`, `vercel-labs/agent-skills` (the three vendors' own
+  collections; `github/awesome-copilot` was offered and not taken).
 - **A later workspace view.** If the omp study's Project pane or the AGENTS.md
   study's workspace tab is approved, decide whether Skills moves there.
 

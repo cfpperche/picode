@@ -64,6 +64,27 @@ pub fn status_ok(base: &str, path: &str) -> bool {
     matches!(cmd.output(), Ok(out) if String::from_utf8_lossy(&out.stdout).trim() == "200")
 }
 
+/// Whether Windows trusts the daemon's certificate: the same probe without
+/// `-k`. curl.exe verifies through schannel, the store WebView2 reads, so
+/// "curl refuses" means "the window would land on a certificate error".
+/// `--ssl-no-revoke`: an mkcert root publishes no revocation list.
+pub fn cert(base: &str) -> picode_shell::waitstate::Cert {
+    let url = format!("{}/api/health", base.trim_end_matches('/'));
+    if !url.starts_with("https://") {
+        return picode_shell::waitstate::Cert::Trusted;
+    }
+    let mut cmd = Command::new(curl_exe());
+    cmd.args(["-s", "-S", "--ssl-no-revoke", "-o", "NUL", "--max-time", "5", &url]);
+    hide_console(&mut cmd);
+    match cmd.output() {
+        Ok(out) => picode_shell::waitstate::cert_verdict(
+            out.status.code(),
+            &String::from_utf8_lossy(&out.stderr),
+        ),
+        Err(_) => picode_shell::waitstate::Cert::Unknown,
+    }
+}
+
 fn code(out: &std::process::Output) -> String {
     out.status.code().map(|c| c.to_string()).unwrap_or_else(|| "signal".to_string())
 }
@@ -145,6 +166,7 @@ mod acl_tests {
         include_str!("../capabilities/lab.json"),
         include_str!("../capabilities/computerlab.json"),
         include_str!("../capabilities/management.json"),
+        include_str!("../capabilities/waiting.json"),
     );
 
     // Registered but only ever called from the tray menu's own Rust handler,

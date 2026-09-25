@@ -1,21 +1,16 @@
-import { useEffect, useRef } from "react";
+import OverflowTabs from "./OverflowTabs.jsx";
 
+const TABS = [
+  { id: "clis", label: "CLIs", href: "#/clis" },
+  { id: "messages", label: "Messages", href: "#/clis/messages" },
+  { id: "settings", label: "Settings", href: "#/clis/settings" },
+];
+
+// Below 768px the three tabs can outgrow a narrow pane; OverflowTabs gives
+// the strip the editor strip's arrows and list instead of a scrollbar.
 export default function CliTabs({ view }) {
-  const nav = useRef(null);
-  useEffect(() => {
-    const reveal = () => {
-      const rail = nav.current, selected = rail?.querySelector("[aria-current=page]");
-      if (!selected) return;
-      const item = selected.getBoundingClientRect(), box = rail.getBoundingClientRect();
-      if (item.left < box.left) rail.scrollLeft += item.left - box.left;
-      else if (item.right > box.right) rail.scrollLeft += item.right - box.right;
-    };
-    reveal();
-    window.addEventListener("resize", reveal);
-    return () => window.removeEventListener("resize", reveal);
-  }, [view]);
-  return <nav ref={nav} className="cli-tabs" aria-label="Agent CLIs">
-    <a href="#/clis" aria-current={view !== "messages" ? "page" : undefined}>CLIs</a>
-    <a href="#/clis/messages" aria-current={view === "messages" ? "page" : undefined}>Messages</a>
-  </nav>;
+  const current = view === "messages" || view === "settings" ? view : "clis";
+  return <OverflowTabs className="cli-tabs" frameClassName="cli-tabs-frame" label="Agent CLIs" items={TABS} selectedId={current}>
+    {TABS.map((t) => <a key={t.id} data-tab={t.id} href={t.href} aria-current={t.id === current ? "page" : undefined}>{t.label}</a>)}
+  </OverflowTabs>;
 }

@@ -6,7 +6,7 @@ import { IconCheck } from "./Icons.jsx";
 export default function SearchCombo({
   id, value, onChange, options, label, searchPlaceholder, disabled, footer, icon,
   triggerClassName, popoverClassName, markCurrent = false, side = "top", align = "start", ariaLabel, onOpen,
-  closeFocus,
+  closeFocus, emptyText = "No matches",
 }) {
   const [open, setOpen] = useState(false);
   // onOpen lets an owner fetch its options the first time the list is asked
@@ -43,7 +43,10 @@ export default function SearchCombo({
           <Command ref={listRoot} tabIndex={searchable ? undefined : -1} label={searchable && searchPlaceholder ? searchPlaceholder : (ariaLabel || label || "Search")} loop>
             {searchable ? <Command.Input className="combo-input" placeholder={searchPlaceholder || "Search"} /> : null}
             <Command.List className="combo-list">
-              <Command.Empty className="combo-empty">No matches</Command.Empty>
+              {/* emptyText null: the owner's footer already says why the list
+                  is empty (loading, or nothing to offer) — "No matches" there
+                  would blame a search nobody typed. */}
+              {emptyText ? <Command.Empty className="combo-empty">{emptyText}</Command.Empty> : null}
               {(options || []).map((o) => (
                 <Command.Item
                   key={o.id === "" ? "__default" : o.id}

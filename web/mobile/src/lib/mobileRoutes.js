@@ -1,5 +1,4 @@
 import { missionLocation } from "@picode/shared/domain/missions.js";
-import { cliProvidersLocation } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation } from "@picode/shared/domain/cliSettings.js";
 import { cliConnectorsLocation } from "@picode/shared/domain/integrations.js";
@@ -14,7 +13,7 @@ import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./route
 //   route := { screen: now|inbox|work|agent|term|changes|app|more, id, section }
 //   changes: `#/changes/<a|t|w>/<id>` — the owner's uncommitted working tree,
 //   read-only (ADR-0044 phase 3); section carries the owner kind.
-export const MORE_SECTIONS = ["pins", "snippets", "outcomes", "history", "llama", "devices", "preferences", "settings", "system", "providers", "mcps", "packages", "notifications", "apps", "clis", "integrations", "automations"];
+export const MORE_SECTIONS = ["pins", "snippets", "outcomes", "history", "llama", "devices", "preferences", "system", "notifications", "apps", "clis", "integrations", "automations"];
 export const WORK_SECTIONS = ["workspaces", "agents", "terminals"];
 const WORK_KEY = "picode-mobile-work";
 
@@ -27,17 +26,12 @@ export function writeWorkSection(v) {
 
 const DESKTOP_TO_MORE = {
   automations: "automations",
-  sessions: "clis",
   clis: "clis",
   llama: "llama",
   preferences: "preferences",
-  providers: "providers",
   devices: "devices",
-  settings: "settings",
   system: "system",
-  mcps: "mcps",
   integrations: "integrations",
-  packages: "packages",
   termset: "preferences",
   pins: "pins",
   snippets: "snippets",
@@ -60,7 +54,6 @@ export function mobileRoute(hash) {
   if (h === "/more/missions") return { screen: "missions", id: "", workspace: "", section: "" };
   if (cliPackagesLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliSettingsLocation(h)) return { screen: "more", id: "", section: "clis" };
-  if (cliProvidersLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliConnectorsLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (h.split("?")[0] === "/providers/llama" || h.split("?")[0] === "/more/providers/llama") return { screen: "more", id: "", section: "llama" };
   if (h === "/preferences/status") return { screen: "more", id: "", section: "clis" };

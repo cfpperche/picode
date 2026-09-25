@@ -15,6 +15,7 @@ import { touches } from "@picode/shared/domain/feedReducers.js";
 import { createRefreshQueue } from "@picode/shared/domain/appRefreshQueue.js";
 import { appFormSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { readGroupPreferences, writeGroupPreferences, groupIsOpen, resetGroupSearch, toggleGroup } from "@picode/shared/domain/appGroups.js";
+import OverflowTabs from "./OverflowTabs.jsx";
 
 const SKELETON_ROWS = 5;
 // A hidden tab keeps its view; revealing it refetches only when the last read
@@ -438,15 +439,17 @@ function PaneBlocks({ blocks, ctx, badge }) {
 // CLIs rhythm (.cli-tabs). It was a segmented radio group while it sat in
 // the app's own toolbar; on a page frame the product has one tab idiom
 // (2026-09-14, owner's call). Buttons, not links: navigation is this
-// surface's own state and the host owns the hash.
+// surface's own state and the host owns the hash. A strip wider than the
+// card gets the editor strip's arrows and list (OverflowTabs).
 function PageTabs({ tabs, path, onNavigate }) {
   if (!tabs || tabs.length === 0) return null;
   const active = activeAppTab(tabs, path);
   return (
-    <nav className="app-page-tabs" aria-label="Views">
+    <OverflowTabs className="app-page-tabs" frameClassName="app-page-tabs-frame" label="Views" items={tabs.map((t) => ({ id: t.id, label: t.label }))} selectedId={active} onPick={(id) => { const t = tabs.find((x) => x.id === id); if (t) onNavigate(t.path); }}>
       {tabs.map((t) => (
         <button
           key={t.id}
+          data-tab={t.id}
           type="button"
           className="app-page-tab"
           aria-current={t.id === active ? "page" : undefined}
@@ -456,7 +459,7 @@ function PageTabs({ tabs, path, onNavigate }) {
           {t.badge ? <span className="app-tab-count">{t.badge}</span> : null}
         </button>
       ))}
-    </nav>
+    </OverflowTabs>
   );
 }
 

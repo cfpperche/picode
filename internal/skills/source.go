@@ -136,6 +136,10 @@ func privateIP(ip net.IP) bool {
 // publicClient is the SSRF guard: a skill source is a public site, so a name
 // that resolves to a private address is refused at dial time, which also
 // covers redirects.
+// PublicClient is the client every PiCode fetch of third-party skill content
+// goes through: https only, private addresses refused at dial time.
+func PublicClient() *http.Client { return publicClient() }
+
 func publicClient() *http.Client {
 	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(addr)
@@ -407,7 +411,7 @@ func extractTarGz(data []byte, dir string, stripFirst bool) ([]string, error) {
 		}
 	}
 	if skipped > 0 {
-		return []string{fmt.Sprintf("skipped %d links or special files in the source", skipped)}, nil
+		return []string{skippedNote(skipped)}, nil
 	}
 	return nil, nil
 }
@@ -448,7 +452,7 @@ func extractZip(data []byte, dir string) ([]string, error) {
 		}
 	}
 	if skipped > 0 {
-		return []string{fmt.Sprintf("skipped %d links or special files in the source", skipped)}, nil
+		return []string{skippedNote(skipped)}, nil
 	}
 	return nil, nil
 }
@@ -504,7 +508,16 @@ func copyTree(src, dst string) ([]string, error) {
 		return nil, err
 	}
 	if skipped > 0 {
-		return []string{fmt.Sprintf("skipped %d links or special files in the source", skipped)}, nil
+		return []string{skippedNote(skipped)}, nil
 	}
 	return nil, nil
+}
+
+// skippedNote says what an extraction left out: PiCode copies regular files
+// and folders only, never links or device files.
+func skippedNote(n int) string {
+	if n == 1 {
+		return "Left out 1 item that is not a regular file (a link or similar); skills are copied as plain files."
+	}
+	return fmt.Sprintf("Left out %d items that are not regular files (links or similar); skills are copied as plain files.", n)
 }

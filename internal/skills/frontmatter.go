@@ -3,6 +3,7 @@ package skills
 import (
 	"bufio"
 	"bytes"
+	"io"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -32,7 +33,17 @@ func readFrontmatter(path string) (Frontmatter, bool) {
 		return Frontmatter{}, false
 	}
 	defer f.Close()
-	sc := bufio.NewScanner(f)
+	return parseFrontmatter(f)
+}
+
+// ParseFrontmatter reads a SKILL.md's header from its bytes (the catalog
+// reads files it fetched, not files on disk).
+func ParseFrontmatter(data []byte) (Frontmatter, bool) {
+	return parseFrontmatter(bytes.NewReader(data))
+}
+
+func parseFrontmatter(r io.Reader) (Frontmatter, bool) {
+	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64<<10), maxFrontmatter)
 	if !sc.Scan() || strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff")) != "---" {
 		return Frontmatter{}, false

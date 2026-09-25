@@ -76,17 +76,19 @@ func TestSelectorIsAlwaysPresent(t *testing.T) {
 }
 
 func TestOnlyDeclaredCLIsAnswer(t *testing.T) {
-	for _, cli := range []string{"omp", "pi"} {
+	for _, cli := range []string{"omp", "pi", "codex", "opencode", "muse"} {
 		if !Supports(cli) {
 			t.Errorf("%s has a reader", cli)
 		}
 	}
-	for _, cli := range []string{"claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy"} {
+	// Measured 2026-09-23: Claude Code, Grok and Antigravity can list but
+	// rewrite the owner's files on every read; Hermes has no public way.
+	for _, cli := range []string{"claude-code", "grok", "hermes", "agy"} {
 		if Supports(cli) {
-			t.Errorf("%s has no measured way to list its models", cli)
+			t.Errorf("%s must not have a reader", cli)
 		}
 	}
-	if _, err := Read(t.Context(), "codex", "", false); err == nil {
+	if _, err := Read(t.Context(), "grok", "", false); err == nil {
 		t.Error("a CLI with no reader must be refused by name, not probed")
 	}
 }
@@ -175,5 +177,27 @@ func TestFingerprintMovesWithTheFiles(t *testing.T) {
 	}
 	if fingerprint("omp", "", "") == fingerprint("omp", "", ws) {
 		t.Fatal("the machine answer and a workspace answer must not share a fingerprint")
+	}
+}
+
+// The UI offers a model list beside a CLI's model field only for a CLI the
+// server can ask: MODEL_READERS in cliModels.js is Supported().
+func TestJSReadersMatchTheServer(t *testing.T) {
+	body, err := os.ReadFile("../../web/shared/domain/cliModels.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	match := regexp.MustCompile(`MODEL_READERS = \[([^\]]*)\]`).FindSubmatch(body)
+	if match == nil {
+		t.Fatal("MODEL_READERS not found in web/shared/domain/cliModels.js")
+	}
+	var js []string
+	for _, part := range strings.Split(string(match[1]), ",") {
+		if id := strings.Trim(strings.TrimSpace(part), `"`); id != "" {
+			js = append(js, id)
+		}
+	}
+	if strings.Join(js, ",") != strings.Join(Supported(), ",") {
+		t.Fatalf("UI readers %v, server readers %v", js, Supported())
 	}
 }

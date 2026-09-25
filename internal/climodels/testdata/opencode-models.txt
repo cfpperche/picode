@@ -1,0 +1,281 @@
+opencode/big-pickle
+{
+  "id": "big-pickle",
+  "providerID": "opencode",
+  "name": "Big Pickle",
+  "family": "big-pickle",
+  "api": {
+    "id": "big-pickle",
+    "url": "https://opencode.ai/zen/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 200000,
+    "input": 160000,
+    "output": 32000
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2025-10-17",
+  "variants": {}
+}
+opencode/ling-3.0-flash-fin-free
+{
+  "id": "ling-3.0-flash-fin-free",
+  "providerID": "opencode",
+  "name": "Ling 3.0 Flash Fin Free",
+  "family": "ling",
+  "api": {
+    "id": "ling-3.0-flash-fin-free",
+    "url": "https://opencode.ai/zen/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 262144,
+    "output": 32768
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": false
+  },
+  "release_date": "2026-08-27",
+  "variants": {
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "medium": {
+      "reasoningEffort": "medium"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    }
+  }
+}
+opencode/mimo-v2.6-flash-free
+{
+  "id": "mimo-v2.6-flash-free",
+  "providerID": "opencode",
+  "name": "MiMo-V2.6-Flash Free",
+  "family": "mimo",
+  "api": {
+    "id": "mimo-v2.6-flash-free",
+    "url": "https://opencode.ai/zen/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 200000,
+    "output": 32000
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": true,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": true,
+      "image": true,
+      "video": true,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-09-22",
+  "variants": {}
+}
+opencode-go/gpt-5.6-luna
+{
+  "id": "gpt-5.6-luna",
+  "providerID": "opencode-go",
+  "name": "GPT-5.6 Luna",
+  "family": "gpt-luna",
+  "api": {
+    "id": "gpt-5.6-luna",
+    "url": "https://opencode.ai/zen/go/v1",
+    "npm": "@ai-sdk/openai"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0.2,
+    "output": 1.2,
+    "cache": {
+      "read": 0.02,
+      "write": 0.25
+    },
+    "tiers": [
+      {
+        "input": 0.4,
+        "output": 1.8,
+        "cache": {
+          "read": 0.04,
+          "write": 0.5
+        },
+        "tier": {
+          "type": "context",
+          "size": 272000
+        }
+      }
+    ],
+    "experimentalOver200K": {
+      "cache": {
+        "read": 0.04,
+        "write": 0.5
+      },
+      "input": 0.4,
+      "output": 1.8
+    }
+  },
+  "limit": {
+    "context": 1050000,
+    "input": 922000,
+    "output": 128000
+  },
+  "capabilities": {
+    "temperature": false,
+    "reasoning": true,
+    "attachment": true,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": true,
+      "video": false,
+      "pdf": true
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": false
+  },
+  "release_date": "2026-07-09",
+  "variants": {
+    "none": {
+      "reasoningEffort": "none",
+      "reasoningSummary": "auto",
+      "include": [
+        "reasoning.encrypted_content"
+      ]
+    },
+    "low": {
+      "reasoningEffort": "low",
+      "reasoningSummary": "auto",
+      "include": [
+        "reasoning.encrypted_content"
+      ]
+    },
+    "medium": {
+      "reasoningEffort": "medium",
+      "reasoningSummary": "auto",
+      "include": [
+        "reasoning.encrypted_content"
+      ]
+    },
+    "high": {
+      "reasoningEffort": "high",
+      "reasoningSummary": "auto",
+      "include": [
+        "reasoning.encrypted_content"
+      ]
+    },
+    "xhigh": {
+      "reasoningEffort": "xhigh",
+      "reasoningSummary": "auto",
+      "include": [
+        "reasoning.encrypted_content"
+      ]
+    },
+    "max": {
+      "reasoningEffort": "max",
+      "reasoningSummary": "auto",
+      "include": [
+        "reasoning.encrypted_content"
+      ]
+    }
+  }
+}

@@ -3,19 +3,17 @@ import assert from "node:assert/strict";
 import { cliSettingsLocation, cliSettingsHash, supportsCliSettings, loadPiSettingsContext } from "./cliSettings.js";
 import { cliLocation, cliPaneHash } from "./cliLaunch.js";
 
-test("native settings routes preserve identity, legacy context and explicit global scope", () => {
-  for (const old of ["#/settings", "#/more/settings"]) {
-    assert.equal(cliSettingsLocation(old, "agent / A").redirect, "#/clis/pi/settings?agentId=agent+%2F+A");
-    assert.equal(cliSettingsLocation(old + "?agentId=B", "A").agentId, "B");
-    assert.equal(cliSettingsLocation(old + "?agentId=", "A").agentId, "");
-  }
+test("native settings routes preserve identity and name their CLI", () => {
+  // The Pi-era addresses (#/settings, #/more/settings, #/clis/settings[/<cli>])
+  // were retired on 2026-09-24: #/clis/settings is the Agent CLIs Settings tab.
+  for (const old of ["#/settings", "#/more/settings", "#/clis/settings", "#/clis/settings/pi"]) assert.equal(cliSettingsLocation(old), null, old);
+  assert.equal(cliLocation("#/clis/settings").view, "settings");
+  assert.equal(cliLocation("#/clis/settings/pi").view, "settings");
   const hash = cliSettingsHash("pi", { agentId: "agent / A", focus: "scoped-models" });
   assert.equal(hash, "#/clis/pi/settings?agentId=agent+%2F+A&focus=scoped-models");
   assert.equal(cliLocation(hash).agentId, "agent / A");
   assert.equal(cliLocation(hash).focus, "scoped-models");
   assert.equal(cliLocation(hash).pane, "settings");
-  assert.equal(cliSettingsLocation("#/clis/settings", "A").redirect, "#/clis/pi/settings");
-  assert.equal(cliSettingsLocation("#/clis/settings/pi", "A").redirect, "#/clis/pi/settings");
   assert.equal(cliSettingsLocation("#/clis/pi/settings", "A").agentId, "");
   assert.equal(cliSettingsLocation("#/clis/pi/settings", "A").redirect, "");
   assert.equal(cliSettingsLocation("#/clis/pi/settings/extra").invalid, true);
@@ -31,8 +29,6 @@ test("the edited layer survives a reload, and guesses are dropped", () => {
   assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=root").layer, "");
   // user is Global in the shared scope words (scopes.js).
   assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=user").layer, "global");
-  // A legacy link keeps the layer it was opened with.
-  assert.equal(cliSettingsLocation("#/settings?layer=project", "A").redirect, "#/clis/pi/settings?agentId=A&scope=workspace");
 });
 
 // | workspaceId in hash | selected agent | parser |
@@ -51,13 +47,12 @@ test("a settings workspace deep link keeps workspaceId and infers no agent", () 
   assert.equal(cliLocation(hash).workspaceId, "w /&");
   assert.equal(cliLocation(hash, { agentId: "A" }).agentId, "");
   assert.equal(cliSettingsLocation("#/clis/pi/settings", "A").workspaceId, "");
-  assert.equal(cliSettingsLocation("#/settings?workspaceId=W", "A").redirect, "#/clis/pi/settings?workspaceId=W&agentId=A");
   const keys = cliLocation("#/clis/pi/keyboard?workspaceId=W&agentId=A&layer=project");
   assert.equal(keys.workspaceId, "W");
   assert.equal(keys.agentId, "A");
 });
 
-test("the keyboard map is a pane of its own, and its sub-tab links still land", () => {
+test("the keyboard map is a pane of its own", () => {
   // `#/clis/pi/keyboard` is an ordinary pane; the settings context rides along
   // so a round trip lands back on the agent and the layer it left.
   const pane = cliLocation("#/clis/pi/keyboard");
@@ -69,23 +64,16 @@ test("the keyboard map is a pane of its own, and its sub-tab links still land", 
   assert.equal(scoped.layer, "project");
   assert.equal(cliLocation("#/clis/pi/keyboard?layer=root").layer, "", "a guessed layer is dropped");
   assert.equal(cliLocation("#/clis/pi/keyboard/extra").invalid, true, "no path after the pane");
-  // The sub-tab that lived inside Settings until 2026-09-12 redirects there,
-  // keeping whatever else the link carried.
-  const old = cliLocation("#/clis/pi/settings?agentId=A&layer=agent&tab=keys");
-  assert.equal(old.redirect, "#/clis/pi/keyboard");
-  assert.equal(old.keysTab, false);
-  const legacy = cliLocation("#/settings?tab=keys", { agentId: "A" });
-  assert.equal(legacy.redirect, "#/clis/pi/keyboard");
-  assert.equal(cliLocation("#/clis/pi/settings?tab=other").redirect, "");
+  // The `?tab=keys` sub-tab address (until 2026-09-12) was retired on 2026-09-24.
+  assert.equal(cliLocation("#/clis/pi/settings?tab=keys").redirect, "");
 });
 
 test("unsupported and malformed CLI identities never become Pi", () => {
   assert.equal(supportsCliSettings("pi"), true);
   for (const id of ["codex", "unknown", "%ZZ", "pi/extra", ""]) {
-    const route = cliSettingsLocation("#/clis/" + id + "/settings") || cliSettingsLocation("#/clis/settings/" + id);
-    assert.equal(supportsCliSettings(route.id), false, id);
+    const route = cliSettingsLocation("#/clis/" + id + "/settings");
+    assert.equal(route ? supportsCliSettings(route.id) : false, false, id);
   }
-  assert.equal(cliLocation("#/clis/sessions?cli=pi").pane, "sessions");
   assert.equal(cliLocation("#/clis/pi").view, "clis");
   assert.equal(cliLocation("#/clis/pi/sessions").pane, "sessions");
 });

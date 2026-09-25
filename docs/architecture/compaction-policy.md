@@ -9,7 +9,7 @@ involvement is exporting `PI_COMPACT_AGENT=<id>` into agent processes
 (`internal/store/agents.go`, `Agent.SpawnEnv`). Everything else runs
 inside each pi session, like any installed extension; uninstalling the
 package (or the config file) restores Pi's stock behavior exactly.
-Users install it with `pi install -l` / `#/packages`.
+Users install it with `pi install -l` / `#/clis/pi/packages`.
 
 Dormant until configured — a missing config file applies nothing (same
 rule as roles): no early trigger, no summarizer override, status line

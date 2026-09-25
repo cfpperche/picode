@@ -34,7 +34,8 @@ an honest blankslate, not a 500.
 ([parity plan](../plans/app-surface-parity.md)): Sessions/Server as an
 underline nav inside the card, the filter in the card toolbar, a session's
 detail a stacked path with a back link above it. `Tabs[0].Badge` is the plain
-session count in every shell — the long "N · M unclaimed" sentence was the one
+session count in every shell, and every tab badge is empty at zero
+(`countBadge`: never a "0" pill) — the long "N · M unclaimed" sentence was the one
 badge in the product that ignored `primitives.Tab`'s own "short count"
 contract, and the unclaimed fact is already the leftovers group's title and
 each row's `no record` badge.
@@ -181,7 +182,9 @@ inventory uses.
 
 Rows: name (`· this instance` for ours), badge running / no server, the
 subtitle `N session(s) · M PiCode`, and the socket path in the meta strip.
-The tab badge is the number of running servers.
+The tab badge is the number of running servers (none at zero). The group
+header's own item count is the socket count; the block carries no second
+"N socket(s)" meta line.
 
 ## What the app does not do
 

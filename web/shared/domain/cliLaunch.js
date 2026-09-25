@@ -1,4 +1,3 @@
-import { cliProvidersLocation } from "./cliProviders.js";
 import { cliPackagesLocation } from "./cliPackages.js";
 import { cliKeysLocation, cliSettingsLocation } from "./cliSettings.js";
 import { cliConnectorsLocation } from "./integrations.js";
@@ -86,44 +85,32 @@ export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   return "#/clis/" + id;
 }
 
-function sessionsLocation(cli, workspace) {
-  const id = cli || "pi";
-  return { view: "clis", id, pane: "sessions", ...(workspace ? { workspace } : {}), redirect: cliPaneHash(id, "sessions", workspace) };
-}
-
-export function cliLocation(hash = "", legacy = {}) {
-  const providers = cliProvidersLocation(hash);
-  if (providers) return providers;
-  const packages = cliPackagesLocation(hash, legacy.packageContext || {});
+export function cliLocation(hash = "") {
+  const packages = cliPackagesLocation(hash);
   if (packages) return packages;
   const keys = cliKeysLocation(hash);
   if (keys) return keys;
-  const settings = cliSettingsLocation(hash, legacy.agentId || "");
-  if (settings) {
-    // The keyboard map left the settings sub-tab row (2026-09-12): a bookmark
-    // from that day, or a link still carrying `?tab=keys`, lands on the pane.
-    if (settings.keysTab) return { ...settings, keysTab: false, redirect: cliPaneHash(settings.id, "keyboard") };
-    return settings;
-  }
-  const connectors = cliConnectorsLocation(hash, legacy.packageContext || {});
+  const settings = cliSettingsLocation(hash);
+  if (settings) return settings;
+  const connectors = cliConnectorsLocation(hash);
   if (connectors) return connectors;
   const [path, query] = hash.split("?");
   const parts = path.replace(/^#\//, "").split("/");
   const params = new URLSearchParams(query);
   const decode = (v) => { try { return decodeURIComponent(v || ""); } catch { return ""; } };
-  // ADR-0079: sessions are a capability of a CLI. The 2026-09-11 amendment
-  // nests them in that CLI's pane; old strip addresses rewrite.
-  if (parts[0] === "sessions") return sessionsLocation(params.get("cli") || "pi", decode(parts[1]));
   if (parts[0] !== "clis") return { view: "clis", id: "", pane: "launch" };
   if (parts[1] === "profile") return { view: "profile", id: decode(parts[2]), cli: decode(parts[3]) };
   if (parts[1] === "new") return { view: "new", id: decode(parts[2]), ...(params.get("profile") ? { profile: params.get("profile") } : {}), ...(params.get("workspace") ? { workspace: params.get("workspace") } : {}) };
   if (parts[1] === "terminal") return { view: "terminal", id: decode(parts[2]) };
   if (parts[1] === "messages") return { view: "messages", id: decode(parts[2]) };
+  // The terminal-wide switches (tmux guard, browser hand-off) have their own
+  // tab: they are not settings of any one CLI, whose pane is
+  // `#/clis/<cli>/settings`.
+  if (parts[1] === "settings") return { view: "settings", id: "" };
   // The general Terminals tab left the Agent CLIs view on 2026-09-11: a CLI's
   // own Terminals pane is the one list. The old address resolves to the
   // catalog at once and the view rewrites the hash to #/clis.
   if (parts[1] === "terminals") return { view: "clis", id: "", pane: "launch", redirect: "#/clis" };
-  if (parts[1] === "sessions") return sessionsLocation(params.get("cli") || "pi", decode(parts[2]));
   const cli = decode(parts[1]);
   const panePart = parts[2] || "launch";
   const pane = CLI_PANES.has(panePart) ? panePart : "launch";
@@ -132,7 +119,7 @@ export function cliLocation(hash = "", legacy = {}) {
   if (pane === "providers") {
     const rest = decode(parts[3]);
     const rest2 = decode(parts[4]);
-    if (rest === "new") loc.add = true;
+    if (rest === "new" && !rest2) loc.add = true;
     // The custom endpoint form is a page, not a dialog step (benchmarks.md
     // refuses modals for flows longer than 2 fields): /custom starts one,
     // /custom/<id> edits it. Anything deeper is an invalid link.

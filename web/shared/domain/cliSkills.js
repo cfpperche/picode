@@ -312,3 +312,103 @@ export function removeQuestion(row, { workspaceName = "", agentName = "" } = {})
   if (row.scope === "agent") return "Remove " + row.name + " from " + (agentName || "this agent") + "? It stops loading at the next start.";
   return "Remove " + row.name + " from " + (row.scope === "workspace" ? (workspaceName || "this workspace") : "this computer") + "? Every CLI that reads this folder loses it.";
 }
+
+// --- slice 5: the Marketplace (ADR-0196) ------------------------------------
+
+export function skillCatalogPath(q = "") {
+  const query = new URLSearchParams();
+  if (q.trim()) query.set("q", q.trim());
+  const qs = query.toString();
+  return "/api/skills/catalog" + (qs ? "?" + qs : "");
+}
+
+// Where a card comes from, in one short phrase: a built-in source, one the
+// person added, or skills.sh with its own install count.
+export function catalogOrigin(item = {}) {
+  if (item.origin === "skills.sh") {
+    const n = item.installs || 0;
+    const count = n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n);
+    return { label: (item.source ? item.source + " · " : "") + "skills.sh · " + count + " installs", title: "Listed by skills.sh (Vercel); its audits are on the skill's page there" };
+  }
+  if (item.origin === "yours") return { label: item.source, title: "From a source you added" };
+  return { label: item.source, title: "From a built-in source" };
+}
+
+// A card is Installed when this CLI already has that skill from that source
+// (the installer's lock names it). Another skill of the same name from
+// elsewhere is not this one: the card still offers Install, and the dialog
+// asks before replacing it.
+export function installedSkillKeys(report) {
+  const keys = new Set();
+  for (const r of report?.rows || []) {
+    if (r.status === "invalid") continue;
+    const src = (r.provenance?.source || "").toLowerCase();
+    if (src) keys.add(r.name + "|" + src);
+  }
+  return keys;
+}
+
+export function catalogInstalled(keys, item = {}) {
+  const src = (item.source || "").toLowerCase();
+  if (keys.has(item.name + "|" + src)) return true;
+  // A lock records a GitHub source as owner/repo, and a sub-folder install
+  // as owner/repo too; a site as its host.
+  return [...keys].some((k) => k.startsWith(item.name + "|") && src && k.slice(item.name.length + 1).startsWith(src));
+}
+
+// One line per source under the list.
+export function sourceStateLine(s = {}) {
+  if (s.reading) return "Reading…";
+  if (s.error && !s.count) return s.error;
+  const n = s.count === 1 ? "1 skill" : (s.count || 0) + " skills";
+  return s.error ? n + " · last read failed: " + s.error : n;
+}
+
+export const SKILLSSH_NOTE = "What you type is sent to skills.sh (Vercel), which lists far more skills than the sources above.";
+
+// The empty Marketplace, by why it is empty.
+export function catalogEmptyLine(q, reading) {
+  if (reading) return "Reading the sources. Their skills appear here as they arrive.";
+  if (q.trim()) return "No skill matches “" + q.trim() + "”.";
+  return "The sources list no skills yet.";
+}
+
+// --- slice 6: the lifecycle (ADR-0196) --------------------------------------
+
+// An agent's own skill can move into the agent's workspace once it works.
+export function canPromoteSkill(row, report) {
+  return row?.scope === "agent" && row.status !== "missing" && !!report?.workspacePath;
+}
+
+// Under an agent's own skill: where it is in its life, and the next step.
+export function trialLine(row, { agentName = "", workspaceName = "" } = {}) {
+  if (row?.scope !== "agent") return "";
+  const a = agentName || "this agent";
+  return "Trying in " + a + " only. Outcomes compares its runs with and without it; when it works, promote it to " + (workspaceName || "the workspace") + ".";
+}
+
+export function promoteQuestion(row, { agentName = "", workspaceName = "" } = {}) {
+  const ws = workspaceName || "this workspace";
+  return "Promote " + row.name + " to " + ws + "? Every agent CLI in " + ws + " then loads it, and it leaves " + (agentName || "this agent") + "'s own list.";
+}
+
+export function promotedLine(res, workspaceName = "") {
+  const ws = workspaceName || "the workspace";
+  if (res?.status === "already") return res.name + " was already in " + ws + "; it left the agent's own list.";
+  return res.name + " is now in " + ws + ": every agent CLI there loads it.";
+}
+
+// A promote refusal the person can answer, and what the retry sends.
+export function promoteRetry(code) {
+  if (code === "exists" || code === "update") return { replace: true };
+  if (code === "critical") return { acceptCritical: true };
+  return null;
+}
+
+// The confirm button's words, by verb and what the retry sends.
+export function askLabel(ask) {
+  if (!ask) return "";
+  if (ask.verb === "remove") return ask.extra?.confirm ? "Remove anyway" : "Remove";
+  if (ask.verb === "promote") return ask.extra?.replace ? "Replace it" : ask.extra?.acceptCritical ? "Promote anyway" : "Promote";
+  return "Update anyway";
+}

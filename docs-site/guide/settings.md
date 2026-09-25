@@ -43,15 +43,22 @@ agent and layer you came from, so going back lands where you left.
 
 Contextual links use `?agentId=<id>`; the pane adds the layer it is editing
 (`?scope=global|workspace|agent`, the same words every setup tab uses) to the URL, so a reload or a bookmark lands on
-the same view. Old `#/settings` and mobile `#/more/settings` links redirect
-here, and a `?tab=keys` link from the day the map was a sub-tab lands on the
-Keyboard pane. Workspace values override machine
+the same view. Workspace values override machine
 values; agent values override both.
 
 
 Workspace writes require the folder in pi's `trust.json`. Untrusted → the
 workspace layer says so and offers **Open agent to trust**; the same write
 returns 409. Run `/trust` in the TUI.
+
+## Choosing a model (Codex, OpenCode, Muse Code)
+
+For Codex, OpenCode and Muse Code the **Model** field has **Choose…** beside
+it: it lists the models that CLI itself reports it can use, in this workspace
+(OpenCode's project file can narrow the list), with each model's provider and
+context size. Picking one fills the field. You can still type a model the list
+does not show. Claude Code, Grok and Antigravity keep a plain field: asking
+them for their models rewrites their own settings files every time.
 
 ## Model roles (Omp)
 

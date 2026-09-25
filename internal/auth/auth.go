@@ -50,6 +50,10 @@ type Config struct {
 	Insecure  bool          // cookies drop Secure over plain HTTP
 	PublicURL func() string // advertised origin, "" when unknown
 	Hostname  string        // machine name, allowed as a Host
+	// CertNames answers the DNS names the served certificates cover
+	// (tlsutil.CertNames); each is an allowed Host (ADR-0215). Nil means
+	// none.
+	CertNames func() []string
 	// SessionLive reports whether a presence ping for that session id
 	// arrived within the staleness window (ADR-0049 amendment: the
 	// loopback reuse must not rotate the cookie out from under a browser
@@ -210,6 +214,46 @@ func isUpgrade(r *http.Request) bool {
 	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
 }
 
+// crossSite: the browser says the request comes from another site.
+func crossSite(r *http.Request) bool {
+	return strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "cross-site")
+}
+
+// firstParty: the request comes from PiCode's own page, a typed address or
+// bookmark ("none"), or a client that sends no fetch metadata at all
+// (curl, scripts, older browsers). Only these may be handed a loopback
+// session (ADR-0215): a same-site page — another dev server on
+// localhost:3000 — is someone else's code.
+func firstParty(r *http.Request) bool {
+	switch strings.ToLower(r.Header.Get("Sec-Fetch-Site")) {
+	case "", "same-origin", "none":
+		return true
+	}
+	return false
+}
+
+// pairableHost: over plain HTTP (PICODE_INSECURE=1) browsers send no fetch
+// metadata to a name that is not "potentially trustworthy", and a LAN peer
+// can answer mDNS for picode.local or box.local — a rebinding page would
+// then look first-party on a loopback connection. So without TLS only a
+// loopback name is auto-paired: localhost, *.localhost, a loopback IP.
+// With TLS the certificate refuses a rebound name before it gets here.
+func (s *Service) pairableHost(hostport string) bool {
+	if !s.cfg.Insecure {
+		return true
+	}
+	host := strings.ToLower(hostport)
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = strings.ToLower(h)
+	}
+	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 func mutating(r *http.Request) bool {
 	switch r.Method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:
@@ -238,30 +282,39 @@ func Loopback(r *http.Request) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-// HostAllowed rejects names that only a DNS-rebinding page would carry:
-// anything that is not loopback, an IP literal, localhost / picode.local,
-// a .local or .ts.net name, this machine's hostname, or the public URL.
+// HostAllowed rejects names that only a DNS-rebinding page would carry
+// (ADR-0049, narrowed by ADR-0215). Allowed: an IP literal, localhost and
+// *.localhost (browsers pin those to loopback, so no page can rebind them),
+// picode.local, this machine's hostname bare or under a private suffix
+// (box.local, box.lan, box-1.tailxxxx.ts.net — Tailscale numbers a
+// repeated machine name), every DNS name the served certificates cover,
+// and the public URL. Before ADR-0215 any *.local, any *.ts.net and the
+// hostname followed by *any* domain passed: box.attacker.example was
+// allowed, and in plain-HTTP mode nothing else stood in the way.
 func (s *Service) HostAllowed(hostport string) bool {
 	host := strings.ToLower(hostport)
 	if h, _, err := net.SplitHostPort(hostport); err == nil {
 		host = strings.ToLower(h)
 	}
-	host = strings.Trim(host, "[]")
+	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
 	if host == "" {
 		return false
 	}
 	if net.ParseIP(host) != nil {
 		return true
 	}
-	switch host {
-	case "localhost", "picode.local":
+	if host == "localhost" || host == "picode.local" || strings.HasSuffix(host, ".localhost") {
 		return true
 	}
-	if strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".ts.net") || strings.HasSuffix(host, ".localhost") {
+	if machineName(host, strings.ToLower(s.cfg.Hostname)) {
 		return true
 	}
-	if s.cfg.Hostname != "" && (host == strings.ToLower(s.cfg.Hostname) || strings.HasPrefix(host, strings.ToLower(s.cfg.Hostname)+".")) {
-		return true
+	if s.cfg.CertNames != nil {
+		for _, n := range s.cfg.CertNames() {
+			if n == host || (strings.HasPrefix(n, "*.") && wildcardCovers(n[2:], host)) {
+				return true
+			}
+		}
 	}
 	if s.cfg.PublicURL != nil {
 		if u, err := url.Parse(s.cfg.PublicURL()); err == nil && u.Host != "" && strings.EqualFold(u.Hostname(), host) {
@@ -269,6 +322,61 @@ func (s *Service) HostAllowed(hostport string) bool {
 		}
 	}
 	return false
+}
+
+// privateSuffixes are the zones a home or office network, mDNS or a
+// tailnet puts a machine name under. None of them can be registered on the
+// public internet, except ts.net, whose names Tailscale assigns per tailnet.
+var privateSuffixes = []string{"local", "lan", "home", "home.arpa", "localdomain", "internal"}
+
+// machineName: the hostname itself, or its first label (a Tailscale twin
+// "box-1" counts) under one private suffix or a tailnet's ts.net zone.
+func machineName(host, hostname string) bool {
+	if hostname == "" {
+		return false
+	}
+	if host == hostname {
+		return true
+	}
+	// os.Hostname can be a full name (macOS: "Name-MacBook-Pro.local",
+	// some Linux setups: "box.example.com"); the network names use its
+	// first label.
+	hostname, _, _ = strings.Cut(hostname, ".")
+	first, rest, ok := strings.Cut(host, ".")
+	if !ok || !(first == hostname || tailscaleTwin(first, hostname)) {
+		return false
+	}
+	for _, suf := range privateSuffixes {
+		if rest == suf {
+			return true
+		}
+	}
+	// box-1.tailxxxx.ts.net: exactly one tailnet label before ts.net.
+	if tailnet, ok := strings.CutSuffix(rest, ".ts.net"); ok && tailnet != "" && !strings.Contains(tailnet, ".") {
+		return true
+	}
+	return false
+}
+
+// tailscaleTwin: "box-2" for "box" — the number Tailscale appends when a
+// machine name is already taken in the tailnet.
+func tailscaleTwin(label, hostname string) bool {
+	n, ok := strings.CutPrefix(label, hostname+"-")
+	if !ok || n == "" {
+		return false
+	}
+	for _, c := range n {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// wildcardCovers: a certificate's *.zone covers exactly one label under zone.
+func wildcardCovers(zone, host string) bool {
+	label, rest, ok := strings.Cut(host, ".")
+	return ok && label != "" && rest == zone
 }
 
 // originAllowed: a browser-set Origin must be this server (same host) or
@@ -349,9 +457,13 @@ func denied(w http.ResponseWriter, code int, msg string) {
 //	not /api or /ws (the UI)                     → pass
 //	Host not allowed                             → 403 unknown host
 //	mutating or upgrade with foreign Origin      → 403 origin
+//	Sec-Fetch-Site: cross-site (not exempt)      → 403 origin (ADR-0215)
 //	principal from cookie / bearer               → pass with principal
 //	mode off                                     → pass, anonymous
-//	mode remote + loopback + no principal        → mint a browser session, set cookie, pass
+//	mode remote + loopback + no principal
+//	  + first party (no/same-origin/none)        → mint a browser session, set cookie, pass
+//	  + plain HTTP and a non-loopback Host name  → 401 pairing required (ADR-0215)
+//	  + same-site                                → 401 pairing required (ADR-0215)
 //	otherwise                                    → 401 pairing required
 func (s *Service) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -383,6 +495,16 @@ func (s *Service) Wrap(next http.Handler) http.Handler {
 			denied(w, http.StatusForbidden, "cross-site request refused")
 			return
 		}
+		// ADR-0215: a read from another site is refused too. The response
+		// would be opaque to that page (no CORS), but the request itself had
+		// effects: with no cookie (SameSite=Strict) on a loopback address it
+		// minted a session or rotated the secret of an idle one — any tab,
+		// or a previewed HTML file on <label>.localhost, could do that with
+		// an <img>. /api/health stays readable: it carries CORS on purpose.
+		if crossSite(r) && !exempt(r) {
+			denied(w, http.StatusForbidden, "cross-site request refused")
+			return
+		}
 		if exempt(r) {
 			next.ServeHTTP(w, r)
 			return
@@ -397,7 +519,7 @@ func (s *Service) Wrap(next http.Handler) http.Handler {
 		if p == nil {
 			switch {
 			case mode == ModeOff:
-			case mode == ModeRemote && Loopback(r):
+			case mode == ModeRemote && Loopback(r) && firstParty(r) && s.pairableHost(r.Host):
 				if !browserLike(r) {
 					// curl and scripts on this machine pass without a row:
 					// a session per request would only fill the table.

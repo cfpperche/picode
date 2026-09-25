@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/cfpperche/picode/internal/connectors"
@@ -32,6 +33,27 @@ func registerMCPRoutes(mux Registrar, deps Deps) {
 // its CLI driver in internal/connectors (ADR-0150). A request naming any
 // other CLI fails loudly instead of silently writing Pi's files.
 var connectorDrivers = map[string]bool{"pi": true, "claude-code": true, "codex": true, "omp": true, "agy": true, "opencode": true, "grok": true, "muse": true, "hermes": true}
+
+// connectorsHash is the Connectors pane an OAuth sign-in returns to: the
+// canonical `#/clis/<cli>/connectors` address (cliConnectorsHash in
+// web/shared/domain/integrations.js), never the retired `#/mcps`.
+func connectorsHash(cli, workspaceID, agentID string) string {
+	if cli == "" {
+		cli = "pi"
+	}
+	q := url.Values{}
+	if workspaceID != "" {
+		q.Set("workspaceId", workspaceID)
+	}
+	if agentID != "" {
+		q.Set("agentId", agentID)
+	}
+	h := "#/clis/" + url.PathEscape(cli) + "/connectors"
+	if len(q) > 0 {
+		h += "?" + q.Encode()
+	}
+	return h
+}
 
 func requireConnectorDriver(cli string) error {
 	if cli == "" || connectorDrivers[cli] {
@@ -380,7 +402,7 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "turn the server On first")
 			return
 		}
-		returnTo := "https://" + r.Host + "/#/mcps"
+		returnTo := "https://" + r.Host + "/" + connectorsHash(req.CLI, req.WorkspaceID, req.AgentID)
 		id, err := deps.Runtime.BeginMCPAuth(r.Context(), req.AgentID, cwd, req.Name, serverURL, returnTo)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())

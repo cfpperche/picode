@@ -74,6 +74,8 @@ fn main() {
             "clean_apply",
             "wslconfig_read",
             "wslconfig_write",
+            "waiting_state",
+            "waiting_action",
         ])),
     )
     .expect("failed to run tauri-build");

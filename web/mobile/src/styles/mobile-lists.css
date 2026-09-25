@@ -134,7 +134,7 @@
 .m-outcomes .m-outc-row > .m-row-main { flex: 1 1 100%; min-width: 0; }
 .m-outcomes .m-outc-detail { flex: 1 1 100%; min-width: 0; box-sizing: border-box; padding: 4px 12px 14px; }
 /* The page's own lines sit on the rows' inset, not the screen edge. */
-.m-outcomes > .m-list-empty, .m-outcomes .m-outc-facts { padding-inline: 14px; }
+.m-outcomes > .m-list-empty, .m-outcomes .m-outc-facts, .m-outcomes .m-outc-skills-label { padding-inline: 14px; }
 .m-outcomes .m-outc-facts-list { margin: 0; display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px 10px; font-size: 13px; }
 .m-outcomes .m-outc-facts-list dt { color: var(--text-secondary); }
 .m-outcomes .m-outc-facts-list dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }

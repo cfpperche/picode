@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sessionHostTab } from "./sessionBrowser.js";
+import { sessionHostTab, sessionReveal } from "./sessionBrowser.js";
 
 test("sessionHostTab binds to the session the human is watching", () => {
   assert.equal(sessionHostTab({
@@ -27,4 +27,16 @@ test("sessionHostTab binds to the session the human is watching", () => {
     openTabs: [],
   }), "t:term-9");
   assert.equal(sessionHostTab({}), "");
+});
+
+test("sessionReveal brings the session forward only to open it", () => {
+  assert.equal(sessionReveal({ hostOpen: false, splitExists: true, method: "Runtime.evaluate" }), "open");
+  assert.equal(sessionReveal({ hostOpen: false, splitExists: false, method: "shell.open" }), "open");
+  assert.equal(sessionReveal({ hostOpen: true, splitExists: false, method: "Input.dispatchMouseEvent" }), "select");
+  assert.equal(sessionReveal({ hostOpen: true, splitExists: true, method: "shell.open" }), "select");
+  // The 2026-09-24 report: every click/evaluate/screenshot re-selected the
+  // agent's tab and took the human's focus away.
+  for (const method of ["Runtime.evaluate", "Input.dispatchMouseEvent", "Page.captureScreenshot", "Page.navigate"]) {
+    assert.equal(sessionReveal({ hostOpen: true, splitExists: true, method }), "none");
+  }
 });

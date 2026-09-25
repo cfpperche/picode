@@ -25,6 +25,12 @@ var errTooLarge = errors.New("skill folder is too large to hash")
 // every regular file's slash-separated relative path followed by its bytes,
 // files ordered by JavaScript's localeCompare, .git and node_modules skipped.
 func Digest(dir string) (string, error) {
+	// A skill folder that is itself a link (the Claude Code link to a
+	// workspace install) is hashed at its target: WalkDir does not follow a
+	// linked root, and the link alone read as "edited" (found 2026-09-24).
+	if real, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = real
+	}
 	type file struct{ rel, abs string }
 	var files []file
 	var total int64

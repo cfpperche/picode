@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-waiting-action"
+description = "Enables the waiting_action command without any pre-configured scope."
+commands.allow = ["waiting_action"]
+
+[[permission]]
+identifier = "deny-waiting-action"
+description = "Denies the waiting_action command without any pre-configured scope."
+commands.deny = ["waiting_action"]

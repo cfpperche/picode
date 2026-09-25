@@ -1,6 +1,7 @@
 .cli-page { scrollbar-gutter: stable; }
 .cli-page > .settings-wrap > .settings-card { padding: 0; overflow: visible; }
-.cli-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--border); padding: 0 24px; }
+.cli-tabs-frame { border-bottom: 1px solid var(--border); padding: 0 24px; }
+.cli-tabs { display: flex; gap: 20px; }
 .cli-tabs a { padding: 16px 0 12px; color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent; }
 .cli-tabs a[aria-current] { color: var(--text-primary); border-color: var(--accent); }
 .cli-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); }
@@ -43,15 +44,10 @@
 .cli-launch-fields details[open] label { padding-bottom: 8px; animation: cli-enter var(--motion-fast) var(--ease-out); }
 .cli-pane-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 8px 0 0; border-bottom: 1px solid var(--border); }
 /* Nine tabs and the pane's own actions share this bar: at 1024px the strip is
-   wider than the card and used to run past its edge (the last tab painted on
-   the page gutter, cut mid-word — visual review, 2026-09-21). min-width: 0
-   lets the nav shrink; the strip then scrolls, which is what CliPaneTabs'
-   scrollIntoView effect was always written for. */
-/* overflow-y: hidden: overflow-x: auto computes the other axis to auto too,
-   and a sub-pixel overflow (the tabs' -1px margin + 2px underline under
-   fractional Windows DPI) then drew a vertical scrollbar beside the last
-   tab. The strip scrolls sideways only, by design. */
-.cli-pane-tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+   wider than the card (visual review, 2026-09-21). OverflowTabs' frame
+   shrinks, the strip scrolls with no scrollbar, and arrows plus an "All
+   sections" list take over — the editor tab strip's overflow chrome. */
+.cli-pane-tabs { display: flex; gap: 2px; }
 .cli-pane-tabs a {
   display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0 10px; margin-bottom: -1px;
   color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent;
@@ -135,6 +131,7 @@
 .cli-guard strong { display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .cli-guard p { margin: 4px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
 .cli-guard .rx-switch { flex: none; margin-top: 2px; }
+.cli-guard-empty { margin: 0; padding: 14px 24px; font-size: 13px; color: var(--text-secondary); }
 .cli-guard a { color: var(--accent); text-decoration: none; }
 .cli-guard a:hover { text-decoration: underline; }
 .cli-guard .cli-notice { margin: 10px 0 0; }
@@ -144,7 +141,7 @@
   .cli-catalog a { padding: 10px; gap: 8px; }
   .cli-catalog a > svg { display: none; }
   .cli-detail, .cli-editor { padding: 16px; }
-  .cli-tabs { padding: 0 16px; }
+  .cli-tabs-frame { padding: 0 16px; }
   .cli-guard { padding: 14px 16px; }
   .cli-heading { gap: 12px; }
   .cli-heading > .cli-actions { width: 100%; }
@@ -154,7 +151,7 @@
   .cli-terminal-row { flex-wrap: wrap; gap: 10px; }
   .cli-terminal-row > .cli-actions { margin-left: auto; }
   .cli-pane-bar { flex-wrap: nowrap; align-items: center; }
-  .cli-pane-tabs { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+  .cli-pane-bar > .ovt { flex: 1; }
   .cli-detail > #sessions-view { padding-top: 8px; }
   .cli-detail > #cli-settings-view, .cli-detail > #cli-models-view { padding-top: 8px; }
   .cli-detail > #connectors-view, .cli-detail > #cli-connectors-view { padding-top: 8px; }
@@ -226,7 +223,7 @@
 
 .cli-providers-pane { padding-top: 12px; min-width: 0; }
 
-@media (max-width: 767px) { .cli-tabs { overflow-x: auto; gap: 16px; } .cli-tabs a { flex: none; white-space: nowrap; } }
+@media (max-width: 767px) { .cli-tabs { gap: 16px; } .cli-tabs a { flex: none; white-space: nowrap; } }
 
 /* Annotate mode (v2c, the ChatGPT-Work shape): the strip replaces the URL
    bar while the mode is on; pins, the card and chips live inside the page
@@ -742,3 +739,48 @@
 .cli-skills-actions { display: flex; gap: 8px; margin: 6px 0 2px; }
 .cli-skills-ask { display: inline-flex; gap: 8px; flex-shrink: 0; }
 .cli-skills-flag.is-update { color: var(--accent); }
+/* A model field with the CLI's own list beside it: the field stays
+   typeable, Choose… fills it (climodels readers, 2026-09-23). */
+.model-pick { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+.model-pick .set-text { flex: 1 1 auto; min-width: 0; }
+.model-pick-btn { flex: none; height: var(--ctl-h); white-space: nowrap; }
+/* A model id is long (opencode/ling-3.0-flash-fin-free): on a wide screen the
+   model row's control column is wider, its right edge still flush with the
+   rows below. A phone keeps its one full-width column. */
+@media (min-width: 720px) {
+  #cli-settings-view .set-row-model .set-ctl { grid-template-columns: minmax(0, 24rem) 7.5rem; }
+}
+/* Wide enough for the id and its context size on one line; the generic
+   combo's 320px cap is lifted for this list only. */
+.search-combo-pop.model-pick-pop {
+  width: min(420px, var(--radix-popover-content-available-width));
+  max-width: min(420px, var(--radix-popover-content-available-width));
+}
+/* Two lines per model: the name, then the id Choose… writes and its context
+   size, whole — ids run to 40 characters (opencode/…), and an ellipsis hid
+   both the id and the size (visual review, 2026-09-24). The second line sits
+   under the name, past the check slot (14px + the row's 8px gap). */
+.search-combo-pop.model-pick-pop .cockpit-opt { flex-wrap: wrap; row-gap: 2px; }
+.search-combo-pop.model-pick-pop .combo-hint {
+  flex: 1 0 100%; padding-left: 22px; text-align: left;
+  white-space: normal; overflow-wrap: anywhere; font-size: 11.5px;
+}
+
+/* The Skills Marketplace (ADR-0196 slice 5): Packages' cards, a search
+   field, and the sources folded under the list. */
+.cli-skills .pkg-tabs { margin-top: 0; }
+.skills-market { display: flex; flex-direction: column; gap: 10px; }
+.skills-market-search { flex: 1; min-width: 0; }
+.skills-market .gpkg-card-desc.is-muted { color: var(--text-secondary); font-style: italic; }
+.skills-sources { border-top: 1px solid var(--border); padding-top: 10px; font-size: 12.5px; }
+.skills-sources > summary { cursor: pointer; color: var(--text-secondary); padding: 4px 0; }
+.skills-source-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.skills-source-row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.skills-source-name { font-family: var(--mono); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skills-source-state { color: var(--text-secondary); margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skills-source-state.is-warn { color: var(--warn); }
+.skills-source-add { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.skills-source-add .cred-input { flex: 1; min-width: 0; height: var(--ctl-h); }
+.skills-source-add .btn { height: var(--ctl-h); }
+.skills-sh-row { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; color: var(--text-secondary); line-height: 1.45; }
+.skills-sh-row strong { color: var(--text-primary); font-weight: 500; }

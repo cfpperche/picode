@@ -220,6 +220,61 @@ line.
 - **Pane:** a Radix switch on each row that has one. The switch flips at
   once, and the toast carries the read-back and a machine-only note.
 
+## The Marketplace (slice 5)
+
+`internal/skillcatalog` is one catalog for every CLI, on the
+`internal/mcpcatalog` pattern: the cache on disk (`<data>/skills-catalog.json`,
+versioned, one entry per source) answers first; a search starts a background
+read for a source that has none or is a day old (a failure is retried after
+30 minutes, keeps the last good list and records why); each read's end is the
+ephemeral `skills.catalog` event, so an open pane refreshes from the feed.
+
+- **Sources.** The seeds are `anthropics/skills`, `openai/skills` and
+  `vercel-labs/agent-skills` (owner, 2026-09-24). The person's own live in the
+  `skills.sources` setting (GitHub `owner/repo[/folder][#ref]` or an https site
+  with `/.well-known/agent-skills/index.json`; a local folder is refused, it
+  goes through Add skill). A GitHub source is one tree call to the API
+  (unauthenticated, 60 an hour; the catalog makes one a day per source) and one
+  raw `SKILL.md` per skill, header only (64 KiB), eight at a time, at most 300
+  per source; hidden folders count (`openai/skills` keeps its set in
+  `skills/.curated`). Measured 2026-09-24: 20 + 44 + 9 skills in 3.8 s.
+- **skills.sh** is asked only when the `skills.skillssh` setting is on and the
+  query has two characters or more (`/api/search`, undocumented, no token,
+  measured 2026-09-24). Its answer has no description and no audits; the card
+  names skills.sh with its install count and links to the page where skills.sh
+  shows its audits. A failure is one line beside the cards.
+- **Install** from a card opens `AddSkillDialog` on the card's `install`
+  (`owner/repo/folder`, the repository for a skills.sh card, the site for an
+  index) with the skill's name preselected: the preview, the scan and the
+  consent are the ones a typed source gets. A card reads **Installed** only
+  when a row of this CLI has that name *and* its lock names that source.
+- **A name that differs from its folder** at the source installs under the
+  name (`Candidate.Folder`, owner's call 2026-09-24: 5 of the 73 seed skills);
+  the preview says so. An installed folder that does not match its name is
+  still reported as a problem.
+
+Routes: `GET /api/skills/catalog?q=` (cards, per-source state, the switch,
+`skillsshError`), `POST`/`DELETE /api/skills/sources` (409 for a duplicate, 400
+for a seed or a folder), `PUT /api/skills/skillssh`. All of it goes through
+`skills.PublicClient` (https, private addresses refused).
+
+## Outcomes and the lifecycle (slice 6)
+
+Every agent terminal's launch records the skills it loaded
+(`Snapshot.Skills`), and the exit keeps them (`docs/architecture/agent-exits.md`).
+Outcomes shows, per skill, resolved among answered attempts with it and without
+it — the headline's own measure — and marks a side with fewer than five
+answered runs as *few runs*: a hint, not a finding.
+
+The lifecycle is trying (an agent's own list) → in the project → off (the CLI's
+switch) → removed. **Promote** (`POST /api/skills/promote {agent, name}`) is
+the step from trying to the project: `Manager.Promote` stages the agent's
+cached copy — the content it ran with, never a fresh download — installs it
+into the agent's workspace like any workspace install (links, lock with the
+original source so Check and Update reach it, the same 409s), then takes it
+off the agent's own list. A free agent has no project to promote into. Not
+built: `claude plugin eval --ablation` runs (they spend real tokens).
+
 ## Live parity
 
 `internal/skills/live_test.go` runs the real `muse` against a fixture in a
@@ -227,6 +282,6 @@ sandbox HOME (`PICODE_SKILLS_LIVE=1`, `PICODE_LIVE_SANDBOX` equal to HOME) and
 requires Muse's loaded skills and the reader's to be the same names from the
 same folders. `TestLiveSkillsCLIHash` installs a fixture with the real
 `npx skills` (telemetry off) and requires its `computedHash` to equal
-`Digest` — measured equal on 2026-09-23, mixed-case file names included. Grok (`grok inspect --json`) and Hermes (`hermes skills list`)
+`Digest` — measured equal on 2026-09-23, mixed-case file names included. `internal/skillcatalog/live_test.go` (`PICODE_SKILLS_LIVE=1`) reads the three seeds and one skills.sh search. Grok (`grok inspect --json`) and Hermes (`hermes skills list`)
 were compared by hand on 2026-09-23; their differences are vendor rules the
 reader does not model yet (`docs/handoff/open/skills.md`).

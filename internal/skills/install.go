@@ -37,15 +37,19 @@ var ErrNotInstalled = errors.New("that skill is not installed there")
 
 // Candidate is one skill a staged source carries.
 type Candidate struct {
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Path        string    `json:"path"`      // folder inside the source, slash-separated ("" = the source root)
-	SkillPath   string    `json:"skillPath"` // path/SKILL.md, as the lock records it
-	Digest      string    `json:"digest"`
-	Files       []string  `json:"files"`
-	Size        int64     `json:"size"`
-	Problems    []string  `json:"problems,omitempty"`
-	Findings    []Finding `json:"findings,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Path        string   `json:"path"`      // folder inside the source, slash-separated ("" = the source root)
+	SkillPath   string   `json:"skillPath"` // path/SKILL.md, as the lock records it
+	Digest      string   `json:"digest"`
+	Files       []string `json:"files"`
+	Size        int64    `json:"size"`
+	Problems    []string `json:"problems,omitempty"`
+	// Folder is the folder's name at the source when it differs from the
+	// skill's name; the install writes the folder under the name, so the
+	// installed layout follows the spec (owner's call, 2026-09-24).
+	Folder   string    `json:"folder,omitempty"`
+	Findings []Finding `json:"findings,omitempty"`
 }
 
 // Preview is a staged source waiting for consent.
@@ -176,6 +180,10 @@ func discover(root, sub string) []Candidate {
 		if rel == "" {
 			// A source whose root is the skill: the folder name is the
 			// staging id, so the header's name is the only name there is.
+			folder = c.Name
+		}
+		if validName(c.Name) && folder != c.Name {
+			c.Folder = folder
 			folder = c.Name
 		}
 		c.Problems = problems(fm, hasHeader, folder)
@@ -881,4 +889,54 @@ func (m *Manager) Check(ctx context.Context, t Target) ([]UpdateRow, error) {
 		out = append(out, row)
 	}
 	return out, nil
+}
+
+// PromoteReq moves an agent's skill into a workspace (ADR-0196 slice 6: the
+// lifecycle's "trying → in project").
+type PromoteReq struct {
+	Dir       string // the cached folder the agent ran with
+	Source    string // where it was added from, as the agent's list recorded it
+	Workspace string
+	Replace   bool
+	Adopt     bool
+	// AcceptCritical: the person read the scan's critical findings again.
+	AcceptCritical bool
+}
+
+// Promote installs exactly the cached copy the agent tried — never a fresh
+// download that could differ — into the workspace, with the lock naming the
+// original source so Check and Update still reach it.
+func (m *Manager) Promote(req PromoteReq) (Result, error) {
+	if req.Dir == "" || req.Workspace == "" {
+		return Result{}, conflict("invalid", "promote needs the agent's copy and a workspace")
+	}
+	src := Source{Kind: "local", Dir: req.Dir, Input: req.Dir}
+	if req.Source != "" {
+		if parsed, err := ParseSource(req.Source, m.home()); err == nil {
+			src = parsed
+		}
+	}
+	if err := os.MkdirAll(m.StageRoot, 0o700); err != nil {
+		return Result{}, err
+	}
+	id := randomID()
+	dir := filepath.Join(m.StageRoot, id)
+	if _, err := copyTree(req.Dir, dir); err != nil {
+		_ = os.RemoveAll(dir)
+		return Result{}, err
+	}
+	cands := discover(dir, "")
+	if len(cands) != 1 {
+		_ = os.RemoveAll(dir)
+		return Result{}, conflict("gone", "the agent's copy is no longer a single skill")
+	}
+	// The lock records where the skill lives in its source, for updates.
+	if src.Kind == "github" {
+		cands[0].SkillPath = path.Join(src.Sub, "SKILL.md")
+	}
+	m.mu.Lock()
+	m.sweep()
+	m.stages[id] = &staged{Preview: Preview{ID: id, Source: src, Candidates: cands}, dir: dir, created: m.Now()}
+	m.mu.Unlock()
+	return m.Install(InstallReq{Preview: id, Path: cands[0].Path, Scope: Workspace, Workspace: req.Workspace, Replace: req.Replace, Adopt: req.Adopt, AcceptCritical: req.AcceptCritical})
 }

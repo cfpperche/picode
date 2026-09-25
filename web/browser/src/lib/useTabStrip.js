@@ -14,13 +14,15 @@ import { stripState, wheelToScroll, arrowStep, hiddenTabs } from "./tabStrip.js"
 // `ref` is the scroll box; `deps` re-measures when its content changed
 // (the tabs array). Sizes come from one ResizeObserver over the strip and
 // its tabs, so a rename or a status dot cannot leave a stale arrow.
+// `wheel: false` leaves the vertical wheel to the page: a strip inside a
+// scrolling page (OverflowTabs) must not trap the reader's page scroll.
 const HIDE_MS = 500;
 // Frames without movement before a wheel-driven smooth scroll counts as
 // settled. `scrollend` would say so exactly, but Safari lacks it; watching
 // scrollLeft come to rest is exact everywhere.
 const SETTLE_FRAMES = 3;
 
-export function useTabStrip(ref, deps) {
+export function useTabStrip(ref, deps, { wheel = true } = {}) {
   const [state, setState] = useState(() => stripState({ scrollLeft: 0, clientWidth: 0, scrollWidth: 0 }));
   const [hidden, setHidden] = useState({ left: [], right: [] });
   const [scrolling, setScrolling] = useState(false);
@@ -82,7 +84,7 @@ export function useTabStrip(ref, deps) {
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     // React registers wheel listeners as passive; preventDefault needs this one.
-    el.addEventListener("wheel", onWheel, { passive: false });
+    if (wheel) el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       ro.disconnect();
       observer.current = null;
@@ -91,7 +93,7 @@ export function useTabStrip(ref, deps) {
       clearTimeout(timers.current.hide);
       cancelAnimationFrame(timers.current.watch);
     };
-  }, [ref, measure]);
+  }, [ref, measure, wheel]);
 
   // Content changed: watch the current tabs and measure once now.
   useEffect(() => {

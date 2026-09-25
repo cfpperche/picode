@@ -1181,3 +1181,15 @@ func TestMCPCliAgentMalformedLayerDegrades(t *testing.T) {
 	}
 	_ = res.Body.Close()
 }
+
+func TestConnectorsHashIsCanonical(t *testing.T) {
+	for _, tc := range []struct{ cli, ws, agent, want string }{
+		{"", "", "", "#/clis/pi/connectors"},
+		{"pi", "W", "", "#/clis/pi/connectors?workspaceId=W"},
+		{"omp", "W", "a/1", "#/clis/omp/connectors?agentId=a%2F1&workspaceId=W"},
+	} {
+		if got := connectorsHash(tc.cli, tc.ws, tc.agent); got != tc.want {
+			t.Errorf("connectorsHash(%q,%q,%q) = %q, want %q", tc.cli, tc.ws, tc.agent, got, tc.want)
+		}
+	}
+}

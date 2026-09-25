@@ -90,6 +90,35 @@ computer), so either tool can update what the other installed.
 If a folder with that name is already there, PiCode asks: keep it and only
 record where it came from, or replace it.
 
+## Finding skills: the Marketplace
+
+The **Marketplace** tab lists skills from three built-in sources — Anthropic's,
+OpenAI's and Vercel's own collections — and from any source you add. Search by
+name or description; **Install** opens the same preview as **Add skill**, with
+the skill already chosen, so you read its files and the scan before anything is
+written. A card says **Installed** when this CLI already has that skill from
+that source.
+
+Under the list, **Sources** shows each source and how many skills it has.
+**Add source** takes a GitHub repository (`owner/repo`, or a folder inside it)
+or a site that publishes a skills index. **Also search skills.sh** adds
+results from skills.sh; it is off until you switch it on, because what you
+type is then sent to skills.sh (Vercel). Its cards show skills.sh's install
+count; open **Source** to read the audits skills.sh shows for that skill.
+
+PiCode never vouches for a skill: a card says where it comes from, and the
+preview shows what it contains.
+
+## Did it help? Trying, comparing, promoting
+
+A skill you add for one agent is **being tried**: its row says so. Every agent
+start records the skills it loaded, and when you remove the agent and say how
+it went, **Outcomes** compares runs with and without each skill (see
+[Outcomes](./outcomes.md)). When a skill works, open its row and choose
+**Promote to** the workspace: PiCode puts exactly the copy the agent used into
+`.agents/skills` in the workspace, where every agent CLI there loads it, and
+takes it off the agent's own list.
+
 ## Updating and removing
 
 **Check for updates** compares every recorded skill with its source. A skill

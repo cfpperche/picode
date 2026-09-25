@@ -198,3 +198,46 @@ test("per-skill switches: the row flips at once and says what decides (slice 3)"
   assert.equal(m.noSwitchLine(report, "claude-code"), "");
   assert.equal(m.noSwitchLine({ rows: [] }, "pi"), "");
 });
+
+// --- slice 5: the Marketplace ------------------------------------------------
+import { catalogEmptyLine, catalogInstalled, catalogOrigin, installedSkillKeys, skillCatalogPath, sourceStateLine } from "./cliSkills.js";
+
+test("marketplace words", () => {
+  assert.equal(skillCatalogPath(""), "/api/skills/catalog");
+  assert.equal(skillCatalogPath(" pdf "), "/api/skills/catalog?q=pdf");
+  assert.equal(catalogOrigin({ origin: "skills.sh", installs: 200826, source: "a/b" }).label, "a/b · skills.sh · 201k installs");
+  assert.equal(catalogOrigin({ origin: "skills.sh", installs: 2147 }).label, "skills.sh · 2.1k installs");
+  assert.equal(catalogOrigin({ origin: "seed", source: "anthropics/skills" }).label, "anthropics/skills");
+  const keys = installedSkillKeys({ rows: [{ name: "pdf", status: "loaded", provenance: { source: "anthropics/skills" } }, { name: "mine", status: "loaded" }] });
+  assert.equal(catalogInstalled(keys, { name: "pdf", source: "anthropics/skills" }), true);
+  assert.equal(catalogInstalled(keys, { name: "pdf", source: "openai/skills" }), false, "same name, other source");
+  assert.equal(catalogInstalled(keys, { name: "mine", source: "a/b" }), false, "a hand-made folder names no source");
+  assert.equal(sourceStateLine({ reading: true }), "Reading…");
+  assert.equal(sourceStateLine({ count: 20 }), "20 skills");
+  assert.equal(sourceStateLine({ count: 0, error: "not found" }), "not found");
+  assert.equal(sourceStateLine({ count: 3, error: "limited" }), "3 skills · last read failed: limited");
+  assert.match(catalogEmptyLine("pdf", false), /No skill matches “pdf”/);
+  assert.match(catalogEmptyLine("", true), /Reading the sources/);
+});
+
+// --- slice 6: the lifecycle ----------------------------------------------------
+import { askLabel, canPromoteSkill, promoteQuestion, promoteRetry, promotedLine, trialLine } from "./cliSkills.js";
+
+test("an agent's own skill is trying, then promoted to the workspace", () => {
+  const own = { name: "tried", scope: "agent", status: "loaded" };
+  assert.equal(canPromoteSkill(own, { workspacePath: "/w" }), true);
+  assert.equal(canPromoteSkill(own, {}), false, "a free agent has no project");
+  assert.equal(canPromoteSkill({ ...own, status: "missing" }, { workspacePath: "/w" }), false);
+  assert.equal(canPromoteSkill({ ...own, scope: "workspace" }, { workspacePath: "/w" }), false);
+  assert.match(trialLine(own, { agentName: "Atlas", workspaceName: "PiCode" }), /^Trying in Atlas only\..*promote it to PiCode\.$/);
+  assert.equal(trialLine({ scope: "machine" }), "");
+  assert.match(promoteQuestion(own, { agentName: "Atlas", workspaceName: "PiCode" }), /^Promote tried to PiCode\? .*leaves Atlas's own list\.$/);
+  assert.match(promotedLine({ name: "tried", status: "installed" }, "PiCode"), /now in PiCode/);
+  assert.deepEqual(promoteRetry("exists"), { replace: true });
+  assert.deepEqual(promoteRetry("critical"), { acceptCritical: true });
+  assert.equal(promoteRetry("invalid"), null);
+  assert.equal(askLabel({ verb: "promote", extra: {} }), "Promote");
+  assert.equal(askLabel({ verb: "promote", extra: { replace: true } }), "Replace it");
+  assert.equal(askLabel({ verb: "remove", extra: { confirm: true } }), "Remove anyway");
+  assert.equal(askLabel({ verb: "update", extra: { force: true } }), "Update anyway");
+});

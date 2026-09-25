@@ -21,6 +21,7 @@ pub mod origins;
 pub mod permissions;
 pub mod preview;
 pub mod responsive;
+pub mod waitstate;
 
 use std::collections::BTreeMap;
 

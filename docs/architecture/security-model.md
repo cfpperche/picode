@@ -3,7 +3,8 @@
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
 - **HTTPS always** (bind 0.0.0.0): mkcert-issued cert via
-  `scripts/setup-cert.sh` (SANs: localhost + LAN + tailscale; CA exported to
+  `scripts/setup-cert.sh` (SANs: localhost, picode.local, 127.0.0.1, ::1 +
+  LAN + tailscale; CA exported to
   the Windows trust store on WSL) or a generated self-signed cert as the
   zero-config bootstrap. `PICODE_INSECURE=1` disables TLS (dev only).
 - **Port and bind**: default range `8445-8455` on `0.0.0.0`, first free
@@ -27,7 +28,22 @@
   the `picode_session` cookie or `Authorization: Bearer` (install token
   at `<data>/token`, or a token session); `Host` and `Origin` checked in
   every mode; modes `off | remote (default: loopback auto-pairs) | all`.
-  A browser-like loopback visit with no cookie reuses the newest live
+  **Host allowlist (ADR-0215)**: IP literals, `localhost` / `*.localhost`,
+  `picode.local`, the hostname bare or as the first label (Tailscale's
+  `name-N` twin included) under `local`, `lan`, `home`, `home.arpa`,
+  `localdomain`, `internal` or `<tailnet>.ts.net`, every DNS name the
+  served certificates cover (`tlsutil.CertNames`, re-read on change), and
+  the public URL — nothing else. **Fetch metadata (ADR-0215)**: a
+  `Sec-Fetch-Site: cross-site` request is refused on every guarded route
+  except the exempt ones (`/api/health` carries CORS for the `:8470` trust
+  page), and only a first-party request (no fetch metadata, `same-origin`
+  or `none`) is handed a loopback session — a `same-site` page on another
+  localhost port gets 401 — and over plain HTTP only on a loopback Host
+  name (`localhost`, `*.localhost`, a loopback IP), since an untrustworthy
+  `http://picode.local` carries no fetch metadata and mDNS can be spoofed.
+  The public URL the gate admits is the Settings value, else
+  `PICODE_PUBLIC_URL` (how a gateway member gets it).
+  A browser-like first-party loopback visit with no cookie reuses the newest live
   session with its user-agent label (secret rotated in place, presence
   asked first so an active browser keeps its cookie — ADR-0049
   amendment 2026-09-03) instead of minting a duplicate row per launch.
@@ -103,6 +119,18 @@
   `server.json`, which any process running as the same WSL user can
   rewrite. That user can already run Windows programs through interop,
   so it is not an escalation.
+- **The waiting page's commands are local-only**: the main window opens on
+  the bundled `ui/waiting.html` until the daemon answers
+  (`desktop-shell/src/waiting.rs`). Its buttons — Start PiCode, View logs,
+  Trust certificate — run through `waiting_state` / `waiting_action`,
+  granted by `capabilities/waiting.json`, which has no `remote` list: the
+  daemon's `/desktop/`, loaded later in the same webview, cannot call them.
+  Trust certificate imports the distro's mkcert root into the Windows
+  user's `CurrentUser\Root` with `certutil -user` (no administrator rights;
+  Windows asks the human to confirm the root), the same file the installer
+  puts in `LocalMachine\Root`. Whether Windows trusts the daemon is probed
+  with `curl.exe` *without* `-k` (schannel reads the store WebView2 uses),
+  so the window never navigates onto a certificate error page.
 
 ## Handing a target to the operating system (the desktop shell)
 

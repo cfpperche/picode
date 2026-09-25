@@ -1,12 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { integrationSection, destinationLabel, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors, connectorDriver, blockedLayers, CLI_CONNECTORS, connectorAddBody, connectorScopeNames, connectorDocsUrl } from "./integrations.js";
+import { destinationLabel, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors, connectorDriver, blockedLayers, CLI_CONNECTORS, connectorAddBody, connectorScopeNames, connectorDocsUrl } from "./integrations.js";
 import { webhookSchema } from "../contracts/schemas.js";
 
-test("integration routes and safe destination labels", () => {
-  assert.equal(integrationSection("#/integrations"), "connectors");
-  assert.equal(integrationSection("#/integrations/webhooks"), "webhooks");
-  assert.equal(integrationSection("#/more/integrations/webhooks"), "webhooks");
+test("safe destination labels", () => {
   assert.equal(destinationLabel("https://example.com/hook?token=secret"), "example.com/hook");
 });
 
@@ -28,22 +25,16 @@ test("connectors nest on the selected CLI; webhooks stay platform", () => {
   assert.equal(cliConnectorsHash("pi"), "#/clis/pi/connectors");
   assert.equal(cliConnectorsHash("claude-code"), "#/clis/claude-code/connectors");
   assert.equal(cliConnectorsLocation("#/clis/claude-code/connectors").id, "claude-code");
-  assert.equal(cliConnectorsLocation("#/integrations").redirect, "#/clis/pi/connectors");
-  assert.equal(cliConnectorsLocation("#/integrations/connectors").redirect, "#/clis/pi/connectors");
-  assert.equal(cliConnectorsLocation("#/mcps").redirect, "#/clis/pi/connectors");
   assert.equal(cliConnectorsLocation("#/clis/pi/connectors").redirect, "");
-  assert.equal(cliConnectorsLocation("#/integrations/webhooks"), null);
-  assert.equal(cliConnectorsLocation("#/clis/connectors").redirect, "#/clis/pi/connectors");
-  assert.equal(cliConnectorsLocation("#/clis/connectors").id, "pi");
-  assert.equal(cliConnectorsLocation("#/clis/connectors").adoptPane, undefined);
+  // The Pi-era addresses were retired on 2026-09-25: none of them names a CLI.
+  for (const hash of ["#/integrations", "#/integrations/connectors", "#/mcps", "#/more/mcps", "#/integrations/webhooks", "#/clis/connectors"]) {
+    assert.equal(cliConnectorsLocation(hash), null, hash);
+  }
   assert.equal(cliConnectorsLocation("#/clis/pi/connectors/extra").invalid, true);
   const scoped = cliConnectorsLocation("#/clis/pi/connectors?workspaceId=w&agentId=a");
   assert.equal(scoped.agentId, "a");
   assert.equal(scoped.workspaceId, "w");
   assert.equal(scoped.redirect, "");
-  const adopted = cliConnectorsLocation("#/mcps", { workspaceId: "w", agentId: "a" });
-  assert.equal(adopted.adoptPane, true);
-  assert.equal(adopted.redirect, "#/clis/pi/connectors?workspaceId=w&agentId=a");
 });
 
 // ADR-0150: each driver declares its honest capability set — the pane shows

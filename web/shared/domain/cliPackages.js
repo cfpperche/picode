@@ -27,38 +27,24 @@ export function cliPackagesHash(cli = "pi", { workspaceId = "", agentId = "", sc
   return "#/clis/" + encodeURIComponent(cli || "pi") + "/packages" + (pkg ? "/config/" + encodeURIComponent(pkg) : "") + (query.size ? "?" + query : "");
 }
 
-export function cliPackagesLocation(hash = "", legacyContext = {}) {
+export function cliPackagesLocation(hash = "") {
   const [path, query = ""] = hash.replace(/^#/, "").split("?");
   const nested = /^\/clis\/([^/]+)\/packages(?:\/config\/([^/]+))?$/.exec(path);
-  const strip = path === "/clis/packages" || path.startsWith("/clis/packages/");
-  const legacy = /^\/(?:more\/)?packages(?:\/|$)/.test(path);
-  if (!legacy && !strip && !nested) return null;
+  if (!nested) return null;
   const params = new URLSearchParams(query);
-  const match = nested || (legacy ? /^\/(?:more\/)?packages(?:\/config\/([^/]+))?$/.exec(path)
-    : /^\/clis\/packages(?:\/([^/]+)(?:\/config\/([^/]+))?)?$/.exec(path));
-  let id = "pi", pkg = "", invalid = !match;
+  let id = "", pkg = "", invalid = false;
   try {
-    if (nested) {
-      id = decodeURIComponent(nested[1] || "pi");
-      pkg = decodeURIComponent(nested[2] || "");
-    } else if (match) {
-      id = legacy ? "pi" : decodeURIComponent(match[1] || "pi");
-      pkg = decodeURIComponent(match[legacy ? 1 : 2] || "");
-    }
+    id = decodeURIComponent(nested[1]);
+    pkg = decodeURIComponent(nested[2] || "");
   } catch { invalid = true; }
-  // An explicit context, including an intentionally empty one, never inherits
-  // a different selected pane. Canonical links never consult the current pane.
-  const explicit = params.has("workspaceId") || params.has("agentId");
-  const adoptPane = !!(legacy && !explicit);
-  const fallback = adoptPane ? legacyContext : {};
-  const workspaceId = params.get("workspaceId") || fallback.workspaceId || "";
-  const agentId = params.get("agentId") || fallback.agentId || "";
+  const workspaceId = params.get("workspaceId") || "";
+  const agentId = params.get("agentId") || "";
   // The address speaks the shared scope words (scopes.js); the pane keeps its own.
   const read = readScope(params, PACKAGE_WORDS);
   const scope = read.value || "user";
   invalid ||= read.invalid;
-  const route = { view: "clis", pane: "packages", id, pkg, workspaceId, agentId, scope, ...(read.kind ? { scopeKind: read.kind } : {}), legacy: legacy || strip, invalid, ...(adoptPane ? { adoptPane: true } : {}) };
-  return { ...route, redirect: !invalid && (!nested || read.alias) ? cliPackagesHash(id, route) : "" };
+  const route = { view: "clis", pane: "packages", id, pkg, workspaceId, agentId, scope, ...(read.kind ? { scopeKind: read.kind } : {}), invalid };
+  return { ...route, redirect: !invalid && read.alias ? cliPackagesHash(id, route) : "" };
 }
 
 const missing = message => Object.assign(new Error(message), { status: 404 });
