@@ -10,6 +10,7 @@ import {
   roleAliases, selectorsInUse, splitSelector,
 } from "@picode/shared/domain/cliNative.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
+import { formatContext, modelPickField } from "@picode/shared/domain/cliModels.js";
 import SearchCombo from "./SearchCombo.jsx";
 import CliDoctor from "./CliDoctor.jsx";
 import { supportsCliDoctor } from "@picode/shared/domain/cliDoctor.js";
@@ -192,6 +193,7 @@ export default function CliNativeSettings({ route, workspaceId = "", workspaceNa
               levels={roles?.levels || []}
               models={models}
               onLoadModels={loadModels}
+              modelPick={modelPickField(cli, field.key)}
               picks={picks}
               onSet={(value) => save({ key: field.key, value })}
               onReset={() => save({ key: field.key, reset: true })}
@@ -265,7 +267,7 @@ export function AddRow({ label, hint, disabled, onAdd }) {
   );
 }
 
-export function Row({ field, state, cliLabel, busy, disabled, unreadable, filePath, cycle, levels, models, onLoadModels, picks, onSet, onReset, note = "", workspaceName = "" }) {
+export function Row({ field, state, cliLabel, busy, disabled, unreadable, filePath, cycle, levels, models, onLoadModels, modelPick = false, picks, onSet, onReset, note = "", workspaceName = "" }) {
   const { value, setHere, from } = state;
   // A value this layer holds in a shape PiCode will not rewrite is named and
   // left alone: one line, one action, never a control that cannot save.
@@ -295,7 +297,7 @@ export function Row({ field, state, cliLabel, busy, disabled, unreadable, filePa
   const warn = dangerNote(field, value);
   const spot = isRoleField(field) ? cyclePosition(cycle, field.key.split(".").pop()) : 0;
   return (
-    <div data-key={field.key} className={"set-row" + (setHere ? " is-set" : "") + (isListField(field) ? " set-row-stack" : "") + (isRoleField(field) ? " set-row-role" : "")}>
+    <div data-key={field.key} className={"set-row" + (setHere ? " is-set" : "") + (isListField(field) ? " set-row-stack" : "") + (isRoleField(field) ? " set-row-role" : "") + (modelPick ? " set-row-model" : "")}>
       <span className="set-label">
         <span className="set-name">
           {field.tag ? <span className="role-tag">{field.tag}</span> : null}
@@ -312,7 +314,7 @@ export function Row({ field, state, cliLabel, busy, disabled, unreadable, filePa
         <Control
           field={field} value={value} busy={busy} disabled={disabled} onSet={onSet}
           levels={levels} models={models} onLoadModels={onLoadModels} picks={picks}
-          workspaceName={workspaceName}
+          workspaceName={workspaceName} modelPick={modelPick}
         />
         {setHere && !disabled ? (
           <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onReset}>Use inherited</button>
@@ -447,7 +449,7 @@ function BoolControl({ field, value, busy, disabled, onSet }) {
   );
 }
 
-function Control({ field, value, busy, disabled, onSet, levels, models, onLoadModels, picks, workspaceName = "" }) {
+function Control({ field, value, busy, disabled, onSet, levels, models, onLoadModels, picks, workspaceName = "", modelPick = false }) {
   const [draft, setDraft] = useState(value === undefined ? "" : String(value));
   useEffect(() => { setDraft(value === undefined ? "" : String(value)); }, [value]);
 
@@ -481,7 +483,7 @@ function Control({ field, value, busy, disabled, onSet, levels, models, onLoadMo
     if (next === null || String(next) === String(value ?? "")) return;
     onSet(next);
   };
-  return (
+  const input = (
     <input
       type={field.kind === "number" ? "number" : "text"}
       className="set-text"
@@ -492,5 +494,44 @@ function Control({ field, value, busy, disabled, onSet, levels, models, onLoadMo
       onBlur={commit}
       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
     />
+  );
+  if (!modelPick) return input;
+  // The field stays typeable; Choose… fills it from what the CLI itself
+  // lists here (asked on first open — the list costs a subprocess).
+  return <ModelPickText input={input} value={draft} busy={busy} disabled={disabled} models={models || { state: "idle", rows: [] }} onLoadModels={onLoadModels} onPick={(id) => { setDraft(id); onSet(id); }} label={field.label} />;
+}
+
+function ModelPickText({ input, value, busy, disabled, models, onLoadModels, onPick, label }) {
+  const options = models.state === "ready"
+    // The hint is the id Choose… will write (and its context size), so the
+    // list and the field speak the same name.
+    ? models.rows.map((m) => ({ id: m.selector, label: m.name || m.id, hint: [m.selector, m.contextWindow ? formatContext(m.contextWindow) : ""].filter(Boolean).join(" · ") }))
+    : [];
+  const note =
+    models.state === "loading" || models.state === "idle" ? "Asking the CLI…"
+      : models.state === "error" ? models.error
+        : options.length === 0 ? "The CLI reports no models it can reach here. Type one instead."
+          : "";
+  return (
+    <span className="model-pick" data-align-row>
+      {input}
+      <SearchCombo
+        value={value}
+        onChange={onPick}
+        options={options}
+        label="Choose…"
+        searchPlaceholder="Search models"
+        ariaLabel={"Choose " + label + " from the list"}
+        disabled={busy || disabled}
+        triggerClassName="btn btn-ghost btn-sm model-pick-btn"
+        popoverClassName="model-pick-pop"
+        emptyText={options.length ? "No matches" : null}
+        side="bottom"
+        align="end"
+        markCurrent
+        onOpen={onLoadModels}
+        footer={note ? <p className="combo-note">{note}</p> : null}
+      />
+    </span>
   );
 }

@@ -17,6 +17,8 @@ export default function SearchCombo({
   align = "start",
   ariaLabel,
   onOpen,
+  popoverClassName,
+  emptyText = "No matches",
 }) {
   const [open, setOpen] = useState(false);
   // onOpen lets an owner fetch its options the first time the list is asked
@@ -53,7 +55,7 @@ export default function SearchCombo({
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          className="cockpit-pop cockpit-combo-pop search-combo-pop"
+          className={"cockpit-pop cockpit-combo-pop search-combo-pop" + (popoverClassName ? " " + popoverClassName : "")}
           side={side}
           align={align}
           sideOffset={6}
@@ -67,7 +69,9 @@ export default function SearchCombo({
               />
             ) : null}
             <Command.List className="combo-list">
-              <Command.Empty className="combo-empty">No matches</Command.Empty>
+              {/* emptyText null: the owner's footer already says why the list
+                  is empty (loading, or nothing to offer). */}
+              {emptyText ? <Command.Empty className="combo-empty">{emptyText}</Command.Empty> : null}
               {(options || []).map((o) => (
                 <Command.Item
                   key={o.id === "" ? "__default" : o.id}

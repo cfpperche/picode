@@ -742,6 +742,32 @@
 .cli-skills-actions { display: flex; gap: 8px; margin: 6px 0 2px; }
 .cli-skills-ask { display: inline-flex; gap: 8px; flex-shrink: 0; }
 .cli-skills-flag.is-update { color: var(--accent); }
+/* A model field with the CLI's own list beside it: the field stays
+   typeable, Choose… fills it (climodels readers, 2026-09-23). */
+.model-pick { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+.model-pick .set-text { flex: 1 1 auto; min-width: 0; }
+.model-pick-btn { flex: none; height: var(--ctl-h); white-space: nowrap; }
+/* A model id is long (opencode/ling-3.0-flash-fin-free): on a wide screen the
+   model row's control column is wider, its right edge still flush with the
+   rows below. A phone keeps its one full-width column. */
+@media (min-width: 720px) {
+  #cli-settings-view .set-row-model .set-ctl { grid-template-columns: minmax(0, 24rem) 7.5rem; }
+}
+/* Wide enough for the id and its context size on one line; the generic
+   combo's 320px cap is lifted for this list only. */
+.search-combo-pop.model-pick-pop {
+  width: min(420px, var(--radix-popover-content-available-width));
+  max-width: min(420px, var(--radix-popover-content-available-width));
+}
+/* Two lines per model: the name, then the id Choose… writes and its context
+   size, whole — ids run to 40 characters (opencode/…), and an ellipsis hid
+   both the id and the size (visual review, 2026-09-24). The second line sits
+   under the name, past the check slot (14px + the row's 8px gap). */
+.search-combo-pop.model-pick-pop .cockpit-opt { flex-wrap: wrap; row-gap: 2px; }
+.search-combo-pop.model-pick-pop .combo-hint {
+  flex: 1 0 100%; padding-left: 22px; text-align: left;
+  white-space: normal; overflow-wrap: anywhere; font-size: 11.5px;
+}
 
 /* The Skills Marketplace (ADR-0196 slice 5): Packages' cards, a search
    field, and the sources folded under the list. */

@@ -251,6 +251,21 @@ copy of the kept rows — Pi answers in omp's shape. Pi's model pickers still re
 same kept list, and no other CLI has a picker in PiCode yet (measured
 2026-09-23), so moving them would rebuild that composition for no gain.
 
+**Which CLIs have a reader (measured 2026-09-23).** omp, Pi, Codex
+(`codex debug models`, JSON, 0.1–0.2 s, answers from its own models cache,
+hidden rows dropped), OpenCode (`opencode models --verbose` with
+`OPENCODE_DISABLE_MODELS_FETCH=1`, ~1 s, **folder-dependent**: a project
+`opencode.json` narrowed 105 rows to 86 or 12) and Muse (`muse serve`
+JSON-RPC `initialize → initialized → model/list`, offline, with
+`MUSE_NO_AUTO_UPDATE=1`). Codex, OpenCode and Muse fill their native `model`
+field's **Choose…** (`MODEL_READERS` / `modelPickField` in `cliModels.js`,
+held equal to `Supported()` by a Go test); the field stays typeable. No reader:
+Claude Code (only its control protocol lists, and every call rewrites
+`~/.claude.json`), Grok (text only, re-extracts 27 files under `~/.grok/docs`
+per run), Antigravity (network each time, refreshed its OAuth token) and Hermes
+(no public listing; its gateway mutated `auth.json`). The measurement itself
+refreshed the owner's Antigravity token and Hermes `auth.json` once.
+
 ## Checks: what a CLI resolves here, and what is wrong with it (slice 4)
 
 A CLI with a doctor (`internal/clidoctor`; omp today, `DOCTOR_CLIS` held equal
