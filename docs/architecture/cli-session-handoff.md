@@ -51,7 +51,13 @@ Omp reads its own `~/.omp/agent/sessions` JSONL — pi-family schema v3 with
 omp's cwd-bucket encoding, `title` records outside the entry chain and
 provider-qualified `model_change` records — verified against real files
 and against a hand-written minimal file the CLI resumed live (omp 18.2.4,
-2026-09-17); its `ResumeArgs` are `--resume <id>`.
+2026-09-17); its `ResumeArgs` are `--resume <id>`. A workspace Omp agent
+writes into PiCode's own `<dataDir>/omp-sessions/<agentID>` instead (its
+launch passes `--session-dir`), so the handoff route vouches for that tree
+through `Ref.Roots`; `clisession.OmpAgentSessionsRoot` is the one definition
+the launch, the agent history and the reader share. A path under neither
+root is still refused ("That session is not on this machine."). The Omp
+Sessions listing still reads only `~/.omp`.
 
 Writers publish two ways. Claude Code, Codex, pi (as an adopted managed
 agent), Grok, Muse Code, Antigravity and Omp get a new session artifact

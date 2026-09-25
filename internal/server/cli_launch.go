@@ -1132,7 +1132,7 @@ func launchIdentityEnv(deps Deps, termID string) []string {
 // by Omp's shared default home. The directory contains transcripts only;
 // Omp authentication and configuration remain in the user's normal profile.
 func ompAgentSessionDir(dataDir, agentID string) string {
-	return filepath.Join(dataDir, "omp-sessions", agentID)
+	return filepath.Join(clisession.OmpAgentSessionsRoot(dataDir), agentID)
 }
 
 // agentOmpScopeFlags is the agent's own scope as Omp's launch takes it: every
