@@ -123,12 +123,6 @@ body {
    scrolling no longer carries the tab's controls out of view. */
 .side-section { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 10px 0 0; }
 .side-scroll { flex: 1; min-height: 0; overflow-x: clip; overflow-y: auto; padding: 0 8px 10px; }
-.tree-row {
-  display: grid;
-  grid-template-columns: var(--tree-chev) var(--tree-icon) minmax(0, 1fr) auto auto;
-  column-gap: var(--tree-gap);
-  align-items: center;
-}
 .tree-children { padding-left: var(--tree-indent); }
 .tree-icon {
   width: var(--tree-icon); height: var(--tree-icon);
@@ -136,17 +130,6 @@ body {
 }
 .ws-favicon { width: 16px; height: 16px; border-radius: 3px; object-fit: contain; display: block; }
 .tree-meta { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
-.side-head {
-  padding: 4px 4px 6px;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-.side-title {
-  min-width: 0;
-  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
-  color: var(--text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 .side-empty-hint { font-size: 11px; color: var(--text-secondary); opacity: .7; flex: none; }
 .side-empty {
   margin: 4px 4px 8px;
@@ -178,9 +161,6 @@ body {
 .empty-skel { display: flex; flex-direction: column; gap: 10px; width: 260px; max-width: 100%; }
 /* Shared flex helpers retained for compact sidebar surfaces outside the
    supervision-row markup below. */
-.ws-row1, .ws-row2 {
-  display: flex; align-items: center; gap: 8px;
-}
 /* Shared compact icon action used by section headers and non-row surfaces. */
 .ws-icon-btn {
   width: 24px; height: 22px; padding: 0; display: grid; place-items: center;
@@ -202,18 +182,13 @@ body {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .pin-form { display: flex; flex-direction: column; gap: 8px; }
-.pin-input, .pin-body {
+.pin-input {
   width: 100%; box-sizing: border-box;
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg-base); color: var(--text-primary);
   padding: 8px 10px; font: inherit;
 }
 .pin-input { height: var(--ctl-h); }
-.pin-body {
-  min-height: 160px; resize: vertical;
-  font-family: var(--mono); font-size: 12px; line-height: 1.45;
-}
-.pin-studio-form .pin-body { min-height: 280px; }
 .pin-editor {
   border: 1px solid var(--border); border-radius: 8px; background: var(--bg-base); overflow: hidden;
 }
@@ -360,11 +335,6 @@ body {
 }
 
 .form-new { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 6px; }
-.agent-bar {
-  flex: none; display: flex; align-items: center; gap: 8px;
-  padding: 6px 16px; border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-}
 .cfg-fields { display: flex; flex-direction: column; gap: 6px; }
 .cfg-fields.cfg-row { flex-direction: row; flex-wrap: wrap; align-items: center; }
 .cfg-fields select, .form-new select {
@@ -372,10 +342,6 @@ body {
   border: 1px solid var(--border); border-radius: var(--radius-ctl);
   height: var(--ctl-h); padding: 0 8px; font-size: 12.5px; font-family: inherit;
 }
-.agent-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
-.agent-row:last-child { border-bottom: none; }
-.agent-row-name { font-weight: 550; margin-bottom: 8px; }
-.agent-row .btn { margin-top: 8px; }
 .hotkey-group {
   font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-secondary); margin: 14px 0 0; font-weight: 650;
@@ -479,8 +445,6 @@ body {
   .wn-overlay, .dlg-whats-new { animation: none !important; }
   .dlg-whats-new, .dlg-whats-new * { scroll-behavior: auto; }
 }
-.dlg-llama { max-width: 560px; max-height: min(80vh, 720px); overflow: auto; }
-.dlg-llama .settings-section { padding: 0; margin: 12px 0 0; }
 .sessions-toolbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   flex-wrap: wrap; margin: 4px 0 12px;
@@ -593,7 +557,6 @@ body {
   background: var(--bg-panel); color: var(--text-primary);
   border: 1px solid var(--border); border-radius: 6px;
 }
-.dlg-llama .form-new { padding: 0; }
 .share-link {
   display: flex; align-items: center; gap: 8px; margin: 10px 0 0;
   font-family: var(--mono); font-size: 12px; word-break: break-all;
@@ -800,21 +763,6 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .mcp-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .mcp-row-actions .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .pkg-installed h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
-.mcp-toolbar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
-.mcp-toolbar .btn { height: var(--ctl-h); }
-.dlg-use-from { width: min(440px, calc(100vw - 32px)); }
-.mcp-tree { list-style: none; margin: 12px 0 0; padding: 0; max-height: 280px; overflow: auto; }
-.mcp-tree > li + li { margin-top: 4px; }
-.mcp-tree-kids { list-style: none; margin: 0; padding: 0 0 4px; }
-.mcp-tree-row { display: flex; align-items: center; gap: 8px; min-height: 32px; }
-.mcp-tree-chev {
-  width: 20px; height: 28px; padding: 0; border: 0; background: none;
-  color: var(--text-secondary); cursor: pointer; font-size: 12px; line-height: 1;
-}
-.mcp-tree-spc { width: 20px; flex: none; }
-.mcp-tree-label { font-size: 13px; font-weight: 550; }
-.mcp-tree-item { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-.mcp-tree-empty { font-size: 12px; color: var(--text-secondary); padding-left: 28px; }
 .mcp-empty {
   display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
 }
@@ -844,7 +792,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .mcp-form-row .pkg-scope { margin: 0; flex: none; }
 .mcp-form-row .pkg-scope-btn, .mcp-form-row .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .mcp-more { align-self: flex-start; height: var(--ctl-h); }
-.mcp-extra, .mcp-pairs { display: flex; flex-direction: column; gap: 8px; }
+.mcp-pairs { display: flex; flex-direction: column; gap: 8px; }
 .mcp-pairs > .btn { align-self: flex-start; height: var(--ctl-h); }
 .pkg-grid {
   list-style: none; padding: 0; margin: 0;
@@ -995,8 +943,6 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .gpkg-scope .pkg-scope-label { display: inline-flex; align-items: center; }
 .gpkg-scope .pkg-scope { margin: 0; align-items: center; }
 .gpkg-install { margin-top: 10px; }
-.gpkg-check { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.gpkg-check .pkg-fine { display: inline-flex; align-items: center; height: var(--ctl-h); margin: 0; }
 .pkg-type.is-update { color: var(--accent); border-color: var(--border-strong); }
 .gpkg-problem { display: flex; flex-direction: column; gap: 4px; }
 .gpkg-cmd { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -1072,7 +1018,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   display: flex; flex-direction: column; gap: 8px;
   background: var(--bg-panel); padding: 8px 0;
 }
-.gpkg-sticky .pkg-installed-toolbar, .gpkg-sticky .gpkg-check { margin: 0; }
+.gpkg-sticky .pkg-installed-toolbar { margin: 0; }
 
 /* Installed rows, grouped by where they came from — in the vendor's own word for
    it. A group header exists only when the list actually mixes origins: one group
@@ -1133,7 +1079,6 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   height: var(--ctl-h); padding: 0 8px; font-size: 12.5px; font-family: inherit;
 }
 .form-new input:focus { outline: none; border-color: var(--accent); }
-.form-actions { display: flex; gap: 6px; }
 .form-error { color: var(--danger); font-size: 12px; }
 
 .ws-list { list-style: none; margin: 0; padding: 0; }
@@ -1401,7 +1346,6 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 .side-foot { padding: 8px; border-top: 1px solid var(--border); }
 
 /* ============ user menu (Vercel-style) ============ */
-.usermenu { position: relative; }
 .um-trigger {
   display: flex; width: 100%; align-items: center; gap: 9px;
   padding: 7px 8px; border-radius: var(--radius-ctl);
@@ -2747,29 +2691,6 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 .file-pane-bar .file-pane-name {
   font-size: 13px; font-weight: 600; letter-spacing: -0.01em;
 }
-.file-pane-tabs {
-  display: flex; align-items: stretch; flex: 1; min-width: 0; overflow: hidden;
-}
-.file-etab {
-  display: inline-flex; align-items: center; gap: 4px;
-  height: 32px; padding: 0 8px; max-width: 180px;
-  border: 0; border-right: 1px solid var(--border);
-  background: transparent; color: var(--text-secondary);
-  font: inherit; font-size: 12px; cursor: pointer;
-}
-.file-etab.on { color: var(--text-primary); background: var(--bg-base); }
-.file-etab-name {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-family: var(--mono); font-size: 12px;
-}
-.file-etab-x {
-  display: grid; place-items: center; width: 16px; height: 16px; flex: none;
-  border-radius: 4px; color: var(--text-secondary);
-}
-.file-etab-x:hover { color: var(--text-primary); background: var(--bg-hover); }
-.file-etab-add { max-width: none; padding: 0 10px; font-size: 16px; line-height: 1; }
-.file-pane-page { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.file-pane-page[hidden] { display: none !important; }
 .file-shell { flex: 1; min-height: 0; position: relative; background: var(--bg-base); }
 .file-shell .term-pane { padding: 0; }
 .file-pane-bar .chip-group .cockpit-chip[aria-checked="true"] {
@@ -2862,11 +2783,6 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 .file-pane-split { flex-direction: row; }
 .file-pane-split > .file-cm, .file-pane-split > .file-pane-view { flex: 1 1 0; min-width: 0; }
 .file-pane-split > .file-pane-view { border-left: 1px solid var(--border); }
-.file-pre {
-  margin: 0; padding: 10px 12px;
-  font-family: var(--code); font-size: 12.5px; line-height: 1.5;
-  white-space: pre; tab-size: 2;
-}
 .file-cm { flex: 1; min-height: 0; overflow: hidden; background: var(--bg-base); }
 .file-cm .cm-editor { height: 100%; font-size: 12.5px; }
 .file-cm .cm-scroller { font-family: var(--code); }
@@ -3022,10 +2938,6 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); }
 .dot.streaming { background: var(--accent); animation: pulse 1.4s ease infinite; }
-.composer-status {
-  display: flex; align-items: center; gap: 6px;
-  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
-}
 
 .chat-hello {
   position: absolute; left: 0; right: 0; top: 0; bottom: 200px;
@@ -3640,12 +3552,6 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
   animation: pop-in var(--motion-fast) var(--ease-out);
 }
 .ask-card.open { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
-.ask-summary {
-  margin: 6px 0 10px; font-size: 13px; line-height: 1.5;
-  color: var(--text-primary);
-}
-.ask-summary-main { font-weight: 600; }
-.ask-summary-rest { color: var(--text-secondary); }
 .ask-step {
   display: inline-flex; flex-direction: column; gap: 2px; flex: none; min-width: 0;
 }
@@ -3677,7 +3583,7 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
   margin: 6px 0 0; font-size: 13px; color: var(--text-secondary);
   white-space: pre-wrap; word-break: break-word;
 }
-.ask-actions, .ask-input-row {
+.ask-actions {
   display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 8px;
 }
 .ask-card.open .ask-actions { margin-top: 0; }
@@ -3784,9 +3690,6 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
-.ws-wait {
-  flex: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--accent);
-}
 /* The agent's checklist as one operator line (ADR-0055). Same left text
    column as .ws-context below it (owner refinement,
    docs/plans/sidebar-checklist-expand.md) — no more flush-left padding
@@ -3871,7 +3774,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .composer-left, .composer-right {
   display: flex; align-items: center; gap: 6px; min-width: 0;
 }
-.cockpit-chip-wrap { position: relative; flex: none; }
 .cockpit-chip {
   display: inline-flex; align-items: center; gap: 4px;
   max-width: 220px; height: 28px; padding: 0 8px;
@@ -3905,12 +3807,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   padding: 6px; z-index: 12;
   background: var(--bg-elevated); border: 1px solid var(--border-strong);
   border-radius: 10px;
-}
-.cockpit-pop-sm { min-width: 140px; }
-.cockpit-group { margin-top: 4px; }
-.cockpit-group-label {
-  padding: 4px 8px 2px; font-size: 10.5px; letter-spacing: 0.04em;
-  text-transform: uppercase; color: var(--text-secondary);
 }
 .cockpit-opt {
   display: block; width: 100%; text-align: left;
@@ -3951,7 +3847,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .combo-opt-icon .ws-face { margin-left: 0; }
 [cmdk-root] { display: flex; flex-direction: column; }
 [cmdk-item][data-selected="true"] { background: var(--bg-hover); }
-.combo-search { padding: 2px 2px 6px; }
 .combo-input {
   width: 100%; padding: 6px 8px;
   border: 1px solid var(--border); border-radius: 6px;
@@ -3981,20 +3876,12 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 .repo-status .btn { margin-left: auto; }
 .cockpit-opt { display: flex; align-items: center; gap: 8px; }
-.cockpit-think { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 8px; }
-.think-pill {
-  padding: 2px 7px; border-radius: 999px; font-size: 11px; font-family: inherit;
-  background: transparent; border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer;
-}
-.think-pill.on { border-color: var(--accent); color: var(--text-primary); }
-.cockpit-chip-danger:hover { border-color: var(--danger); color: var(--danger); }
 .icon-btn {
   width: 32px; height: 32px; display: grid; place-items: center; flex: none;
   border: 0; background: transparent; border-radius: 10px;
   color: var(--text-secondary); cursor: pointer;
 }
 .icon-btn:hover { background: var(--bg-base); color: var(--text-primary); }
-.icon-btn-danger:hover { color: var(--danger); background: var(--bg-base); }
 .icon-btn-send {
   background: var(--accent-fill); color: var(--on-accent);
 }
@@ -4364,10 +4251,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   border: 1px solid var(--border); border-radius: 6px;
   font-size: 11.5px; font-family: var(--mono); padding: 2px 6px; cursor: pointer;
 }
-.composer-hint {
-  margin-left: auto; font-size: 11px; color: var(--text-secondary);
-  font-family: var(--mono);
-}
 
 /* ============ terminal dock (belongs to the active agent tab — no tabs of its own) ============ */
 .dock {
@@ -4378,19 +4261,8 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .dock.view {
   flex: 1; height: auto !important; min-height: 0; border-top: 0;
 }
-.dock-head {
-  display: flex; align-items: center; min-height: 28px; flex: none;
-  padding: 0 0 0 12px;
-  border-bottom: 1px solid var(--border);
-}
-.dock-title { font-size: 11.5px; color: var(--text-secondary); flex: 1; }
 .dock { position: relative; }
 .dock.maximized { flex: 1; height: auto !important; min-height: 0; }
-.dock-sizer {
-  position: absolute; top: -4px; left: 0; right: 0; height: 8px;
-  cursor: row-resize; z-index: 6;
-}
-.dock-sizer:hover, .dock.resizing .dock-sizer { background: var(--accent); opacity: .45; }
 .dock-icon {
   flex: none; width: 34px; height: 28px;
   border: none; border-left: 1px solid var(--border);
@@ -4399,10 +4271,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   display: grid; place-items: center;
 }
 .dock-icon:hover { color: var(--text-primary); background: var(--bg-hover); }
-.dock-icon.dock-close:hover { color: var(--danger); }
-.icon-restore { display: none; }
-.dock.maximized .icon-max { display: none; }
-.dock.maximized .icon-restore { display: block; }
 
 .terms { flex: 1; min-height: 0; position: relative; }
 .term-pane { position: absolute; inset: 0; padding: 2px 4px; display: none; }
@@ -4459,7 +4327,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .settings-section[hidden] { display: none; }
 .settings-section h3 { font-size: 13px; font-weight: 650; margin-bottom: 4px; }
 .set-row-stack .folder-field { width: 100%; }
-.set-hint { font-size: 12px; color: var(--text-secondary); margin: 0 0 12px; line-height: 1.4; }
 .bak-snaps { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .bak-snap {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -4721,6 +4588,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; }
 .set-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
 .set-pats { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+/* The list's empty line ("All models") borrows the sidebar's .side-empty;
+   its 4px side margin set it off the field's left edge. */
+.set-pats > .side-empty { margin-left: 0; margin-right: 0; }
 .set-pat-add { display: flex; gap: 6px; }
 .set-pat-add input {
   flex: 1; min-width: 0; padding: 4px 8px;
@@ -4769,12 +4639,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-item-t { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13.5px; font-weight: 550; color: var(--text-primary); }
 .set-item-d { font-size: 12.5px; color: var(--text-secondary); line-height: 1.35; }
 .set-item-ctl { display: flex; align-items: center; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
-.set-item-stack { flex-direction: column; align-items: stretch; }
 /* A stacked row's controls own the second line: the body hugs its content
    and the control column widens, so the domains field has room to show what
    it holds instead of being squeezed beside the hints. */
-.set-item-stack .set-item-body { flex: none; }
-.set-item-stack .set-item-ctl { width: 100%; }
 .set-btn {
   display: inline-flex; align-items: center; justify-content: center; height: var(--ctl-h, 36px); padding: 0 12px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-panel);
@@ -5370,16 +5237,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   .gg-skel { animation: none; }
 }
 
-/* The repository icon in the tree is the way into the graph, so it has to
-   read as a control without becoming a second button in a dense row. */
-.tree-icon-btn {
-  background: none; border: 0; padding: 0; cursor: pointer;
-  color: var(--text-secondary); display: inline-flex; align-items: center;
-  border-radius: 4px;
-}
-.tree-icon-btn:hover { color: var(--accent); }
-.tree-icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-
 /* Selecting a commit opens its detail inline, directly below the clicked row
    (ADR-0038): the row stays put, the rows below move down, and the SVG lines
    detour by the same amount through expandAt/expandY. The list is padded left
@@ -5568,11 +5425,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 /* Terminal settings — behaviour that belongs to the terminal, global or for
    one of them (ADR-0024). Separate from Preferences → Terminal, which is
    appearance and belongs to the browser. */
-.dlg-termset {
-  width: min(500px, calc(100vw - 32px));
-  max-height: min(84vh, 760px);
-  overflow: auto;
-}
 .termset-fields { display: flex; flex-direction: column; gap: 20px; margin-top: 18px; }
 .termset-head { display: flex; align-items: center; gap: 8px; }
 .termset-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
@@ -6310,11 +6162,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .devs { margin-top: 16px; }
 .devs-h { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin: 16px 0 8px; }
 .devs-h:first-child { margin-top: 0; }
-.devs-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.devs-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--bg-panel); }
-.devs-row .btn { height: var(--ctl-h); min-height: var(--ctl-h); margin-left: auto; }
-.devs-label { display: inline-flex; align-items: center; gap: 6px; height: var(--ctl-h); font-size: 13px; }
-.devs-when { display: inline-flex; align-items: center; height: var(--ctl-h); font-size: 11.5px; color: var(--text-secondary); }
 .devs-tag { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; color: var(--accent); background: var(--accent-soft); }
 .devs-actions { display: flex; align-items: center; gap: 8px; }
 .devs-actions .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
@@ -6329,11 +6176,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 .devs-foot .devs-actions { justify-content: center; flex-wrap: wrap; }
 .devs-foot .dev-ext-note { margin: 0; text-align: center; }
-.devs-pairing { display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 8px; background: var(--accent-soft); animation: rise-in var(--motion-med) var(--ease-out); }
-.devs-pairing canvas { border-radius: 6px; background: #fff; flex: none; }
-.devs-pairing-text { min-width: 0; flex: 1; }
-.devs-pairing-text p { margin: 0 0 8px; font-size: 12.5px; color: var(--text-secondary); }
-.devs-pairing-text .auto-code { width: 100%; margin-bottom: 8px; }
 .devs-modes { display: flex; flex-direction: column; gap: 6px; }
 .devs-mode { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
 .devs-mode input { margin-top: 3px; }
@@ -6800,28 +6642,10 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .pin-remind-current { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notice-face.is-pin { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); }
 
-/* Window frame mode (ADR-0123): the desktop shell runs undecorated and the
-   UI claims the frame — it draws its own window controls in a reserved
-   top-right slot, and every view whose bar touches the window's top edge
-   pads itself clear. Keyed off data-picode-frame on the root; a browser
-   never sets it, so none of this applies there. New views with a top bar
-   must honour the slot (docs/benchmarks.md). */
-.win-controls {
-  position: fixed; top: 4px; right: 6px; z-index: 80;
-  display: flex; height: 28px; padding: 0 2px;
-  border-radius: var(--radius-ctl);
-  background: var(--bg-panel);
-  box-shadow: 0 1px 4px rgba(22, 24, 29, 0.18);
-}
-.win-btn {
-  width: 40px; height: 28px; padding: 0; display: grid; place-items: center;
-  border: 0; border-radius: var(--radius-ctl); background: none;
-  color: var(--text-secondary); cursor: pointer;
-}
-.win-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
-.win-btn-close:hover { color: #fff; background: var(--danger); }
-.win-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-
+/* Window frame mode (ADR-0121): when a shell sets data-picode-frame on the
+   root, every view whose bar touches the window's top edge pads itself
+   clear of the shell's own controls. (No shell sets it as of 2026-09-25 —
+   an open question for the owner; the rules stay with the ADR.) */
 :root[data-picode-frame] .main-tabs { padding-right: 134px; }
 :root[data-picode-frame] .dash-head { padding-right: 134px; }
 
@@ -6886,13 +6710,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 /* Browser grants editor (Settings ▸ Browser): one row per agent —
    name, tier select, optional domains input, save. Everything sits on
    the control height so the row stays even. */
-.grant-list { list-style: none; margin: 0; padding: 0; }
-.grant-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.grant-row:last-child { border-bottom: none; }
-.grant-name { display: inline-flex; align-items: center; gap: 6px; min-width: 140px; font-size: 13px; color: var(--text-primary); }
-.grant-tier { height: var(--ctl-h); padding: 0 8px; font-size: 12.5px; font-family: inherit; background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-ctl); }
-.grant-domains { height: var(--ctl-h, 36px); padding: 0 8px; font-size: 12.5px; font-family: inherit; background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-ctl); flex: 1 1 220px; min-width: 180px; }
-.grant-domains:focus-visible, .grant-tier:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .grant-domains-bad { border-color: var(--danger, #c42b1c); }
 .grant-error { font-size: 12px; color: var(--danger, #c42b1c); flex-basis: 100%; }
 /* Site settings' "+ Add": one control row, every control on --ctl-h. */
@@ -6908,11 +6725,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .site-add-site:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* The field explains itself: one line per entry, and a named line for an entry
    that would open nothing (the silent `*` this replaced). */
-.grant-covers { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
-.grant-cover { font-size: 12px; color: var(--text-secondary); line-height: 1.35; }
-.grant-cover-label { color: var(--text-primary); }
-.grant-cover.is-dead .grant-cover-label,
-.grant-cover.is-dead .grant-cover-d { color: var(--warn); }
 .devs-tag-off { opacity: .6; }
 
 /* Grants toolbar (Carbon toolbar language): search + filters + count share

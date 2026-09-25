@@ -578,18 +578,36 @@ func (s *Service) startProcess() error {
 		return err
 	}
 	cmd.Stdin = reader
+	// The supervisor reports its router's PID (the router's process group)
+	// here, so a supervisor killed outright does not strand the router's
+	// per-model servers (ADR-0090 amendment 2026-09-25).
+	groupR, groupW, err := os.Pipe()
+	if err != nil {
+		_ = reader.Close()
+		_ = writer.Close()
+		return err
+	}
+	cmd.ExtraFiles = []*os.File{groupW}
+	cmd.Env = append(cmd.Env, routerFDEnv+"=3")
 	if err = cmd.Start(); err != nil {
 		_ = reader.Close()
 		_ = writer.Close()
+		_ = groupR.Close()
+		_ = groupW.Close()
 		return errors.New("Could not start the verified executable on this host.")
 	}
 	_ = reader.Close()
+	_ = groupW.Close()
+	group := readRouterGroup(groupR)
 	s.lease = writer
 	s.process = cmd
 	s.done = make(chan struct{})
 	done := s.done
 	go func() {
 		_ = cmd.Wait()
+		// A supervisor that exited normally already killed the group; one
+		// killed outright left the router's children behind.
+		go clearOrphanedGroup(group)
 		close(done)
 		s.mu.Lock()
 		defer s.mu.Unlock()

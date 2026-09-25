@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 )
 
 func testLlamaJob(key, model string) LlamaJob {
@@ -145,5 +146,48 @@ func TestLlamaEndpointCapacity(t *testing.T) {
 	other.Endpoint = "http://localhost:8081"
 	if _, _, e = s.BeginLlamaJob(other); e != nil {
 		t.Fatal(e)
+	}
+}
+
+// History pruning (ADR-0083 amendment 2026-09-25): only finished jobs older
+// than the cutoff and outside the newest `keep` go; an old active job stays.
+func TestPruneLlamaJobs(t *testing.T) {
+	s := testStore(t)
+	mk := func(key, state string, age time.Duration) string {
+		j, _, err := s.BeginLlamaJob(testLlamaJob(key, key))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if state != "queued" {
+			j.State = state
+			if j, err = s.UpdateLlamaJob(j); err != nil {
+				t.Fatal(err)
+			}
+		}
+		at := time.Now().Add(-age).UTC().Format(time.RFC3339Nano)
+		if _, err := s.db.Exec(`UPDATE llama_jobs SET created_at=? WHERE id=?`, at, j.ID); err != nil {
+			t.Fatal(err)
+		}
+		return j.ID
+	}
+	oldDone := mk("old-done", "succeeded", 60*24*time.Hour)
+	oldActive := mk("old-active", "unknown", 61*24*time.Hour)
+	young := mk("young", "failed", 24*time.Hour)
+	newestOld := mk("newest-old", "failed", 40*24*time.Hour)
+	// keep=2: the two newest rows (young, newest-old) stay whatever their age.
+	n, err := s.PruneLlamaJobs(time.Now().Add(-30*24*time.Hour), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("pruned %d rows, want 1", n)
+	}
+	if _, err := s.LlamaJob(oldDone); err == nil {
+		t.Error("an old finished job outside the kept rows was not pruned")
+	}
+	for _, id := range []string{oldActive, young, newestOld} {
+		if _, err := s.LlamaJob(id); err != nil {
+			t.Errorf("%s was pruned: %v", id, err)
+		}
 	}
 }

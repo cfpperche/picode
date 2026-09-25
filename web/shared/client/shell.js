@@ -14,14 +14,6 @@ function savedShell() {
   try { return localStorage.getItem("picode-shell") || ""; } catch { return ""; }
 }
 
-export function readShellPref() {
-  const query = new URLSearchParams(location.search);
-  if (query.get("desktop") === "1") return "desktop";
-  if (query.get("mobile") === "1") return "mobile";
-  const saved = savedShell();
-  return saved === "desktop" || saved === "mobile" ? saved : "system";
-}
-
 export function pickShell() {
   const shell = resolveShell({ pathname: location.pathname, search: location.search, saved: savedShell(), narrow: window.matchMedia("(max-width: 767px)").matches });
   if (new URLSearchParams(location.search).get(shell) === "1") {

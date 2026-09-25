@@ -21,7 +21,6 @@ type fakeDaemon struct {
 	body     string
 	path     string
 	got      map[string]any
-	auth     string
 	gets     []string
 	getCalls int
 }

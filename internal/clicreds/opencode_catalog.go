@@ -66,15 +66,6 @@ func OpencodeVaultID(id string) string {
 	return id
 }
 
-// OpencodeID is OpenCode's id for a vault provider (the first alias OpenCode
-// uses for it, else the id itself).
-func OpencodeID(vault string) string {
-	if aliases := opencodeIDs[vault]; len(aliases) > 0 {
-		return aliases[0]
-	}
-	return vault
-}
-
 func staticSpec(cli string) (Spec, bool) {
 	for _, s := range catalog {
 		if s.CLI == cli {

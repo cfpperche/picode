@@ -1,4 +1,4 @@
-import { statusSegments, formatSessionCost, fmtElapsed, workspaceStatusPath } from "./statusbar.js";
+import { statusSegments, formatSessionCost, workspaceStatusPath } from "./statusbar.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -44,13 +44,6 @@ test("compacting never surfaces in the composer bar (progress is a chat line)", 
   const parts = statusSegments({ compacting: Date.now() - 65000, cwd: "~/p", cost: 0.5 });
   assert.ok(!parts.some((p) => p.key === "compact"));
   assert.ok(parts.some((p) => p.key === "cwd"));
-});
-
-test("fmtElapsed formats minutes and seconds", () => {
-  assert.equal(fmtElapsed(0), "0:00");
-  assert.equal(fmtElapsed(9500), "0:09");
-  assert.equal(fmtElapsed(65000), "1:05");
-  assert.equal(fmtElapsed(600000), "10:00");
 });
 
 test("workspaceStatusPath scopes the bar to one agent", () => {

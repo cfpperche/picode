@@ -75,7 +75,6 @@ func TestRelocateFlowOrder(t *testing.T) {
 //	New-Item fails (backup) → no export, copied=false
 //	copy ok, start fails → copied=true with its note, error names the start
 func TestRelocateFlowPartialFailures(t *testing.T) {
-	type step struct{ errAt int }
 	run := func(backup bool, errAt int) (wslOutcome, []string) {
 		r := &failAt{n: errAt}
 		var out wslOutcome

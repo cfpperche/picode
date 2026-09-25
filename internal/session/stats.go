@@ -194,37 +194,11 @@ func newStatsAcc(from, to, priorFrom time.Time, loc *time.Location) *statsAcc {
 	}
 }
 
-// StatsForRange aggregates every session under the real sessions root.
-func StatsForRange(from, to, priorFrom time.Time, loc *time.Location) (WindowStats, error) {
-	return StatsRoot(Root(), from, to, priorFrom, loc)
-}
-
 // StatsRoot aggregates every session under root for [from,to), plus an
 // equal-length prior window [priorFrom,from) for the delta comparison.
 // priorFrom.IsZero() skips the prior computation (range=all).
 func StatsRoot(root string, from, to, priorFrom time.Time, loc *time.Location) (WindowStats, error) {
 	return statsRoot(root, from, to, priorFrom, loc, true, nil)
-}
-
-// StatsRootUncapped is StatsRoot with the TopTools/TopSessionsN cuts left
-// off. A caller merging several CLIs' windows must rank once over the union,
-// not per CLI: capping pi's tools at eight before the merge drops pi's ninth
-// tool before it is ever compared with another CLI's first.
-func StatsRootUncapped(root string, from, to, priorFrom time.Time, loc *time.Location) (WindowStats, error) {
-	return statsRoot(root, from, to, priorFrom, loc, false, nil)
-}
-
-// StatsRootFiltered is StatsRootUncapped restricted to sessions whose cwd
-// the keep func accepts; a nil keep accepts everything. The predicate comes
-// from the caller, so this package still knows nothing about workspaces or
-// the store (ADR-0042 kept that in the handler) — it only knows how to ask.
-//
-// The filter must run inside the scan, not over its result: tokens, tools,
-// turns and the daily series are never broken down by folder, so a window
-// filtered afterwards would keep totals that its own workspace rows no
-// longer explain.
-func StatsRootFiltered(root string, from, to, priorFrom time.Time, loc *time.Location, keep func(cwd string) bool) (WindowStats, error) {
-	return statsRoot(root, from, to, priorFrom, loc, false, keep)
 }
 
 func statsRoot(root string, from, to, priorFrom time.Time, loc *time.Location, capped bool, keep func(string) bool) (WindowStats, error) {

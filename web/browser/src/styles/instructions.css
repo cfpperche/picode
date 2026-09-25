@@ -56,7 +56,6 @@
 .instr-matrix tbody tr:last-child th, .instr-matrix tbody tr:last-child td { border-bottom: 0; }
 .instr-group th { padding-top: 14px; color: var(--text-secondary); font-size: 12px; font-weight: 500; }
 .instr-file-col { width: 1%; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
-.instr-num { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .instr-file, .instr-file-text { font-family: var(--mono); font-size: 12px; }
 .instr-file { background: none; border: 0; padding: 0; color: var(--text-primary); cursor: pointer; }
 .instr-file:hover { color: var(--accent); text-decoration: underline; }

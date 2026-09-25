@@ -259,22 +259,6 @@ func TestShellExePrefersSiblingThenInstallFolder(t *testing.T) {
 	}
 }
 
-func decodeTaskCall(t *testing.T, argv []string) string {
-	t.Helper()
-	if len(argv) != 4 || argv[0] != "-NoProfile" || argv[1] != "-NonInteractive" || argv[2] != "-EncodedCommand" {
-		t.Fatalf("unexpected PowerShell arguments: %v", argv[:3])
-	}
-	b, err := base64.StdEncoding.DecodeString(argv[3])
-	if err != nil {
-		t.Fatal(err)
-	}
-	units := make([]uint16, len(b)/2)
-	for i := range units {
-		units[i] = binary.LittleEndian.Uint16(b[i*2:])
-	}
-	return string(utf16.Decode(units))
-}
-
 func TestTaskStateNames(t *testing.T) {
 	for state, want := range map[int]string{0: "unknown", 1: "disabled", 2: "queued", 3: "stopped", 4: "running", 99: "unknown"} {
 		s := healthyTask()

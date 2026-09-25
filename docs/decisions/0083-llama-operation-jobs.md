@@ -71,6 +71,28 @@ restart, an unload whose model is still loaded becomes `interrupted`, as a load
 already did. A download whose model is missing stays `unknown`, as before, and
 can now be abandoned.
 
+## Amendment (2026-09-25): lost downloads are released; history is bounded
+
+Owner-approved (2026-09-25). A **download PiCode lost track of** — reconciled
+after a restart, or already `unknown` — that the server does **not list at
+all** on at least three reads in a row spanning at least a minute (a failed
+read starts the count over) becomes `interrupted` ("The download is not on
+the server. It did not finish; start it again when ready.") and releases its
+model. It replaces "missing downloads remain unknown" above: a download the
+server does not know is not running anywhere, and holding its model until the
+owner abandons it only blocked the retry. A download PiCode just sent keeps
+the benefit of the doubt (the server may not list it yet); the minute covers a
+send PiCode saw time out that the server accepted anyway, and a model the
+server lists in any state keeps being followed. Nothing is sent to the server.
+
+**History is bounded.** At daemon start, finished jobs created more than 30
+days ago are deleted, except the newest 500 rows; active jobs are never
+deleted. It replaces "older records remain in SQLite". A pruned job's request
+key no longer deduplicates a retry of the same input (a month-old retry is new
+work). The Activity page lists the newest 50, inside what is kept, so the
+prune announces nothing on the feed (`PruneLlamaJobs`, a silent mutator with
+that reason).
+
 ## Alternatives considered
 
 - Keeping the HTTP request open loses durable identity and reconnect history.

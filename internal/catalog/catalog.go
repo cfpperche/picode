@@ -91,8 +91,6 @@ func LoadAccounts(piCmd string) Report {
 	return buildRows(nil)
 }
 
-func build(listModels string) Report { return buildRows(ParseListModels(listModels)) }
-
 func buildRows(rows []parsedRow) Report {
 	rep := Report{Providers: []Provider{}, Thinking: ThinkingLevels}
 	info := authInfo()

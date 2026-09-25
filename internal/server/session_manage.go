@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -110,30 +109,6 @@ func cleanupDaysSetting(deps Deps) int {
 		return 0
 	}
 	return n
-}
-
-// StartSessionSweep runs the orphan sweep at boot and once a day after.
-// Noop while the preference is 0.
-func StartSessionSweep(deps Deps) {
-	sweep := func() {
-		if days := cleanupDaysSetting(deps); days > 0 {
-			sweepOrphanSessions(deps, days)
-		}
-		// Change-log retention (ADR-0048): a cursor older than this gets
-		// a reset instead of a replay.
-		if deps.Store != nil {
-			_, _ = deps.Store.PruneEvents(time.Now().Add(-feed.DefaultRetention))
-		}
-	}
-	go func() {
-		time.Sleep(5 * time.Second) // let the server settle first
-		sweep()
-		t := time.NewTicker(24 * time.Hour)
-		defer t.Stop()
-		for range t.C {
-			sweep()
-		}
-	}()
 }
 
 // sweepOrphanSessions deletes session files under every known agent cwd

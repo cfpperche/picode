@@ -198,27 +198,6 @@ func StartSessionStatsWarmup(ctx context.Context) {
 	}()
 }
 
-// claimedDirs is every workspace folder, canonicalised, used to label a
-// session folder with the workspace that claims it — and for nothing else.
-// The dashboard measures the whole machine; the filtered scope this list
-// once also fed is retired (ADR-0127).
-func claimedDirs(deps Deps) []string {
-	if deps.Store == nil {
-		return nil
-	}
-	wss, err := deps.Store.ListWorkspaces()
-	if err != nil {
-		return nil
-	}
-	out := make([]string, 0, len(wss))
-	for _, w := range wss {
-		if d := canonDir(w.Path); d != "" {
-			out = append(out, d)
-		}
-	}
-	return out
-}
-
 // labelWorkspaces resolves each cwd bucket to the PiCode workspace that owns
 // that folder, the same canonDir match handleAllSessions uses. Folders no
 // workspace claims keep only their cwd. The session package never sees the

@@ -215,24 +215,3 @@ var healthClient = &http.Client{
 	Timeout:   3 * time.Second,
 	Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, //nolint:gosec
 }
-
-// Health reports whether PiCode answers, and its boot id. A changed boot id
-// means the server restarted since the last poll.
-func Health(base string) (bootID string, err error) {
-	res, err := healthClient.Get(strings.TrimSuffix(base, "/") + "/api/health")
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("status %s", res.Status)
-	}
-	var body struct {
-		Status string `json:"status"`
-		BootID string `json:"bootId"`
-	}
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		return "", err
-	}
-	return body.BootID, nil
-}

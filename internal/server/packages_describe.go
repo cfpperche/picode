@@ -14,12 +14,6 @@ import (
 	"github.com/cfpperche/picode/internal/pipkg"
 )
 
-func registerPackageDescribeRoutes(mux Registrar, deps Deps) {
-	mux.HandleFunc("GET /api/packages/describe", handleGetPackageDescribe(deps))
-	mux.HandleFunc("PUT /api/packages/describe", handlePutPackageDescribe(deps))
-	mux.HandleFunc("DELETE /api/packages/describe", handleDeletePackageDescribe(deps))
-}
-
 // userConfigDir is where user descriptors persist, under the server's data
 // dir. Empty DataDir means the feature is off (the endpoint refuses rather
 // than pretending to save).

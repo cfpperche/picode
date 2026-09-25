@@ -29,10 +29,6 @@ function withTimeout(promise, ms) {
   ]).finally(() => clearTimeout(timer));
 }
 
-export function bridgeAvailable() {
-  return !!BRIDGE;
-}
-
 // createBrowserChannel takes every dependency as an argument so its rows are
 // testable without a desktop shell. It returns { close }.
 export function createBrowserChannel({

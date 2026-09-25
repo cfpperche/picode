@@ -60,7 +60,6 @@ html[data-standalone][data-pushed="1"], html[data-standalone][data-pushed="1"] b
   padding: calc(12px + env(safe-area-inset-top)) var(--m-pad) 8px;
   background: var(--bg-base); border-bottom: 1px solid var(--border);
 }
-.m-screen-title { font-size: 20px; font-weight: 650; margin: 0; }
 .m-add { display: inline-flex; gap: 4px; }
 .m-pad { padding: 0 var(--m-pad); }
 
@@ -143,7 +142,6 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
   margin: 0; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
   color: var(--text-secondary); display: flex; align-items: baseline; gap: 8px; min-width: 0;
 }
-.m-section-sub { font-weight: 400; text-transform: none; letter-spacing: 0; font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-count { font-weight: 700; color: var(--accent); }
 .m-empty-line { margin: 0; font-size: 13px; color: var(--text-secondary); }
 .m-skel { display: flex; flex-direction: column; gap: 8px; padding: 6px 0; }
@@ -229,21 +227,7 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
 .m-stat-value { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .m-stat-delta { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---- blank slate ---- */
-.m-blank { margin: auto 0; padding: 32px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
-.m-blank-title { margin: 0; font-size: 17px; font-weight: 650; }
-.m-blank-sub { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
-
-/* ---- work: workspace cards, segmented rail ---- */
-.m-work-seg { flex: 1; min-width: 0; }
-.m-work-seg .dash-range-opt { flex: 1; }
-/* Face = ctl-h minus the container's 1px borders, the .app-tabs idiom,
-   so the whole control stands 36px, level with New and the Inbox tabs. */
-.m-work-seg .dash-range-face { width: 100%; justify-content: center; padding: 0 8px; height: calc(var(--ctl-h) - 2px); }
-.m-ws-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 12px 12px 10px; gap: 10px; }
-.m-ws-card .m-row { background: var(--bg-base); }
-.m-ws-actions { display: flex; gap: 8px; }
-.m-ws-actions .btn { flex: 1; display: inline-flex; gap: 4px; }
+/* ---- work: terminal and agent rows ---- */
 .m-term-row .m-row-face { color: var(--text-secondary); }
 .m-term-row .m-state, .m-agent-row .m-state { max-width: 118px; overflow: hidden; text-overflow: ellipsis; }
 
@@ -372,13 +356,6 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
 .m-pull { flex: none; margin: -6px 0 0; text-align: center; font-size: 12px; color: var(--text-secondary); min-height: 18px; }
 .m-pull.is-armed { color: var(--accent); }
 .m-changes-btn { display: inline-flex; gap: 4px; }
-.m-changes { padding: 0 0 24px; gap: 0; }
-.m-changes .m-head { margin: 0; }
-.m-changes .gg-detail { width: auto; max-width: none; border: 0; border-radius: 0; margin: 0; }
-.m-changes .gg-detail-head { padding: 10px var(--m-pad) 6px; }
-.m-changes .gg-detail-body { padding: 0 var(--m-pad); }
-.m-changes .gg-file-head { min-height: var(--m-tap); }
-.m-changes .diff { overflow-x: auto; }
 /* Inbox rows on touch: a left swipe slides the row aside and the actions
    come in from the right edge. The drag itself sets an inline transform
    (AppSurface Row); release snaps with these transitions. */
@@ -420,7 +397,6 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
 .m-agent-settings-body .pane-view { overflow: visible; }
 .m-agent-settings-body .settings-wrap.wide { padding: 12px 0; }
 .m-agent-settings-body .settings-card { padding: 12px 14px; }
-.m-agent-config-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 
 .m-agent-settings .cfg-fields select { width: 100%; max-width: 100%; }
 .m-config-unavailable { flex: 1 1 100%; grid-column: 1 / -1; margin: 0; font: 13px/1.45 var(--sans); color: var(--text-secondary); }
@@ -432,7 +408,6 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
 .m-more-page .pane-view { overflow: visible; flex: none; }
 .m-more-page .settings-card { min-width: 0; }
 .m-more-page .settings-card :is(p, dd) { overflow-wrap: anywhere; }
-.m-more-page :is(.settings-tabs, .pi-tabs, .cli-tabs, .app-tabs) { max-width: 100%; }
 .m-more-page :is(input, select, textarea) { min-width: 0; max-width: 100%; }
 .m-loading-row { width: 100%; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 12px 0; }
 .m-loading-row > span { flex: none; width: 32px; height: 32px; border-radius: 9px; }
@@ -475,7 +450,6 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
 /* Pins on the phone: list under More, edit form. */
 .m-head-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--accent); font: inherit; font-weight: 600; }
 .m-head-btn:disabled { opacity: 0.5; }
-.m-head-btn-text { padding: 0 8px; }
 .m-pins { padding: 0 16px; }
 .m-pins .m-row.is-starred .m-row-title { color: var(--accent); }
 /* No side padding: the screen's own gutter is the inset (2026-09-25). */

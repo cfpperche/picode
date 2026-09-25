@@ -8,10 +8,6 @@ import "context"
 // second row instead of a replacement. Empty when the provider publishes no
 // such endpoint or the call fails: the caller treats "unknown" as "one row per
 // provider", never as a reason to refuse an import.
-func Identity(ctx context.Context, provider, access string) string {
-	return Default.Identity(ctx, provider, access)
-}
-
 func (c *Client) Identity(ctx context.Context, provider, access string) string {
 	if access == "" || c == nil {
 		return ""

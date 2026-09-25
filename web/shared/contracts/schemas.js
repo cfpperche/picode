@@ -581,7 +581,6 @@ export const commitMessageSchema = z.object({
 // validation (internal/pipkg/rolesconfig.go) and the extension's
 // packages/pi-roles/src/logic.ts — the files are the only source of truth.
 export const ROLES_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
-export const ROLES_BUILTIN = ["default", "vision", "plan"];
 export const ROLES_RESERVED = ["auto", "default", "vision", "plan", "role", "roles"];
 
 export const rolesModelIdSchema = z.string().trim()

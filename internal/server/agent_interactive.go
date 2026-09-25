@@ -190,19 +190,3 @@ func routeBoundPi(deps Deps, w http.ResponseWriter, r *http.Request, handler htt
 	handler(w, r)
 	return true
 }
-
-func (deps Deps) startPiInteractive(ctx context.Context, agent store.Agent, cwd string) error {
-	p, a, err := deps.preparePiInteractive(ctx, agent, cwd)
-	if err != nil {
-		return err
-	}
-	defer p.discard()
-	r, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/", nil)
-	if err = p.start(deps, r, deps.agentSession(a.ID), cwd); err != nil {
-		return err
-	}
-	if t, e := deps.Store.GetTerminal(*a.TerminalID); e == nil {
-		publishTerminalState(deps, r, t, true)
-	}
-	return nil
-}

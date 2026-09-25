@@ -13,9 +13,6 @@ export const NATIVE_SETTINGS_CLIS = ["claude-code", "codex", "grok", "hermes", "
 
 export const supportsNativeSettings = (id) => NATIVE_SETTINGS_CLIS.includes(id);
 
-// Every CLI has a memory pane: four tiers, and three of them are a sentence.
-export const MEMORY_TIERS = ["editable", "readonly", "none", "unknown"];
-
 // The route says `layer`, the driver says `scope`. One vocabulary each, mapped
 // here rather than in a component, so a link and a request cannot drift.
 export function layerToScope(layer) {

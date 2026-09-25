@@ -119,7 +119,9 @@ If you changed the connection, restore the original server and key first.
 If the server can no longer answer for it, **Abandon** stops following the
 operation and frees the model; nothing is sent to the server, so work still
 running there keeps going. An operation on PiCode's own local service ends as
-**Interrupted** by itself when that service is not running.
+**Interrupted** by itself when that service is not running, and so does a
+download the server no longer has at all. Finished operations older than 30
+days are cleared from **Activity** when PiCode starts; the newest 500 stay.
 An unresolved operation blocks another operation on the same model. Choosing
 **Unload other models first** also waits for other PiCode model jobs to finish.
 

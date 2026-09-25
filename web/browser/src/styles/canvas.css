@@ -186,7 +186,6 @@
 
 /* The container chunk loading observes; the plane fills it. */
 .cv-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; padding: 8px; }
-.cv-canvas { position: relative; }
 
 /* First load: three panel-shaped blocks, chrome only, never invented rows. */
 .cv-skel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px; }
@@ -748,14 +747,6 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: calc(9px * var(--cv-plate-scale));
 }
-
-/* Grid | Canvas, the repo's radio-group pattern (.termset-seg) in a header
-   row, so it shares --ctl-h with the switcher and the buttons beside it.
-   .termset-seg draws its own 1 px border around a --ctl-h face, which on a
-   settings page is fine and in a control row is two pixels too tall: the
-   face gives them back. */
-.termset-seg.cv-seg { margin-top: 0; flex: none; }
-.cv-seg .termset-seg-face { height: calc(var(--ctl-h) - 2px); padding: 0 12px; }
 
 @media (prefers-reduced-motion: reduce) {
   .cv-canvas-flow .react-flow__node, .cv-snap-label, .cv-cluster > * { transition: none; }

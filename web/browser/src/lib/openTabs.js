@@ -328,13 +328,6 @@ export function writeDashboardStats(range, data) {
   } catch { /* private mode, quota — the dashboard simply loads cold */ }
 }
 
-export function dashboardStatsAge(at) {
-  if (!at) return Infinity;
-  const t = Date.parse(at);
-  if (!Number.isFinite(t)) return Infinity;
-  return Date.now() - t;
-}
-
 export { DASH_STATS_TTL_MS };
 
 const FILE_WT_KEY = "picode-file-worktrees";

@@ -1,7 +1,5 @@
 .m-delivery { padding: 16px; overflow: auto; min-height: 0; font-size: 13px; }
-.m-delivery-tabs, .m-delivery-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.m-delivery-tabs { padding: 8px 12px; border-bottom: 1px solid var(--border); }
-.m-delivery-tabs [aria-current="page"] { color: var(--accent); background: var(--bg-elevated); }
+.m-delivery-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .m-delivery-toolbar label { display: flex; gap: 8px; align-items: center; height: var(--ctl-h); }
 .m-delivery-toolbar select, .m-delivery-toolbar button { height: var(--ctl-h); max-width: 100%; }
 .m-delivery-status, .m-delivery-meta { color: var(--text-secondary); }

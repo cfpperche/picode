@@ -68,7 +68,6 @@ import {
   Pencil,
   Pin,
   Play,
-  Keyboard,
   Plug,
   Plus,
   QrCode,
@@ -124,7 +123,6 @@ export const IconTerminal = lucide(Terminal, 14);
 export const IconTmux = lucide(SquareTerminal, 14);
 export const IconCli = lucide(Boxes, 16);
 export const IconPlay = lucide(Play, 12);
-export const IconKeyboard = lucide(Keyboard, 18);
 export const IconStop = lucide(Square, 12);
 export const IconProvider = lucide(Cloud, 13);
 export const IconModel = lucide(Layers, 13);
@@ -188,8 +186,6 @@ export const IconExpand = lucide(Maximize2, 14);
 // bigger"; the brackets read as "frame everything", which is what Fit does.
 export const IconFit = lucide(Maximize, 14);
 export const IconCollapse = lucide(Minimize2, 14);
-export const IconMaximize = lucide(Square, 12);
-export const IconRestore = lucide(Copy, 12);
 export const IconPin = lucide(Pin, 13);
 export const IconSettings = lucide(Settings, 14);
 export const IconSparkles = lucide(Sparkles, 14);

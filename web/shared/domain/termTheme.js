@@ -31,8 +31,6 @@ export const TERM_NEWLINES = [
   { id: "alt-enter", label: "Alt+Enter" },
 ];
 
-export const TERM_FONT = TERM_FONTS[0].css;
-
 export function defaultTermPrefs() {
   return {
     theme: "dark",

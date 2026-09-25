@@ -50,10 +50,6 @@ type agentView struct {
 	ForkedFrom *forkOrigin `json:"forkedFrom,omitempty"`
 }
 
-func asAgentView(a store.Agent, running bool) agentView {
-	return agentView{Agent: a, Running: running}
-}
-
 // liveState is the runtime snapshot for a managed agent; zero for anything
 // else (stopped, or in a tmux TUI, which has no event channel).
 func (deps Deps) liveState(agentID string) (streaming, waiting bool, dialog *rpc.UIDialog) {

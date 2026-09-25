@@ -44,14 +44,3 @@ func TestAppendDeployRecord(t *testing.T) {
 	// Empty data dir is a silent no-op, never a panic.
 	AppendDeployRecord("")
 }
-
-type recordAt interface{ GetAt() string }
-
-func decodeLine(t *testing.T, line string) deployRecord {
-	t.Helper()
-	var rec deployRecord
-	if err := json.Unmarshal([]byte(line), &rec); err != nil {
-		t.Fatal(err)
-	}
-	return rec
-}

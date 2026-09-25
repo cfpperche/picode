@@ -20,6 +20,11 @@ func killProcessGroup(cmd *exec.Cmd) {
 // memo's other checks still apply.
 func changeTime(os.FileInfo) int64 { return 0 }
 
+func closeOnExec(int) {}
+
+// clearOrphanedGroup has nothing to clear: the local service is Linux-only.
+func clearOrphanedGroup(int) {}
+
 // waitExited has no unreaped wait here; the group kill is a plain kill.
 func waitExited(cmd *exec.Cmd) (reap func() error) {
 	err := cmd.Wait()
