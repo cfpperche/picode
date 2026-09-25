@@ -111,9 +111,8 @@ export function cliConnectorsLocation(hash = "") {
   const read = readScope(params, PACKAGE_WORDS);
   const scope = read.value || "user";
   const invalid = read.invalid;
-  const canonical = cliConnectorsHash(id, { workspaceId, agentId, scope });
   return { view: "clis", pane: "connectors", id, workspaceId, agentId, scope, ...(read.kind ? { scopeKind: read.kind } : {}), invalid,
-    redirect: !invalid && read.alias ? canonical : "" };
+    redirect: "" };
 }
 
 export const webhookPresets = [

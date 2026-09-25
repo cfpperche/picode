@@ -10,9 +10,7 @@ import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./route
 // the same thing; every other desktop hash maps to the closest mobile
 // section instead of a dead end. Work mirrors the desktop sidebar's rail:
 // workspaces (agents + terminals per folder), free agents, terminals.
-//   route := { screen: now|inbox|work|agent|term|changes|app|more, id, section }
-//   changes: `#/changes/<a|t|w>/<id>` — the owner's uncommitted working tree,
-//   read-only (ADR-0044 phase 3); section carries the owner kind.
+//   route := { screen: now|inbox|work|agent|term|inspector|app|more, id, section }
 export const MORE_SECTIONS = ["pins", "snippets", "outcomes", "history", "llama", "devices", "preferences", "system", "notifications", "apps", "clis", "integrations", "automations"];
 export const WORK_SECTIONS = ["workspaces", "agents", "terminals"];
 const WORK_KEY = "picode-mobile-work";
@@ -56,7 +54,6 @@ export function mobileRoute(hash) {
   if (cliSettingsLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliConnectorsLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (h.split("?")[0] === "/providers/llama" || h.split("?")[0] === "/more/providers/llama") return { screen: "more", id: "", section: "llama" };
-  if (h === "/preferences/status") return { screen: "more", id: "", section: "clis" };
   const agentId = agentRoute("#" + h);
   if (agentId) {
     const view = new URLSearchParams(h.split("?")[1] || "").get("view");
@@ -79,12 +76,6 @@ export function mobileRoute(hash) {
   const head = parts[0] || "";
   if (!head) return { screen: "now", id: "", section: "" };
   if (head === "inbox") return { screen: "inbox", id: parts[1] ? dec(parts[1]) : "", section: "" };
-  if (head === "changes" && parts[1] && parts[2]) {
-    // The pre-Inspector changes screen retired into the Inspector's
-    // Changes segment; old links keep working by parsing onto it.
-    const kind = { a: "agent", t: "term", w: "workspace" }[parts[1]];
-    if (kind) return { screen: "inspector", id: dec(parts[2]), section: kind, view: "changes" };
-  }
   if (head === "work") {
     const sec = parts[1] ? dec(parts[1]) : "";
     // `#/work/workspaces/<id>` is the Back landing for a workspace's
@@ -98,7 +89,6 @@ export function mobileRoute(hash) {
     const sec = parts[1] ? dec(parts[1]) : "";
     return { screen: "more", id: "", section: MORE_SECTIONS.includes(sec) ? sec : "" };
   }
-  if (head === "app" && parts[1] === "inbox") return { screen: "inbox", id: parts[2] === "item" && parts[3] ? dec(parts[3]) : "", section: "" };
   // Pins on the phone: the list lives under More; a pin opens read-only
   // (where a reminder's Open lands), `new` and `<id>/edit` are the form.
   if (head === "pins" && parts[1] === "new") return { screen: "pinEdit", id: "", section: "" };
@@ -109,6 +99,9 @@ export function mobileRoute(hash) {
   if (head === "snippets" && parts[1] === "new") return { screen: "snipEdit", id: "", section: "" };
   if (head === "snippets" && parts[1] && parts[2] === "edit") return { screen: "snipEdit", id: dec(parts[1]), section: "" };
   if (head === "snippets" && parts[1]) return { screen: "snip", id: dec(parts[1]), section: "" };
+  // The Inbox is a core screen, not an app (ADR-0208): its old app address
+  // lands on Now like any retired link instead of drawing the app surface.
+  if (head === "app" && parts[1] === "inbox") return { screen: "now", id: "", section: "" };
   if (head === "app" && parts[1]) return { screen: "app", id: dec(parts[1]), section: "", ...(appPath("#" + h) ? { path: appPath("#" + h) } : {}) };
   if (head === "file" || head === "tree" || head === "git") {
     return { screen: "work", id: "", section: "" };

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appPath, isAgentTab, inboxHash, inboxPath, legacyInboxHash } from "./routes.js";
+import { appPath, isAgentTab, inboxHash, inboxPath } from "./routes.js";
 import { workspaceOverviewHash, workspaceOverviewRoute, workspaceAgentsHash, workspaceAgentsRoute } from "./routes.js";
 
 test("Inbox is a core page with stable item links", () => {
@@ -9,8 +9,6 @@ test("Inbox is a core page with stable item links", () => {
   assert.equal(inboxHash("item/i-1"), "#/inbox/i-1");
   assert.equal(inboxPath("#/inbox/i-1"), "item/i-1");
   assert.equal(inboxPath("#/inbox/done"), "done");
-  assert.equal(legacyInboxHash("#/app/inbox/item/i-1"), "#/inbox/i-1");
-  assert.equal(legacyInboxHash("#/app/docker"), "");
 });
 
 test("workspace overview is a page route, not an editor tab", () => {
@@ -30,7 +28,7 @@ test("integrations deep links remain reload-safe", () => {
   assert.notEqual(parseRoute("#/mcps"), "clis");
 });
 import { isWebTab, tabWebId, webTabId, webHash, webRoute, boundWorkTab } from "./routes.js";
-import { parseRoute, ROUTES, go, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId, snippetRoute, snippetsHash } from "./routes.js";
+import { parseRoute, ROUTES, go, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, snippetRoute, snippetsHash } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -179,24 +177,6 @@ test("app tabs (ADR-0036) are self-describing", () => {
   assert.equal(appPath(review), "plan/qa review");
   assert.equal(appPath("#/app/docker"), "");
   assert.equal(appPath("#/agent/qa"), "");
-});
-
-// ADR-0118: the Matrix app became Canvas. One map answers the hash redirect
-// and the tab restore, so a bookmark and a saved tab strip agree.
-test("a renamed app keeps its old deep links and its old tab id working", () => {
-  assert.equal(renamedAppId("matrix"), "canvas");
-  assert.equal(renamedAppId("canvas"), "", "the current id is not renamed to itself");
-  assert.equal(renamedAppId("inbox"), "");
-  assert.equal(renamedAppHash("#/app/matrix"), "#/app/canvas");
-  assert.equal(renamedAppHash("#/app/matrix/m-42"), "#/app/canvas/m-42");
-  assert.equal(renamedAppHash("#/app/matrix/a%20b"), "#/app/canvas/a%20b", "the path survives the round trip");
-  assert.equal(renamedAppHash("#/app/canvas/m-42"), "", "already canonical: nothing to replace");
-  assert.equal(renamedAppHash("#/agent/matrix"), "", "only #/app/* is ours");
-  assert.equal(renamedAppHash("#/clis/sessions"), "");
-  assert.equal(renamedTabId("x:matrix"), "x:canvas");
-  assert.equal(renamedTabId("x:canvas"), "");
-  assert.equal(renamedTabId("t:matrix"), "", "a terminal called matrix is a terminal");
-  assert.equal(renamedTabId(""), "");
 });
 
 test("app tabs are distinct from every other tab family", () => {

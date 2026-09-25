@@ -3,11 +3,11 @@ import { test } from "node:test";
 import { touches } from "./feedReducers.js";
 import {
   CANVAS_ZOOM, LOAD_DWELL_MS, CANVAS_EVENTS, CANVAS_KINDS, CANVAS_LIMITS, PANE_STATES, PANEL_DEFAULT_CANVAS, PANEL_DIRECTIONS,
-  SUSPENDED_MAX, SUSPENDED_TTL_MS, TIDY_COLS, TIDY_GAP, UNIT_PX, UNLOAD_AFTER_MS, VIEWPORT_PREFIX, VIEWPORT_PREFIX_WAS, applyCanvasEvent, bindingState,
+  SUSPENDED_MAX, SUSPENDED_TTL_MS, TIDY_COLS, TIDY_GAP, UNIT_PX, UNLOAD_AFTER_MS, VIEWPORT_PREFIX, applyCanvasEvent, bindingState,
   gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeCanvas, normalizeCanvasDetail,
   placementRect,
   normalizeCanvasList, normalizePanel, normalizeViewport, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
-  buildRef, gitTouches, hasPane, legacyViewportKey, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
+  buildRef, gitTouches, hasPane, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
   CHAT_LIVE_MAX, CHAT_STATES, chatBudget, hasChat,
   EDGE_KINDS, edgeEndpoints, normalizeEdge, normalizeEdgeList, validateEdge,
 } from "./canvas.js";
@@ -723,11 +723,6 @@ test("viewportKey and normalizeViewport: a camera per viewer, never the store", 
   assert.equal(VIEWPORT_PREFIX, "picode-canvas-view:");
   assert.equal(viewportKey("m1"), "picode-canvas-view:m1");
   assert.equal(viewportKey(null), "picode-canvas-view:");
-  // ADR-0118 renamed the key; the old one is still nameable, because
-  // `readView` moves a stored camera across once instead of dropping it.
-  assert.equal(VIEWPORT_PREFIX_WAS, "picode-matrix-view:");
-  assert.equal(legacyViewportKey("m1"), "picode-matrix-view:m1");
-  assert.notEqual(legacyViewportKey("m1"), viewportKey("m1"));
   assert.deepEqual(normalizeViewport({ x: -120, y: 40, zoom: 0.5 }), { x: -120, y: 40, zoom: 0.5 });
   assert.deepEqual(normalizeViewport({ x: 0, y: 0, zoom: 9 }), { x: 0, y: 0, zoom: 1.5 }, "clamped into minZoom/maxZoom");
   assert.deepEqual(normalizeViewport({ x: 0, y: 0, zoom: 0.01 }), { x: 0, y: 0, zoom: 0.2 });

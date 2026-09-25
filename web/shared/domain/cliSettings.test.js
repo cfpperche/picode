@@ -23,12 +23,14 @@ test("native settings routes preserve identity and name their CLI", () => {
 test("the edited layer survives a reload, and guesses are dropped", () => {
   assert.equal(cliSettingsHash("pi", { agentId: "A", layer: "project" }), "#/clis/pi/settings?agentId=A&scope=workspace");
   assert.equal(cliSettingsHash("pi", { layer: "root" }), "#/clis/pi/settings");
-  const round = cliSettingsLocation("#/clis/pi/settings?agentId=A&layer=agent");
+  const round = cliSettingsLocation("#/clis/pi/settings?agentId=A&scope=agent");
   assert.equal(round.layer, "agent");
   assert.equal(round.view, "clis");
-  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=root").layer, "");
-  // user is Global in the shared scope words (scopes.js).
-  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=user").layer, "global");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings?scope=root").layer, "");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings?scope=global").layer, "global");
+  // `?layer=` and the pane's own words were retired as address aliases on 2026-09-25.
+  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=agent").layer, "");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings?scope=user").layer, "");
 });
 
 // | workspaceId in hash | selected agent | parser |
@@ -59,10 +61,10 @@ test("the keyboard map is a pane of its own", () => {
   assert.equal(pane.pane, "keyboard");
   assert.equal(pane.id, "pi");
   assert.equal(cliPaneHash("pi", "keyboard"), "#/clis/pi/keyboard");
-  const scoped = cliLocation("#/clis/pi/keyboard?agentId=A&layer=project");
+  const scoped = cliLocation("#/clis/pi/keyboard?agentId=A&scope=workspace");
   assert.equal(scoped.agentId, "A");
   assert.equal(scoped.layer, "project");
-  assert.equal(cliLocation("#/clis/pi/keyboard?layer=root").layer, "", "a guessed layer is dropped");
+  assert.equal(cliLocation("#/clis/pi/keyboard?scope=root").layer, "", "a guessed layer is dropped");
   assert.equal(cliLocation("#/clis/pi/keyboard/extra").invalid, true, "no path after the pane");
   // The `?tab=keys` sub-tab address (until 2026-09-12) was retired on 2026-09-24.
   assert.equal(cliLocation("#/clis/pi/settings?tab=keys").redirect, "");

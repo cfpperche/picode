@@ -22,12 +22,10 @@ test("defaults when empty", () => {
   assert.deepEqual(readTermPrefs(), defaultTermPrefs());
 });
 
-test("migrates legacy theme and size keys", () => {
+test("the pre-prefs theme and size keys are no longer read (retired 2026-09-25)", () => {
   mem["picode-term-theme"] = "light";
   mem["picode-term-size"] = "18";
-  const p = readTermPrefs();
-  assert.equal(p.theme, "light");
-  assert.equal(p.fontSize, 18);
+  assert.deepEqual(readTermPrefs(), defaultTermPrefs());
 });
 
 test("clamps size, padding, scrollback, line height", () => {
