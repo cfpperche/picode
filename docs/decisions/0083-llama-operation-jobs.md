@@ -75,12 +75,14 @@ can now be abandoned.
 
 Owner-approved (2026-09-25). A **download PiCode lost track of** — reconciled
 after a restart, or already `unknown` — that the server does **not list at
-all** on three reads in a row becomes `interrupted` ("The download is not on
+all** on at least three reads in a row spanning at least a minute (a failed
+read starts the count over) becomes `interrupted` ("The download is not on
 the server. It did not finish; start it again when ready.") and releases its
 model. It replaces "missing downloads remain unknown" above: a download the
 server does not know is not running anywhere, and holding its model until the
 owner abandons it only blocked the retry. A download PiCode just sent keeps
-the benefit of the doubt (the server may not list it yet), and a model the
+the benefit of the doubt (the server may not list it yet); the minute covers a
+send PiCode saw time out that the server accepted anyway, and a model the
 server lists in any state keeps being followed. Nothing is sent to the server.
 
 **History is bounded.** At daemon start, finished jobs created more than 30

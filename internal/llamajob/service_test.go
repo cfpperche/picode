@@ -479,6 +479,7 @@ func TestLostDownloadTheServerDoesNotListIsReleased(t *testing.T) {
 	if _, err = st.UpdateLlamaJob(lost); err != nil {
 		t.Fatal(err)
 	}
+	s.absentFor = 30 * time.Millisecond
 	if _, err := s.Reconcile(lost.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -518,5 +519,28 @@ func TestLostDownloadTheServerStillRunsIsFollowed(t *testing.T) {
 	time.Sleep(20 * s.interval)
 	if got, _ := st.LlamaJob(j.ID); !got.Active() {
 		t.Fatalf("a download the server still runs was released: %s (%s)", got.State, got.Message)
+	}
+}
+
+// Inside the grace period a lost download stays unknown however many reads
+// miss it: SSE wakes can pack three reads into a second, and a send PiCode
+// saw time out may be listed by the server only later.
+func TestLostDownloadKeepsItsGracePeriod(t *testing.T) {
+	_, s, st, url := fixture(t, false)
+	s.absentFor = time.Hour
+	j, _, err := st.BeginLlamaJob(store.LlamaJob{RequestKey: "d-grace", Endpoint: url, ConnectionID: identity(url, "key"), Model: "gone", Operation: "download"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.State = "unknown"
+	if _, err = st.UpdateLlamaJob(j); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Reconcile(j.ID); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(30 * s.interval) // many more than absentReads reads
+	if got, _ := st.LlamaJob(j.ID); !got.Active() {
+		t.Fatalf("released inside the grace period: %s (%s)", got.State, got.Message)
 	}
 }

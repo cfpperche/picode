@@ -50,6 +50,8 @@ func inspectExecutable(ctx context.Context, dir, flag string) ([]byte, error) {
 	return cmd.CombinedOutput()
 }
 
+func closeOnExec(fd int) { syscall.CloseOnExec(fd) }
+
 // clearOrphanedGroup kills what is left of the router's process group after
 // its supervisor exited (ADR-0090 amendment 2026-09-25). The router got its
 // parent-death signal; the per-model servers it started did not. The group is

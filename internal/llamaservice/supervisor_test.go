@@ -221,3 +221,47 @@ func TestGroupClearLeavesAGroupWithALiveLeader(t *testing.T) {
 		t.Fatal("a group whose leader is alive was killed")
 	}
 }
+
+// The report descriptor and its variable stay with the supervisor: the router
+// (and so its model servers) sees neither.
+func TestRouterDoesNotInheritTheReportDescriptor(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux process acceptance; see docs/plans/llama-manager.md.")
+	}
+	self, _ := os.Executable()
+	out := filepath.Join(t.TempDir(), "seen")
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	groupR, groupW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := `{ [ -e /proc/$$/fd/3 ] && echo fd3; echo "env=$` + routerFDEnv + `"; } > "$1"; sleep 60`
+	cmd := exec.Command(self, "--internal-llama-supervisor", "/bin/sh", "-c", script, "qa", out)
+	cmd.Stdin = reader
+	cmd.ExtraFiles = []*os.File{groupW}
+	cmd.Env = append(os.Environ(), routerFDEnv+"=3")
+	if err = cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	_ = reader.Close()
+	_ = groupW.Close()
+	t.Cleanup(func() { _ = writer.Close(); _ = cmd.Wait() })
+	if readRouterGroup(groupR) <= 1 {
+		t.Fatal("the supervisor did not report its router")
+	}
+	var seen string
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		raw, _ := os.ReadFile(out)
+		if seen = string(raw); strings.Contains(seen, "env=") {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if strings.Contains(seen, "fd3") || strings.TrimSpace(seen) != "env=" {
+		t.Fatalf("the router inherited the report: %q", seen)
+	}
+}

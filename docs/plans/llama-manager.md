@@ -346,7 +346,7 @@ isolated on `127.0.0.1:18081`, with Qwen3-4B-Q4_K_M initially unloaded. Set
 fixture's connection, loads/unloads the real model and checks shared history.
 
 A lost download (after a restart, or already unknown) that the server does not
-list at all on three reads in a row is interrupted and releases its model
+list at all for a minute (three reads or more) is interrupted and releases its model
 (ADR-0083 amendment 2026-09-25); no automatic retry, service ownership or cache
 deletion is added.
 Cancellation is verified only for b10809; other builds retain observation and

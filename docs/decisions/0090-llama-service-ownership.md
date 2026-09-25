@@ -49,7 +49,8 @@ Owner-approved (2026-09-25). A supervisor killed outright (SIGKILL, so no pipe
 EOF handling runs) let the router die of its parent-death signal but left the
 per-model servers the router started running, holding memory. The supervisor
 now reports its router's PID — the router's process group — to the daemon on a
-dedicated descriptor (`PICODE_LLAMA_ROUTER_FD`, fd 3). When the supervisor
+dedicated descriptor (`PICODE_LLAMA_ROUTER_FD`, fd 3), which the supervisor
+keeps from the router (close-on-exec, variable removed). When the supervisor
 exits, the daemon kills that group only if its leader is gone and members
 remain: a live process whose PID is the group's number means the number is no
 longer the router's, and nothing is sent. The supervisor itself now kills a

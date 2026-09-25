@@ -21,9 +21,22 @@ import (
 // written: fd 3 may be anything in a process that did not ask.
 const routerFDEnv = "PICODE_LLAMA_ROUTER_FD"
 
-func reportRouter(pid int) {
+// routerReportFD takes the report descriptor for this supervisor alone: it is
+// marked close-on-exec and its variable removed, so neither reaches the router
+// and its model servers (os/exec leaves an ExtraFiles descriptor open across
+// exec, and the environment is passed on). 0 when the daemon asked for none.
+func routerReportFD() int {
 	fd, err := strconv.Atoi(os.Getenv(routerFDEnv))
+	_ = os.Unsetenv(routerFDEnv)
 	if err != nil || fd < 3 {
+		return 0
+	}
+	closeOnExec(fd)
+	return fd
+}
+
+func reportRouter(fd, pid int) {
+	if fd < 3 {
 		return
 	}
 	f := os.NewFile(uintptr(fd), "router")
@@ -35,13 +48,14 @@ func RunSupervisor() {
 	if len(os.Args) < 3 || os.Args[1] != "--internal-llama-supervisor" {
 		return
 	}
+	report := routerReportFD()
 	cmd := exec.Command(os.Args[2], os.Args[3:]...)
 	cmd.Env = os.Environ()
 	configureProcess(cmd)
 	if cmd.Start() != nil {
 		os.Exit(1)
 	}
-	reportRouter(cmd.Process.Pid)
+	reportRouter(report, cmd.Process.Pid)
 	// The router is reaped only after its group is killed: while it is an
 	// unreaped zombie its PID — and so the group's number — cannot be handed
 	// to another process, so the kill below reaches the router's own
