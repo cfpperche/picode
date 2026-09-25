@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -373,30 +372,12 @@ func handleTerminalAsk(deps Deps) http.HandlerFunc {
 	}
 }
 
-// A receiver heartbeat renews presence, never invents activity. Legacy receivers
-// name the native child PID; its own environment carries the wrapper identity.
+// A receiver heartbeat renews presence, never invents activity. The receiver
+// names its wrapper (runtimePid); a hello without it — the receivers from
+// before that field, whose /proc environ fallback was retired 2026-09-25 —
+// recovers nothing.
 func recoverPiReceiverRuntime(ctx context.Context, deps Deps, id, run string, pid, wrapperPID int) {
-	if pid <= 0 || deps.TermRuntimes == nil {
-		return
-	}
-	if wrapperPID == 0 {
-		raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/environ", pid))
-		if err != nil {
-			return
-		}
-		env := map[string]string{}
-		for _, line := range strings.Split(string(raw), "\x00") {
-			k, v, ok := strings.Cut(line, "=")
-			if ok {
-				env[k] = v
-			}
-		}
-		if env["PICODE_TUI_RUN_ID"] != run || env["PICODE_TERM_ID"] != id {
-			return
-		}
-		wrapperPID, _ = strconv.Atoi(env["PICODE_TUI_PID"])
-	}
-	if wrapperPID <= 0 {
+	if pid <= 0 || wrapperPID <= 0 || deps.TermRuntimes == nil {
 		return
 	}
 	procs := readProcSnapshot()
