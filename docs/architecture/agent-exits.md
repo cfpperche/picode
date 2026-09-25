@@ -46,6 +46,17 @@ design and a workspace removal keeps its exits.
 Events: `agent_exit.recorded`, `agent_exit.updated` (label, undo, restore, forget),
 `agent_exit.deleted`.
 
+## Skills (ADR-0196 slice 6)
+
+`config.loaded` is the skill set the run loaded: from the terminal's launch
+snapshot when one recorded it (`clilaunch.Snapshot.Skills`, written by
+`prepareCLITerminal` from `launchSkills`: the Skills report's loaded rows, an
+isolated Pi or Omp agent's own only, skills that load only once a folder is
+trusted left out), else read at removal through `ExitInput.Skills` (managed Pi;
+`source: "exit"`). Each entry is name, digest, scope and folder, so a skill
+edited between runs counts as another version. An exit written before this has
+no set and sits on neither side of a comparison.
+
 ## Cost
 
 At removal, before any purge, the server prices the sessions the exit points
@@ -104,6 +115,7 @@ width on the phone and in narrow windows.
 |---|---|
 | `GET /api/agent-exits` | the catalog, newest first; `workspace`, `cli`, `outcome` (a code or `unanswered`), `range` (today/7d/30d/all), `before` + `limit`; answers `{exits, next, ask, taxonomy}` |
 | `GET /api/agent-exits/summary` | counts for the same filters except outcome: outcomes, by CLI, reasons, asked / answered / answered-when-asked, median lifetime and turns. The clients' **Resolved** share divides by resolved + partial + unresolved (`exitHeadline`): a trial set no task |
+| `GET /api/agent-exits/skills` | the same filters: per skill, the exits that loaded it against the recorded exits that did not (outcome counts and measured cost on each side, distinct contents as `versions`), plus how many exits recorded a skill set (`recorded` / `unrecorded`) — ADR-0196 slice 6 |
 | `GET /api/agent-exits/export` | every exit, undone included, as JSON lines |
 | `GET`/`PATCH`/`DELETE /api/agent-exits/{id}` | one exit; PATCH labels or clears the answer |
 | `POST /api/agent-exits/{id}/undo` | links the exit to the agent an Undo brought back |

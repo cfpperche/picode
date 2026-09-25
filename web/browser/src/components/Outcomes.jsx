@@ -12,7 +12,7 @@ import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { formatTokens as formatTokensShort } from "@picode/shared/domain/dashboardStats.js";
 import { checklistLevelLabel } from "@picode/shared/domain/checklist.js";
 import {
-  choiceLabel, emptyExitDraft, exitHeadline, fmtExitCost, fmtLifetime, fmtTurns, instructionsLine, outcomeRows, pickOutcome, reasonRows, takesReasons, toggleReason,
+  choiceLabel, emptyExitDraft, exitHeadline, fmtExitCost, fmtLifetime, fmtTurns, instructionsLine, loadedSkillsLine, outcomeRows, skillComparisonRows, skillStatsLine, pickOutcome, reasonRows, takesReasons, toggleReason,
 } from "@picode/shared/domain/agentExit.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -54,6 +54,7 @@ export default function Outcomes({ hidden, workspaces = [] }) {
   const [outcome, setOutcome] = useState("");
   const [data, setData] = useState(null); // { exits, next, ask, taxonomy }
   const [summary, setSummary] = useState(null);
+  const [skillStats, setSkillStats] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const [open, setOpen] = useState("");
   const [editing, setEditing] = useState(null); // { id, draft }
@@ -70,10 +71,14 @@ export default function Outcomes({ hidden, workspaces = [] }) {
     Promise.all([
       api("/api/agent-exits" + query({ ...base, outcome })),
       api("/api/agent-exits/summary" + query(base)),
-    ]).then(([list, sum]) => {
+      // With and without each skill (ADR-0196 slice 6); an older server
+      // answers 404 and the section stays away.
+      api("/api/agent-exits/skills" + query(base)).catch(() => null),
+    ]).then(([list, sum, skills]) => {
       if (n !== seq.current) return;
       setData(list);
       setSummary(sum.summary);
+      setSkillStats(skills);
       setLoadErr("");
     }).catch(() => {
       if (n !== seq.current) return;
@@ -194,6 +199,33 @@ export default function Outcomes({ hidden, workspaces = [] }) {
         </div>
       ) : null}
 
+      {skillStats && (skillStats.rows.length || skillStats.unrecorded) && (!empty || filtered) ? (
+        <div className="dashboard-section outc-skills">
+          <div className="dash-section-label">Skills: resolved with and without</div>
+          {skillStats.rows.length ? (
+            <table className="outc-skills-table">
+              <thead>
+                <tr><th>Skill</th><th className="outc-num">With it</th><th className="outc-num">Without it</th><th className="outc-num">Runs with it</th></tr>
+              </thead>
+              <tbody>
+                {skillComparisonRows(skillStats).map((r) => (
+                  <tr key={r.name} className={r.few ? "is-few" : ""}>
+                    <td>
+                      <span className="outc-mono">{r.name}</span>
+                      {r.versions > 1 ? <span className="outc-sub" title="Its content changed between runs"> · {r.versions} versions</span> : null}
+                    </td>
+                    <td className="outc-num" title={r.with.of}>{r.with.share}<span className="outc-sub"> {r.with.of}</span>{r.with.few ? <span className="outc-few" title="Fewer than 5 answered runs: read it as a hint, not a finding">few runs</span> : null}</td>
+                    <td className="outc-num" title={r.without.of}>{r.without.share}<span className="outc-sub"> {r.without.of}</span>{r.without.few ? <span className="outc-few" title="Fewer than 5 answered runs: read it as a hint, not a finding">few runs</span> : null}</td>
+                    <td className="outc-num">{r.with.runs}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+          <p className="outc-skills-note">{skillStatsLine(skillStats)}</p>
+        </div>
+      ) : null}
+
       <div className="outc-filters" role="group" aria-label="Filter removed agents">
         <select className="set-select" value={ws} onChange={(e) => setWs(e.target.value)} aria-label="Workspace">
           <option value="">All workspaces</option>
@@ -309,6 +341,7 @@ function ExitDetail({ ex, tax, onLabel, onDelete }) {
   const neededYou = !sig.inboxItems ? "Never" : `${sig.inboxBlocking || 0} ${sig.inboxBlocking === 1 ? "time" : "times"}${sig.inboxItems > (sig.inboxBlocking || 0) ? ` · ${sig.inboxItems} Inbox items in all` : ""}`;
   const where = ex.sessions && (ex.sessions.piSessionPath || ex.sessions.cliSessionPath);
   const instr = instructionsLine(c.instructions);
+  const loaded = loadedSkillsLine(c.loaded);
   return (
     <>
       <div className="outc-group">
@@ -334,7 +367,7 @@ function ExitDetail({ ex, tax, onLabel, onDelete }) {
                 {ex.cost.estimated > 0 ? ` · $${ex.cost.estimated.toFixed(2)} estimated at list price` : ""}
                 {" · "}{ex.cost.scope === "agent" ? `${ex.cost.sessions} session${ex.cost.sessions === 1 ? "" : "s"} of this agent` : "its last session only"}
               </span>
-            ) : <span className="outc-sub"> — not measured</span>}
+            ) : <span className="outc-sub"> not measured</span>}
           </Fact>
           <Fact label="Needed you">{neededYou}</Fact>
           {sig.checklistTotal ? <Fact label="Checklist">{sig.checklistDone} of {sig.checklistTotal} steps done</Fact> : null}
@@ -346,6 +379,7 @@ function ExitDetail({ ex, tax, onLabel, onDelete }) {
         <dl className="outc-facts">
           {setup.map(([k, v, mono]) => <Fact key={k} label={k}>{mono ? <span className="outc-mono">{v}</span> : v}</Fact>)}
           {c.extraPrompt ? <Fact label="Extra prompt"><span className="outc-note">{c.extraPrompt}</span></Fact> : null}
+          {loaded ? <Fact label="Skills"><span className="outc-mono">{loaded.text}</span><span className="outc-sub"> — {loaded.source}</span></Fact> : null}
           {instr ? <Fact label="Instructions"><span className="outc-mono">{instr.text}</span><span className="outc-sub"> — {instr.source}</span></Fact> : null}
         </dl>
       </div>

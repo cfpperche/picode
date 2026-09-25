@@ -462,3 +462,22 @@ func TestSkillsAgentCLIsMatch(t *testing.T) {
 		t.Fatalf("js %v, go %v", js, goList)
 	}
 }
+
+// A skill folder that is a link (Claude Code's link to a workspace install)
+// hashes as its target; the link alone read as "edited" (2026-09-24).
+func TestDigestFollowsALinkedRoot(t *testing.T) {
+	root := t.TempDir()
+	real := writeSkill(t, filepath.Join(root, ".agents/skills"), "pdf", "")
+	link := filepath.Join(root, ".claude/skills/pdf")
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../../.agents/skills/pdf", link); err != nil {
+		t.Skip("no symlinks here")
+	}
+	a, _ := Digest(real)
+	b, err := Digest(link)
+	if err != nil || a == "" || a != b {
+		t.Fatalf("link %q (%v), folder %q", b, err, a)
+	}
+}

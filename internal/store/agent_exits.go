@@ -196,6 +196,17 @@ type ExitInput struct {
 	// stand now (ADR-0194, amended 2026-09-24). root is the workspace
 	// folder; the store reads no files itself. nil records nothing.
 	Instructions func(a Agent, root string, ss ExitSessions) *ExitInstructions
+	// Skills reads what the agent's CLI loads now, for an exit whose launch
+	// recorded no skill set. nil records nothing.
+	Skills func(a Agent) []clilaunch.SkillUse
+}
+
+// ExitSkills is the skill set an exit ran with. Source is "launch" (recorded
+// when the terminal started) or "exit" (read at removal, for a run with no
+// launch record: managed Pi).
+type ExitSkills struct {
+	Source string               `json:"source"`
+	Skills []clilaunch.SkillUse `json:"skills"`
 }
 
 // ExitInstructions is which instruction files the agent read, each with a
@@ -234,6 +245,9 @@ type ExitConfig struct {
 	Checklist        string   `json:"checklist,omitempty"`
 	Packages         []string `json:"packages"`
 	PackagesIsolated bool     `json:"packagesIsolated"`
+	// Loaded is every skill the agent's CLI loaded (ADR-0196 slice 6): from
+	// the last launch when a terminal recorded it, else read at the exit.
+	Loaded *ExitSkills `json:"loaded,omitempty"`
 	// Skills: the agent's own (ADR-0196 slice 4); a restore puts them back.
 	Skills      []AgentSkill `json:"skills,omitempty"`
 	ExtraPrompt string       `json:"extraPrompt,omitempty"`
@@ -532,6 +546,9 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 		}
 		if l, err := s.TerminalLaunch(*a.TerminalID); err == nil && l != nil {
 			ex.Config.Launch = exitLaunchOf(l)
+			if l.Applied != nil && l.Applied.Skills != nil {
+				ex.Config.Loaded = &ExitSkills{Source: "launch", Skills: l.Applied.Skills}
+			}
 			if l.LastSession != nil {
 				ex.Sessions.CLISessionID = l.LastSession.SessionID
 				ex.Sessions.CLISessionPath = l.LastSession.Path
@@ -571,6 +588,11 @@ func (s *Store) buildExit(a Agent, in ExitInput, now time.Time) (AgentExit, erro
 			root = ex.Sessions.Cwd
 		}
 		ex.Config.Instructions = in.Instructions(a, root, ex.Sessions)
+	}
+	if ex.Config.Loaded == nil && in.Skills != nil {
+		if got := in.Skills(a); got != nil {
+			ex.Config.Loaded = &ExitSkills{Source: "exit", Skills: got}
+		}
 	}
 	return ex, nil
 }

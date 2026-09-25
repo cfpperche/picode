@@ -109,6 +109,16 @@ count; open **Source** to read the audits skills.sh shows for that skill.
 PiCode never vouches for a skill: a card says where it comes from, and the
 preview shows what it contains.
 
+## Did it help? Trying, comparing, promoting
+
+A skill you add for one agent is **being tried**: its row says so. Every agent
+start records the skills it loaded, and when you remove the agent and say how
+it went, **Outcomes** compares runs with and without each skill (see
+[Outcomes](./outcomes.md)). When a skill works, open its row and choose
+**Promote to** the workspace: PiCode puts exactly the copy the agent used into
+`.agents/skills` in the workspace, where every agent CLI there loads it, and
+takes it off the agent's own list.
+
 ## Updating and removing
 
 **Check for updates** compares every recorded skill with its source. A skill

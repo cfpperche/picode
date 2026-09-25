@@ -94,3 +94,20 @@ test("instructionsLine names each file with its short hash and the source", () =
     { text: "AGENTS.md @591f4f5c, gone.md (gone)", source: "as the CLI recorded them" });
   assert.equal(instructionsLine({ source: "declared", files: [] }).text, "None");
 });
+
+import { SKILL_MIN_ATTEMPTS, loadedSkillsLine, skillComparisonRows, skillStatsLine } from "./agentExit.js";
+
+test("skills in Outcomes: with and without, few runs marked, coverage said", () => {
+  const rows = skillComparisonRows({ rows: [
+    { name: "pdf", versions: 2, with: { total: 4, resolved: 2, partial: 1, unresolved: 0, unanswered: 1 }, without: { total: 10, resolved: 3, partial: 2, unresolved: 5 } },
+  ] });
+  assert.equal(rows[0].with.share, "67%");
+  assert.equal(rows[0].with.of, "2 of 3");
+  assert.equal(rows[0].without.share, "30%");
+  assert.equal(rows[0].few, true, "3 answered attempts is under " + SKILL_MIN_ATTEMPTS);
+  assert.deepEqual(skillComparisonRows(null), []);
+  assert.equal(skillStatsLine({ recorded: 0, unrecorded: 4 }), "No removed agent recorded its skills yet: agents started from now on do.");
+  assert.equal(skillStatsLine({ recorded: 3, unrecorded: 2 }), "3 of 5 removed agents recorded their skills; the other 2 count on neither side.");
+  assert.deepEqual(loadedSkillsLine({ source: "launch", skills: [{ name: "pdf", scope: "machine" }, { name: "tried", scope: "agent" }] }), { text: "pdf, tried (the agent's own)", source: "as it started" });
+  assert.equal(loadedSkillsLine(null), null);
+});

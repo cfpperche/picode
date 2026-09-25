@@ -372,3 +372,43 @@ export function catalogEmptyLine(q, reading) {
   if (q.trim()) return "No skill matches “" + q.trim() + "”.";
   return "The sources list no skills yet.";
 }
+
+// --- slice 6: the lifecycle (ADR-0196) --------------------------------------
+
+// An agent's own skill can move into the agent's workspace once it works.
+export function canPromoteSkill(row, report) {
+  return row?.scope === "agent" && row.status !== "missing" && !!report?.workspacePath;
+}
+
+// Under an agent's own skill: where it is in its life, and the next step.
+export function trialLine(row, { agentName = "", workspaceName = "" } = {}) {
+  if (row?.scope !== "agent") return "";
+  const a = agentName || "this agent";
+  return "Trying in " + a + " only. Outcomes compares its runs with and without it; when it works, promote it to " + (workspaceName || "the workspace") + ".";
+}
+
+export function promoteQuestion(row, { agentName = "", workspaceName = "" } = {}) {
+  const ws = workspaceName || "this workspace";
+  return "Promote " + row.name + " to " + ws + "? Every agent CLI in " + ws + " then loads it, and it leaves " + (agentName || "this agent") + "'s own list.";
+}
+
+export function promotedLine(res, workspaceName = "") {
+  const ws = workspaceName || "the workspace";
+  if (res?.status === "already") return res.name + " was already in " + ws + "; it left the agent's own list.";
+  return res.name + " is now in " + ws + ": every agent CLI there loads it.";
+}
+
+// A promote refusal the person can answer, and what the retry sends.
+export function promoteRetry(code) {
+  if (code === "exists" || code === "update") return { replace: true };
+  if (code === "critical") return { acceptCritical: true };
+  return null;
+}
+
+// The confirm button's words, by verb and what the retry sends.
+export function askLabel(ask) {
+  if (!ask) return "";
+  if (ask.verb === "remove") return ask.extra?.confirm ? "Remove anyway" : "Remove";
+  if (ask.verb === "promote") return ask.extra?.replace ? "Replace it" : ask.extra?.acceptCritical ? "Promote anyway" : "Promote";
+  return "Update anyway";
+}

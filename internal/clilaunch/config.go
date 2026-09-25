@@ -184,6 +184,18 @@ type Snapshot struct {
 	Fingerprint string           `json:"fingerprint"`
 	StartedAt   string           `json:"startedAt"`
 	Injection   *IntegrationPlan `json:"injection,omitempty"`
+	// Skills are the Agent Skills this launch loaded, read when it started
+	// (ADR-0196 slice 6): what Outcomes compares runs with and without.
+	Skills []SkillUse `json:"skills,omitempty"`
+}
+
+// SkillUse is one skill a launch loaded: its name, the digest of the folder
+// (so a new version is a new row), its scope and the folder it came from.
+type SkillUse struct {
+	Name   string `json:"name"`
+	Digest string `json:"digest,omitempty"`
+	Scope  string `json:"scope"` // machine | workspace | agent
+	Via    string `json:"via"`   // the folder as the Skills tab names it
 }
 
 func Describe(c Config, executable, at string) Snapshot {

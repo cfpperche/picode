@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/pisettings"
 	"github.com/cfpperche/picode/internal/skills"
 	"github.com/cfpperche/picode/internal/store"
@@ -26,6 +27,8 @@ func registerSkillRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("DELETE /api/skills", handleSkillsRemove(deps, mgr))
 	mux.HandleFunc("POST /api/skills/update", handleSkillsUpdate(deps, mgr))
 	mux.HandleFunc("GET /api/skills/updates", handleSkillsUpdates(deps, mgr))
+	// Slice 6: an agent's skill that worked moves into its workspace.
+	mux.HandleFunc("POST /api/skills/promote", handleSkillsPromote(deps, mgr))
 	// Slice 5: the Marketplace catalog, its sources and the skills.sh switch.
 	registerSkillCatalogRoutes(mux, deps)
 	// Slice 3: each CLI's own per-skill switch, written in its own file.
@@ -422,6 +425,93 @@ func handleSkillsToggle(deps Deps) http.HandlerFunc {
 			return
 		}
 		announceSkills(deps, "toggled", res.Name)
+		writeJSON(w, http.StatusOK, res)
+	}
+}
+
+// launchSkills is what an agent's CLI loads as it starts (ADR-0196 slice 6):
+// the report's loaded rows, and for an isolated Pi or Omp agent only its own.
+// A skill that loads only once a folder is trusted is left out: PiCode cannot
+// tell whether it did. Recorded in the launch snapshot for Outcomes.
+func launchSkills(deps Deps, a store.Agent) []clilaunch.SkillUse {
+	cli := a.CLI
+	if cli == "" {
+		cli = "pi"
+	}
+	q := skills.Query{CLI: cli, Trusted: skillsTrusted}
+	isolated := a.PackagesIsolated && (cli == "pi" || cli == "omp")
+	if deps.Store != nil {
+		if ws, err := deps.Store.GetWorkspace(a.WorkspaceID); err == nil && ws.ID != store.FreeWorkspaceID {
+			q.Workspace = ws.Path
+		}
+	}
+	q.Agent = &skills.AgentInfo{ID: a.ID, Name: a.Name, Isolated: isolated, Skills: agentSkillsOf(a)}
+	rep, err := skills.Read(q)
+	if err != nil {
+		return nil
+	}
+	out := []clilaunch.SkillUse{}
+	for _, r := range rep.Rows {
+		if r.Status != skills.StatusLoaded || (isolated && r.Scope != skills.Agent) {
+			continue
+		}
+		out = append(out, clilaunch.SkillUse{Name: r.Name, Digest: r.Digest, Scope: string(r.Scope), Via: r.Root})
+	}
+	return out
+}
+
+// handleSkillsPromote moves one of an agent's own skills into its workspace
+// (the lifecycle's "trying → in project"): the exact copy the agent ran with,
+// then off the agent's own list, since every CLI there now reads it from the
+// project. A refusal the person can answer is the install's own 409.
+func handleSkillsPromote(deps Deps, mgr *skills.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Agent          string `json:"agent"`
+			Name           string `json:"name"`
+			Replace        bool   `json:"replace"`
+			Adopt          bool   `json:"adopt"`
+			AcceptCritical bool   `json:"acceptCritical"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "bad request")
+			return
+		}
+		agentSkillsMu.Lock()
+		defer agentSkillsMu.Unlock()
+		a, err := skillsAgent(deps, req.Agent)
+		if err != nil {
+			skillsError(w, err)
+			return
+		}
+		ws, err := deps.Store.GetWorkspace(a.WorkspaceID)
+		if err != nil || ws.ID == store.FreeWorkspaceID {
+			skillsError(w, &skills.Conflict{Code: "invalid", Message: "a free agent has no project to promote into"})
+			return
+		}
+		var own *store.AgentSkill
+		next := make([]store.AgentSkill, 0, len(a.Skills))
+		for i := range a.Skills {
+			if a.Skills[i].Name == req.Name {
+				own = &a.Skills[i]
+				continue
+			}
+			next = append(next, a.Skills[i])
+		}
+		if own == nil {
+			skillsError(w, skills.ErrNotInstalled)
+			return
+		}
+		res, err := mgr.Promote(skills.PromoteReq{Dir: own.Dir, Source: own.Source, Workspace: ws.Path, Replace: req.Replace, Adopt: req.Adopt, AcceptCritical: req.AcceptCritical})
+		if err != nil {
+			skillsError(w, err)
+			return
+		}
+		if _, err := deps.Store.SetAgentSkills(a.ID, next); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		announceSkills(deps, "promoted", req.Name)
 		writeJSON(w, http.StatusOK, res)
 	}
 }
