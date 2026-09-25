@@ -42,6 +42,10 @@
 .connector-pick .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .connector-scope { display: flex; align-items: center; gap: 8px; }
 .connector-scope .pkg-scope { margin: 0; }
+/* The More page pads every layer switcher for its scroll affordance
+   (mobile-settings.css); in this toolbar row that padding made the switcher
+   44px beside a 36px button once the row wrapped. One control height. */
+#m-app .m-more-page .connector-scope .pkg-scope { padding: 0; }
 .conn-tile {
   display: inline-flex; align-items: center; justify-content: center;
   width: 56px; height: 56px; border-radius: 12px;

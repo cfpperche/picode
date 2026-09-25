@@ -89,11 +89,13 @@ try {
     // Adapter present, nothing configured.
     writeSettings(["npm:pi-mcp-adapter"]);
     browser("reload");
-    browser("wait", "#connectors-view .connectors-head .btn");
-    assert.match(ev('document.querySelector("#connectors-view .pkg-fine").textContent'), /No connectors yet/);
+    // The add door is the Marketplace tab beside Installed (since the
+    // connectors pane took the one-pane shape; the old Add dialog is gone).
+    await until('[...document.querySelectorAll("#connectors-view .pkg-fine")].some(e=>/No connectors yet/.test(e.textContent))');
+    assert.equal(ev('[...document.querySelectorAll("#connectors-view [role=tab]")].some(t=>t.textContent.startsWith("Marketplace"))'), true);
     assert.equal(ev('document.querySelectorAll("#connectors-view .mcp-row").length'), 0);
     await capture(app + "-empty");
-    results.push(app + ": empty state is one line plus the Add action");
+    results.push(app + ": empty state is one line, with the Marketplace tab as the add door");
 
     // Configured: rows, a disabled row, the stopped-agent line and control rhythm.
     writeServers({
@@ -116,39 +118,44 @@ try {
     await capture(app + "-configured");
     results.push(app + ": rows carry scope, target, a real switch and the absent-live-status line");
 
-    // The Add dialog: search filters, Add writes to the chosen scope, the row flips to Added.
+    // The Marketplace: search filters, Add writes to the chosen scope, the card flips to Added.
+    const card = '#connectors-view .pkg-card';
+    // The connector cards on screen: visible, and named (the phone mounts
+    // other card lists in the same view).
+    const cards = `[...document.querySelectorAll(${JSON.stringify(card)})].filter(c=>c.offsetParent&&c.querySelector(".pkg-card-name"))`;
     fault(`window.qaWrites=[];window.fetch=(url,opts)=>{if(opts?.method&&opts.method!=="GET")window.qaWrites.push({url:String(url),method:opts.method,body:opts.body?JSON.parse(opts.body):null});return window.qaFetch(url,opts);}`);
-    browser("find", "role", "button", "click", "--name", "Add connector", "--exact");
-    browser("wait", ".add-connector-dialog .connector-option");
-    assert.equal(ev('document.querySelectorAll(".add-connector-dialog .connector-option").length >= 6'), true);
+    browser("find", "role", "tab", "click", "--name", "Marketplace");
+    await until(`${cards}.length >= 6`);
     // A service already in the selected layer reads Added (and cannot be added twice).
-    assert.equal(ev('[...document.querySelectorAll(".add-connector-dialog .connector-option")].some(o=>o.querySelector("strong").textContent==="Context7"&&o.querySelector("button").textContent==="Added"&&o.querySelector("button").disabled)'), true);
-    browser("fill", ".connector-pick .dlg-input", "library documentation");
-    await until('document.querySelectorAll(".add-connector-dialog .connector-option").length === 1');
-    assert.equal(ev('document.querySelector(".add-connector-dialog .connector-option strong").textContent'), "Context7");
-    browser("fill", ".connector-pick .dlg-input", "deepwiki");
-    await until('document.querySelectorAll(".add-connector-dialog .connector-option").length === 1');
+    assert.equal(ev(`${cards}.some(c=>c.querySelector(".pkg-card-name").textContent==="Context7"&&c.querySelector(".pkg-card-foot button").textContent==="Added"&&c.querySelector(".pkg-card-foot button").disabled)`), true);
+    browser("fill", '[aria-label="Search connectors"]', "library documentation");
+    await until(`${cards}.length === 1`);
+    assert.equal(ev(`${cards}[0].querySelector(".pkg-card-name").textContent`), "Context7");
+    browser("fill", '[aria-label="Search connectors"]', "deepwiki");
+    await until(`${cards}.length === 1`);
     await settle();
-    browser("click", ".add-connector-dialog .connector-option button");
+    ev(`${cards}[0].querySelector(".pkg-card-foot button").click(); true`);
     await until('window.qaWrites.some(w=>w.url==="/api/mcp")');
     let write = ev('window.qaWrites.filter(w=>w.url==="/api/mcp").at(-1)');
     assert.equal(write.method, "POST");
     assert.equal(write.body.name, "deepwiki");
     assert.equal(write.body.scope, "user");
     // workspaceId/agentId are the pane's context; scope is the decision.
-    await until('[...document.querySelectorAll(".add-connector-dialog .connector-option button")].some(b=>b.textContent==="Added"&&b.disabled)');
-    await capture(app + "-add-dialog");
-    results.push(app + ": Add dialog searches, and Add carries the machine scope");
+    await until(`${cards}.some(c=>{const b=c.querySelector(".pkg-card-foot button");return b.textContent==="Added"&&b.disabled})`);
+    await capture(app + "-marketplace");
+    results.push(app + ": the Marketplace searches, and Add carries the machine scope");
 
     // Switching the target writes the scope onto the route and onto the request.
-    const pillChecked = `[...document.querySelectorAll(".add-connector-dialog .pkg-scope [role=radio]")].some(b=>b.textContent===${JSON.stringify(workspace.name)}&&b.getAttribute("aria-checked")==="true")`;
-    browser("click", ".add-connector-dialog .pkg-scope [role=radio]:nth-child(2)");
+    const pillChecked = `[...document.querySelectorAll("#connectors-view .pkg-scope [role=radio]")].some(b=>b.textContent===${JSON.stringify(workspace.name)}&&b.getAttribute("aria-checked")==="true")`;
+    browser("find", "role", "radio", "click", "--name", workspace.name, "--exact");
     await until(pillChecked);
-    await until('location.hash.includes("scope=project")');
-    browser("fill", ".connector-pick .dlg-input", "chrome");
-    await until('document.querySelectorAll(".add-connector-dialog .connector-option").length === 1');
+    await until('location.hash.includes("scope=workspace")');
+    browser("find", "role", "tab", "click", "--name", "Marketplace");
+    browser("wait", card);
+    browser("fill", '[aria-label="Search connectors"]', "chrome");
+    await until(`${cards}.length === 1`);
     await settle();
-    browser("click", ".add-connector-dialog .connector-option button");
+    ev(`${cards}[0].querySelector(".pkg-card-foot button").click(); true`);
     await until('window.qaWrites.filter(w=>w.url==="/api/mcp"&&w.body.name==="chrome-devtools").length>0');
     write = ev('window.qaWrites.filter(w=>w.url==="/api/mcp").at(-1)');
     assert.equal(write.body.scope, "project");
@@ -156,12 +163,11 @@ try {
     assert.equal(write.body.agentId, id);
     await capture(app + "-add-workspace-scope");
     results.push(app + ": the labelled target decides where the connector is written and survives reload");
-    browser("press", "Escape");
-    await until('!document.querySelector(".add-connector-dialog")');
     browser("reload");
+    try { browser("find", "role", "tab", "click", "--name", "Installed"); } catch {}
     browser("wait", '#connectors-view .mcp-row');
     assert.equal(ev('document.querySelectorAll("#connectors-view .mcp-row").length'), 6);
-    assert.equal(ev('location.hash.includes("scope=project")'), true);
+    assert.equal(ev('location.hash.includes("scope=workspace")'), true);
     // A reload drops the in-page recorder; re-arm it for the removal that follows.
     fault(`window.qaWrites=[];window.fetch=(url,opts)=>{if(opts?.method&&opts.method!=="GET")window.qaWrites.push({url:String(url),method:opts.method,body:opts.body?JSON.parse(opts.body):null});return window.qaFetch(url,opts);}`);
 
@@ -186,22 +192,17 @@ try {
     if (app === "desktop") {
       open("desktop", context, 1024);
       ready();
-      await until('!!document.querySelector("#connectors-view .connectors-head .btn")');
-      await capture("desktop-1024");
-      browser("find", "role", "button", "click", "--name", "Add connector", "--exact");
-      browser("wait", ".add-connector-dialog");
-      await capture("desktop-1024-dialog");
+      await capture("desktop-1024", true);
+      browser("find", "role", "tab", "click", "--name", "Marketplace");
+      browser("wait", card);
+      await capture("desktop-1024-marketplace", true);
     } else {
       open("mobile", context);
       ready();
-      // The mobile shell renders the pane after its own route load; wait for
-      // the action itself, not just the pane root.
-      await until('!!document.querySelector("#connectors-view .connectors-head .btn")');
-      browser("find", "role", "button", "click", "--name", "Add connector", "--exact");
-      browser("wait", ".add-connector-dialog");
-      await capture("mobile-sheet");
-      browser("press", "Escape");
-      await until('!document.querySelector(".add-connector-dialog")');
+      await until('[...document.querySelectorAll("#connectors-view [role=tab]")].some(t=>t.textContent.startsWith("Marketplace"))');
+      browser("find", "role", "tab", "click", "--name", "Marketplace");
+      browser("wait", card);
+      await capture("mobile-marketplace", true);
     }
     results.push(app + ": narrow layout keeps controls reachable and overlays inside the viewport");
   }
