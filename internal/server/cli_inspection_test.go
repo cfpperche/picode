@@ -3,10 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -301,8 +304,23 @@ func panePIDSoon(t *testing.T, session string) int {
 			return pid
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("pane pid of %s: %v (pid %d)", session, err, pid)
+			t.Fatalf("pane pid of %s: %v (pid %d)\n%s", session, err, pid, privateTmuxReport())
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+}
+
+// privateTmuxReport says what the suite's private tmux server looked like when a
+// pane could not be read, so the next occurrence of the "no server running"
+// flake names its cause (2026-09-25: not reproduced in 5 rounds of four
+// parallel shards nor 42 isolated runs; the restart handler returns before it
+// kills anything). It reports the socket, whether it still exists, and the
+// sessions the server lists — a server that is gone points at another test
+// ending it; one that lists no session of ours points at our pane dying.
+func privateTmuxReport() string {
+	dir := os.Getenv(tmux.SocketDirEnv)
+	sock := filepath.Join(dir, "tmux-"+strconv.Itoa(os.Getuid()), "default")
+	_, statErr := os.Stat(sock)
+	out, err := exec.Command("tmux", "list-sessions", "-F", "#{session_name} #{session_created}").CombinedOutput()
+	return fmt.Sprintf("tmux state: socket %s (stat: %v); list-sessions: %v\n%s", sock, statErr, err, out)
 }
