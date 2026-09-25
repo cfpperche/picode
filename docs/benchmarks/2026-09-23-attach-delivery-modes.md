@@ -30,7 +30,7 @@ input row reading empty before and after Enter.
 | CLI (version) | Steer | Follow-up | Input row after a busy submit | Queue render (read for the receipt) |
 |---|---|---|---|---|
 | Pi 0.87.1 | Enter `M` | Alt+Enter `M` (needs tmux `extended-keys on`, which PiCode sets) | cleared | `Steering: <text>` / `Follow-up: <text>` lines + `↳ Alt+Up to edit all queued messages`, above the editor |
-| Omp 18.2.11 | Enter `M` | `/queue <text>` `M` (also Ctrl+Q, Ctrl+Enter `D`) | cleared | `Steering - N` / `After yield - N` + `  1. <text>` rows + `` `- Alt+Up/Shift+Up to edit``; status `Queued message for when the agent yields` |
+| Omp 18.2.11 | Enter `M` | `/queue <text>` `M`; Ctrl+Q `M` 2026-09-24 (one entry, newlines kept as `↵`); Ctrl+Enter `D` | cleared | `Steering - N` / `After yield - N` + `  1. <text>` rows + `` `- Alt+Up/Shift+Up to edit``; status `Queued message for when the agent yields` |
 | Claude Code 2.1.281 | Enter `M` — lands at the next tool boundary | none: Enter during pure text generation waits for the turn end `M`; Ctrl+X Enter behaved exactly like Enter `M` | cleared; dim `Press up to edit queued messages` | `❯ <text>` + `ctrl+x ctrl+s to send now` above the input while waiting; the same `❯ <text>` line stays in the transcript once absorbed |
 | Hermes 0.21.4 | `/steer <text>` `M` | `/queue <text>` `M` | cleared; hint row `msg=interrupt · /queue · /bg · /steer` | `⏩ Steer queued — arrives after the next tool call: <text>`; `/queue` itself runs at turn end (`⚙️ /queue …`, `Queued: <text>`) |
 | OpenCode 1.18.32 | Enter `M` | none in the TUI `D` | cleared | the message joins the transcript with a ` QUEUED ` badge |
@@ -121,7 +121,7 @@ turn, the stop key four to six seconds in, then "reply only CHARLIE".
 | Claude Code | Esc | `⎿ Interrupted · What should Claude do instead?` (<0.5 s) | empty |
 | Codex | Esc | `■ Conversation interrupted - tell the model what to do differently.` | empty |
 | Pi | Esc | `Operation aborted` | empty (queued messages would return to it) |
-| Omp | Esc | `Command aborted` in the tool box; no line when stopped before output | empty |
+| Omp | Esc | `Command aborted` in the tool box; no line when stopped before output — then only the `esc Working…` row goes away (2026-09-24) | empty |
 | OpenCode | Esc, Esc | first `esc again to interrupt`, then `· interrupted` | empty |
 | Muse | Esc | `◆ Interrupted` | empty — **but a prompt stopped before the model started comes back into the field** |
 | Antigravity | Esc | `⎿ Interrupted · What should Antigravity CLI do instead?` | empty |
@@ -130,3 +130,15 @@ turn, the stop key four to six seconds in, then "reply only CHARLIE".
 
 In every CLI the stopped request stays in the conversation, so the model
 reads the new message with the old one in view (Omp answered both).
+
+## Re-measure 2026-09-24
+
+- **Hermes `/queue` mid-turn**: nothing renders while the turn runs (no
+  echo, no queue row); at turn end `⚙️ /queue <text>` and `Queued: <text>`
+  print and the message runs. The only in-turn sign is the input row
+  taking the command. The door answers `accepted` for it.
+- **Omp Ctrl+Q**: a three-line numbered list queued as `After yield - 1`
+  / `1. after that: ↵ 1. say BRAVO ↵ 2. say CHARLIE` and ran as one
+  follow-up turn. The door uses it instead of `/queue`.
+- **Omp Esc before first output**: no stop line; `esc Working…` vanishes
+  within 0.7 s and the status bar returns to `pi >`.

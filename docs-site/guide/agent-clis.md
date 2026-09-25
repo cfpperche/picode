@@ -101,7 +101,8 @@ Only the choices that CLI really has are listed:
 When the CLI is waiting for you (an approval or a question), nothing is
 sent: answer it in the terminal first. A draft already typed in the
 terminal is never overwritten. If PiCode cannot see the CLI take the
-message, it says so — check the terminal. If the agent does not stop, or
+message, it says so — check the terminal. Hermes Agent shows a follow-up
+only when its turn ends, so PiCode tells you the message is queued there. If the agent does not stop, or
 puts its previous message back in its field, Stop and send sends nothing
 and tells you why.
 

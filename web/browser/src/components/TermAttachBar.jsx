@@ -4,7 +4,7 @@ import { api } from "@picode/shared/client/api.js";
 import { focusPane } from "../lib/termActions.js";
 import { toast } from "../lib/toast.js";
 import { createUseDeliveryModes } from "@picode/shared/client/useDeliveryModes.js";
-import { deliveryBusyText, deliveryNotice, deliveryPlaceholder, deliverySendLabel } from "@picode/shared/domain/deliveryModes.js";
+import { deliveryBusyText, deliveryInfo, deliveryNotice, deliveryPlaceholder, deliverySendLabel } from "@picode/shared/domain/deliveryModes.js";
 
 const useDeliveryModes = createUseDeliveryModes({ useEffect, useState });
 
@@ -42,10 +42,13 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
       }
       // No success toast: the user is looking at the terminal and sees the
       // message land. Toasts stay reserved for failures and for the one
-      // receipt the pane cannot show: a prompt PiCode could not confirm.
+      // receipts the pane cannot show: a prompt PiCode could not confirm,
+      // and a follow-up the CLI renders only at turn end.
       const res = await api(dropBase + "/prompt", json({ message: text, paths, delivery }));
       const notice = deliveryNotice(res, delivery);
+      const info = deliveryInfo(res);
       if (notice) toast.warn(notice);
+      else if (info) toast.info(info);
       setItems([]);
       setText("");
       setSendError("");

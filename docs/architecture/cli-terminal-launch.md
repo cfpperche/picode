@@ -429,17 +429,21 @@ and answer `unverified`. A working CLI is no longer only refused
 `term_delivery.go`'s adapter table — the live measurement in
 [the delivery-modes study](../benchmarks/2026-09-23-attach-delivery-modes.md) —
 names the one sequence per CLI and mode (a key after the paste, or a slash
-command for Hermes `/steer` / `/queue` and Omp `/queue`). A mode the CLI
+command for Hermes `/steer` / `/queue`; Omp's follow-up is Ctrl+Q, which
+keeps the payload's lines). A mode the CLI
 lacks answers `unsupported-mode`; `needs-you` and a recognized draft are
 refused in every mode; an idle CLI gets the prompt path whatever was asked;
 no second Enter is ever pressed mid-turn (Grok reads it as "cancel and send
 now"). The receipt is `queued` only when the payload's head shows on a new
-row outside the input row, else `unconfirmed`. `GET` on the same route
+row outside the input row, else `unconfirmed`; Hermes `/queue` renders
+only at turn end, so its receipt is `accepted` when the input row held the
+command after the paste and let it go after Enter. `GET` on the same route
 returns `{cli, modes, state, termId}`; the composer shows the selector only
 while the state is `working`. Interactive Pi agents pass the mode to the
 receiver as `deliverAs`. Automations and the extension stay prompt-only. A fourth mode, `interrupt` ("Stop and send",
 ADR-0206 amendment), presses the CLI's measured stop key, waits for its
-stop line (or its state leaving `working`) and then runs the verified
+stop line (or its state leaving `working`, or — Omp — its `esc …`
+working row gone for two reads) and then runs the verified
 prompt path (`doorPasteVerified`); an unseen stop answers `not-stopped` and
 a refilled field `restored`, with nothing pasted. Automations aimed at a CLI agent deliver through
 this door on the agent's bound terminal and finish with the receipt as

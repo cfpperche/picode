@@ -33,6 +33,10 @@ const (
 type deliverySeq struct {
 	command string // "/steer " — the payload is flattened to one line behind it
 	key     string // tmux key name pressed once after the paste
+	// lateRender: the CLI shows nothing for this mode until the turn ends
+	// (Hermes /queue, re-measured 2026-09-24), so the receipt is the input
+	// row taking the command — "accepted" — never "queued".
+	lateRender bool
 }
 
 type deliveryAdapter struct {
@@ -41,6 +45,10 @@ type deliveryAdapter struct {
 	// "interrupt" mode, ADR-0206 amendment): pressed, then the door waits for
 	// the CLI's own "interrupted" line and sends a verified prompt.
 	interrupt []string
+	// busy matches the CLI's own working row. Its disappearance is a stop
+	// signal for a CLI that prints no stop line in some case (Omp stopped
+	// before its first output).
+	busy *regexp.Regexp
 }
 
 var (
@@ -63,10 +71,17 @@ var (
 	keyCtrlC    = []string{"C-c"}
 )
 
+// ompBusyRow is Omp's working row: "esc Working…", then "esc <status>"
+// while it runs; the row goes away when the turn ends or stops.
+var ompBusyRow = regexp.MustCompile(`^\s*esc \S`)
+
+// Omp's follow-up is Ctrl+Q (measured 2026-09-24): it queues the message
+// as one entry with its newlines kept, where "/queue " flattened it and a
+// numbered list used to split into several follow-ups.
 var deliveryAdapters = map[string]deliveryAdapter{
 	"pi":          {steer: seqEnter, followUp: seqAltEnter, interrupt: keyEsc},
-	"omp":         {steer: seqEnter, followUp: &deliverySeq{command: "/queue ", key: "Enter"}, interrupt: keyEsc},
-	"hermes":      {steer: &deliverySeq{command: "/steer ", key: "Enter"}, followUp: &deliverySeq{command: "/queue ", key: "Enter"}, interrupt: keyCtrlC},
+	"omp":         {steer: seqEnter, followUp: &deliverySeq{key: "C-q"}, interrupt: keyEsc, busy: ompBusyRow},
+	"hermes":      {steer: &deliverySeq{command: "/steer ", key: "Enter"}, followUp: &deliverySeq{command: "/queue ", key: "Enter", lateRender: true}, interrupt: keyCtrlC},
 	"muse":        {steer: seqEnter, followUp: seqAltEnter, interrupt: keyEsc},
 	"codex":       {steer: seqEnter, followUp: seqTab, interrupt: keyEsc},
 	"claude-code": {steer: seqEnter, interrupt: keyEsc},
@@ -208,6 +223,14 @@ func doorDeliverMidTurn(deps Deps, ctx context.Context, t store.Terminal, cli, p
 		return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
 	}
 	time.Sleep(doorComposerLag)
+	// A late-render mode's only receipt is the input row: it held the
+	// command after the paste and let it go after the key.
+	held := false
+	if seq.lateRender {
+		if pasted, e := deps.Tmux.InputSnapshot(cctx, session); e == nil && pasted.PaneID == before.PaneID {
+			held = rowHolds(pasted, deliveryHead(text))
+		}
+	}
 	if err := deps.Tmux.SendPaneKey(ctx, before.PaneID, seq.key); err != nil {
 		return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
 	}
@@ -216,7 +239,11 @@ func doorDeliverMidTurn(deps Deps, ctx context.Context, t store.Terminal, cli, p
 	for {
 		time.Sleep(doorSettleInterval)
 		after, e := deps.Tmux.InputSnapshot(cctx, session)
-		if e == nil && after.PaneID == before.PaneID && midTurnQueued(before, after, head) {
+		if e == nil && after.PaneID == before.PaneID && held && !rowHolds(after, deliveryHead(text)) {
+			announceDoorPrompt(deps, t.ID, "accepted")
+			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "accepted", "reason": "shows-at-turn-end"}
+		}
+		if e == nil && after.PaneID == before.PaneID && !seq.lateRender && midTurnQueued(before, after, head) {
 			announceDoorPrompt(deps, t.ID, "queued")
 			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "queued"}
 		}
@@ -266,6 +293,11 @@ func midTurnQueued(before, after tmux.InputSnapshot, head string) bool {
 		return false
 	}
 	return headRows(after, head) > headRows(before, head)
+}
+
+// rowHolds: the input row shows the head of what was pasted.
+func rowHolds(s tmux.InputSnapshot, head string) bool {
+	return head != "" && strings.Contains(strings.Join(strings.Fields(composerText(s)), " "), head)
 }
 
 func headRows(s tmux.InputSnapshot, head string) int {
@@ -402,7 +434,7 @@ func doorDeliverInterrupt(deps Deps, ctx context.Context, t store.Terminal, cli,
 			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
 		}
 	}
-	after, stopped := awaitInterrupt(deps, cctx, t.ID, session, before)
+	after, stopped := awaitInterrupt(deps, cctx, t.ID, session, before, deliveryAdapters[cli].busy)
 	if !stopped {
 		announceDoorPrompt(deps, t.ID, "unconfirmed")
 		return http.StatusConflict, map[string]any{
@@ -419,11 +451,14 @@ func doorDeliverInterrupt(deps Deps, ctx context.Context, t store.Terminal, cli,
 	return doorPasteVerified(deps, ctx, cctx, t, cli, session, payload, false)
 }
 
-// awaitInterrupt polls until the pane shows a new interrupted line or the
-// terminal's state leaves working, within interruptSettle.
-func awaitInterrupt(deps Deps, ctx context.Context, termID, session string, before tmux.InputSnapshot) (tmux.InputSnapshot, bool) {
+// awaitInterrupt polls until the pane shows a new interrupted line, the
+// terminal's state leaves working, or the CLI's own working row (busy)
+// has been gone for two reads in a row, within interruptSettle.
+func awaitInterrupt(deps Deps, ctx context.Context, termID, session string, before tmux.InputSnapshot, busy *regexp.Regexp) (tmux.InputSnapshot, bool) {
 	deadline := time.Now().Add(interruptSettle)
 	last := before
+	watchBusy := busy != nil && patternRows(before, busy) > 0
+	gone := 0
 	for time.Now().Before(deadline) {
 		time.Sleep(interruptPollEvery)
 		snap, err := deps.Tmux.InputSnapshot(ctx, session)
@@ -437,14 +472,26 @@ func awaitInterrupt(deps Deps, ctx context.Context, termID, session string, befo
 		if st, ok := deps.TermStates.Get(termID); ok && st.State != TermWorking {
 			return snap, true
 		}
+		if watchBusy {
+			if patternRows(snap, busy) == 0 {
+				gone++
+			} else {
+				gone = 0
+			}
+			if gone >= 2 {
+				return snap, true
+			}
+		}
 	}
 	return last, false
 }
 
-func markerRows(s tmux.InputSnapshot) int {
+func markerRows(s tmux.InputSnapshot) int { return patternRows(s, interruptMarker) }
+
+func patternRows(s tmux.InputSnapshot, re *regexp.Regexp) int {
 	n := 0
 	for _, raw := range s.Lines {
-		if interruptMarker.MatchString(terminalSGR.ReplaceAllString(raw, "")) {
+		if re.MatchString(terminalSGR.ReplaceAllString(raw, "")) {
 			n++
 		}
 	}

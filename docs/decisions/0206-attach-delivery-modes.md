@@ -90,3 +90,17 @@ wait for idle) before `sendUserMessage`.
 | idle / unknown | interrupt | prompt door |
 | working | interrupt | stop key → stop seen → verified prompt; not seen → 409 `not-stopped`; field refilled → 409 `restored` |
 | needs-you | interrupt | 409 `needs-you` |
+
+## Amendment 2026-09-24 — receipts and Omp keys (owner: "pode fazer as correções")
+
+Re-measured on Hermes 0.21.4 and Omp 18.2.11. Hermes `/queue` shows
+nothing until the turn ends, so its follow-up receipt is a third value,
+**`accepted`**: the input row held the pasted command and let it go after
+Enter. It says the CLI took the command, not that the queue shows it; the
+composer tells the user the CLI shows it when the turn ends. Omp's
+follow-up is **Ctrl+Q** instead of `/queue`: one queued entry with the
+payload's newlines kept (a numbered list no longer splits). The trade: a key
+depends on Omp's default keybinding where `/queue` did not; a rebound
+Ctrl+Q degrades to an `unconfirmed` receipt. Omp stopped
+before its first output prints no stop line, so Stop and send also counts
+its `esc …` working row gone for two reads in a row as the stop.
