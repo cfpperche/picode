@@ -89,8 +89,15 @@ func isCLIWrapper(path string) bool {
 		return false
 	}
 	defer f.Close()
+	// Every wrapper PiCode writes opens `#!/bin/sh` + a `# PiCode …`
+	// comment naming the integration; vendor binaries never do. Match the
+	// comment, not one flavor's wording — the omp/grok/hermes/muse shims
+	// say "integration"/"plugin", and when only "# PiCode intercept"
+	// matched, those CLIs resolved to their shim, DetectMethod saw an
+	// unclassifiable script, and the lifecycle menu vanished (2026-09-24).
 	b, _ := io.ReadAll(io.LimitReader(f, 256))
-	return bytes.Contains(b, []byte("# PiCode intercept"))
+	rest, ok := bytes.CutPrefix(b, []byte("#!/bin/sh\n"))
+	return ok && bytes.HasPrefix(rest, []byte("# PiCode "))
 }
 
 // resolveRetryDelay rides out the window a vendor self-update leaves its
