@@ -615,3 +615,57 @@ func TestHandoffLiveSourceNeedsForce(t *testing.T) {
 		t.Fatalf("forced handoff must warn: %v", warnings)
 	}
 }
+
+// TestHandoffOmpAgentPrivateSession: a workspace Omp agent writes its
+// conversation into PiCode's per-agent directory (--session-dir), and its
+// terminal pin names that file. Continue in… must read it there — the
+// preview and the handoff both — instead of answering "not on this machine".
+func TestHandoffOmpAgentPrivateSession(t *testing.T) {
+	ts, _, dataDir, home := handoffServer(t)
+	proj := filepath.Join(t.TempDir(), "proj")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "POST", "/api/workspaces", map[string]any{"name": "proj", "path": proj}, 201)
+	const id = "01a0c5c1-4497-7783-8508-f7ea9808b86d"
+	dir := ompAgentSessionDir(dataDir, "delivery-973f6c")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "2026-09-21T20-56-12-695Z_"+id+".jsonl")
+	body := strings.Join([]string{
+		`{"type":"session","version":3,"id":"` + id + `","timestamp":"2026-09-21T20:56:12.695Z","cwd":"` + proj + `"}`,
+		`{"type":"model_change","id":"m0","parentId":null,"timestamp":"2026-09-21T20:56:12.700Z","model":"google/gemini-3.6-flash"}`,
+		`{"type":"message","id":"m1","parentId":"m0","timestamp":"2026-09-21T20:56:13.000Z","message":{"role":"user","content":[{"type":"text","text":"ship the delivery"}],"timestamp":1758488173000}}`,
+		`{"type":"message","id":"m2","parentId":"m1","timestamp":"2026-09-21T20:56:14.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Shipped."}],"stopReason":"stop","timestamp":1758488174000}}`,
+	}, "\n") + "\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, out := fakeCLI(t, ts, home, "codex")
+	req := map[string]any{"id": id, "path": path, "cwd": proj, "to": "codex"}
+	p := cliRequest(t, ts, "POST", "/api/clis/omp/sessions/handoff/preview", req, 200)
+	if p["mode"] != "native" {
+		t.Fatalf("preview = %v", p)
+	}
+	res := cliRequest(t, ts, "POST", "/api/clis/omp/sessions/handoff", req, 201)
+	term := cleanupTerm(t, res)
+	if term == nil || term["launchError"] != nil {
+		t.Fatalf("handoff terminal = %v", term)
+	}
+	target := res["target"].(map[string]any)
+	raw, err := os.ReadFile(target["path"].(string))
+	if err != nil || !strings.Contains(string(raw), "ship the delivery") {
+		t.Fatalf("codex rollout (%v):\n%s", err, raw)
+	}
+	argv := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, out+".args")), "\x00"), "\x00")
+	if len(argv) < 2 || !reflect.DeepEqual(argv[:2], []string{"resume", target["id"].(string)}) {
+		t.Fatalf("codex launched with %q", argv)
+	}
+	// Outside PiCode's agent tree and Omp's own, the reader still refuses.
+	stray := filepath.Join(dataDir, "stray.jsonl")
+	if err := os.WriteFile(stray, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "POST", "/api/clis/omp/sessions/handoff/preview", map[string]any{"id": id, "path": stray, "cwd": proj, "to": "codex"}, 400)
+}

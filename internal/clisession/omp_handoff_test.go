@@ -143,3 +143,42 @@ func TestOmpWriteRequiresFolderAndTurns(t *testing.T) {
 		t.Fatalf("empty timeline err = %v", err)
 	}
 }
+
+// TestOmpReadAgentPrivateRoot: a workspace agent's Omp transcript lives in
+// PiCode's per-agent directory (omp --session-dir), outside ~/.omp. The
+// reader opens it only when the caller vouches for that root.
+func TestOmpReadAgentPrivateRoot(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	name := "2026-09-17T15-00-00-000Z_01a0b00a-read-aaaa-bbbb-cccccccccccc.jsonl"
+	seeded := seedOmpTranscript(t, home, "-home-goat-proj", name)
+	dataDir := t.TempDir()
+	agentDir := filepath.Join(OmpAgentSessionsRoot(dataDir), "delivery-973f6c")
+	if err := os.MkdirAll(agentDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(agentDir, name)
+	if err := os.Rename(seeded, path); err != nil {
+		t.Fatal(err)
+	}
+	ref := Ref{ID: "01a0b00a-read-aaaa-bbbb-cccccccccccc", Path: path}
+	if _, err := (OmpSource{}).Read(context.Background(), ref); err != ErrNotUnderRoot {
+		t.Fatalf("read without the agent root: err = %v, want ErrNotUnderRoot", err)
+	}
+	ref.Roots = []string{OmpAgentSessionsRoot(dataDir)}
+	tl, err := (OmpSource{}).Read(context.Background(), ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tl.Header.Cwd != "/home/goat/proj" || len(tl.Events) == 0 {
+		t.Fatalf("private read = %+v, %d events", tl.Header, len(tl.Events))
+	}
+	// A vouched root does not open files beside it.
+	outside := filepath.Join(dataDir, name)
+	if err := os.WriteFile(outside, []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (OmpSource{}).Read(context.Background(), Ref{Path: outside, Roots: ref.Roots}); err != ErrNotUnderRoot {
+		t.Fatalf("read outside every root: err = %v, want ErrNotUnderRoot", err)
+	}
+}

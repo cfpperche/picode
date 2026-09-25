@@ -32,6 +32,11 @@ type Ref struct {
 	// MaxReadBytes (a brief of the recent turns). Native reads leave it
 	// false and get ErrTooLarge.
 	Tail bool
+	// Roots are extra session directories the caller vouches for, read
+	// beside the CLI's own root. PiCode's per-agent Omp directories
+	// (OmpAgentSessionsRoot) are the one use: a workspace agent's live
+	// conversation lives there, not under ~/.omp.
+	Roots []string
 }
 
 // Reader projects a native session into the portable timeline. It never
