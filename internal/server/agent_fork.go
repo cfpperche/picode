@@ -132,7 +132,18 @@ func forkAgent(deps Deps, r *http.Request, id string, req forkRequest) (map[stri
 	src := clisession.Ref{ID: ls.SessionID, Path: ls.Path, Cwd: ls.Cwd}
 	var fork clisession.Fork
 	task := ""
-	if flagFork {
+	if flagFork && doorReaderCLI[cli.ID] {
+		// The prompt door reads this CLI's screen, pastes only at its
+		// prompt and confirms the text landed (ADR-0089). The fork recipe
+		// then carries no task: a restart before the copy is pinned reopens
+		// or re-forks without sending the task twice, and the task keeps its
+		// line breaks instead of becoming one launch argument.
+		fork = forker.ForkArgs(src, "", transcript.NewID())
+		fork.TaskAfterLaunch = true
+		task = buildPromptPaste(req.Prompt, paths)
+	} else if flagFork {
+		// No screen reader for this CLI (Omp): a blind paste into a TUI
+		// still opening could be lost, so the task stays a launch argument.
 		prompt, err := forkPrompt(req.Prompt, paths)
 		if err != nil {
 			return nil, http.StatusBadRequest, err

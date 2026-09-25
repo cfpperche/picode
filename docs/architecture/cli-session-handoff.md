@@ -112,12 +112,21 @@ conversation, with a task of its own, while the source keeps running. It
 never goes through the portable timeline: `clisession.Forker` composes the
 vendor's own fork, and `GET /api/clis` advertises it as `sessions.fork`.
 
+Where the prompt door can read the CLI's screen (`doorReaderCLI`: Claude
+Code, Codex, Grok, OpenCode, as Pi and Muse Code below) the fork's launch
+carries no task: `deliverForkTask` sends it once the TUI is at its prompt,
+verified, so the task keeps its line breaks and has no length limit, and a
+restart before the copy is pinned re-runs the recipe without sending the
+task twice (2026-09-25). Omp has no screen reader, and a blind paste into a
+TUI still opening could be lost, so its task stays one launch argument
+(`forkPrompt`: one line, at most 8192 characters).
+
 | CLI | Launch | Copy's id |
 |---|---|---|
-| Claude Code | `--resume <id> --fork-session --session-id <new> <task>` | pre-assigned, pinned at once |
-| Grok | `--resume <id> --fork-session --session-id <new> <task>` | pre-assigned, pinned at once |
-| Codex | `fork <id> <task>` | pinned on its first turn |
-| OpenCode | `--session <id> --fork --prompt <task>` | pinned on its first turn |
+| Claude Code | `--resume <id> --fork-session --session-id <new>`; task through the prompt door | pre-assigned, pinned at once |
+| Grok | `--resume <id> --fork-session --session-id <new>`; task through the prompt door | pre-assigned, pinned at once |
+| Codex | `fork <id>`; task through the prompt door | pinned on its first turn |
+| OpenCode | `--session <id> --fork`; task through the prompt door | pinned on its first turn |
 | Omp | `--fork <file\|id> <task>` (parsed, not in `--help`) | pinned on its first turn |
 | Pi | `pi --mode rpc --no-extensions --no-skills --no-prompt-templates --no-themes --fork <file> --session-id <id> --session-dir <new agent's folder>`, run once before the agent starts; the task goes through the prompt door | known before launch, owned as the agent's `SessionPath` |
 | Muse Code | `muse serve` → MSP `session/fork`, then `resume <new-id>`; the task goes through the prompt door once the TUI is ready | known before launch, pinned at once |
