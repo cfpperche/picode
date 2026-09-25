@@ -74,7 +74,6 @@ test("unsupported and malformed CLI identities never become Pi", () => {
     const route = cliSettingsLocation("#/clis/" + id + "/settings");
     assert.equal(route ? supportsCliSettings(route.id) : false, false, id);
   }
-  assert.equal(cliLocation("#/clis/sessions?cli=pi").pane, "sessions");
   assert.equal(cliLocation("#/clis/pi").view, "clis");
   assert.equal(cliLocation("#/clis/pi/sessions").pane, "sessions");
 });

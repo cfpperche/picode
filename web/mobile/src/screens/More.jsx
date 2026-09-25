@@ -1,4 +1,4 @@
-import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
+import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliSkillsHash } from "@picode/shared/domain/cliSkills.js";
 import { cliConnectorsLocation, cliConnectorsHash } from "@picode/shared/domain/integrations.js";
@@ -77,7 +77,7 @@ export default function More({ fleetReady = true, section, apps, catalog, clis =
   const workspace = last && last.workspace;
   return (
     <div className="m-screen m-more-page">
-      <ScreenHeader title={MORE_TITLES[section] || "More"} onBack={section === "clis" && (cliSettingsLocation(location.hash) || cliPackagesLocation(location.hash) || cliProvidersLocation(location.hash) || cliConnectorsLocation(location.hash)) ? () => { location.hash = "#/clis"; } : onBack}
+      <ScreenHeader title={MORE_TITLES[section] || "More"} onBack={section === "clis" && (cliSettingsLocation(location.hash) || cliPackagesLocation(location.hash) || cliConnectorsLocation(location.hash)) ? () => { location.hash = "#/clis"; } : onBack}
         right={section === "pins" || section === "snippets" ? <button type="button" className="m-head-btn" aria-label={section === "pins" ? "New pin" : "New snippet"} onClick={() => { location.hash = section === "pins" ? "#/pins/new" : "#/snippets/new"; }}><IconPlus size={18} /></button> : null} />
       {section === "pins" ? <PinsList onOpen={(id) => { location.hash = "#/pins/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/pins/new"; }} /> : null}
       {section === "snippets" ? <SnippetsList onOpen={(id) => { location.hash = "#/snippets/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/snippets/new"; }} /> : null}

@@ -20,5 +20,5 @@ Merge: landed on main c3288ca3d; deployed by the owner 2026-09-25.
 
 ## Debts
 
-- tmux app Sockets tab shows a "0" count badge (server-side, pre-existing; breaks the no-"0"-badge rule)
+- tmux app Sockets tab shows a "0" count badge (server-side, pre-existing; breaks the no-"0"-badge rule) — paid by feat/tmux-zero-badge (2026-09-25)
 - AgentTabs (editor strip) not refactored onto OverflowTabs; they share only useTabStrip and the lib
