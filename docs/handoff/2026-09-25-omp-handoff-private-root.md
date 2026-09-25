@@ -14,5 +14,6 @@ Verified: `TestOmpReadAgentPrivateRoot` (clisession); `TestHandoffOmpAgentPrivat
 Blind spot: driven through the HTTP routes the dialog calls, not by clicking the dialog; Claude Code on the scratch's
 isolated HOME stopped at its first-run theme screen, so the resumed TUI itself was not seen.
 visual-review: n/a (no UI change)
-Not done / debts: Omp Sessions listing still ignores the per-agent root (in `open/sessions.md`). Not deployed.
+Not done / debts: Omp Sessions listing still ignores the per-agent root (in `open/sessions.md`; paid by feat/omp-sessions-workspace).
+Deployed 0.7.0+e6af921; the owner ran Continue in… on the live delivery agent from the UI and it worked (2026-09-25).
 Merge: fast-forward ready.

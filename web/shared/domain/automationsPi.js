@@ -17,7 +17,7 @@ export function agentCliIndex(workspaces, freeAgents) {
 
 export function automationNeedsPi(a, cliOf) {
   if (!a || a.enabled === false) return false; // a disabled one never runs
-  if (a.action !== "message") return true;
+  if (a.action !== "message") return (a.cli || "pi") === "pi"; // ADR-0217: a start run on another CLI needs no pi
   return (cliOf.get(a.targetAgentId) || "pi") === "pi";
 }
 
@@ -27,4 +27,16 @@ export function automationsBlockedByPi(clis, items, workspaces, freeAgents) {
   if (piInstalled(clis) !== false) return false;
   const cliOf = agentCliIndex(workspaces, freeAgents);
   return (items || []).some((a) => automationNeedsPi(a, cliOf));
+}
+
+// The CLIs a start run can use (ADR-0217; store.UnattendedCLIs pins the
+// same list): Pi's managed runtime, and the four whose composer PiCode reads
+// and whose hooks say when a turn ends.
+export const START_CLIS = ["pi", "claude-code", "codex", "grok", "hermes"];
+
+// The line under the start fields, by CLI.
+export function startRunHint(cli, cliName = "") {
+  if (!cli || cli === "pi") return "A fresh Pi agent each run, in that workspace. Empty provider, model or thinking means Pi's own defaults.";
+  const name = cliName || cli;
+  return "A fresh " + name + " conversation each run, in that workspace, with " + name + "'s own settings. PiCode never approves anything for it: a run that asks waits for you, and the Inbox says where.";
 }

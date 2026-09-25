@@ -27,7 +27,12 @@ var terminalSGR = regexp.MustCompile(`\x1b\[[0-9;:]*m`)
 // non-breaking space, one dim run, no trailing content — so typed (bright)
 // text and a cursor inside the text still refuse. Capture:
 // testdata/claude-ghost-suggestion.json.
-var claudeEmptySuggestion = regexp.MustCompile(`^\x1b\[39m❯\xa0\x1b\[2m([^\x1b\r\n\t]+)\x1b\[0m$`)
+// Claude Code's empty-composer suggestion: dim text after the glyph. 2.1.28x
+// renders it word by word — one dim run per word, plain spaces between
+// (measured 2026-09-25 on 2.1.282; the one-run form is older) — and a run of
+// only dim words is still the vendor's ghost, never typed text. A ghost cut
+// at the pane's edge ends without its reset (the last run reaches the edge).
+var claudeEmptySuggestion = regexp.MustCompile(`^\x1b\[39m❯\xa0(?:\x1b\[2m[^\x1b\r\n\t]+(?:\x1b\[0m ?|$))+$`)
 
 // Refusal reasons for the guarded input path. They are stable metadata: the
 // log may carry the reason, never the pointer, message, token or screen.
@@ -257,7 +262,14 @@ func peerSingleInputRow(cli string, s tmux.InputSnapshot) bool {
 		if y >= len(s.Lines) || clean(y-1) != "" || !strings.Contains(clean(y), " · ") {
 			return false
 		}
-		for n := y + 1; n < len(s.Lines); n++ {
+		// Codex 0.157 adds its shortcuts hint under the model row ("? for
+		// shortcuts", with a warnings count at its right; measured
+		// 2026-09-25). Accept that one row, not arbitrary text.
+		rest := y + 1
+		if rest < len(s.Lines) && strings.HasPrefix(clean(rest), "? for shortcuts") {
+			rest++
+		}
+		for n := rest; n < len(s.Lines); n++ {
 			if clean(n) != "" {
 				return false
 			}
@@ -293,7 +305,9 @@ func peerSingleInputRow(cli string, s tmux.InputSnapshot) bool {
 		if cli == "claude-code" && len(tail) == 3 && tail[2] == "/rc" {
 			tail = tail[:2]
 		}
-		return len(tail) == 0 || (cli == "claude-code" && ((len(tail) == 1 && (strings.Contains(tail[0], "? for shortcuts") || strings.HasPrefix(tail[0], "⏸ manual mode on") || strings.Contains(tail[0], "(shift+tab to cycle)"))) || (len(tail) == 2 && strings.Contains(tail[0], " | ") && strings.Contains(tail[1], "shift+tab"))))
+		// Claude 2.1.28x adds an effort indicator ("◐ medium · /effort") as a
+		// second footer row under the mode row (measured 2026-09-25).
+		return len(tail) == 0 || (cli == "claude-code" && ((len(tail) == 1 && (strings.Contains(tail[0], "? for shortcuts") || strings.HasPrefix(tail[0], "⏸ manual mode on") || strings.Contains(tail[0], "(shift+tab to cycle)"))) || (len(tail) == 2 && strings.Contains(tail[0], " | ") && strings.Contains(tail[1], "shift+tab")) || (len(tail) == 2 && strings.Contains(tail[0], "(shift+tab to cycle)") && strings.HasSuffix(tail[1], "/effort"))))
 	default:
 		return false
 	}

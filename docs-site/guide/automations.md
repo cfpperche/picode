@@ -20,7 +20,8 @@ counts its cost, and its result lands in the Inbox.
 1. **Create automation**.
 2. **Name** it. The agent that runs it takes the same name.
 3. **What it does** — *Start a new run* (a fresh session each time on the
-   automation's own agent, in the workspace you pick) or *Message an agent*
+   automation's own agent, in the workspace you pick; choose its **CLI** —
+   Pi, Claude Code, Codex, Grok or Hermes) or *Message an agent*
 4. **Prompt** — what the agent should do each time.
 5. **Schedule** — one or more rules. Each is Hourly, Daily, Weekdays or
    Weekly at a time, or *Custom* for a cron line (`minute hour day month
@@ -120,6 +121,18 @@ the cost, a link back to it, and the agent's final message (clipped at
 A failed delivery is retried once after five seconds and then recorded
 as an `automation.notify` event with the error; the run itself is not
 affected.
+
+## Runs on Claude Code, Codex, Grok or Hermes
+
+A start run on one of these opens the automation's agent in its terminal,
+types the prompt once the CLI is ready, and closes the terminal when the CLI
+says it is done — the conversation stays with the agent, so you can open it
+later. PiCode never approves anything on the CLI's behalf: if the run stops
+at a question (an approval, a choice), the Inbox tells you and the run waits
+until you answer in that terminal. If the CLI shows a screen PiCode does not
+recognize at start (a sign-in, a trust question, a new menu), nothing is
+typed and the run ends saying so. The cost is read from the CLI's own
+session file.
 
 ## Messaging an agent
 
