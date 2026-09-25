@@ -21,8 +21,33 @@ const schema = {
   },
 };
 
+// remarkPandocDollars keeps prices as text: remark-math pairs any two single
+// dollars, so "$5 and $10" became math. Pandoc's rule — the one the Live
+// editor applies — needs a non-space after the opening `$`, a non-space
+// before the closing one, and no digit right after it; inline math that
+// breaks it goes back to the text it was written as.
+export function remarkPandocDollars() {
+  return (tree, file) => {
+    const src = String(file.value ?? "");
+    const fix = (node) => {
+      if (!node.children) return;
+      node.children = node.children.map((child) => {
+        if (child.type !== "inlineMath" || !child.position) { fix(child); return child; }
+        // Without the source (a bare tree), the node's own value still says
+        // whether the dollars hug their content.
+        const raw = src ? src.slice(child.position.start.offset, child.position.end.offset) : "$" + child.value + "$";
+        if (raw.startsWith("$$") || !raw.startsWith("$") || !raw.endsWith("$")) return child;
+        const inner = raw.slice(1, -1);
+        const after = src.charAt(child.position.end.offset);
+        return /^\s|\s$/.test(inner) || /\d/.test(after) ? { type: "text", value: raw, position: child.position } : child;
+      });
+    };
+    fix(tree);
+  };
+}
+
 export const docPipeline = Object.freeze({
-  remarkPlugins: [remarkGfm, remarkMath],
+  remarkPlugins: [remarkGfm, remarkMath, remarkPandocDollars],
   rehypePlugins: [rehypeRaw, [rehypeSanitize, schema], rehypeKatex, rehypeGithubAlerts, rehypeDocHeadings],
   // Sanitize prefixes every id once (user-content-…); a second prefix from
   // remark-rehype would leave footnote ids that no link points at.

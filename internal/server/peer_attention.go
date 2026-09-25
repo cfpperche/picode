@@ -32,6 +32,8 @@ var terminalSGR = regexp.MustCompile(`\x1b\[[0-9;:]*m`)
 // (measured 2026-09-25 on 2.1.282; the one-run form is older) — and a run of
 // only dim words is still the vendor's ghost, never typed text. A ghost cut
 // at the pane's edge ends without its reset (the last run reaches the edge).
+var grokWelcomeBuild = regexp.MustCompile(`^ +Grok Build +\d+\.\d+\.\d+ \[stable\]$`)
+
 var claudeEmptySuggestion = regexp.MustCompile(`^\x1b\[39m❯\xa0(?:\x1b\[2m[^\x1b\r\n\t]+(?:\x1b\[0m ?|$))+$`)
 
 // Refusal reasons for the guarded input path. They are stable metadata: the
@@ -242,7 +244,9 @@ func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
 	}
 	// The first-turn welcome screen uses a right-aligned release channel.
 	// Typing the pointer dismisses it and must produce the normal Enter footer.
-	welcome := expected == "" && !suggestion && clean(y+3) == strings.Repeat(" ", s.Width-10)+"[stable]"
+	// Grok 1.0.41 names the build before the channel ("Grok Build  1.0.41
+	// [stable]", measured 2026-09-25); the older form is the channel alone.
+	welcome := expected == "" && !suggestion && (clean(y+3) == strings.Repeat(" ", s.Width-10)+"[stable]" || grokWelcomeBuild.MatchString(clean(y+3)))
 	matched := false
 	for _, f := range footers {
 		if clean(y+3) == f {
@@ -778,7 +782,9 @@ func peerComposerHoldsDraft(cli string, s tmux.InputSnapshot) bool {
 		// Bordered composer: content between the gutter and the border.
 		if strings.HasPrefix(strings.TrimSpace(terminalSGR.ReplaceAllString(raw, "")), "│") {
 			if strings.Contains(line, "❯") {
-				body := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(line, "│ ❯"), "│"))
+				// The box is indented ("  │ ❯ …"): trim before the prefix, or the
+				// whole row reads as a draft (Grok 1.0.41, 2026-09-25).
+				body := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(line), "│ ❯"), "│"))
 				return body != "" && !grokEmptySuggestion.MatchString(raw) && !grokEmptySuggestion1030.MatchString(raw)
 			}
 		}
