@@ -2,6 +2,7 @@ package llamaservice
 
 import (
 	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -10,9 +11,10 @@ import (
 // Configure and every model operation for minutes (2026-09-25 review). The
 // hash is now taken before the lock (warmHashes) and remembered by the file's
 // identity; under the lock a file whose identity is unchanged — same file
-// (device and inode), size and modification time, the identity models.go
-// already trusts for downloads — answers from memory, and any other file is
-// hashed there as before. Nothing is removed on a hash PiCode did not take.
+// (device and inode), size, mode, modification time and, where the system has
+// one, change time (which no user can set back, unlike mtime) — answers from
+// memory, and any other file is hashed there as before. Nothing is removed on
+// a hash PiCode did not take. The release check before a start never uses it.
 
 type hashed struct {
 	info os.FileInfo
@@ -34,6 +36,11 @@ var (
 // hashKnown is hashRegular answered from memory while the file is the one
 // that was hashed.
 func hashKnown(path string) (string, int64, error) {
+	// hashRegular's symlink refusal runs first, memory or not: a parent
+	// folder swapped for a link would otherwise answer from the memo.
+	if resolved, err := filepath.EvalSymlinks(path); err != nil || resolved != filepath.Clean(path) {
+		return hashFile(path)
+	}
 	before, statErr := os.Lstat(path)
 	if statErr == nil {
 		hashMu.Lock()
@@ -60,7 +67,8 @@ func hashKnown(path string) (string, int64, error) {
 }
 
 func sameIdentity(a, b os.FileInfo) bool {
-	return os.SameFile(a, b) && a.Size() == b.Size() && a.ModTime().Equal(b.ModTime()) && a.Mode() == b.Mode()
+	return os.SameFile(a, b) && a.Size() == b.Size() && a.ModTime().Equal(b.ModTime()) && a.Mode() == b.Mode() &&
+		changeTime(a) == changeTime(b)
 }
 
 // warmHashes hashes paths without the service lock, so the checks that

@@ -4,6 +4,7 @@ package llamaservice
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"syscall"
 
@@ -18,6 +19,16 @@ func killProcessGroup(cmd *exec.Cmd) {
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
 }
+
+// changeTime is the inode's ctime: any write or metadata change moves it, and
+// no user can set it back (hash_memo.go).
+func changeTime(info os.FileInfo) int64 {
+	if st, ok := info.Sys().(*syscall.Stat_t); ok {
+		return st.Ctim.Nano()
+	}
+	return 0
+}
+
 // waitExited returns once the process has exited, leaving it unreaped
 // (WNOWAIT): its PID stays reserved until the returned reap collects it.
 func waitExited(cmd *exec.Cmd) (reap func() error) {

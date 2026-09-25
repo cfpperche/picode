@@ -52,6 +52,12 @@ func (s *Service) ObserveDownload(j store.LlamaJob) {
 	}
 	s.mu.Lock()
 	if s.closed || s.process == nil || !s.isAppliedEndpoint(j.Endpoint) {
+		// A success that can no longer be observed (the service stopped or
+		// moved) owns nothing; its starting list goes with it.
+		if _, ok := s.doc.Downloads[j.ID]; ok && !s.closed {
+			delete(s.doc.Downloads, j.ID)
+			_ = s.save()
+		}
 		s.mu.Unlock()
 		return
 	}

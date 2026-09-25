@@ -67,7 +67,8 @@ func verifyRelease(r *Release) error {
 		if filepath.Base(name) != name {
 			return errors.New("Invalid release manifest.")
 		}
-		h, _, err := hashKnown(filepath.Join(r.Dir, name))
+		// Never from memory: this guards every start of the binary.
+		h, _, err := hashRegular(filepath.Join(r.Dir, name))
 		if err != nil || h != pin {
 			return errors.New("Installed files changed. Reinstall a verified release before starting.")
 		}

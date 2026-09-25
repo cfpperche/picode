@@ -355,3 +355,34 @@ func TestCleanupHashesOutsideTheLock(t *testing.T) {
 		t.Fatalf("the file was hashed %d times; the check under the lock must answer from the first", calls)
 	}
 }
+
+// A file rewritten in place with its modification time set back is not the
+// file that was hashed: the change time moved, so the memo hashes it again.
+func TestHashMemoSeesAnInPlaceRewrite(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("change time is read on Linux")
+	}
+	path := filepath.Join(t.TempDir(), "model.gguf")
+	if err := os.WriteFile(path, []byte("original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	first, _, err := hashKnown(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, _ := os.Stat(path)
+	time.Sleep(20 * time.Millisecond)
+	if err := os.WriteFile(path, []byte("tampered"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	second, _, err := hashKnown(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second == first {
+		t.Fatal("the memo answered for a file rewritten in place")
+	}
+}

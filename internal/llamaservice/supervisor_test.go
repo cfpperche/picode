@@ -66,8 +66,11 @@ func TestSupervisorClosesDescendants(t *testing.T) {
 }
 
 // A router that dies on its own (the OOM killer, a crash) takes its children
-// with it: the supervisor kills the group before reaping the router, so the
-// group's number is still the router's when the kill is sent.
+// with it. This guards the behavior, not the 2026-09-25 ordering change: a
+// live child keeps the group's number reserved, so the old reap-then-kill
+// passed too. What the kill-before-reap closes — every member already dead
+// and the router's PID reused by a new group leader — is not reproducible
+// here.
 func TestSupervisorClosesDescendantsWhenTheRouterDies(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux process group acceptance; see docs/plans/llama-manager.md.")

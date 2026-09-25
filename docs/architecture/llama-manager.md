@@ -73,8 +73,9 @@ with its blob and refuses shared blobs, changed links or agent references to
 any quantization of the same repository. Cleanup requires a stopped service,
 no active model jobs and no configured agent references, with file revalidation.
 The SHA-256 of each selected file is taken before the service lock and kept by
-file identity (same file, size, mode and modification time; `hash_memo.go`);
-the checks under the lock answer from it and rehash any file that moved, so a
+file identity (same file, size, mode, modification and change time;
+`hash_memo.go`); the checks under the lock answer from it and rehash any file
+that moved (the release check before a start always rehashes), so a
 cleanup of large models no longer stalls status and model operations. A
 download's starting file list is dropped when the download ends any way but
 success, and startup drops lists left by jobs that are over.
