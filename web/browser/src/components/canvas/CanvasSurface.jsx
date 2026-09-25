@@ -74,11 +74,6 @@ const BACKGROUNDS = [
 // line), the layout is untouched, Esc on any chrome restores.
 
 const LAST_KEY = "picode-canvas-last";
-// ADR-0118 renamed the per-viewer keys with the app. They are migrated on
-// the first read rather than left to lapse: losing them costs a reader the
-// canvas they had open, and the plane its camera — a rename must not do
-// that. One read, one write, then the old key is gone for good.
-const LAST_KEY_WAS = "picode-matrix-last";
 const REVEAL_STALE_MS = 10000;
 const SAVE_DEBOUNCE_MS = 500;
 const EMPTY = { list: [], byId: {} };
@@ -107,13 +102,7 @@ const json = (method, body) => ({ method, headers: { "Content-Type": "applicatio
 const msgOf = (e) => (e && e.message ? e.message : String(e));
 const readLast = () => {
   try {
-    const now = localStorage.getItem(LAST_KEY);
-    if (now) return now;
-    const was = localStorage.getItem(LAST_KEY_WAS);
-    if (!was) return "";
-    localStorage.setItem(LAST_KEY, was);
-    localStorage.removeItem(LAST_KEY_WAS);
-    return was;
+    return localStorage.getItem(LAST_KEY) || "";
   } catch { return ""; }
 };
 const writeLast = (id) => { try { if (id) localStorage.setItem(LAST_KEY, id); else localStorage.removeItem(LAST_KEY); } catch { /* storage off */ } };

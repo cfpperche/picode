@@ -900,17 +900,9 @@ export function tidyCanvas(panels, cols = TIDY_COLS, gap = TIDY_GAP) {
 
 // The viewport is per viewer and never stored server-side (ADR-0113): a
 // camera is not an edit, and two browsers must not yank each other.
-// ADR-0118 renamed the key. A camera stored under the old one is **moved**,
-// once, the first time that canvas is opened (Plane.jsx `readView`): a
-// rename the reader did not ask for must not throw their camera away, and
-// fitView on a plane they had parked somewhere is exactly that.
 export const VIEWPORT_PREFIX = "picode-canvas-view:";
-export const VIEWPORT_PREFIX_WAS = "picode-matrix-view:";
 export function viewportKey(id) {
   return VIEWPORT_PREFIX + str(id);
-}
-export function legacyViewportKey(id) {
-  return VIEWPORT_PREFIX_WAS + str(id);
 }
 
 // normalizeViewport(v) -> { x, y, zoom } | null: what came out of
