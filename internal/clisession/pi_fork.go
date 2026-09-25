@@ -37,6 +37,15 @@ func (PISource) ForkIntoDir(ctx context.Context, src Ref, dir, newID string, sta
 	defer cancel()
 	cmd := start(ctx, "--mode", "rpc", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes",
 		"--fork", src.Path, "--session-id", newID, "--session-dir", dir)
+	// PI_OFFLINE: the copy needs no credentials, and a startup refresh
+	// that takes pi's auth.json lock is still holding it when stdin closes
+	// and the run exits. The lock outlives the run and the new agent's pi
+	// then waits out its 30 s staleness before drawing anything (measured
+	// 2026-09-25 on 0.87.1: lock left on every run; none with PI_OFFLINE).
+	if cmd.Env == nil {
+		cmd.Env = os.Environ()
+	}
+	cmd.Env = append(cmd.Env, "PI_OFFLINE=1")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = nil

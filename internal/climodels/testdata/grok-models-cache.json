@@ -1,0 +1,119 @@
+{
+  "fetched_at": "2026-09-25T13:12:48.351696142Z",
+  "grok_version": "1.0.41",
+  "origin": "https://cli-chat-proxy.grok.com/v1/models",
+  "models": {
+    "grok-4.7": {
+      "info": {
+        "id": "grok-4.7",
+        "model": "grok-4.7",
+        "model_family": "xai",
+        "name": "Grok 4.7",
+        "context_window": 500000,
+        "max_completion_tokens": null,
+        "hidden": false,
+        "supports_reasoning_effort": true,
+        "reasoning_efforts": [
+          {
+            "id": "xhigh",
+            "value": "xhigh",
+            "label": "Extra High",
+            "description": "Maximum reasoning for the hardest tasks.",
+            "default": false
+          },
+          {
+            "id": "high",
+            "value": "high",
+            "label": "High",
+            "description": "Thorough reasoning and quality. Recommended.",
+            "default": true
+          },
+          {
+            "id": "medium",
+            "value": "medium",
+            "label": "Medium",
+            "description": "Strong quality with a faster turnaround.",
+            "default": false
+          },
+          {
+            "id": "low",
+            "value": "low",
+            "label": "Low",
+            "description": "Fastest responses. Best for simple tasks.",
+            "default": false
+          }
+        ]
+      }
+    },
+    "grok-4.5": {
+      "info": {
+        "id": "grok-4.5",
+        "model": "grok-4.5",
+        "model_family": "xai",
+        "name": "Grok 4.5",
+        "context_window": 500000,
+        "max_completion_tokens": null,
+        "hidden": false,
+        "supports_reasoning_effort": true,
+        "reasoning_efforts": [
+          {
+            "id": "high",
+            "value": "high",
+            "label": "High",
+            "description": "Highest implementation quality with extensive reasoning",
+            "default": true
+          },
+          {
+            "id": "medium",
+            "value": "medium",
+            "label": "Medium",
+            "description": "Balanced effort with standard implementation and testing",
+            "default": false
+          },
+          {
+            "id": "low",
+            "value": "low",
+            "label": "Low",
+            "description": "Quick, fast implementations",
+            "default": false
+          }
+        ]
+      }
+    },
+    "grok-internal": {
+      "info": {
+        "id": "grok-internal",
+        "model": "grok-4.5",
+        "model_family": "xai",
+        "name": "Internal",
+        "context_window": 500000,
+        "max_completion_tokens": null,
+        "hidden": true,
+        "supports_reasoning_effort": true,
+        "reasoning_efforts": [
+          {
+            "id": "high",
+            "value": "high",
+            "label": "High",
+            "description": "Highest implementation quality with extensive reasoning",
+            "default": true
+          },
+          {
+            "id": "medium",
+            "value": "medium",
+            "label": "Medium",
+            "description": "Balanced effort with standard implementation and testing",
+            "default": false
+          },
+          {
+            "id": "low",
+            "value": "low",
+            "label": "Low",
+            "description": "Quick, fast implementations",
+            "default": false
+          }
+        ]
+      }
+    }
+  }
+}

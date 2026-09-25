@@ -23,7 +23,8 @@
 @media (prefers-reduced-motion: reduce) { .peer-history li { animation: none; } }
 
 .peer-body select, .peer-body input, .peer-body textarea { border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-base); color: var(--text-primary); padding: 8px 10px; }
-@media (max-width: 719px) { .peer-body { padding: 16px; gap: 16px; } .peer-connection, .peer-setup { padding: 12px; } .peer-body .cli-notice { flex-wrap: wrap; } }
+/* Phone: the page gutter (--m-pad) is the only side inset (2026-09-25). */
+@media (max-width: 719px) { .peer-body { padding: 16px 0; gap: 16px; } .peer-connection, .peer-setup { padding: 12px; } .peer-body .cli-notice { flex-wrap: wrap; } }
 
 .peer-participants, .peer-test { display: grid; gap: 12px; }
 .peer-participant-list { list-style: none; padding: 0; margin: 0; border-block: 1px solid var(--border); }
@@ -46,7 +47,7 @@
 .peer-advanced > .peer-picker { margin-top: 12px; }
 .peer-empty { padding-block: 16px; }
 @media (max-width: 600px) {
- .peer-workspace { padding: 16px; gap: 20px; }
+ .peer-workspace { padding: 16px 0; gap: 20px; }
  .peer-participant { grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
  .peer-participant-choice { grid-column: 1; }
  .peer-participant-state { grid-column: 1; grid-row: 2; padding-left: 30px; }
