@@ -99,6 +99,13 @@ func handleCLIModelsGet(deps Deps) http.HandlerFunc {
 		if err != nil {
 			// The vendor's own words, not a status code: a CLI that is not
 			// installed, not signed in, or slow says so differently each time.
+			// A read PiCode can unblock also names the step (sign in, open
+			// the CLI once), so the pane offers it beside the words.
+			var blocked *climodels.Blocked
+			if errors.As(err, &blocked) {
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": blocked.Msg, "action": blocked.Action})
+				return
+			}
 			writeErr(w, http.StatusBadGateway, err.Error())
 			return
 		}
