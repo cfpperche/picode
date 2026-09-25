@@ -7,6 +7,7 @@ import { resolveDocImage } from "@picode/shared/domain/mdDocument.js";
 import { safeImgSrc } from "@picode/shared/domain/mdSafe.js";
 import { activeLines, planLive } from "./mdLivePlan.js";
 import { inlineTokens, planTables, tableSkip } from "./mdLiveTables.js";
+import { planInlineMath, planMathBlocks, planMermaid } from "./mdLiveMath.js";
 
 const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || "");
 const OPEN_HINT = (MAC ? "⌘" : "Ctrl") + "+click to open";
@@ -28,10 +29,11 @@ export function markdownLive(context) {
 
   return [
     plugin,
-    tableField(context),
+    blockField(context),
+    themeWatch,
     Prec.high(keymap.of([
-      { key: "ArrowDown", run: (view) => stepIntoTable(view, true) },
-      { key: "ArrowUp", run: (view) => stepIntoTable(view, false) },
+      { key: "ArrowDown", run: (view) => stepIntoBlock(view, true) },
+      { key: "ArrowUp", run: (view) => stepIntoBlock(view, false) },
     ])),
     EditorView.focusChangeEffect.of((_state, focusing) => setFocus.of(focusing)),
     EditorView.editorAttributes.of({ class: "cm-md-live" }),
@@ -50,7 +52,12 @@ export function markdownLive(context) {
 }
 
 function build(view, context) {
-  const specs = planLive(view.state, view.visibleRanges, activeLines(view.state, view.hasFocus));
+  const active = activeLines(view.state, view.hasFocus);
+  const maths = planInlineMath(view.state, view.visibleRanges, active);
+  // Inside `$…$` the markdown grammar still sees emphasis and the like
+  // (`$a*b*c$`); math owns that text, so nothing else decorates it.
+  const inMath = (s) => s.from !== undefined && maths.some((m) => s.from < m.to && (s.to ?? s.from) > m.from);
+  const specs = planLive(view.state, view.visibleRanges, active).filter((s) => !inMath(s));
   const doc = view.state.doc;
   const decos = [];
   for (const s of specs) {
@@ -70,6 +77,17 @@ function build(view, context) {
       }
       default: break;
     }
+  }
+  // A `$$` block being edited reads as code, like inline math on its line.
+  for (const b of planMathBlocks(view.state, new Set())) {
+    for (let n = doc.lineAt(b.from).number, end = doc.lineAt(b.to).number; n <= end; n++) {
+      decos.push(Decoration.line({ class: "cm-md-math-lines" }).range(doc.line(n).from));
+    }
+  }
+  for (const m of maths) {
+    decos.push(m.replace
+      ? Decoration.replace({ widget: new MathWidget(m.tex, false) }).range(m.from, m.to)
+      : Decoration.mark({ class: "cm-md-math-src" }).range(m.from, m.to));
   }
   return Decoration.set(decos, true);
 }
@@ -161,35 +179,64 @@ class ImageWidget extends WidgetType {
   ignoreEvent() { return false; }
 }
 
-// Tables: one block widget per table no selection touches. Focus is part of
-// the field's state (a view plugin knows it, a state field has to be told),
-// so an unfocused editor shows every table rendered.
+// Blocks that span lines — tables, `$$` math and Mermaid diagrams — are one
+// block widget each while no selection touches them. Focus is part of the
+// field's state (a view plugin knows it, a state field has to be told), so an
+// unfocused editor shows every block rendered.
 const setFocus = StateEffect.define();
+// Diagrams are drawn in the theme of the moment; a theme switch redraws them.
+const themeChanged = StateEffect.define();
+const pageTheme = () => (document.documentElement.dataset.theme === "light" ? "default" : "dark");
+const themeWatch = ViewPlugin.fromClass(class {
+  constructor(view) {
+    this.watch = new MutationObserver(() => view.dispatch({ effects: themeChanged.of(null) }));
+    this.watch.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  }
+  destroy() { this.watch.disconnect(); }
+});
 
-function tableField(context) {
+function planBlocks(state, active) {
+  return [
+    ...planTables(state, active).map((t) => ({ kind: "table", ...t })),
+    ...planMathBlocks(state, active),
+    ...planMermaid(state, active),
+  ].sort((a, b) => a.from - b.from);
+}
+
+function blockWidget(b, context) {
+  if (b.kind === "math") return new MathWidget(b.tex, true, b);
+  if (b.kind === "mermaid") return new MermaidWidget(b.src, b, pageTheme());
+  return new TableWidget(b, context);
+}
+
+function blockField(context) {
   const decorate = (state, focused) => Decoration.set(
-    planTables(state, activeLines(state, focused)).map((t) =>
-      Decoration.replace({ widget: new TableWidget(t, context), block: true }).range(t.from, t.to)),
+    planBlocks(state, activeLines(state, focused)).map((b) =>
+      Decoration.replace({ widget: blockWidget(b, context), block: true }).range(b.from, b.to)),
   );
   return StateField.define({
     create: (state) => ({ focused: false, deco: decorate(state, false) }),
     update(value, tr) {
       let focused = value.focused;
-      for (const e of tr.effects) if (e.is(setFocus)) focused = e.value;
-      if (focused === value.focused && !tr.docChanged && !tr.selection && syntaxTree(tr.startState) === syntaxTree(tr.state)) return value;
+      let themed = false;
+      for (const e of tr.effects) {
+        if (e.is(setFocus)) focused = e.value;
+        if (e.is(themeChanged)) themed = true;
+      }
+      if (!themed && focused === value.focused && !tr.docChanged && !tr.selection && syntaxTree(tr.startState) === syntaxTree(tr.state)) return value;
       return { focused, deco: decorate(tr.state, focused) };
     },
     provide: (f) => EditorView.decorations.from(f, (v) => v.deco),
   });
 }
 
-// Up/Down would step over a rendered table (a block widget); stop on its
-// near row instead, which reveals its source like a click does.
-function stepIntoTable(view, forward) {
+// Up/Down would step over a rendered block (a block widget); stop on its
+// near line instead, which reveals its source like a click does.
+function stepIntoBlock(view, forward) {
   const range = view.state.selection.main;
   if (!range.empty || view.state.selection.ranges.length > 1) return false;
   const target = view.moveVertically(range, forward).head;
-  const stop = tableSkip(planTables(view.state, activeLines(view.state, true)), range.head, target, forward);
+  const stop = tableSkip(planBlocks(view.state, activeLines(view.state, true)), range.head, target, forward);
   if (stop == null) return false;
   view.dispatch({ selection: { anchor: stop }, scrollIntoView: true, userEvent: "select" });
   return true;
@@ -261,4 +308,99 @@ function inlineNode(tok) {
     el.title = OPEN_HINT;
   }
   return el;
+}
+
+// KaTeX and Mermaid are large and only some files need them: each loads on
+// first use, once. Rendered output is cached by source so a block that
+// scrolls back into view (a new widget DOM) does not render again.
+let katexLoad = null;
+const loadKatex = () => (katexLoad ||= Promise.all([import("katex"), import("katex/dist/katex.min.css")]).then(([m]) => m.default));
+let mermaidLoad = null;
+const loadMermaid = () => (mermaidLoad ||= import("mermaid").then((m) => m.default));
+const drawn = new Map();
+let mermaidSeq = 0;
+
+// A click on a rendered block puts the cursor on its first line inside the
+// delimiters, which turns it back into source.
+function editOnClick(el, view, block) {
+  el.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const doc = view.state.doc;
+    const first = doc.lineAt(view.posAtDOM(el));
+    const inner = first.number < doc.lines && block.from !== block.lastFrom ? doc.line(first.number + 1).from : first.from;
+    view.dispatch({ selection: { anchor: inner } });
+    view.focus();
+  });
+}
+
+class MathWidget extends WidgetType {
+  constructor(tex, display, block = null) { super(); this.tex = tex; this.display = display; this.block = block; }
+  eq(o) { return o.tex === this.tex && o.display === this.display; }
+  get estimatedHeight() { return this.display ? 56 : -1; }
+  toDOM(view) {
+    const el = document.createElement(this.display ? "div" : "span");
+    el.className = this.display ? "cm-md-math-block" : "cm-md-math";
+    const key = (this.display ? "D:" : "I:") + this.tex;
+    const paint = (html) => { el.innerHTML = html; if (this.display) view.requestMeasure(); };
+    if (drawn.has(key)) paint(drawn.get(key));
+    else {
+      el.textContent = this.tex;
+      loadKatex().then((katex) => {
+        // KaTeX output is its own markup (trust off, errors drawn in place).
+        const html = katex.renderToString(this.tex, { displayMode: this.display, throwOnError: false, trust: false });
+        drawn.set(key, html);
+        paint(html);
+      }).catch(() => { el.classList.add("cm-md-render-failed"); });
+    }
+    if (this.block) editOnClick(el, view, this.block);
+    return el;
+  }
+  ignoreEvent() { return !!this.block; }
+}
+
+class MermaidWidget extends WidgetType {
+  constructor(src, block, theme) { super(); this.src = src; this.block = block; this.theme = theme; }
+  eq(o) { return o.src === this.src && o.theme === this.theme; }
+  get estimatedHeight() { return 200; }
+  toDOM(view) {
+    const el = document.createElement("div");
+    el.className = "cm-md-mermaid";
+    const theme = this.theme;
+    const key = theme + ":" + this.src;
+    const paint = (svg) => { el.innerHTML = svg; view.requestMeasure(); };
+    const fail = () => {
+      el.classList.remove("cm-md-rendering");
+      el.classList.add("cm-md-render-failed");
+      el.textContent = "Can't draw this diagram. Click to edit it.";
+      view.requestMeasure();
+    };
+    // A failure is remembered like a drawing: re-rendering a broken diagram
+    // on every scroll only repeats the error.
+    if (drawn.has(key)) { const svg = drawn.get(key); if (svg) paint(svg); else fail(); }
+    else {
+      el.textContent = "Drawing diagram…";
+      el.classList.add("cm-md-rendering");
+      const id = "cm-md-mermaid-" + ++mermaidSeq;
+      loadMermaid().then((mermaid) => {
+        mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme, suppressErrorRendering: true });
+        return mermaid.render(id, this.src);
+      }).then(({ svg }) => {
+        // Mermaid's own output under securityLevel "strict" (no scripts,
+        // no click handlers) — the same the preview draws.
+        drawn.set(key, svg);
+        el.classList.remove("cm-md-rendering");
+        paint(svg);
+      }).catch(() => {
+        // A failed render can leave its scratch node in <body>; never keep it.
+        document.getElementById("d" + id)?.remove();
+        document.getElementById(id)?.remove();
+        drawn.set(key, null);
+        fail();
+      });
+    }
+    editOnClick(el, view, this.block);
+    return el;
+  }
+  ignoreEvent() { return true; }
 }

@@ -15,7 +15,7 @@ A `.md` file renders like GitHub renders it, in both apps, through
 
 | Piece | Where | Rule |
 |---|---|---|
-| Pipeline | `web/shared/domain/mdPipeline.js` | `remark-gfm` + `remark-math` → `rehype-raw` → `rehype-sanitize` (hast-util-sanitize's default schema, which is GitHub's allow-list) → `rehype-katex` → alerts → heading ids. Only the steps **after** the sanitizer add classes; the author's HTML never reaches the DOM unsanitized |
+| Pipeline | `web/shared/domain/mdPipeline.js` | `remark-gfm` + `remark-math` + `remarkPandocDollars` (inline math that breaks pandoc's dollar rule — space inside the dollars, digit after — goes back to text, so "$5 and $10" is prose, as in Live) → `rehype-raw` → `rehype-sanitize` (hast-util-sanitize's default schema, which is GitHub's allow-list) → `rehype-katex` → alerts → heading ids. Only the steps **after** the sanitizer add classes; the author's HTML never reaches the DOM unsanitized |
 | Document rules | `web/shared/domain/mdDocument.js` | frontmatter split (flat `key: value` → table, else raw YAML), github-slugger ids, `> [!NOTE]`-style alerts at the top level, link and image resolution |
 | Ids | `DOC_ID_PREFIX` | every id is `user-content-…`, as on GitHub, so a heading can never shadow an id the app looks up; `#frag` links try the prefixed id first |
 | Links | `resolveDocLink` | `#frag` scrolls inside the pane (the app routes by hash, so the page hash never moves); `http(s)`/`mailto` open a new tab; a relative path opens that file where the mount passes `onOpenPath` — the same pane in the file tree and mobile Files, a new file tab from a file tab — and is inert text elsewhere (canvas file panels, chat file cards); any other scheme or a path above the root is inert |
@@ -60,8 +60,10 @@ keeps the cursor and the undo history.
 
 | Tables | `web/browser/src/lib/mdLiveTables.js` + `tableField` in `mdLive.js` | a table spans lines and only a state field may replace across line breaks, so tables are a separate `StateField` (told about focus by `focusChangeEffect`): every table no selection touches is one block widget — header, alignment from the delimiter row, inline code/bold/italic/strike/links built as DOM nodes (never parsed HTML). A click puts the cursor in the cell it hit (positions re-read at click time), which turns the table back into source; Ctrl/⌘+click on a cell link follows it. Up/Down stop on a table's near row (`tableSkip`) instead of stepping over the widget. The widget is `contain: inline-size`, so a wide table scrolls inside itself and never widens the editor |
 
-Raw HTML, math and frontmatter stay as monospace source in Live; Preview
-renders them.
+| Math and Mermaid | `web/browser/src/lib/mdLiveMath.js` + `blockField` in `mdLive.js` | the grammar has no math, so `$$` blocks and `$…$` spans are found in the text outside code, raw HTML and link targets; inline `$` follows pandoc's rule (no space inside the dollars, no digit after the closing one), so prices stay text. `$$` blocks and ```` ```mermaid ```` fences join tables in one block field; inline math is a per-line widget that owns its text (nothing else decorates inside it). KaTeX and Mermaid load on first use and cache output by source; Mermaid runs with `securityLevel: "strict"` and takes the theme at render time |
+
+Raw HTML and frontmatter stay as monospace source in Live; Preview renders
+them.
 
 Styles live in `web/shared/styles/markdown-doc.css`, loaded after each app's
 sheet and scoped under `.md-doc`, so the chat's `.md` message rhythm is
