@@ -425,8 +425,11 @@ response carries a `delivery` receipt (`verified` / `unconfirmed` /
 unattended runner (ADR-0217): Claude Code 2.1.282 renders its empty-composer
 suggestion one dim run per word (cut at the pane edge without a reset) and
 adds an effort row (`◐ medium · /effort`) under the mode row; Codex 0.157.0
-adds its `? for shortcuts` row under the model row. Omp 18.2 joined the
-readers: its input is the screen's last row (`╰─ ` + text, cursor at 3 +
+adds its `? for shortcuts` row under the model row. Omp 18.2's reader serves
+unattended senders only (`unattendedReaderCLI`): `doorReaderCLI` also decides
+a fork's task hand-over, mission dispatch and the attach's delivery modes,
+and adding Omp there changed its fork unmeasured (main went red 2026-09-25).
+Its input is the screen's last row (`╰─ ` + text, cursor at 3 +
 width) under its ` > `-segmented status bar; OpenCode 1.18's new-session
 screen puts the text at column 6 between bar rows, with a grey placeholder
 (fixtures `testdata/composer-{empty,draft}-{omp,opencode}.json`). CLIs without a reader keep the blind paste
