@@ -1870,6 +1870,20 @@ export default function App({ shellChrome = false } = {}) {
       splitExists: !!agentPanesRef.current[host],
       method: cmd?.method || "",
     });
+    // The receipt the events verb hands back: which host this command bound
+    // to and why the view moved (or did not) — read from the agent side
+    // instead of guessed from the code.
+    const decision = {
+      host,
+      reveal,
+      hostOpen: tabsRef.current.includes(host),
+      splitKey: agentPanesRef.current[host] || "",
+      selected: selectedRef.current || "",
+      agent: cmd?.agent || "",
+      term: cmd?.term || "",
+      boundTerminal: ag?.terminalId || "",
+      splits: Object.keys(agentPanesRef.current),
+    };
     if (reveal !== "none") revealSession(host);
     const id = openAgentSplit(host);
     if (!id) return { error: "could not open the browser beside this session" };
@@ -1877,6 +1891,7 @@ export default function App({ shellChrome = false } = {}) {
       id,
       onScreen: reveal !== "none" || (selectedRef.current === host && parseRoute(location.hash) === "workspace"),
       reveal: () => revealSession(host),
+      decision,
     };
   }
   ensureSessionRef.current = ensureSession;
