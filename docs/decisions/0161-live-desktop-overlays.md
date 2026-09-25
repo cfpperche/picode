@@ -59,3 +59,7 @@ Rendering each React overlay in a separate WebView duplicates state and
 requires an action bridge for every component; one native chrome surface
 preserves the existing UI instead. A runtime migration is unnecessary for
 the composition demonstrated by the prototype.
+
+## Amendment 2026-09-25 — the legacy hide path retired (owner)
+
+The web no longer hides and freezes the native page for shells without `__PICODE_LIVE_LAYERS__`: `coverDecision`, `verifyPreviewUrl`, `subscribeFloatingLayers`, the still backdrop and `data-covered` are gone, and the overlay audit no longer accepts a parked page. `btab_preview` stays for annotation captures. Measured before removal: the installed `picode-shell.exe` (2026-09-25) injects the marker, and PiCode runs only on the owner's machine.

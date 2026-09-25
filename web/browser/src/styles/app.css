@@ -2492,7 +2492,6 @@ img.ws-face { background: transparent; border: 0; padding: 0; }
 .web-tab-menu-tick { width: 16px; height: 16px; display: grid; place-items: center; flex: none; color: var(--accent); }
 /* The menu's still: the page as it was when the menu opened. The native
    webview is hidden while it stands in, so the menu paints over the page. */
-.web-tab-still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
 .web-tab-host { flex: 1 1 auto; min-height: 0; position: relative; }
 .web-tab-err {
   max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
