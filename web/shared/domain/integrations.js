@@ -6,6 +6,7 @@
 // signIn is the vendor's own sign-in path shown to CLI agents: command renders
 // as copyable code (a terminal command by default, or the TUI named in
 // `where`); text renders as a plain sentence when no command exists.
+import { PACKAGE_WORDS, readScope, writeScope } from "./scopes.js";
 export const CONNECTOR_DRIVERS = {
   pi: {
     id: "pi",
@@ -92,7 +93,7 @@ export function cliConnectorsHash(cli = "pi", { workspaceId = "", agentId = "", 
   const query = new URLSearchParams();
   if (workspaceId) query.set("workspaceId", workspaceId);
   if (agentId) query.set("agentId", agentId);
-  if (scope && scope !== "user") query.set("scope", scope);
+  writeScope(query, scope);
   return "#/clis/" + encodeURIComponent(cli || "pi") + "/connectors" + (query.size ? "?" + query : "");
 }
 
@@ -117,12 +118,13 @@ export function cliConnectorsLocation(hash = "", legacyContext = {}) {
   const fallback = adoptPane ? legacyContext : {};
   const workspaceId = params.get("workspaceId") || fallback.workspaceId || "";
   const agentId = params.get("agentId") || fallback.agentId || "";
-  const scope = params.get("scope") || "user";
-  const invalid = !["user", "project", "agent"].includes(scope);
+  const read = readScope(params, PACKAGE_WORDS);
+  const scope = read.value || "user";
+  const invalid = read.invalid;
   const canonical = cliConnectorsHash(id, { workspaceId, agentId, scope });
-  return { view: "clis", pane: "connectors", id, workspaceId, agentId, scope, invalid, legacy: legacy || strip,
+  return { view: "clis", pane: "connectors", id, workspaceId, agentId, scope, ...(read.kind ? { scopeKind: read.kind } : {}), invalid, legacy: legacy || strip,
     ...(adoptPane ? { adoptPane: true } : {}),
-    redirect: !invalid && !nested ? canonical : "" };
+    redirect: !invalid && (!nested || read.alias) ? canonical : "" };
 }
 
 export function integrationSection(hash = "") {

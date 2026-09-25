@@ -8,6 +8,7 @@
 // The CLIs with a settings declaration in internal/clisettings. The server is
 // the authority; this list keeps the pane from asking for an editor that does
 // not exist, and the test below keeps the two in step.
+import { MEMORY_WORDS, readScope, writeScope } from "./scopes.js";
 export const NATIVE_SETTINGS_CLIS = ["claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy", "omp"];
 
 export const supportsNativeSettings = (id) => NATIVE_SETTINGS_CLIS.includes(id);
@@ -157,7 +158,7 @@ export function memoryEmptyLine(report, store) {
 export function cliMemoryHash(cli, { workspaceId = "", scope = "" } = {}) {
   const query = new URLSearchParams();
   if (workspaceId) query.set("workspaceId", workspaceId);
-  if (scope) query.set("scope", scope);
+  writeScope(query, scope, { keepGlobal: true });
   return "#/clis/" + encodeURIComponent(cli || "") + "/memory" + (query.size ? "?" + query : "");
 }
 
@@ -172,8 +173,8 @@ export function cliMemoryLocation(hash = "") {
     cli = "";
   }
   const params = new URLSearchParams(query);
-  const scope = params.get("scope") === "workspace" || params.get("scope") === "global" ? params.get("scope") : "";
-  return { view: "clis", pane: "memory", id: cli, workspaceId: params.get("workspaceId") || "", scope };
+  const read = readScope(params, MEMORY_WORDS);
+  return { view: "clis", pane: "memory", id: cli, workspaceId: params.get("workspaceId") || "", scope: read.value, ...(read.kind ? { scopeKind: read.kind } : {}) };
 }
 
 // ── Model roles (ADR-0181) ───────────────────────────────────────────────────

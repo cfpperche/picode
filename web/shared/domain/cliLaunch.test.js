@@ -49,9 +49,10 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
 
 test("setup panes fall back to the selected sidebar pane when the hash has no identity", () => {
   const legacy = { workspaceId: "w", agentId: "a" };
-  assert.deepEqual(cliPaneSetupContext({ pane: "packages" }, legacy), { workspaceId: "w", agentId: "a", scope: "user", focus: "", layer: "" });
-  assert.deepEqual(cliPaneSetupContext({ workspaceId: "x", agentId: "y", scope: "project", focus: "scoped-models", layer: "agent" }, legacy), { workspaceId: "x", agentId: "y", scope: "project", focus: "scoped-models", layer: "agent" });
-  assert.deepEqual(cliPaneSetupContext({}, {}), { workspaceId: "", agentId: "", scope: "user", focus: "", layer: "" });
+  assert.deepEqual(cliPaneSetupContext({ pane: "packages" }, legacy), { workspaceId: "w", agentId: "a", scope: "", focus: "", layer: "" });
+  // The context carries the shared scope word the address named (scopes.js).
+  assert.deepEqual(cliPaneSetupContext({ workspaceId: "x", agentId: "y", scope: "project", scopeKind: "workspace", focus: "scoped-models" }, legacy), { workspaceId: "x", agentId: "y", scope: "workspace", focus: "scoped-models", layer: "project" });
+  assert.deepEqual(cliPaneSetupContext({}, {}), { workspaceId: "", agentId: "", scope: "", focus: "", layer: "" });
 });
 
 test("legacy package and settings hashes adopt pane context through cliLocation", () => {
@@ -206,7 +207,7 @@ test("the Models pane is offered where the CLI answers, and its address round-tr
   assert.equal(cliPanes(omp).indexOf("models"), cliPanes(omp).indexOf("providers") + 1);
   assert.equal(cliPanes(codex).includes("models"), false);
   const hash = cliModelsHash("omp", { workspaceId: "w1", layer: "project" });
-  assert.equal(hash, "#/clis/omp/models?workspaceId=w1&layer=project");
+  assert.equal(hash, "#/clis/omp/models?workspaceId=w1&scope=workspace");
   const loc = cliLocation(hash);
   assert.equal(loc.pane, "models");
   assert.equal(loc.workspaceId, "w1");
@@ -225,15 +226,47 @@ test("adoptOffer: only a shell running a detected CLI, not yet an agent (ADR-018
   assert.equal(adoptOffer(null, null), "");
 });
 
-import { paneScope } from "./cliLaunch.js";
+// One scope vocabulary for every setup pane's address (scopes.js): each pane
+// writes global/workspace/agent, reads its own older words as aliases and
+// rewrites such a link; a scope a pane lacks is invalid or dropped, never
+// adopted as another.
+import { readScope, writeScope, PACKAGE_WORDS, SKILL_WORDS } from "./scopes.js";
 
-test("a scope crosses panes in each pane's own words", () => {
+test("every setup pane writes and reads the shared scope words", () => {
   const rows = [
-    ["packages", "workspace", "project"], ["packages", "machine", "user"], ["packages", "agent", "agent"], ["packages", "global", "user"],
-    ["connectors", "workspace", "project"], ["connectors", "machine", "user"], ["connectors", "agent", "agent"],
-    ["skills", "project", "workspace"], ["skills", "user", "machine"], ["skills", "agent", "agent"],
-    ["memory", "project", "workspace"], ["memory", "user", "global"], ["memory", "agent", ""],
-    ["packages", "", ""], ["packages", "nonsense", ""], ["settings", "user", ""],
+    // [hash, pane's own scope, redirect]
+    ["#/clis/pi/packages?scope=workspace", "project", ""],
+    ["#/clis/pi/packages?scope=project", "project", "#/clis/pi/packages?scope=workspace"],
+    ["#/clis/pi/connectors?scope=agent", "agent", ""],
+    ["#/clis/pi/connectors?scope=user", "user", "#/clis/pi/connectors"],
+    ["#/clis/pi/skills?scope=global", "machine", ""],
+    ["#/clis/pi/skills?scope=machine", "machine", "#/clis/pi/skills"],
+    ["#/clis/pi/memory?scope=workspace", "workspace", undefined],
   ];
-  for (const [pane, scope, want] of rows) assert.equal(paneScope(pane, scope), want, pane + " " + scope);
+  for (const [hash, scope, redirect] of rows) {
+    const loc = cliLocation(hash);
+    assert.equal(loc.invalid || false, false, hash);
+    assert.equal(loc.scope, scope, hash);
+    if (redirect !== undefined) assert.equal(loc.redirect || "", redirect, hash);
+  }
+  assert.equal(cliLocation("#/clis/pi/settings?scope=agent").layer, "agent");
+  assert.equal(cliLocation("#/clis/pi/settings?layer=project").redirect, "#/clis/pi/settings?scope=workspace");
+  assert.equal(cliLocation("#/clis/omp/models?layer=global").redirect, "#/clis/omp/models?scope=global");
+  assert.equal(cliLocation("#/clis/pi/packages?scope=bogus").invalid, true);
+  assert.equal(readScope(new URLSearchParams("scope=agent"), PACKAGE_WORDS).value, "agent");
+  assert.equal(readScope(new URLSearchParams("scope=agent"), { global: "g" }).invalid, true);
+  const q = new URLSearchParams();
+  writeScope(q, "project");
+  assert.equal(q.toString(), "scope=workspace");
+  writeScope(q, "machine");
+  assert.equal(q.get("scope"), "workspace", "Global is left out unless kept");
+  assert.equal(SKILL_WORDS.global, "machine");
+});
+
+test("a tab link carries the scope the address chose into the next pane's words", () => {
+  const from = cliLocation("#/clis/claude-code/skills?workspaceId=w&scope=workspace");
+  const ctx = cliPaneSetupContext(from, {});
+  assert.equal(ctx.scope, "workspace");
+  const fromDefault = cliPaneSetupContext(cliLocation("#/clis/pi/packages"), {});
+  assert.equal(fromDefault.scope, "", "a pane's default is not carried as if chosen");
 });

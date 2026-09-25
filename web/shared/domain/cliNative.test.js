@@ -121,6 +121,7 @@ test("the memory route round-trips", () => {
     id: "claude-code",
     workspaceId: "w1",
     scope: "workspace",
+    scopeKind: "workspace",
   });
   assert.equal(cliMemoryLocation("#/clis/pi/settings"), null);
   // An unknown scope is dropped, never adopted.
