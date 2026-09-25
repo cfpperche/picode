@@ -5,12 +5,11 @@ reference tools. Researched options, cheapest first: A) GitHub-grade preview,
 B) VS Code-style source | preview split with scroll sync, C) Obsidian-style
 live preview inside CodeMirror 6, D) WYSIWYG (Milkdown/MDXEditor/Tiptap) —
 D refused for repository files because it re-serializes the file and rewrites
-tables, lists and emphasis on save. A shipped on `feat/md-preview`
+tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split with scroll sync) on `feat/md-split`
 (`docs/architecture/file-preview.md`, "Markdown as a document").
 
 ## Next
 
-- B: a Split mode beside Preview/Raw — CodeMirror source and MarkdownDoc side by side, scroll sync both ways from source line positions (`data-line` on blocks, as VS Code does), double-click in the preview jumps to the line.
 - C: Live preview in CodeMirror (syntax hidden off the cursor line; references: blueberrycongee/codemirror-live-markdown, kenforthewin/atomic-editor — both young, adapt rather than depend).
 
 ## Debts

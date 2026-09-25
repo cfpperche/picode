@@ -24,6 +24,24 @@ A `.md` file renders like GitHub renders it, in both apps, through
 | Outline | `MarkdownDoc` | read back from the rendered `h1`–`h3`, shown as a second column only when the pane is ≥1040px wide (container query) and there are ≥3 headings |
 | Scrolling | `scrollToHeading` | jumps scroll the pane's own scroll box, never `scrollIntoView` — that also moves clipped ancestors and pushed the pane header out of reach; the outline's current entry follows a scroll listener on the same box |
 
+### Split (source | preview)
+
+For a markdown file the pane offers **Preview · Split · Raw**. Split puts the
+CodeMirror source beside the rendered document (after VS Code's side-by-side
+preview) and is offered only while the pane body is ≥880px wide; a remembered
+Split on a narrower pane reads as Preview until it widens. The last choice for
+markdown is kept in `localStorage` (`picode-md-view`), per browser.
+
+| Piece | Where | Rule |
+|---|---|---|
+| Source lines | `rehypeSourceLines` via `withSourceLines(offset)` | runs last in the pipeline and stamps `data-line` on blocks (paragraphs, headings, list items, table rows, fences, alerts…) from parser positions; `offset` puts the frontmatter's lines back so numbers are the file's own. Only Split asks for it |
+| Mapping | `web/shared/domain/scrollSync.js` | `syncBlocks` keeps blocks whose line moves forward; `previewTopFor` / `lineFor` interpolate between the two blocks around a position (fractional lines); top and bottom of either pane pin the other to its top and bottom |
+| Wiring | `web/browser/src/lib/useSplitSync.js` | editor scroll → preview, preview scroll → editor, each programmatic scroll ignoring its own echo for 120ms; the side the reader moved last leads, and a preview re-render (typing, late images, the lazy chunk) re-syncs to the editor; double-click on a preview block puts the cursor on its line and scrolls the editor so that line sits level with the block, which does not move |
+
+The preview renders a deferred copy of the text (`useDeferredValue`), so a
+keystroke never waits for the markdown render. Split is desktop and browser
+only; the phone keeps Preview and Edit.
+
 Styles live in `web/shared/styles/markdown-doc.css`, loaded after each app's
 sheet and scoped under `.md-doc`, so the chat's `.md` message rhythm is
 untouched. `MarkdownDoc` is a lazy chunk: previews of other kinds do not load

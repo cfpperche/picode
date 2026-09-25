@@ -8,7 +8,7 @@ import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeKatex from "rehype-katex";
-import { rehypeDocHeadings, rehypeGithubAlerts } from "./mdDocument.js";
+import { rehypeDocHeadings, rehypeGithubAlerts, rehypeSourceLines } from "./mdDocument.js";
 
 // `math-inline` / `math-display` ride on the code element remark-math emits;
 // the default schema keeps only `language-*` there. Without them a `$$` block
@@ -28,3 +28,10 @@ export const docPipeline = Object.freeze({
   // remark-rehype would leave footnote ids that no link points at.
   remarkRehypeOptions: { clobberPrefix: "" },
 });
+
+// withSourceLines is the same pipeline plus `data-line` on every block, for
+// the Split view's scroll sync. `offset` is how many lines the frontmatter
+// took off the top, so the numbers are the file's own.
+export function withSourceLines(offset = 0) {
+  return { ...docPipeline, rehypePlugins: [...docPipeline.rehypePlugins, [rehypeSourceLines, { offset }]] };
+}

@@ -3,13 +3,14 @@ import { test } from "node:test";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
-import { docPipeline } from "./mdPipeline.js";
+import { docPipeline, withSourceLines } from "./mdPipeline.js";
+import { splitFrontmatter } from "./mdDocument.js";
 
 // Same wiring react-markdown does: raw HTML reaches rehype as `raw` nodes.
-function render(md) {
-  const proc = unified().use(remarkParse).use(docPipeline.remarkPlugins)
-    .use(remarkRehype, { ...docPipeline.remarkRehypeOptions, allowDangerousHtml: true })
-    .use(docPipeline.rehypePlugins);
+function render(md, pipeline = docPipeline) {
+  const proc = unified().use(remarkParse).use(pipeline.remarkPlugins)
+    .use(remarkRehype, { ...pipeline.remarkRehypeOptions, allowDangerousHtml: true })
+    .use(pipeline.rehypePlugins);
   return proc.runSync(proc.parse(md));
 }
 
@@ -51,4 +52,19 @@ test("alerts, math, footnotes and headings after sanitizing", () => {
   const ref = all(tree, (n) => n.tagName === "a" && n.properties.dataFootnoteRef !== undefined)[0];
   const target = ref.properties.href.slice(1);
   assert.equal(all(tree, (n) => n.properties.id === "user-content-" + target).length, 1);
+});
+
+test("withSourceLines stamps blocks with the file's own line numbers", () => {
+  const file = "---\ntitle: x\n---\n# Title\n\ntext\n\n> [!NOTE]\n> hi\n\n- a\n- b\n\n```go\nx\n```\n\n| a |\n|---|\n| 1 |\n";
+  const { body, bodyLine } = splitFrontmatter(file);
+  assert.equal(bodyLine, 4);
+  const tree = render(body, withSourceLines(bodyLine - 1));
+  const line = (pred) => all(tree, pred)[0].properties.dataLine;
+  assert.equal(line((n) => n.tagName === "h1"), 4);
+  assert.equal(line((n) => n.tagName === "p"), 6);
+  assert.equal(line((n) => cls(n).includes("md-alert")), 8);
+  assert.deepEqual(byTag(tree, "li").map((n) => n.properties.dataLine), [11, 12]);
+  assert.equal(line((n) => n.tagName === "pre"), 14);
+  assert.deepEqual(byTag(tree, "tr").map((n) => n.properties.dataLine), [18, 20]);
+  assert.equal(all(render(body), (n) => n.properties.dataLine !== undefined).length, 0);
 });
