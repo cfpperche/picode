@@ -241,7 +241,7 @@ func doorDeliverMode(deps Deps, ctx context.Context, t store.Terminal, payload s
 		}
 		return http.StatusConflict, workingRefusal(cli, st.State)
 	}
-	if !doorReaderCLI[cli] {
+	if !doorReaderCLI[cli] && !(unattended && unattendedReaderCLI[cli]) {
 		if err := deps.Tmux.PasteText(cctx, session, payload); err != nil {
 			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
 		}
@@ -355,7 +355,16 @@ func doorPasteVerified(deps Deps, ctx, cctx context.Context, t store.Terminal, c
 var doorReaderCLI = map[string]bool{
 	"pi": true, "claude-code": true, "codex": true,
 	"grok": true, "hermes": true, "opencode": true,
-	"omp": true, // measured 2026-09-25 (ADR-0217)
+}
+
+// unattendedReaderCLI are CLIs whose composer is read only for unattended
+// senders (ADR-0217's start runs). doorReaderCLI also decides how a fork
+// hands over its task, whether a mission can dispatch and the attach's
+// delivery modes; adding Omp there changed its fork unmeasured (main went
+// red on 2026-09-25), so Omp's reader stays scoped here until those paths
+// are measured for it.
+var unattendedReaderCLI = map[string]bool{
+	"omp": true, // measured 2026-09-25: the ╰─ bottom row (peerOmpInput)
 }
 
 const (
