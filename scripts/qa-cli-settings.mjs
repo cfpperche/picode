@@ -53,7 +53,7 @@ writeFileSync((await api("/api/pi-settings")).global.path, "{}\n");
 // uses — so clear every override this catalog knows before the first capture,
 // the same reason the settings file above starts empty (a previous run, or a
 // manual probe on this fixture, otherwise leaves one behind).
-await api("/api/pi-keys", "PUT", { resetAll: true });
+await api("/api/cli-keys", "PUT", { cli: "pi", resetAll: true });
 // Same for the guest CLI this run edits (P2b): its map lives in the fixture's
 // isolated HOME, and a leftover row from an earlier run would read as a change
 // this run did not make.
@@ -139,7 +139,7 @@ try {
     browser("wait", "--fn", '!!document.querySelector("#keys-filter")');
     assert.equal(evaluate('location.hash.endsWith("/keyboard")'), true);
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .pkg-tabs, #pi-settings-view .settings-layer").length'), 0);
-    const keyReport = await api("/api/pi-keys");
+    const keyReport = await api("/api/cli-keys?cli=pi");
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .key-row").length'), keyReport.actions.length);
     // The period rides inside the code box with the path (the P0 visual fix), so
     // the assertion accepts it rather than the end of the string.
@@ -200,7 +200,7 @@ try {
     let bound = "";
     for (let i = 0; i < 20 && !bound; i++) {
       await new Promise(resolve => setTimeout(resolve, 150));
-      bound = ((await api("/api/pi-keys")).user?.[firstAction.id] || []).find(key => /ctrl\+alt\+k/i.test(key)) || "";
+      bound = ((await api("/api/cli-keys?cli=pi")).user?.[firstAction.id] || []).find(key => /ctrl\+alt\+k/i.test(key)) || "";
     }
     assert.ok(bound, "the captured chord must be saved to the key map");
     browser("wait", "--fn", 'document.querySelectorAll("#pi-settings-view .key-row.is-changed").length === 1');
@@ -216,7 +216,7 @@ try {
     let cleared = false;
     for (let i = 0; i < 20 && !cleared; i++) {
       await new Promise(resolve => setTimeout(resolve, 150));
-      const user = (await api("/api/pi-keys")).user || {};
+      const user = (await api("/api/cli-keys?cli=pi")).user || {};
       cleared = !Object.keys(user).some(k => keyReport.actions.some(a => a.id === k));
     }
     assert.ok(cleared, "Reset all must clear every override this catalog knows");
@@ -225,7 +225,7 @@ try {
     browser("wait", "--fn", '!document.querySelector("[role=alertdialog], .dlg")');
     browser("wait", "--fn", 'document.querySelectorAll("#pi-settings-view .key-row.is-changed").length === 0');
     await capture(app + "-keyboard-reset");
-    await api("/api/pi-keys", "PUT", { action: firstAction.id, reset: true });
+    await api("/api/cli-keys", "PUT", { cli: "pi", action: firstAction.id, reset: true });
     results.push(app + ": a captured chord is saved, marks the row, and Reset all hands every key back");
     // The old sub-tab route still lands here (a bookmark from 2026-09-12).
     navigate("#/clis/pi/settings?agentId=" + encodeURIComponent(id) + "&tab=keys");

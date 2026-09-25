@@ -297,7 +297,6 @@ func registerAll(mux Registrar, deps Deps) {
 	registerGithubReposRoutes(mux, deps)
 	registerServerRoutes(mux, deps)
 	registerPiSettingsRoutes(mux, deps)
-	registerPiKeysRoutes(mux)
 	registerCLIKeysRoutes(mux)
 	registerSessionOps(mux, deps)
 	registerSlashOps(mux, deps)

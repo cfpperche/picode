@@ -1,5 +1,8 @@
 package server
 
+// Pi's key map through the one keyboard door, /api/cli-keys?cli=pi (the
+// separate /api/pi-keys route was retired 2026-09-25).
+
 import (
 	"bytes"
 	"encoding/json"
@@ -18,7 +21,7 @@ func TestPiKeysRoundTrip(t *testing.T) {
 	t.Cleanup(func() { pipkg.UserDir = old })
 	ts := newTestServer(t, "cat")
 
-	res, err := ts.Client().Get(ts.URL + "/api/pi-keys")
+	res, err := ts.Client().Get(ts.URL + "/api/cli-keys?cli=pi")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,10 +39,11 @@ func TestPiKeysRoundTrip(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(map[string]any{
+		"cli":    "pi",
 		"action": "tui.editor.deleteWordBackward",
 		"keys":   []string{"ctrl+backspace"},
 	})
-	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/pi-keys", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/cli-keys", bytes.NewReader(body))
 	put, err := ts.Client().Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -56,8 +60,8 @@ func TestPiKeysRoundTrip(t *testing.T) {
 		t.Fatalf("%s", raw)
 	}
 
-	reset, _ := json.Marshal(map[string]any{"action": "tui.editor.deleteWordBackward", "reset": true})
-	req2, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/pi-keys", bytes.NewReader(reset))
+	reset, _ := json.Marshal(map[string]any{"cli": "pi", "action": "tui.editor.deleteWordBackward", "reset": true})
+	req2, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/cli-keys", bytes.NewReader(reset))
 	out, err := ts.Client().Do(req2)
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +93,7 @@ func TestPiKeysReportNamesTheFileAndThePlatform(t *testing.T) {
 			Alt map[string][]string `json:"alt"`
 		} `json:"actions"`
 	}
-	res, err := ts.Client().Get(ts.URL + "/api/pi-keys")
+	res, err := ts.Client().Get(ts.URL + "/api/cli-keys?cli=pi")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,8 +150,8 @@ func TestPiKeysResetAllLeavesUnknownKeys(t *testing.T) {
 	}
 	ts := newTestServer(t, "cat")
 
-	body, _ := json.Marshal(map[string]any{"resetAll": true})
-	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/pi-keys", bytes.NewReader(body))
+	body, _ := json.Marshal(map[string]any{"cli": "pi", "resetAll": true})
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/cli-keys", bytes.NewReader(body))
 	res, err := ts.Client().Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -183,8 +187,8 @@ func TestPiKeysUnknownAction(t *testing.T) {
 	pipkg.UserDir = func() string { return filepath.Join(home, ".pi", "agent") }
 	t.Cleanup(func() { pipkg.UserDir = old })
 	ts := newTestServer(t, "cat")
-	body, _ := json.Marshal(map[string]any{"action": "nope", "keys": []string{"a"}})
-	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/pi-keys", bytes.NewReader(body))
+	body, _ := json.Marshal(map[string]any{"cli": "pi", "action": "nope", "keys": []string{"a"}})
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/cli-keys", bytes.NewReader(body))
 	res, err := ts.Client().Do(req)
 	if err != nil {
 		t.Fatal(err)

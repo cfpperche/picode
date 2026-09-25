@@ -1,9 +1,9 @@
 // One door for every CLI's key map (docs/plans/keyboard-pane.md, P1).
 //
-// `/api/pi-keys` stays what it always was: pi's own map, its own store, its own
-// contract. This endpoint answers the same screen for any CLI the registry
-// knows — today only pi ships one, and the rest answer with their state so the
-// pane can say an honest sentence instead of "in development".
+// This endpoint answers the screen for any CLI the registry knows, pi included
+// (its own `/api/pi-keys` route was retired 2026-09-25): pi's report is
+// wrapped, flat-file CLIs are read and written here, and the rest answer with
+// their state so the pane can say an honest sentence instead of "in development".
 package server
 
 import (
@@ -86,8 +86,8 @@ func cliKeysEnvelope(cli *clikeys.CLI) (cliKeys, error) {
 }
 
 // asEnvelopeRows converts pi's catalog to the envelope's row type. The two are
-// separate on purpose: pikeys answers `/api/pi-keys` from its own, and this
-// envelope is the pane's vocabulary (ADR-0174).
+// separate on purpose: pikeys owns pi's catalog, and this envelope is the
+// pane's vocabulary (ADR-0174).
 func asEnvelopeRows(in []pikeys.Action) []clikeys.Action {
 	out := make([]clikeys.Action, 0, len(in))
 	for _, a := range in {

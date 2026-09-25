@@ -416,12 +416,12 @@ defaults.
 
 The keyboard map is the **Keyboard** pane next to Settings
 (`#/clis/pi/keyboard`, owner's call 2026-09-12: two tab rows inside one pane
-read as nesting). It is machine-wide — `keybindings.json`, its own endpoint
-`/api/pi-keys` — so it has no layer switcher and keeps its own filter, and a
+read as nesting). It is machine-wide — `keybindings.json`, read and written
+through `/api/cli-keys?cli=pi` — so it has no layer switcher and keeps its own filter, and a
 failing `settings.json` read cannot lock it. Its link carries the settings
 context (`agentId`, `layer`) so a round trip lands back on the same agent and
-layer; the route ignores the rest. A `?tab=keys` link from the sub-tab day
-redirects to it.
+layer; the route ignores the rest. (The `?tab=keys` redirect from the sub-tab
+day was retired 2026-09-24.)
 
 ## The Keyboard pane (2026-09-21, `docs/plans/keyboard-pane.md`)
 
@@ -454,9 +454,9 @@ Measured: rows 32-90px (a note wraps on the longest rows), 3 199px for all 90,
 action and its keycap on one line, the keycaps within 48px of the label, and a
 row/total height ceiling per app.
 
-**Two doors, one screen** (P1, 2026-09-21): `/api/pi-keys` stays pi's own store
-and contract, and `/api/cli-keys?cli=<id>` answers the pane for any CLI the
-registry knows (`internal/clikeys`). Pi's report is *wrapped* into that envelope
+**One door, one screen** (P1, 2026-09-21; the separate `/api/pi-keys` route
+was retired 2026-09-25): `/api/cli-keys?cli=<id>` answers the pane for any CLI
+the registry knows (`internal/clikeys`). Pi's report is *wrapped* into that envelope
 — never restated, so the catalog and the write path stay in one place — and a
 CLI whose editor has not shipped answers with its state and nothing else: no
 file, no actions, and a `PUT` refused by name ("PiCode cannot write Codex's key
@@ -600,7 +600,7 @@ Two things the pane deliberately does not claim:
   list must travel as `[]`, not `null`, because the pane reads the map by
   presence.
 
-`GET /api/pi-keys` answers `{actions, user, file, exists, platform}` — `file`
+`GET /api/cli-keys?cli=pi` answers pi's `{actions, user, file, exists, platform}` inside the envelope — `file`
 is this machine's real path (home shortened to `~`) so the pane can name what
 it writes, and `exists` lets it say the file is not created yet. `PUT` gains
 `{resetAll: true}` for **Reset all**: `pikeys.ResetKnown` deletes every

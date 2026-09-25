@@ -51,7 +51,7 @@ async function capture(name, audit = false) {
 }
 // The fixture's key map is disposable: a binding left by an earlier run would
 // make the Add/✕ buttons of the first row a different control (2026-09-12).
-const keysPath = (await api("/api/pi-keys")).path;
+const keysPath = (await api("/api/cli-keys?cli=pi")).file;
 if (keysPath) writeFileSync(keysPath, "{}\n");
 
 try {

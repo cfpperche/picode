@@ -6,9 +6,8 @@ package clikeys
 // addition to it.
 //
 // It is the envelope's vocabulary (ADR-0174), which is why Pi's catalog is
-// reported through it as well; pikeys keeps its own row type because it answers
-// `/api/pi-keys` from it too, and the envelope converts rather than joining the
-// two packages.
+// reported through it as well; pikeys keeps its own row type, and the envelope
+// converts rather than joining the two packages.
 type Action struct {
 	ID       string   `json:"id"`
 	Group    string   `json:"group"`
