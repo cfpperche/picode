@@ -5,14 +5,17 @@ reference tools. Researched options, cheapest first: A) GitHub-grade preview,
 B) VS Code-style source | preview split with scroll sync, C) Obsidian-style
 live preview inside CodeMirror 6, D) WYSIWYG (Milkdown/MDXEditor/Tiptap) —
 D refused for repository files because it re-serializes the file and rewrites
-tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split with scroll sync) on `feat/md-split`
+tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split with scroll sync) on `feat/md-split`, C (Live) on `feat/md-live`
 (`docs/architecture/file-preview.md`, "Markdown as a document").
 
 ## Next
 
-- C: Live preview in CodeMirror (syntax hidden off the cursor line; references: blueberrycongee/codemirror-live-markdown, kenforthewin/atomic-editor — both young, adapt rather than depend).
+- Live: render tables (a widget off the cursor), math and Mermaid in place; they stay monospace source today.
+- Live and Split on the phone (mobile keeps Preview and Edit).
 
 ## Debts
+
+- [ ] Live: a top-level bullet sits ~3px from its text (the source's own space in the reading face); a bullet margin would read better but brings back a ~5px shift when the line reveals `- `.
 
 - [ ] Relative file links are inert text in canvas file panels and chat file cards (no `onOpenPath` at those mounts); tree, file tab and mobile Files open them.
 - [ ] Opening `other.md#section` opens the file at its top; the fragment is not scrolled to after load.
