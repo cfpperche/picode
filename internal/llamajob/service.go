@@ -84,10 +84,19 @@ func (s *Service) update(id string, change func(*store.LlamaJob)) (store.LlamaJo
 	}
 	change(&j)
 	j, err = s.store.UpdateLlamaJob(j)
-	if err == nil && j.State == "succeeded" && j.Operation == "download" && s.completed != nil {
-		go s.completed(j)
+	if err == nil {
+		s.ended(j)
 	}
 	return j, err
+}
+
+// ended tells the owner of downloads that one finished, whatever the outcome:
+// a success is recorded as owned, anything else lets go of the file list the
+// download started with (it stayed forever before, 2026-09-25).
+func (s *Service) ended(j store.LlamaJob) {
+	if !j.Active() && j.Operation == "download" && s.completed != nil {
+		go s.completed(j)
+	}
 }
 
 func (s *Service) Start(model, operation, key string, replace bool) (store.LlamaJob, error) {
@@ -164,7 +173,11 @@ func (s *Service) Abandon(id string) (store.LlamaJob, error) {
 	}
 	j.State = "abandoned"
 	j.Message = "Abandoned by you. PiCode stopped following it and did not touch the server."
-	return s.store.UpdateLlamaJob(j)
+	j, err = s.store.UpdateLlamaJob(j)
+	if err == nil {
+		s.ended(j)
+	}
+	return j, err
 }
 
 // SetStopped tells the service how to recognize an endpoint whose server is

@@ -115,13 +115,15 @@ function MermaidPreview({ text }) {
     let stop = false;
     import("mermaid").then(({ default: mermaid }) => {
       if (stop) return;
-      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme });
+      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme, suppressErrorRendering: true });
       return mermaid.render(id, body);
     }).then((out) => {
       if (stop || !out) return;
       setSvg(out.svg);
       setErr("");
     }).catch(() => {
+      // A failed render can leave its scratch node in <body>; never keep it.
+      document.getElementById("d" + id)?.remove();
       if (!stop) { setSvg(""); setErr("Can't draw this diagram."); }
     });
     return () => { stop = true; };

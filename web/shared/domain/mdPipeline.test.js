@@ -11,7 +11,7 @@ function render(md, pipeline = docPipeline) {
   const proc = unified().use(remarkParse).use(pipeline.remarkPlugins)
     .use(remarkRehype, { ...pipeline.remarkRehypeOptions, allowDangerousHtml: true })
     .use(pipeline.rehypePlugins);
-  return proc.runSync(proc.parse(md));
+  return proc.runSync(proc.parse(md), md);
 }
 
 function all(node, pred, out = []) {
@@ -67,4 +67,12 @@ test("withSourceLines stamps blocks with the file's own line numbers", () => {
   assert.equal(line((n) => n.tagName === "pre"), 14);
   assert.deepEqual(byTag(tree, "tr").map((n) => n.properties.dataLine), [18, 20]);
   assert.equal(all(render(body), (n) => n.properties.dataLine !== undefined).length, 0);
+});
+
+test("prices stay text; real inline math still renders", () => {
+  const texts = (md) => all(render(md), (n) => (n.properties.className || []).includes("katex")).length;
+  assert.equal(texts("it costs $5 and $10."), 0);
+  assert.equal(texts("a $ x$ b and $y $ c"), 0);
+  assert.equal(texts("Inline $E = mc^2$ here"), 1);
+  assert.equal(texts("two $a$ and $b_1$"), 2);
 });

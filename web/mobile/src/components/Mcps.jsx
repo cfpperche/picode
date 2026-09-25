@@ -498,7 +498,11 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                     })}
                   </ul>
                 ) : (
-                  <p className="pkg-fine">No connectors yet.</p>
+                  // The Packages empty state's shape: one line, one action.
+                  <div className="pkg-empty">
+                    <p className="pkg-empty-title">No connectors yet.</p>
+                    <button type="button" className="btn btn-sm" onClick={() => setTab("marketplace")}>Open the Marketplace</button>
+                  </div>
                 )}
               </section>
             </>

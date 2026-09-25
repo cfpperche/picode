@@ -100,11 +100,32 @@ func (s *Service) cleanupFingerprint(name string) (string, int64, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	h, size, err := hashRegular(path)
+	h, size, err := hashKnown(path)
 	if err != nil || h != pin {
 		return "", 0, errors.New("A selected cache file changed. Refresh and review again.")
 	}
 	return h, size, nil
+}
+
+// cleanupPaths is every file a cleanup of these names will hash, resolved
+// under the lock (cheap) so warmHashes can read them without it.
+func (s *Service) cleanupPaths(names []string) []string {
+	var paths []string
+	records := s.releaseRecords()
+	for _, name := range names {
+		if strings.HasPrefix(name, "release-") {
+			if r, ok := records[name]; ok {
+				for file := range r.Files {
+					paths = append(paths, filepath.Join(r.Dir, file))
+				}
+			}
+			continue
+		}
+		if path, _, err := s.cacheTarget(name); err == nil {
+			paths = append(paths, path)
+		}
+	}
+	return paths
 }
 
 func (s *Service) removeRelease(name string) error {
