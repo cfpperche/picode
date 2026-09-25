@@ -310,3 +310,48 @@ func TestLiveOwnedService(t *testing.T) {
 	}
 	t.Log("verified install, start/restart/stop, failed-version recovery and interruption guard; no models loaded")
 }
+
+// A cleanup's hash runs outside the service lock: while one is in flight the
+// status (Snapshot) still answers, and the review then completes from the
+// hash already taken (2026-09-25; before, GGUF-sized hashes held the lock).
+func TestCleanupHashesOutsideTheLock(t *testing.T) {
+	s := testService(t)
+	configure(t, s)
+	cacheArtifact(t, s, "archive")
+	hashMu.Lock()
+	hashMemo = map[string]hashed{}
+	hashMu.Unlock()
+	entered, release := make(chan struct{}), make(chan struct{})
+	var calls int
+	old := hashFile
+	hashFile = func(path string) (string, int64, error) {
+		calls++
+		if calls == 1 {
+			close(entered)
+			<-release
+		}
+		return hashRegular(path)
+	}
+	t.Cleanup(func() { hashFile = old })
+	done := make(chan error, 1)
+	go func() {
+		_, err := s.Preview(Request{Action: "cleanup", Files: []string{"archive"}, Revision: s.rev})
+		done <- err
+	}()
+	<-entered
+	status := make(chan struct{})
+	go func() { s.Snapshot(); close(status) }()
+	select {
+	case <-status:
+	case <-time.After(2 * time.Second):
+		close(release)
+		t.Fatal("Snapshot waited on a cleanup hash: the lock was held")
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("the file was hashed %d times; the check under the lock must answer from the first", calls)
+	}
+}

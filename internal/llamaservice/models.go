@@ -41,8 +41,13 @@ func (s *Service) modelFiles() ([]string, error) {
 
 // ObserveDownload records only the exact model path returned by our own router,
 // after a tracked download created a new file. Existing/unknown files stay unowned.
+// A download that ended any other way only drops the file list it started with.
 func (s *Service) ObserveDownload(j store.LlamaJob) {
-	if j.Operation != "download" || j.State != "succeeded" {
+	if j.Operation != "download" {
+		return
+	}
+	if j.State != "succeeded" {
+		s.forgetDownload(j.ID)
 		return
 	}
 	s.mu.Lock()
@@ -152,6 +157,21 @@ func (s *Service) ObserveDownload(j store.LlamaJob) {
 	delete(s.doc.Downloads, j.ID)
 	_ = s.save()
 }
+
+// forgetDownload drops a download's starting file list once the download can
+// no longer succeed; nothing is owned from it.
+func (s *Service) forgetDownload(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	if _, ok := s.doc.Downloads[id]; ok {
+		delete(s.doc.Downloads, id)
+		_ = s.save()
+	}
+}
+
 func (s *Service) cacheTarget(name string) (string, string, error) {
 	if model, ok := s.doc.Models[name]; ok {
 		if !strings.HasPrefix(name, "models"+string(filepath.Separator)) || strings.Contains(name, "..") {

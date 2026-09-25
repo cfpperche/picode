@@ -14,6 +14,11 @@ func killProcessGroup(cmd *exec.Cmd) {
 		_ = cmd.Process.Kill()
 	}
 }
+// waitExited has no unreaped wait here; the group kill is a plain kill.
+func waitExited(cmd *exec.Cmd) (reap func() error) {
+	err := cmd.Wait()
+	return func() error { return err }
+}
 func inspectExecutable(ctx context.Context, dir, flag string) ([]byte, error) {
 	return nil, errors.New("Local services require Linux or WSL.")
 }
