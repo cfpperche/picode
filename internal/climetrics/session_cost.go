@@ -25,6 +25,16 @@ type SessionCost struct {
 // MeterSessionFile reads one session file of a CLI that keeps its sessions
 // as files. ok is false for a CLI whose sessions live in a database, or a
 // file that cannot be read: the caller records "not measured", never zero.
+// Metered says whether MeterSessionFile prices this CLI's session files
+// (the automations editor's METERED_CLIS pins the same answer).
+func Metered(cli string) bool {
+	switch cli {
+	case "pi", "claude-code", "codex", "omp", "muse":
+		return true
+	}
+	return false
+}
+
 func MeterSessionFile(cli, path string, prices *pricing.Table) (SessionCost, bool) {
 	st, err := os.Stat(path)
 	if err != nil || st.IsDir() {

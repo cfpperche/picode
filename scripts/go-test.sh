@@ -29,6 +29,19 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# The go tool links every test binary under GOTMPDIR, which defaults to
+# TMPDIR — on the owner's machine a 16 GB tmpfs in memory that several
+# sessions share. On 2026-09-25 it filled (session scratchpads, test temp
+# dirs) and `make ci` on main failed three times at the link step with
+# "no space left on device" while the disk had 772 GB free. Link outputs go
+# to a cache directory on disk instead; a GOTMPDIR set by the caller wins.
+# Test temp dirs (t.TempDir) still follow TMPDIR: tmux sockets live there,
+# and their path length is measured (internal/tmuxtest).
+if [ -z "${GOTMPDIR:-}" ]; then
+  GOTMPDIR="${XDG_CACHE_HOME:-$HOME/.cache}/picode-gotmp"
+  if mkdir -p "$GOTMPDIR" 2>/dev/null; then export GOTMPDIR; else unset GOTMPDIR; fi
+fi
+
 SHARDS=${GO_TEST_SHARDS:-4}
 # Extra flags for every `go test` below. CI passes -race: the race detector
 # makes internal/server take over ten minutes in one process, which is the

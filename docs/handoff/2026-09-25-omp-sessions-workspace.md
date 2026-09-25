@@ -22,4 +22,4 @@ Merge: fast-forward ready.
 
 ## Debts
 
-- internal/server: one unexplained `make ci-scoped` failure on this branch (test name not captured), possibly a flake
+- [x] internal/server: one unexplained `make ci-scoped` failure on this branch (test name not captured). Likely cause, found 2026-09-25: /tmp is a 16 GB tmpfs at 93%; 1 of 6 sharded reruns failed in 6 unrelated tests with `database or disk is full` on SQLite migrations. /tmp cleanup is owned by another session.
