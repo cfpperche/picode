@@ -67,9 +67,8 @@ func main() {
 		log.Fatal(err)
 	}
 	// A dedicated socket per fixture instance (ADR-0139): capture sessions land
-	// in the fixture's own server instead of the owner's tmux, and the
-	// default-socket Manager rides along as the drain.
-	fxTmux := tmux.NewWithSocket(filepath.Join(dataDir, "tmux.sock")).WithLegacy(tmux.New())
+	// in the fixture's own server instead of the owner's tmux.
+	fxTmux := tmux.NewWithSocket(filepath.Join(dataDir, "tmux.sock"))
 
 	// End what the fixture started, however the process leaves: the capture
 	// pipeline kills it (scripts/docs-shots.mjs) and the default disposition
