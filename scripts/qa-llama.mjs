@@ -7,7 +7,7 @@ const base = process.env.PICODE_QA_BASE || 'http://127.0.0.1:18763';
 const fleet = await fetch(base + '/api/workspaces').then(r => r.json());
 assert.ok((Array.isArray(fleet) ? fleet : fleet.workspaces).some(w => /^\/tmp\/picode-docs-fixture-/.test(w.path)), 'isolated fixture required');
 const browser = await chromium.launch({ headless: true, ...(process.env.PICODE_QA_CHROME ? { executablePath: process.env.PICODE_QA_CHROME } : {}) });
-const out = process.env.PICODE_QA_OUT || 'docs/screenshots';
+const out = process.env.PICODE_QA_OUT || 'var/screenshots/llama';
 mkdirSync(out, { recursive: true });
 const evidence = { checks: [], screenshots: [], audits: [] };
 try {
@@ -96,13 +96,9 @@ for (const app of ['desktop', 'mobile']) {
  await shot('light');
  assert.deepEqual(errors, []);
  evidence.checks.push(`${app}: legacy routing, empty/download/search, blocked/error, validation, credential save, cancel without mutation, load keeping others, light theme`);
- await page.goto(base + `/${app}/#/clis/pi/providers`);
- const entry = page.getByRole('link', { name: /^(Manage|Set up llama.cpp)$/ }).first();
- await entry.waitFor(); await entry.scrollIntoViewIfNeeded();
- await shot('providers');
- await entry.click();
- await page.locator('#llama-manager').waitFor();
- evidence.checks.push(`${app}: Providers entry opens manager`);
+ // (The Providers-pane entry to this manager left with Pi's own provider
+ // editor, ADR-0169; the manager is reached from the rail, the palette and
+ // the #/providers/llama alias checked above.)
  await context.close();
 }
 writeFileSync(out + '/llama-qa.json', JSON.stringify(evidence, null, 2) + '\n');
