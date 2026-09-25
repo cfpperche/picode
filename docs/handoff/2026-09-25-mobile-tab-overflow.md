@@ -21,4 +21,4 @@ Noted, not fixed (pre-existing): Backup folder placeholder truncated beside
 Browse/Reveal on the phone; llama nav's selected style is a pill while the
 other bars underline.
 Not done / debts: none.
-Merge: fast-forward ready.
+Merge: landed on main d1b252483; deployed by the owner 2026-09-25.
