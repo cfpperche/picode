@@ -22,4 +22,4 @@ source views and fenced code is unhighlighted in the editor; Live→Split re-mea
 jump; frontmatter, kbd and details stay raw in Live (predates this branch). Links
 in Live need Ctrl/⌘+click, which touch lacks (already a Next item).
 visual-review: PASS
-Gates: `make close` green, main merged in. Next and debts: docs/handoff/open/markdown-preview.md.
+Landed ae962a8d8 (Next/debts: docs/handoff/open/markdown-preview.md). Merge gate: 1st `make ci` failed on clisession TestWriteTextToolsModeAndNeverOverwrites (passes 10/10 isolated; swaps the global session.TestRoot — load flake); 2nd failed because the lockfile change had left web/node_modules without vite (concurrent `npm ci` in the root); one `npm ci`, then green.
