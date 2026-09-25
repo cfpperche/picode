@@ -2,11 +2,11 @@
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-Agent CLIs has CLIs and Messages tabs; a CLI's page hosts Launch, Terminals,
+Agent CLIs has CLIs, Messages and Settings tabs (Settings holds the terminal-wide tmux guard and browser hand-off switches, `#/clis/settings`); a CLI's page hosts Launch, Terminals,
 Sessions, Providers, Settings, Keyboard, Memory, Packages and Connectors panes
 (a run/setup split in the inner tablist). Canonical settings are
 `#/clis/<cli>/settings`. The shared `cliSettings` domain module parses
-canonical/legacy routes; `cliNative` declares which CLIs have a guest editor
+canonical routes; `cliNative` declares which CLIs have a guest editor
 and maps the route's `layer` to the driver's `scope`. Each app owns
 `CliSettings`, the embedded Pi editor and the guest editor; no presentation
 crosses app boundaries. Memory has its own file,

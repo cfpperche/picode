@@ -39,7 +39,7 @@ test("preferences and settings are distinct", () => {
   assert.equal(prefSection("#/preferences/terminal"), "appearance");
   assert.equal(prefSection("#/preferences/backup"), "backup");
   assert.equal(prefSection("#/preferences/landing"), "landing");
-  assert.equal(parseRoute("#/settings"), "clis");
+  assert.equal(parseRoute("#/clis/settings"), "clis");
   assert.equal(ROUTES.preferences, "/preferences");
   assert.equal(ROUTES.settings, "/clis/pi/settings");
   assert.equal(parseRoute("#/providers/new"), "clis");

@@ -128,6 +128,7 @@
 .cli-guard strong { display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .cli-guard p { margin: 4px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
 .cli-guard .rx-switch { flex: none; margin-top: 2px; }
+.cli-guard-empty { margin: 0; padding: 14px 24px; font-size: 13px; color: var(--text-secondary); }
 .cli-guard a { color: var(--accent); text-decoration: none; }
 .cli-guard a:hover { text-decoration: underline; }
 .cli-guard .cli-notice { margin: 10px 0 0; }

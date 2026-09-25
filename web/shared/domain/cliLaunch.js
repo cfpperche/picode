@@ -98,13 +98,8 @@ export function cliLocation(hash = "", legacy = {}) {
   if (packages) return packages;
   const keys = cliKeysLocation(hash);
   if (keys) return keys;
-  const settings = cliSettingsLocation(hash, legacy.agentId || "");
-  if (settings) {
-    // The keyboard map left the settings sub-tab row (2026-09-12): a bookmark
-    // from that day, or a link still carrying `?tab=keys`, lands on the pane.
-    if (settings.keysTab) return { ...settings, keysTab: false, redirect: cliPaneHash(settings.id, "keyboard") };
-    return settings;
-  }
+  const settings = cliSettingsLocation(hash);
+  if (settings) return settings;
   const connectors = cliConnectorsLocation(hash, legacy.packageContext || {});
   if (connectors) return connectors;
   const [path, query] = hash.split("?");
@@ -119,6 +114,10 @@ export function cliLocation(hash = "", legacy = {}) {
   if (parts[1] === "new") return { view: "new", id: decode(parts[2]), ...(params.get("profile") ? { profile: params.get("profile") } : {}), ...(params.get("workspace") ? { workspace: params.get("workspace") } : {}) };
   if (parts[1] === "terminal") return { view: "terminal", id: decode(parts[2]) };
   if (parts[1] === "messages") return { view: "messages", id: decode(parts[2]) };
+  // The terminal-wide switches (tmux guard, browser hand-off) have their own
+  // tab: they are not settings of any one CLI, whose pane is
+  // `#/clis/<cli>/settings`.
+  if (parts[1] === "settings") return { view: "settings", id: "" };
   // The general Terminals tab left the Agent CLIs view on 2026-09-11: a CLI's
   // own Terminals pane is the one list. The old address resolves to the
   // catalog at once and the view rewrites the hash to #/clis.

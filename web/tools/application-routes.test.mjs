@@ -10,10 +10,15 @@ test("CLI routes and old preferences reach both application managers", () => {
   }
 });
 
-test("native settings and legacy URLs reach the CLI manager on both applications", () => {
-  for (const hash of ["#/settings", "#/more/settings", "#/settings?agentId=A", "#/clis/settings", "#/clis/settings/pi?agentId=A", "#/clis/settings/codex"]) {
+test("native settings and the Settings tab reach the CLI manager on both applications", () => {
+  for (const hash of ["#/clis/settings", "#/clis/pi/settings?agentId=A", "#/clis/codex/settings"]) {
     assert.equal(parseRoute(hash), "clis", hash);
     assert.equal(mobileRoute(hash).section, "clis", hash);
+  }
+  // The Pi-era settings addresses were retired on 2026-09-24.
+  for (const hash of ["#/settings", "#/more/settings"]) {
+    assert.notEqual(parseRoute(hash), "clis", hash);
+    assert.notEqual(mobileRoute(hash).section, "clis", hash);
   }
 });
 
