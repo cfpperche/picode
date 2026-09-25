@@ -59,13 +59,12 @@ test("retired package and connector addresses no longer name Pi's pane", () => {
   }
 });
 
-test("legacy Sessions tab addresses rewrite onto the selected CLI's pane (ADR-0079)", () => {
-  assert.deepEqual(cliLocation("#/clis/sessions"), { view: "clis", id: "pi", pane: "sessions", redirect: "#/clis/pi/sessions" });
-  assert.deepEqual(cliLocation("#/clis/sessions/ws-9"), { view: "clis", id: "pi", pane: "sessions", workspace: "ws-9", redirect: "#/clis/pi/sessions/ws-9" });
-  assert.deepEqual(cliLocation("#/clis/sessions?cli=codex"), { view: "clis", id: "codex", pane: "sessions", redirect: "#/clis/codex/sessions" });
-  assert.deepEqual(cliLocation("#/clis/sessions/ws-9?cli=claude-code"), { view: "clis", id: "claude-code", pane: "sessions", workspace: "ws-9", redirect: "#/clis/claude-code/sessions/ws-9" });
-  assert.deepEqual(cliLocation("#/sessions"), { view: "clis", id: "pi", pane: "sessions", redirect: "#/clis/pi/sessions" });
-  assert.deepEqual(cliLocation("#/sessions/ws-9"), { view: "clis", id: "pi", pane: "sessions", workspace: "ws-9", redirect: "#/clis/pi/sessions/ws-9" });
+test("Sessions live on the CLI's pane; the Pi-era addresses are retired (ADR-0079)", () => {
+  assert.deepEqual(cliLocation("#/clis/codex/sessions/ws-9"), { view: "clis", id: "codex", pane: "sessions", workspace: "ws-9" });
+  // #/sessions* and #/clis/sessions* stopped naming Pi's pane on 2026-09-25.
+  for (const hash of ["#/sessions", "#/sessions/ws-9", "#/clis/sessions", "#/clis/sessions?cli=codex"]) {
+    assert.notEqual(cliLocation(hash).pane, "sessions", hash);
+  }
 });
 
 test("launch overrides inherit untouched fields and preserve explicit clearing", () => {
