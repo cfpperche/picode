@@ -1,7 +1,7 @@
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { json } from "@codemirror/lang-json";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { go } from "@codemirror/lang-go";
@@ -24,7 +24,8 @@ export function languageFor(path) {
       return json();
     case ".md":
     case ".mdx":
-      return markdown();
+      // GFM: tables, task lists and strikethrough are part of the grammar.
+      return markdown({ base: markdownLanguage });
     case ".html":
     case ".htm":
       return html();
