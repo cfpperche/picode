@@ -41,6 +41,8 @@ func registerCLISessionRoutes(mux Registrar, deps Deps) {
 //	malformed or undeclared files           → skipped, never a 500
 //	session cwd matches a PiCode workspace  → tagged workspaceId/workspace
 //	pi rows                                 → inUseBy + cleanupDays ride along
+//	omp row an Omp agent is pinned to       → inUseBy (that agent)
+//	omp ?workspace=                         → cwd bucket + the workspace's Omp agents' folders
 //	session was handed off / came from one  → handoff.{to,from} (ADR-0088)
 func handleCLISessions(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -68,6 +70,8 @@ func handleCLISessions(deps Deps) http.HandlerFunc {
 		switch {
 		case cli.ID == "pi" && wk != nil:
 			rows, err = clisession.PIDirs(workspaceSessionDirs(deps, *wk)...)
+		case cli.ID == "omp" && wk != nil:
+			rows, err = clisession.OmpWorkspace(wk.Path, workspaceOmpAgentDirs(deps, *wk)...)
 		default:
 			cwd := r.URL.Query().Get("cwd")
 			if wk != nil {
@@ -80,7 +84,13 @@ func handleCLISessions(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		use := sessionUseBy(deps)
+		var use map[string]sessionUse
+		switch cli.ID {
+		case "pi":
+			use = sessionUseBy(deps)
+		case "omp":
+			use = ompSessionUseBy(deps)
+		}
 		wss, err := deps.Store.ListWorkspaces()
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -92,10 +102,8 @@ func handleCLISessions(deps Deps) http.HandlerFunc {
 		for _, s := range rows {
 			total += s.Size
 			v := cliSessionView{Summary: s, Handoff: lineage[[2]string{cli.ID, s.ID}]}
-			if cli.ID == "pi" {
-				if u, inUse := use[s.Path]; inUse {
-					v.InUseBy = &u
-				}
+			if u, inUse := use[s.Path]; inUse && s.Path != "" {
+				v.InUseBy = &u
 			}
 			for _, w := range wss {
 				if w.Path != "" && w.Path == s.Cwd {

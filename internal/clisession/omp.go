@@ -93,6 +93,42 @@ func OmpAgentSessionsRoot(dataDir string) string {
 	return filepath.Join(dataDir, "omp-sessions")
 }
 
+// OmpWorkspace lists a workspace's Omp sessions: the cwd bucket under
+// omp's own root plus every session in the given per-agent directories
+// (the workspace's Omp agents, under OmpAgentSessionsRoot). An agent's
+// sessions belong to the workspace whatever folder they ran in, the same
+// union pi's workspace scope makes (ADR-0040).
+func OmpWorkspace(cwd string, agentDirs ...string) ([]Summary, error) {
+	out, err := OmpSource{}.List(cwd)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	for _, s := range out {
+		seen[s.Path] = true
+	}
+	for _, dir := range agentDirs {
+		// Only the files omp writes at the top of --session-dir; the
+		// sibling folder named after each session holds its artifacts.
+		ents, _ := os.ReadDir(dir)
+		for _, e := range ents {
+			f := filepath.Join(dir, e.Name())
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") || seen[f] {
+				continue
+			}
+			if s, ok := scanOmpFile(f); ok {
+				// omp looks an id up only in its own root; a file under
+				// PiCode's agent tree resumes by its exact path.
+				s.ResumeArgs = []string{"--resume", f}
+				seen[f] = true
+				out = append(out, s)
+			}
+		}
+	}
+	sortNewest(out)
+	return out, nil
+}
+
 // ompReadable: path is a session file under omp's own root or under one of
 // the extra roots a caller vouches for (Ref.Roots).
 func ompReadable(path string, roots []string) bool {
