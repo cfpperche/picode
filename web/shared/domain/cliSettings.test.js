@@ -23,14 +23,16 @@ test("native settings routes preserve identity, legacy context and explicit glob
 });
 
 test("the edited layer survives a reload, and guesses are dropped", () => {
-  assert.equal(cliSettingsHash("pi", { agentId: "A", layer: "project" }), "#/clis/pi/settings?agentId=A&layer=project");
+  assert.equal(cliSettingsHash("pi", { agentId: "A", layer: "project" }), "#/clis/pi/settings?agentId=A&scope=workspace");
   assert.equal(cliSettingsHash("pi", { layer: "root" }), "#/clis/pi/settings");
   const round = cliSettingsLocation("#/clis/pi/settings?agentId=A&layer=agent");
   assert.equal(round.layer, "agent");
   assert.equal(round.view, "clis");
-  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=user").layer, "");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=root").layer, "");
+  // user is Global in the shared scope words (scopes.js).
+  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=user").layer, "global");
   // A legacy link keeps the layer it was opened with.
-  assert.equal(cliSettingsLocation("#/settings?layer=project", "A").redirect, "#/clis/pi/settings?agentId=A&layer=project");
+  assert.equal(cliSettingsLocation("#/settings?layer=project", "A").redirect, "#/clis/pi/settings?agentId=A&scope=workspace");
 });
 
 // | workspaceId in hash | selected agent | parser |
@@ -40,7 +42,7 @@ test("the edited layer survives a reload, and guesses are dropped", () => {
 // | invalid later       | —              | still the same id; lookup fails separately |
 test("a settings workspace deep link keeps workspaceId and infers no agent", () => {
   const hash = cliSettingsHash("pi", { workspaceId: "w /&", layer: "project" });
-  assert.equal(hash, "#/clis/pi/settings?workspaceId=w+%2F%26&layer=project");
+  assert.equal(hash, "#/clis/pi/settings?workspaceId=w+%2F%26&scope=workspace");
   const route = cliSettingsLocation(hash, "A");
   assert.equal(route.workspaceId, "w /&");
   assert.equal(route.agentId, "");
@@ -65,7 +67,7 @@ test("the keyboard map is a pane of its own, and its sub-tab links still land", 
   const scoped = cliLocation("#/clis/pi/keyboard?agentId=A&layer=project");
   assert.equal(scoped.agentId, "A");
   assert.equal(scoped.layer, "project");
-  assert.equal(cliLocation("#/clis/pi/keyboard?layer=user").layer, "", "a guessed layer is dropped");
+  assert.equal(cliLocation("#/clis/pi/keyboard?layer=root").layer, "", "a guessed layer is dropped");
   assert.equal(cliLocation("#/clis/pi/keyboard/extra").invalid, true, "no path after the pane");
   // The sub-tab that lived inside Settings until 2026-09-12 redirects there,
   // keeping whatever else the link carried.

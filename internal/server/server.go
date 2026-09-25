@@ -113,6 +113,7 @@ func (d Deps) usageClient() *usage.Client {
 // New builds the picode *http.Server. Addr handling stays with the caller
 // (cmd/picode) so tests can bind :0.
 func New(addr string, deps Deps) *http.Server {
+	installUsageHooks()
 	mux := http.NewServeMux()
 	if deps.CLIs == nil {
 		deps.CLIs = newCLITerminals()

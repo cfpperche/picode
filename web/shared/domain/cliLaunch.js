@@ -3,8 +3,8 @@ import { cliPackagesLocation } from "./cliPackages.js";
 import { cliKeysLocation, cliSettingsLocation } from "./cliSettings.js";
 import { cliConnectorsLocation } from "./integrations.js";
 import { supportsCliModels } from "./cliModels.js";
-import { cliSkillsQuery } from "./cliSkills.js";
-import { scopeKind } from "./scopeIcon.js";
+import { cliSkillsHash, cliSkillsQuery } from "./cliSkills.js";
+import { LAYER_WORDS, MEMORY_WORDS, MODEL_WORDS, PACKAGE_WORDS, readScope, writeScope } from "./scopes.js";
 
 const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "models", "settings", "keyboard", "memory", "packages", "skills", "connectors"]);
 
@@ -48,36 +48,22 @@ export function cliPaneSetupContext(route = {}, legacy = {}) {
   return {
     workspaceId: route.workspaceId || legacy.workspaceId || "",
     agentId: route.agentId || legacy.agentId || "",
-    scope: route.scope || "user",
+    // The shared scope word (scopes.js), only when the address named one: a
+    // pane's own default never travels as if it had been chosen.
+    scope: route.scopeKind || "",
     focus: route.focus || "",
     // The settings layer rides along: the pane rewrites the hash to carry the
     // selected agent, and a rewrite that dropped the layer looked like a pill
     // click that did nothing (2026-09-12).
-    layer: route.layer || "",
+    layer: LAYER_WORDS[route.scopeKind] || "",
   };
-}
-
-// Each setup pane names the same three scopes its own way: Packages and
-// Connectors user/project/agent, Skills machine/workspace/agent, Memory
-// global/workspace. A tab link carries the scope into the next pane in that
-// pane's words; carried raw, Skills' "workspace" made the Packages and
-// Connectors links invalid (2026-09-24). A scope the pane lacks is dropped.
-const PANE_SCOPES = {
-  packages: { global: "user", workspace: "project", agent: "agent" },
-  connectors: { global: "user", workspace: "project", agent: "agent" },
-  skills: { global: "machine", workspace: "workspace", agent: "agent" },
-  memory: { global: "global", workspace: "workspace" },
-};
-
-export function paneScope(pane, scope) {
-  return (PANE_SCOPES[pane] || {})[scopeKind(scope)] || "";
 }
 
 // The Models pane's address: its workspace and the layer being edited.
 export function cliModelsHash(cli, { workspaceId = "", layer = "" } = {}) {
   const q = new URLSearchParams();
   if (workspaceId) q.set("workspaceId", workspaceId);
-  if (layer === "global" || layer === "project") q.set("layer", layer);
+  if (layer === "global" || layer === "project") writeScope(q, layer, { keepGlobal: true });
   const qs = q.toString();
   return "#/clis/" + encodeURIComponent(cli) + "/models" + (qs ? "?" + qs : "");
 }
@@ -159,12 +145,17 @@ export function cliLocation(hash = "", legacy = {}) {
     // The catalog is read in a workspace and the lists are written to a layer,
     // so both ride the address; a path after the pane is not a link we made.
     loc.workspaceId = params.get("workspaceId") || "";
-    loc.layer = params.get("layer") === "project" ? "project" : params.get("layer") === "global" ? "global" : "";
+    const read = readScope(params, MODEL_WORDS, { legacyKey: "layer" });
+    loc.layer = read.value;
+    if (read.kind) loc.scopeKind = read.kind;
     if (parts[3]) loc.invalid = true;
+    else if (read.alias && read.value) loc.redirect = cliModelsHash(cli, { workspaceId: loc.workspaceId, layer: read.value });
   }
   if (pane === "memory") {
     loc.workspaceId = params.get("workspaceId") || "";
-    loc.scope = params.get("scope") === "workspace" || params.get("scope") === "global" ? params.get("scope") : "";
+    const read = readScope(params, MEMORY_WORDS);
+    loc.scope = read.value;
+    if (read.kind) loc.scopeKind = read.kind;
   }
   if (pane === "settings") {
     loc.agentId = params.get("agentId") || "";
@@ -179,9 +170,11 @@ export function cliLocation(hash = "", legacy = {}) {
     loc.pkg = rest[0] === "config" && rest[1] ? rest[1] : "";
     loc.workspaceId = params.get("workspaceId") || "";
     loc.agentId = params.get("agentId") || "";
-    loc.scope = params.get("scope") || "user";
+    const read = readScope(params, PACKAGE_WORDS);
+    loc.scope = read.value || "user";
+    if (read.kind) loc.scopeKind = read.kind;
     if ((rest[0] && rest[0] !== "config") || rest[0] === "config" && !rest[1] || rest.length > 2) loc.invalid = true;
-    if (!["user", "project", "agent"].includes(loc.scope)) loc.invalid = true;
+    if (read.invalid) loc.invalid = true;
   }
   if (pane === "skills") {
     // What the CLI loads (ADR-0196): read in a workspace, shown by scope.
@@ -189,14 +182,18 @@ export function cliLocation(hash = "", legacy = {}) {
     loc.workspaceId = q.workspaceId;
     loc.agentId = q.agentId;
     loc.scope = q.scope;
+    if (q.scopeKind) loc.scopeKind = q.scopeKind;
     if (q.invalid || parts[3]) loc.invalid = true;
+    else if (q.alias) loc.redirect = cliSkillsHash(cli, q);
   }
   if (pane === "connectors") {
     loc.workspaceId = params.get("workspaceId") || "";
     loc.agentId = params.get("agentId") || "";
-    loc.scope = params.get("scope") || "user";
+    const read = readScope(params, PACKAGE_WORDS);
+    loc.scope = read.value || "user";
+    if (read.kind) loc.scopeKind = read.kind;
     if (parts[3]) loc.invalid = true;
-    if (!["user", "project", "agent"].includes(loc.scope)) loc.invalid = true;
+    if (read.invalid) loc.invalid = true;
   }
   if (panePart === "launch" && parts[2]) loc.redirect = cliPaneHash(cli, "launch");
   return loc;
