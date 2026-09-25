@@ -132,13 +132,25 @@
 .cli-guard a:hover { text-decoration: underline; }
 .cli-guard .cli-notice { margin: 10px 0 0; }
 @media (max-width: 767px) {
+  /* The phone page already has its gutter (.settings-wrap, --m-pad): the
+     blocks inside add no side padding of their own, or the content ends up
+     30px from each edge (owner, 2026-09-25: "muito estreita"). */
   .cli-layout { display: block; }
-  .cli-catalog { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border-right: 0; border-bottom: 1px solid var(--border); padding: 8px; }
+  .cli-catalog { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border-right: 0; border-bottom: 1px solid var(--border); padding: 8px 0; }
   .cli-catalog a { padding: 10px; gap: 8px; }
   .cli-catalog a > svg { display: none; }
-  .cli-detail, .cli-editor { padding: 16px; }
-  .cli-tabs-frame { padding: 0 16px; }
-  .cli-guard { padding: 14px 16px; }
+  /* The face's desktop -6px pull left it 4px from the selected tile's edge. */
+  .cli-catalog a .ws-face { margin-left: 0; }
+  .cli-detail, .cli-editor { padding: 16px 0; }
+  /* A setting row keeps its 2px "overridden" lane, hung in the page gutter
+     so its label lines up with the headings instead of sitting 10px in. */
+  #cli-settings-view .set-row, #cli-models-view .set-row { margin-left: -10px; }
+  .cli-tabs-frame { padding: 0; }
+  .cli-guard { padding: 14px 0; }
+  .cli-guard-empty { padding: 14px 0; }
+  .cli-settings-body { padding: 0 0 16px; }
+  .cli-loading { padding: 16px 0; }
+  .cli-page > .settings-wrap > .settings-card > .cli-notice { margin: 16px 0; }
   .cli-heading { gap: 12px; }
   .cli-heading > .cli-actions { width: 100%; }
   .cli-heading > .cli-actions .btn { flex: 1; }
