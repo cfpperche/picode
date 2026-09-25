@@ -142,7 +142,7 @@ func (a tmuxApp) sessionsView(ctx context.Context, h Host) (View, error) {
 		return v, err
 	}
 
-	v.Tabs[1].Badge = strconv.Itoa(len(sessions))
+	v.Tabs[1].Badge = countBadge(len(sessions))
 
 	yours := ListBlock("PiCode", "tmux-group:yours", "Every terminal and agent PiCode is running, live in tmux.")
 	leftovers := ListBlock("Not in PiCode's records", "tmux-group:unclaimed",
@@ -174,7 +174,7 @@ func (a tmuxApp) sessionsView(ctx context.Context, h Host) (View, error) {
 	yours.Meta = tmuxGroupMeta(yours.Items)
 	leftovers.Meta = tmuxGroupMeta(leftovers.Items)
 	foreign.Meta = tmuxGroupMeta(foreign.Items)
-	v.Tabs[0].Badge = strconv.Itoa(len(sessions))
+	v.Tabs[0].Badge = countBadge(len(sessions))
 
 	v.Blocks = []Block{}
 	if info.Running && len(sessions) == 0 {
@@ -526,6 +526,15 @@ func tmuxAbsent(h Host, sessions []tmux.ServerSession) []tmux.AbsentTerminal {
 	return out
 }
 
+// countBadge is a tab's count badge: nothing at zero, since a "0" pill
+// says nothing the empty tab does not (AGENTS.md: never a "0" badge).
+func countBadge(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	return strconv.Itoa(n)
+}
+
 func tmuxTabs() []Tab {
 	return []Tab{
 		{ID: "sessions", Label: "Sessions", Path: ""},
@@ -585,8 +594,7 @@ func (a tmuxApp) socketsView(ctx context.Context, h Host) (View, error) {
 		}
 		block.Items = append(block.Items, item)
 	}
-	block.Meta = []string{fmt.Sprintf("%d socket(s)", len(socks))}
-	v.Tabs[2].Badge = strconv.Itoa(running)
+	v.Tabs[2].Badge = countBadge(running)
 	v.Blocks = []Block{block}
 	return v, nil
 }
