@@ -38,12 +38,6 @@ export function statusSegments(bar) {
   return out;
 }
 
-export function fmtElapsed(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(s / 60);
-  return m + ":" + String(s % 60).padStart(2, "0");
-}
-
 export function formatSessionCost(n) {
   if (n == null || !(Number(n) > 0)) return "";
   return "$" + Number(n).toFixed(2);

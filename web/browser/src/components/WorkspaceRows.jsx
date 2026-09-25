@@ -412,24 +412,6 @@ export function TermRow({
   );
 }
 
-// The agent's internal checklist as one operator line (ADR-0055): the
-// current step with its position. Nothing known, and an absent marker (the
-// contract was not met), both render nothing — silence is not absence and
-// absence is not worth a line (ADR-0092, owner refinement). No parens
-// around the counter — this is a list row, not a terminal (owner refinement,
-// docs/plans/sidebar-checklist-expand.md). The terminal pane does not
-// repeat this line (ADR-0081 amendment 2026-09-07).
-export function ChecklistLine({ line }) {
-  const progress = checklistProgress(line);
-  if (!progress) return null;
-  return (
-    <div className="ws-check" title={progress.pos + " · " + progress.text}>
-      <span className="ws-check-text">{progress.text}</span>
-      <span className="ws-check-pos">{progress.pos}</span>
-    </div>
-  );
-}
-
 // The same plan as a disclosure (docs/plans/sidebar-checklist-expand.md):
 // collapsed it is the operator line; expanded it lists every step — ☑ on
 // finished ones, the braille spinner on the step being executed, ☐ on the

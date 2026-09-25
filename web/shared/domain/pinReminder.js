@@ -31,8 +31,6 @@ export function browserZone() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; }
 }
 
-export const REMINDER_UNITS = Object.freeze(["hours", "days"]);
-
 // buildReminder turns the picker's form into the request body. Nothing is
 // preset: the person names the date and time, or the cadence.
 //   form: { mode: "once" | "repeat", at: "YYYY-MM-DDTHH:MM" | Date,

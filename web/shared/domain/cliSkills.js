@@ -12,10 +12,6 @@ export function supportsCliSkills(cli) {
   return SKILLS_CLIS.includes(cli);
 }
 
-// The scopes, in the order every setup pane uses (Packages, Memory): Global,
-// then the workspace, then the agent where the CLI loads a per-agent list.
-export const SKILL_SCOPES = ["machine", "workspace", "agent"];
-
 export function cliSkillsHash(cli, { workspaceId = "", agentId = "", scope = "" } = {}) {
   const q = new URLSearchParams();
   if (workspaceId) q.set("workspaceId", workspaceId);

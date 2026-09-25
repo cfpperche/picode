@@ -26,16 +26,6 @@ const str = (v) => (typeof v === "string" ? v : "");
 // a terminal id (docs/architecture/canvas.md, *The contact union*).
 export const peerKey = (kind, ref) => str(kind) + ":" + str(ref);
 
-// Why an end grants nothing, worst first. `on` is the only state that does.
-//
-//   gone     the session itself is gone from the fleet; its connection
-//            cascaded with it
-//   off      never enrolled, or the enrolment was revoked and forgotten
-//   revoked  the owner revoked it in the Messages view
-//   stale    enrolled, not revoked, but the recorded session moved —
-//            ADR-0104 invalidates it and this ADR does not soften that
-export const END_STATES = Object.freeze(["on", "stale", "revoked", "off", "gone"]);
-
 // peerIndex({owners, connections}) -> Map key -> { owner, connection, state,
 // label, workspaceId }. One pass over the payload `GET /api/communication`
 // answers. A session may hold several connection rows (re-enrolling makes a

@@ -436,10 +436,6 @@ export function setDefaultInBody(body, name, value, optional) {
   return s;
 }
 
-export function userPlaceholderNames(placeholders) {
-  return (placeholders || []).map((p) => p.name || p).filter((n) => n && !RESERVED.has(n));
-}
-
 // D4: "see /snip:review please" + "look at PR 1" → "see look at PR 1 please"
 export function replaceSnipToken(draft, slug, expanded) {
   const s = String(draft || "");

@@ -37,10 +37,6 @@ export function pushBlockedReason(env) {
   return "";
 }
 
-export function pushSupported() {
-  return pushBlockedReason() === "";
-}
-
 async function registration() {
   const reg = await navigator.serviceWorker.getRegistration();
   if (reg) return reg;

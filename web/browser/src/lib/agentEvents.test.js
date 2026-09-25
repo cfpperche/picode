@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { reduceAgentEvent, initialAgentState, markSent, markUndelivered, markAborted } from "./agentEvents.js";
+import { reduceAgentEvent, initialAgentState } from "./agentEvents.js";
 
 function run(events, start = initialAgentState) {
   let state = start;
@@ -214,30 +214,5 @@ describe("reduceAgentEvent", () => {
     const { state, effects } = run([{ type: "whatever" }]);
     assert.deepEqual(state, initialAgentState);
     assert.deepEqual(effects, []);
-  });
-});
-
-describe("local transitions", () => {
-  it("markSent is optimistic only when the agent is idle", () => {
-    const idle = markSent(initialAgentState, { kind: "prompt", text: "hi", ts: 5, busy: false });
-    assert.equal(idle.streaming, true);
-    assert.equal(idle.items.at(-1).chip, "prompt");
-    const busy = markSent({ ...initialAgentState, waiting: true, status: "waiting" }, { kind: "follow_up", text: "later", ts: 6, busy: true });
-    assert.equal(busy.streaming, false);
-    assert.equal(busy.status, "waiting");
-  });
-  it("markUndelivered annotates the bubble and stops the optimistic turn", () => {
-    const s = markUndelivered(markSent(initialAgentState, { kind: "prompt", text: "hi", ts: 5, busy: false }), 5, "offline");
-    assert.match(s.items.at(-1).text, /not delivered: offline/);
-    assert.equal(s.streaming, false);
-  });
-  it("markAborted drops queued steers and closes cards", () => {
-    const start = run([{ type: "agent_start" }, ask]).state;
-    const withSteer = { ...start, items: [...start.items, { kind: "block", cls: "user", chip: "steer", text: "x" }] };
-    const s = markAborted(withSteer);
-    assert.equal(s.streaming, false);
-    assert.equal(s.waiting, false);
-    assert.equal(s.items.find((it) => it.chip === "steer").dropped, true);
-    assert.equal(s.items.find((it) => it.kind === "ask").status, "cancelled");
   });
 });

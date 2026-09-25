@@ -188,24 +188,3 @@ export function reduceAgentEvent(state, ev, now = Date.now()) {
       return { state: s, effects: [] };
   }
 }
-
-// Local (not event-driven) transitions the hook needs, kept here so the
-// tests cover them beside the events they interleave with.
-export function markSent(state, { kind, text, images, ts, busy }) {
-  const item = { kind: "block", cls: "user", actor: "You", chip: kind, text, images: images || [], ts };
-  return { ...state, items: [...state.items, item], pendingPayload: "", streaming: busy ? state.streaming : true, status: busy ? state.status : "streaming" };
-}
-
-export function markUndelivered(state, ts, reason) {
-  const items = state.items.map((it) => (it.kind === "block" && it.cls === "user" && it.ts === ts
-    ? { ...it, text: it.text + "\n\n— not delivered: " + reason }
-    : it));
-  return { ...state, items, streaming: false, status: statusOf(false, state.waiting) };
-}
-
-export function markAborted(state) {
-  const items = cancelOpenAsks(state.items).map((it) => (
-    it.kind === "block" && it.cls === "user" && it.chip === "steer" && !it.dropped ? { ...it, dropped: true } : it
-  ));
-  return { ...state, items, streaming: false, waiting: false, status: "idle" };
-}

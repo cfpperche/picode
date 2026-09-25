@@ -131,10 +131,6 @@ export function plainNotice(text, kind) {
   return normalizeNotice({ level: KIND_LEVEL[kind] || "error", title: text });
 }
 
-export function noticeKey(n) {
-  return (n && n.key) || "";
-}
-
 // How long the notice lives. `base` is the user's Duration preference.
 export function noticeDuration(n, base = 4000) {
   const ms = Math.max(1000, Number(base) || 4000);
