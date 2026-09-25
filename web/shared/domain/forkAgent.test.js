@@ -24,13 +24,7 @@ test("forkWorktreePath finds the folder once git made it", () => {
   assert.equal(forkWorktreePath(null, "fix"), "");
 });
 
-test("forkRequest sends staged files inline and folder picks as paths", () => {
-  const body = forkRequest({
-    name: " fix ",
-    text: "do it",
-    workPath: "/r/.worktrees/fix",
-    items: [{ id: "1", name: "a.png", mime: "image/png", data: "QQ==", url: "data:…" }, { id: "2", name: "b.go", path: "internal/b.go" }],
-  });
-  assert.deepEqual(body, { name: "fix", prompt: "do it", workPath: "/r/.worktrees/fix", files: [{ name: "a.png", mime: "image/png", data: "QQ==" }], paths: ["internal/b.go"] });
-  assert.deepEqual(forkRequest({ name: "x", text: "", items: [] }), { name: "x", prompt: "" });
+test("forkRequest carries a name and, for a worktree, its folder — no task", () => {
+  assert.deepEqual(forkRequest({ name: " fix ", workPath: "/r/.worktrees/fix" }), { name: "fix", workPath: "/r/.worktrees/fix" });
+  assert.deepEqual(forkRequest({ name: "x" }), { name: "x" });
 });

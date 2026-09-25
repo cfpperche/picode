@@ -783,34 +783,32 @@ func TestPromptArgs(t *testing.T) {
 	}
 }
 
+// A fork opens the copy waiting; no recipe carries a task (owner,
+// 2026-09-25: the person gives the fork its task in the new session).
 func TestForkArgs(t *testing.T) {
 	src := Ref{ID: "s1", Path: "/sessions/s1.jsonl"}
 	cases := []struct {
-		cli    string
-		prompt string
-		want   Fork
+		cli  string
+		want Fork
 	}{
-		{"claude-code", "do it", Fork{Args: []string{"--resume", "s1", "--fork-session", "--session-id", "new", "do it"}, ID: "new", ResumeArgs: []string{"--resume", "new"}}},
-		{"claude-code", "", Fork{Args: []string{"--resume", "s1", "--fork-session", "--session-id", "new"}, ID: "new", ResumeArgs: []string{"--resume", "new"}}},
-		{"grok", "do it", Fork{Args: []string{"--resume", "s1", "--fork-session", "--session-id", "new", "do it"}, ID: "new", ResumeArgs: []string{"--resume", "new"}}},
-		{"codex", "do it", Fork{Args: []string{"fork", "s1", "do it"}}},
-		{"codex", "", Fork{Args: []string{"fork", "s1"}}},
-		{"opencode", "do it", Fork{Args: []string{"--session", "s1", "--fork", "--prompt", "do it"}}},
-		{"opencode", "", Fork{Args: []string{"--session", "s1", "--fork"}}},
-		{"omp", "do it", Fork{Args: []string{"--fork", "/sessions/s1.jsonl", "do it"}}},
+		{"claude-code", Fork{Args: []string{"--resume", "s1", "--fork-session", "--session-id", "new"}, ID: "new", ResumeArgs: []string{"--resume", "new"}}},
+		{"grok", Fork{Args: []string{"--resume", "s1", "--fork-session", "--session-id", "new"}, ID: "new", ResumeArgs: []string{"--resume", "new"}}},
+		{"codex", Fork{Args: []string{"fork", "s1"}}},
+		{"opencode", Fork{Args: []string{"--session", "s1", "--fork"}}},
+		{"omp", Fork{Args: []string{"--fork", "/sessions/s1.jsonl"}}},
 	}
 	for _, c := range cases {
 		f, ok := ForkerFor(c.cli)
 		if !ok {
 			t.Fatalf("%s has no forker", c.cli)
 		}
-		if got := f.ForkArgs(src, c.prompt, "new"); !reflect.DeepEqual(got, c.want) {
-			t.Errorf("%s %q: %+v", c.cli, c.prompt, got)
+		if got := f.ForkArgs(src, "new"); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: %+v", c.cli, got)
 		}
 	}
 	// omp without a file falls back to the id prefix.
 	f, _ := ForkerFor("omp")
-	if got := f.ForkArgs(Ref{ID: "s1"}, "", "new"); !reflect.DeepEqual(got.Args, []string{"--fork", "s1"}) {
+	if got := f.ForkArgs(Ref{ID: "s1"}, "new"); !reflect.DeepEqual(got.Args, []string{"--fork", "s1"}) {
 		t.Errorf("omp by id: %v", got.Args)
 	}
 	// No fork from the command line (Hermes, Antigravity: in-TUI only), and

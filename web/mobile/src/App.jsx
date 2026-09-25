@@ -491,9 +491,7 @@ export default function MobileApp() {
     const next = res && res.terminal;
     if (next && next.launchError) { toastError(new Error(next.launchError)); return; }
     if (forked) {
-      toast.ok((forked.name || "The fork") + (res.task === "pending"
-        ? " is starting on a copy of the conversation. Its task is sent as soon as it is ready."
-        : " is starting on a copy of the conversation."));
+      toast.ok((forked.name || "The fork") + " is starting on a copy of the conversation. Give it its task there.");
     }
     if (next && next.id) openTerm(next.id);
   }

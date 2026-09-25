@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/session"
@@ -17,12 +16,8 @@ import (
 // Fork agent… for Pi (agent_fork_pi.go): pi's own --fork writes the copy in
 // the new agent's private folder before its first start; the agent owns the
 // copy (SessionPath), so its launch reopens it with --session and never
-// carries --fork; the task waits for the prompt door; lineage is recorded.
+// carries --fork; it opens waiting; lineage is recorded.
 func TestForkAgentPiForksIntoTheNewAgentsFolder(t *testing.T) {
-	oldWait, oldEvery := forkTaskWait, forkTaskEvery
-	forkTaskWait, forkTaskEvery = 2*time.Second, 300*time.Millisecond
-	t.Cleanup(func() { forkTaskWait, forkTaskEvery = oldWait, oldEvery })
-
 	ts, deps, _, home := handoffServer(t)
 	proj := filepath.Join(t.TempDir(), "proj")
 	if err := os.MkdirAll(proj, 0o755); err != nil {
@@ -70,15 +65,12 @@ exec cat
 	}
 	_ = os.Remove(out + ".args")
 
-	res := cliRequestFull(t, ts, "POST", "/api/agents/"+srcID+"/fork-agent", map[string]any{"name": "pi fork", "prompt": "first line\nsecond line"})
+	res := cliRequestFull(t, ts, "POST", "/api/agents/"+srcID+"/fork-agent", map[string]any{"name": "pi fork"})
 	if res["status"] != "201" {
 		t.Fatalf("fork: %v", res)
 	}
 	body := res["body"].(map[string]any)
 	cleanupTerm(t, body)
-	if body["task"] != "pending" {
-		t.Fatalf("task = %v, want pending", body["task"])
-	}
 	forkRun := strings.Split(strings.TrimSpace(string(waitCLIFile(t, out+".fork"))), "\n")
 	if canonDir(forkRun[0]) != canonDir(proj) || !slices.Contains(forkRun, src) || !slices.Contains(forkRun, "--no-extensions") {
 		t.Fatalf("fork run = %q", forkRun)

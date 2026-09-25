@@ -25,7 +25,7 @@ import (
 // answers in under a second, also while the source is open in a TUI; the
 // copy opens with `muse resume <id>` (1.3.0 refuses the older `--resume`)
 // and carries the source's history. `muse resume` takes no prompt, so the
-// task travels after launch (TaskAfterLaunch).
+// person gives the copy its task there.
 func (MuseSource) ForkSession(ctx context.Context, src Ref, start func(ctx context.Context, args ...string) *exec.Cmd) (Fork, error) {
 	if strings.TrimSpace(src.ID) == "" {
 		return Fork{}, errors.New("Muse Code needs the session id to fork it.")
@@ -56,7 +56,7 @@ func (MuseSource) ForkSession(ctx context.Context, src Ref, start func(ctx conte
 		return Fork{}, errors.New("Muse Code's new session does not name this conversation as its source.")
 	}
 	id := out.Session.SessionID
-	return Fork{Args: []string{"resume", id}, ID: id, ResumeArgs: []string{"resume", id}, TaskAfterLaunch: true}, nil
+	return Fork{Args: []string{"resume", id}, ID: id, ResumeArgs: []string{"resume", id}}, nil
 }
 
 // LiveSession finds the conversation a running Muse TUI in cwd is writing.

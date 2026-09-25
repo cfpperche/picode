@@ -2673,12 +2673,8 @@ export default function App({ shellChrome = false } = {}) {
       // The agent exists (ADR-0184); its stopped terminal says why and offers Start.
       toastError(new Error(next.launchError));
     } else if (forked) {
-      // A CLI that cannot start with a task (Muse Code) gets it through the
-      // prompt door once its TUI is ready; a task that never lands becomes
-      // an Inbox note (server: deliverForkTask).
-      toast.ok((forked.name || "The fork") + (res.task === "pending"
-        ? " is starting on a copy of the conversation. Its task is sent as soon as it is ready."
-        : " is starting on a copy of the conversation."));
+      // A fork opens waiting: the person gives it its task there.
+      toast.ok((forked.name || "The fork") + " is starting on a copy of the conversation. Give it its task there.");
     }
     if (next && next.id) {
       openTermTab(next.id);

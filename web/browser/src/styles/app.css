@@ -551,8 +551,8 @@ body {
 /* Fork agent… (ForkAgentDialog): name, where, then the attach composer as
    the task. The composer keeps its terminal-bar layout; inside a dialog it
    follows the app theme, not the terminal's (.term-attach only). */
-.fork-field, .fork-task { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
-.fork-field > span, .fork-task-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
+.fork-field { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.fork-field > span { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
 .fork-field .dlg-input { margin-top: 0; }
 .fork-field .dlg-input[aria-invalid="true"] { border-color: var(--danger); }
 .fork-field-error { font-size: 12px; color: var(--danger); }
