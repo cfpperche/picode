@@ -8,9 +8,11 @@ import { safeImgSrc } from "../domain/mdSafe.js";
 import { activeLines, planLive } from "./mdLivePlan.js";
 import { inlineTokens, planTables, tableSkip } from "./mdLiveTables.js";
 import { planInlineMath, planMathBlocks, planMermaid } from "./mdLiveMath.js";
+import { attachLongPress } from "./longPress.js";
 
 const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || "");
-const OPEN_HINT = (MAC ? "⌘" : "Ctrl") + "+click to open";
+const COARSE = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+const OPEN_HINT = COARSE ? "Press and hold to open" : (MAC ? "⌘" : "Ctrl") + "+click to open";
 
 // markdownLive is the Live view: the markdown stays the file's own text, but
 // headings, emphasis, links, lists, quotes, code and images render in place,
@@ -37,6 +39,18 @@ export function markdownLive(context) {
     ])),
     EditorView.focusChangeEffect.of((_state, focusing) => setFocus.of(focusing)),
     EditorView.editorAttributes.of({ class: "cm-md-live" }),
+    ViewPlugin.define((view) => {
+      // Touch has no Ctrl/⌘+click: press and hold a link to open it.
+      const detach = attachLongPress(view.contentDOM, {
+        hrefAt(x, y) {
+          const pos = view.posAtCoords({ x, y });
+          return pos == null ? "" : linkAt(view.state, pos);
+        },
+        open: (href) => context().openLink?.(href),
+        onTap: (x, y) => pressHint(view, x, y),
+      });
+      return { destroy: detach };
+    }),
     EditorView.domEventHandlers({
       mousedown(e, view) {
         if (e.button !== 0 || !(e.ctrlKey || e.metaKey)) return false;
@@ -292,9 +306,32 @@ class TableWidget extends WidgetType {
       view.dispatch({ selection: { anchor: cell ? cell.from : from } });
       view.focus();
     });
+    attachLongPress(wrap, {
+      hrefAt: (_x, _y, target) => (target instanceof Element ? target.closest("[data-href]")?.getAttribute("data-href") || "" : ""),
+      open: (href) => this.context().openLink?.(href),
+      onTap: (x, y) => pressHint(view, x, y),
+    });
     return wrap;
   }
   ignoreEvent() { return true; }
+}
+
+// The first tap on a link in an editor, on a touch screen, says how to open
+// it — once: the tap itself edits the link, which is the useful default.
+const hinted = new WeakSet();
+function pressHint(view, x, y) {
+  if (hinted.has(view) || !window.matchMedia("(pointer: coarse)").matches) return;
+  hinted.add(view);
+  const box = view.dom.getBoundingClientRect();
+  const tip = document.createElement("div");
+  tip.className = "cm-md-press-hint";
+  tip.setAttribute("role", "status");
+  tip.textContent = "Press and hold to open";
+  view.dom.appendChild(tip);
+  const w = tip.offsetWidth;
+  tip.style.left = Math.max(8, Math.min(box.width - w - 8, x - box.left - w / 2)) + "px";
+  tip.style.top = Math.max(8, y - box.top - 44) + "px";
+  setTimeout(() => tip.remove(), 2200);
 }
 
 function inlineNode(tok) {
