@@ -22,9 +22,8 @@ TUI agents and Agent CLIs use one terminal engine:
 clipboard, resizing and socket wiring. Each independent app supplies xterm
 and its own presentation, never an agent-specific terminal implementation.
 `agentTerminal.js` resolves the runtime identity and HTTP owner for every
-CLI. A live legacy Pi process wins over a newly allocated binding after a
-failed restart (ADR-0162); only its address differs, not its renderer or
-controls. Missing bound records never invent a legacy session.
+CLI through its bound terminal. Missing bound records never invent a session
+(the pre-ADR-0162 `picode-<id>` fallback was retired 2026-09-25).
 
 Mobile agent terminal views render the same `TerminalScreen` as Agent CLIs:
 toolbar, attachments, Files/Git, prompt snippets, keyboard accessory, loading,
@@ -133,8 +132,9 @@ Skills, Memory, Settings, Keyboard and Models address their scope as
 `?scope=global|workspace|agent` (`web/shared/domain/scopes.js`). Each tab keeps
 its own words inside — Packages and Connectors `user/project/agent`, Skills
 `machine/workspace/agent`, settings layers `global/project/agent` — and the
-table in `scopes.js` is the only place they meet the address. Older words and
-`?layer=` still read and rewrite to the shared ones. A tab link carries the
+table in `scopes.js` is the only place they meet the address. An address
+carries only the shared words; the older words and `?layer=` were retired on
+2026-09-25 and read as an invalid scope. A tab link carries the
 scope the address chose (never a tab's default) into the next tab.
 
 | Hash | Surface | Owns |

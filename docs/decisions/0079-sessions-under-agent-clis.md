@@ -75,3 +75,7 @@ Sessions menu stays Pi.
 
 Settings, Packages and Messages remain strip tabs (ADR-0101/0102). Providers
 joined the CLI pane on 2026-09-11 (ADR-0103 amendment).
+
+## Amendment 2026-09-25 — old addresses retired (owner)
+
+The owner retired the compatibility addresses this ADR kept. `#/sessions*`, `#/clis/sessions*` and `?cli=` no longer rewrite; the only Sessions address is `#/clis/<cli>/sessions[/<workspaceId>]`. `#/clis/terminals` no longer redirects either. An old bookmark now lands where any unknown address does.

@@ -127,7 +127,7 @@ func unquote(v string) string {
 // reaches it); server options take no target — they are one value for the
 // whole tmux server, and the caller is responsible for only doing that from
 // a surface labelled as machine-wide.
-func (m *Manager) setScopedOption(ctx context.Context, scope, session, key, value string) error {
+func (m *Manager) SetScopedOption(ctx context.Context, scope, session, key, value string) error {
 	switch scope {
 	case ScopeServer:
 		_, err := m.run(ctx, "set-option", "-s", key, value)
@@ -144,7 +144,7 @@ func (m *Manager) setScopedOption(ctx context.Context, scope, session, key, valu
 // UnsetScopedOption removes a session/window-level value so the option falls
 // back to the layer above (the global, then tmux's default). Server options
 // have no layer above; unsetting one restores tmux's compiled default.
-func (m *Manager) unsetScopedOption(ctx context.Context, scope, session, key string) error {
+func (m *Manager) UnsetScopedOption(ctx context.Context, scope, session, key string) error {
 	switch scope {
 	case ScopeServer:
 		_, err := m.run(ctx, "set-option", "-su", key)
@@ -179,7 +179,7 @@ func SplitArray(block string) []string {
 // it resurfaces the layer below — for a server option, tmux's own default
 // entries — and the leftovers past the new length would survive the rewrite.
 // Measured on tmux 3.6 before this was written.
-func (m *Manager) setArrayOption(ctx context.Context, scope, session, key string, values []string) error {
+func (m *Manager) SetArrayOption(ctx context.Context, scope, session, key string, values []string) error {
 	old, _ := m.layerIndexes(ctx, scope, session, key)
 	for i, v := range values {
 		if err := m.SetScopedOption(ctx, scope, session, fmt.Sprintf("%s[%d]", key, i), v); err != nil {
@@ -228,7 +228,7 @@ func (m *Manager) layerIndexes(ctx context.Context, scope, session, key string) 
 // ApplyValue writes one resolved value, dispatching arrays to their
 // per-index form. Every applier goes through here so an array stored as a
 // block never reaches set-option as one newline-ridden string.
-func (m *Manager) applyValue(ctx context.Context, session string, sv ScopedValue) error {
+func (m *Manager) ApplyValue(ctx context.Context, session string, sv ScopedValue) error {
 	if sv.Array {
 		return m.SetArrayOption(ctx, sv.Scope, session, sv.Key, SplitArray(sv.Value))
 	}

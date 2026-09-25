@@ -113,6 +113,5 @@ test("agentTerm reads the bound terminal or the fleet copy", () => {
   assert.equal(agentTerm({ terminalId: "t1" }, live), live[0]);
   assert.equal(agentTerm({ terminalId: "t9", terminal: { id: "t9" } }, live).id, "t9");
   assert.equal(agentTerm({ terminalId: "t1", mode: "managed" }, live), null, "managed pi has no pill terminal");
-  assert.equal(agentTerm({ legacyInteractive: true, terminalId: "t1" }, live), null);
   assert.equal(agentTerm(null, live), null);
 });

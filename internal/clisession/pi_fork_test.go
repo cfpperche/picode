@@ -19,6 +19,7 @@ func fakePi(t *testing.T, mode string) (func(ctx context.Context, args ...string
 	script := filepath.Join(dir, "pi")
 	body := `#!/bin/sh
 printf '%s\n' "$PWD" "$@" > "` + log + `"
+printf '%s\n' "$PI_OFFLINE" > "` + log + `.offline"
 case "` + mode + `" in
 fail) echo "Error: No session found" >&2; exit 1 ;;
 silent) exit 0 ;;
@@ -63,6 +64,10 @@ func TestPiForkIntoDir(t *testing.T) {
 	want := "--mode rpc --no-extensions --no-skills --no-prompt-templates --no-themes --fork " + src + " --session-id new-id --session-dir " + dir
 	if args != want {
 		t.Fatalf("args %q\nwant %q", args, want)
+	}
+	// Offline, so the run never leaves pi's auth.json lock behind.
+	if off, _ := os.ReadFile(log + ".offline"); strings.TrimSpace(string(off)) != "1" {
+		t.Fatalf("PI_OFFLINE = %q, want 1", off)
 	}
 
 	// Refusals name the reason: pi's own error, a run that wrote nothing,

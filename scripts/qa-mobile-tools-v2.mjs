@@ -25,7 +25,7 @@ const created = await fetch(base+'/api/terminals', {method:'POST',headers:{'Cont
 assert.ok(created.ok);
 const term = await created.json();
 assert.ok(term.id);
-const route = '#/changes/w/'+ws.id;
+const route = '#/inspector/w/'+ws.id;
 const result = { fixture:base, decisions:[], screenshots:[], geometry:[] };
 const capture = async name => { await shot(name); result.screenshots.push(name+'.png'); const g=ev('({viewport:innerWidth,width:document.documentElement.scrollWidth,audit:window.__picodeOverlayAudit()})'); assert.equal(g.width,g.viewport,name+' page overflow'); assert.equal(g.audit.ok,true,name+' overlays'); result.geometry.push({name,...g}); };
 try {
@@ -42,7 +42,7 @@ const patchCount=ev('qa.calls.patch');ev("qa.patch='delay'");click('Retry');ab('
 ev("qa.patch='';qa.status='error'");click('Refresh');ab('wait','[role="alert"]');assert.equal(ev('document.querySelectorAll(".gg-file").length'),4);assert.equal(ev('Boolean(document.querySelector(".diff"))'),true);await capture('changes-retained-error-320');result.decisions.push('Refresh error retains loaded list and expanded patch');
 ev("qa.status=''");click('Retry');wait('!document.querySelector("[role=alert]") && document.querySelector(".gg-detail").getAttribute("aria-busy")==="false" && document.querySelector(".gg-file-head").getAttribute("aria-expanded")==="false"');
 ev("qa.patch='error'");ab('click','.gg-file-head','--first');ab('wait','[role="alert"]');ab('click','.gg-file-head','--first');ev("qa.patch=''");ab('click','.gg-file-head','--first');ab('wait','.diff');result.decisions.push('Failed patch reopens with a fresh request');
-nav('#/changes/w/'+fresh.id);wait('document.querySelector(".gg-detail")?.innerText.includes("This folder is not a Git repository.")');await capture('changes-nongit-320');assert.equal(ev('document.querySelectorAll(".gg-file").length'),0);result.decisions.push('Owner switch clears prior files; non-Git folder has Back action');
+nav('#/inspector/w/'+fresh.id);wait('document.querySelector(".gg-detail")?.innerText.includes("This folder is not a Git repository.")');await capture('changes-nongit-320');assert.equal(ev('document.querySelectorAll(".gg-file").length'),0);result.decisions.push('Owner switch clears prior files; non-Git folder has Back action');
 ev("qa.status='empty'");nav(route);wait('document.querySelector(".gg-detail")?.innerText.includes("No uncommitted changes.")');await capture('changes-empty-320');result.decisions.push('Clean working tree shows empty state and Back action');
 ev("qa.status='long'");click('Refresh');ab('wait','.gg-file-head');await capture('changes-long-path-320');ab('click','.gg-file-head','--first');ab('wait','.diff');await capture('changes-long-patch-320');assert.ok(ev('document.querySelector(".diff").scrollWidth>document.querySelector(".diff").clientWidth'));result.decisions.push('Long filename/directory wraps; code scroll belongs to patch only');
 ev("qa.status='';qa.attach='error'");nav('#/term/'+term.id);ab('wait','[role="alert"]');await capture('terminal-attach-error-320');
@@ -54,7 +54,7 @@ click('Show keyboard');ab('wait','.m-keybar');await capture('terminal-keys-320')
 ev('qa.mockCli=true;window.dispatchEvent(new Event("focus"));true');ab('wait','[aria-label="Attach"]');await capture('terminal-cli-header-320');assert.ok(ev('document.querySelector(".m-head-title").getBoundingClientRect().width')>=120);click('Attach');ab('wait','[role="dialog"]');await capture('terminal-attach-sheet-320');ab('press','Escape');wait('!document.querySelector(".dlg-overlay")');
 click('Terminal actions');ab('wait','[role="dialog"]');await pause(850);click('Remove terminal');wait('document.body.innerText.includes("Remove terminal?")');await capture('terminal-remove-confirm-320');click('Cancel');wait('!document.querySelector(".dlg-overlay")');result.decisions.push('CLI attachment remains accessible; Remove still opens existing confirmation and Cancel keeps terminal');
 for(const width of [360,390,430,844]){ab('set','viewport',String(width),width===844?'390':'844');nav(route);ab('wait','.gg-file-head');await capture('changes-'+width);nav('#/term/'+term.id);ab('wait','.xterm-screen');await capture('terminal-'+width);}
-ab('set','viewport','390','844');ab('open',base+'/mobile/?theme=dark#/changes/w/'+ws.id);ab('wait','.gg-file-head');ab('click','.gg-file-head','--first');ab('wait','.diff');await capture('changes-dark-390');
+ab('set','viewport','390','844');ab('open',base+'/mobile/?theme=dark#/inspector/w/'+ws.id);ab('wait','.gg-file-head');ab('click','.gg-file-head','--first');ab('wait','.diff');await capture('changes-dark-390');
 writeFileSync(resolve(out,'result.json'),JSON.stringify({ok:true,...result},null,2)+'\n');
 console.log('PASS: '+result.decisions.length+' decision rows; '+result.screenshots.length+' screenshots; overlay audit and page width checks');
 

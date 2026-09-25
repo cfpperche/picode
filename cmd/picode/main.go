@@ -592,9 +592,8 @@ func serve() {
 	defer func() { hookCancel(); <-hookDone }()
 
 	// tmux (ADR-0139): this instance's sessions live on their own socket in
-	// the data dir; the default-socket Manager rides along as the drain for
-	// sessions created before the move, and disappears when they all end.
-	tm := tmux.NewWithSocket(filepath.Join(dataDir, "tmux.sock")).WithLegacy(tmux.New())
+	// the data dir. The drain for pre-move sessions was retired 2026-09-25.
+	tm := tmux.NewWithSocket(filepath.Join(dataDir, "tmux.sock"))
 	deps := server.Deps{
 		Webhooks: hooks,
 		Store:    st,

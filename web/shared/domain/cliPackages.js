@@ -44,7 +44,7 @@ export function cliPackagesLocation(hash = "") {
   const scope = read.value || "user";
   invalid ||= read.invalid;
   const route = { view: "clis", pane: "packages", id, pkg, workspaceId, agentId, scope, ...(read.kind ? { scopeKind: read.kind } : {}), invalid };
-  return { ...route, redirect: !invalid && read.alias ? cliPackagesHash(id, route) : "" };
+  return { ...route, redirect: "" };
 }
 
 const missing = message => Object.assign(new Error(message), { status: 404 });

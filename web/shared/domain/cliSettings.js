@@ -26,7 +26,7 @@ export function cliSettingsQuery({ workspaceId = "", agentId = "", focus = "", l
 // The layer a settings address names right now, in the pane's words; null
 // when it names none (the pane reads the hash, which leads its route prop).
 export function settingsLayerOf(params) {
-  const read = readScope(params, LAYER_WORDS, { legacyKey: "layer" });
+  const read = readScope(params, LAYER_WORDS);
   return read.value || null;
 }
 
@@ -48,11 +48,10 @@ export function cliSettingsLocation(hash = "") {
   const focus = params.get("focus") === "scoped-models" ? "scoped-models" : "";
   // An unknown layer or view is dropped, not adopted: the pane falls back to
   // the default layer and never writes to a layer the URL only guessed at.
-  const read = readScope(params, LAYER_WORDS, { legacyKey: "layer" });
+  const read = readScope(params, LAYER_WORDS);
   const layer = read.value;
-  const canonical = cliSettingsHash(cli, { workspaceId, agentId, focus, layer });
   return { view: "clis", pane: "settings", id: cli, workspaceId, agentId, focus, layer, ...(read.kind ? { scopeKind: read.kind } : {}),
-    redirect: read.alias ? canonical : "" };
+    redirect: "" };
 }
 
 // The layers a route may name; the keyboard pane keeps the settings context
@@ -64,9 +63,9 @@ export function cliKeysLocation(hash = "") {
   const params = new URLSearchParams(query);
   let cli = "pi";
   try { cli = decodeURIComponent(m[1]); } catch { cli = ""; }
-  const read = readScope(params, LAYER_WORDS, { legacyKey: "layer" });
+  const read = readScope(params, LAYER_WORDS);
   const route = { view: "clis", pane: "keyboard", id: cli, workspaceId: params.get("workspaceId") || "", agentId: params.get("agentId") || "", layer: read.value, ...(read.kind ? { scopeKind: read.kind } : {}), invalid: false };
-  return { ...route, redirect: read.alias ? "#/clis/" + encodeURIComponent(cli) + "/keyboard" + cliSettingsQuery(route) : "" };
+  return { ...route, redirect: "" };
 }
 
 function unavailable(message) {

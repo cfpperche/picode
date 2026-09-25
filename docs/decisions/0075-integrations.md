@@ -90,3 +90,7 @@ Future non-MCP connectors may extend ADR-0036 based on an actual working case.
 - Webhooks as a substitute for tools: incorrect; notifications do not grant
   an agent read/write access to a service.
 - In-process vendor adapters: forces binary releases for vendor API changes.
+
+## Amendment 2026-09-25 — old addresses retired (owner)
+
+The owner retired the compatibility addresses this ADR kept. `#/integrations/connectors` and `#/mcps` no longer rewrite to a CLI's Connectors pane; `#/integrations*` opens Webhooks. Canonical: `#/clis/<cli>/connectors`. An old bookmark now lands where any unknown address does.

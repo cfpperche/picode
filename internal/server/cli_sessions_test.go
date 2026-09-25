@@ -5,6 +5,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
+
+	"github.com/cfpperche/picode/internal/store"
 	"strings"
 	"testing"
 )
@@ -128,5 +131,96 @@ func TestCLISessionsPiOnlyGuards(t *testing.T) {
 		if res.StatusCode != http.StatusBadRequest {
 			t.Errorf("%s %s = %d, want 400 (pi-only)", row.method, row.path, res.StatusCode)
 		}
+	}
+}
+
+// TestCLISessionsOmpWorkspaceUnionsAgentDirs: a workspace Omp agent writes
+// into PiCode's per-agent directory (--session-dir), not omp's cwd bucket.
+// The workspace scope adds each of its Omp agents' directories, as pi's
+// does (ADR-0040); a plain ?cwd= keeps reading omp's own tree only.
+//
+//	?workspace=W, W's Omp agent session     → listed, resumes by its path
+//	?workspace=W, omp's cwd bucket session  → listed, resumes by its id
+//	?workspace=W, another workspace's agent → not listed
+//	?cwd=W.path                             → omp's own tree only
+func TestCLISessionsOmpWorkspaceUnionsAgentDirs(t *testing.T) {
+	ts, deps, dataDir, home := handoffServer(t)
+	proj := filepath.Join(t.TempDir(), "proj")
+	other := filepath.Join(t.TempDir(), "other")
+	for _, d := range []string{proj, other} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ws := cliRequest(t, ts, "POST", "/api/workspaces", map[string]any{"name": "proj", "path": proj}, 201)
+	ows := cliRequest(t, ts, "POST", "/api/workspaces", map[string]any{"name": "other", "path": other}, 201)
+	created := cliRequest(t, ts, "POST", "/api/workspaces/"+ws["id"].(string)+"/agents", map[string]any{"name": "delivery", "cli": "omp"}, 201)
+	mine, err := deps.Store.GetAgent(created["id"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	theirs, err := deps.Store.AddAgentWithCLI(ows["id"].(string), "omp", "elsewhere", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	write := func(dir, id, cwd string) string {
+		t.Helper()
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		p := filepath.Join(dir, "2026-09-21T20-56-12-695Z_"+id+".jsonl")
+		body := `{"type":"session","version":3,"id":"` + id + `","timestamp":"2026-09-21T20:56:12.695Z","cwd":"` + cwd + `"}` + "\n" +
+			`{"type":"message","id":"m1","parentId":null,"timestamp":"2026-09-21T20:56:13.000Z","message":{"role":"user","content":[{"type":"text","text":"hi"}]}}` + "\n"
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	agentFile := write(ompAgentSessionDir(dataDir, mine.ID), "omp-agent", proj)
+	// The artifacts folder omp keeps beside each session is not a session.
+	write(filepath.Join(ompAgentSessionDir(dataDir, mine.ID), "2026-09-21T20-56-12-695Z_omp-agent"), "omp-nested", proj)
+	write(ompAgentSessionDir(dataDir, theirs.ID), "omp-theirs", other)
+	write(filepath.Join(home, ".omp", "agent", "sessions", strings.ReplaceAll(proj, "/", "-")), "omp-shared", proj)
+
+	rows := func(q string) map[string][]any {
+		out := map[string][]any{}
+		for _, r := range cliRequest(t, ts, "GET", "/api/clis/omp/sessions"+q, nil, 200)["sessions"].([]any) {
+			m := r.(map[string]any)
+			out[m["id"].(string)] = m["resumeArgs"].([]any)
+		}
+		return out
+	}
+	use := func(q string) map[string]any {
+		out := map[string]any{}
+		for _, r := range cliRequest(t, ts, "GET", "/api/clis/omp/sessions"+q, nil, 200)["sessions"].([]any) {
+			m := r.(map[string]any)
+			out[m["id"].(string)] = m["inUseBy"]
+		}
+		return out
+	}
+	got := rows("?workspace=" + ws["id"].(string))
+	if len(got) != 2 || got["omp-shared"] == nil || got["omp-agent"] == nil {
+		t.Fatalf("workspace rows = %v, want omp-shared and omp-agent", got)
+	}
+	if !reflect.DeepEqual(got["omp-agent"], []any{"--resume", agentFile}) || !reflect.DeepEqual(got["omp-shared"], []any{"--resume", "omp-shared"}) {
+		t.Fatalf("resume args = %v", got)
+	}
+	if got := rows("?cwd=" + proj); len(got) != 1 || got["omp-shared"] == nil {
+		t.Fatalf("cwd rows = %v, want only omp-shared", got)
+	}
+	// The agent's terminal is pinned to its file: that row is in use, so the
+	// view opens the agent instead of resuming the file a second time.
+	if mine.TerminalID == nil {
+		t.Fatal("omp agent has no terminal")
+	}
+	if u := use("?workspace=" + ws["id"].(string)); u["omp-agent"] != nil || u["omp-shared"] != nil {
+		t.Fatalf("in use before any pin = %v", u)
+	}
+	if err := deps.Store.SetTerminalLastSession(*mine.TerminalID, store.TerminalLastSession{CLI: "omp", SessionID: "omp-agent", Path: agentFile}); err != nil {
+		t.Fatal(err)
+	}
+	u := use("?workspace=" + ws["id"].(string))
+	if in, _ := u["omp-agent"].(map[string]any); in == nil || in["agentId"] != mine.ID || in["agentName"] != "delivery" || u["omp-shared"] != nil {
+		t.Fatalf("in use after the pin = %v", u)
 	}
 }

@@ -33,7 +33,6 @@ func runGateway(args []string) {
 	fs := flag.NewFlagSet("gateway", flag.ExitOnError)
 	cfgPath := fs.String("config", gateway.DefaultConfigPath, "gateway config")
 	plain := fs.String("plain", "", "also serve plain HTTP on this loopback address, behind a TLS proxy (Caddy, Cloudflare Tunnel) — or alone for tests")
-	fs.StringVar(plain, "insecure-listen", "", "alias of --plain")
 	purge := fs.Bool("purge", false, "uninstall: also delete the config directory (config, certificate) and the shared binary")
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("gateway: %v", err)

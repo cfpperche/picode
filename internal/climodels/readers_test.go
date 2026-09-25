@@ -137,3 +137,51 @@ func TestNewReadersFollowTheirInputs(t *testing.T) {
 		t.Error("a project opencode.json did not move the fingerprint")
 	}
 }
+
+func TestParseGrok(t *testing.T) {
+	raw, err := os.ReadFile("testdata/grok-models-cache.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := parseGrok(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d; the hidden model must be left out", len(rows))
+	}
+	a := rows[1]
+	if a.Selector != "grok-4.7" || a.Name != "Grok 4.7" || a.Provider != "xai" || a.Context != 500000 || !a.Reasoning ||
+		strings.Join(a.Thinking, ",") != "low,medium,high,xhigh" {
+		t.Fatalf("row 1 = %+v", a)
+	}
+	if _, err := parseGrok([]byte("not json")); err == nil {
+		t.Error("a file PiCode cannot read must be an error that says so")
+	}
+}
+
+// Grok is never run: the reader reads the file Grok keeps, from GROK_HOME
+// when set, and says so plainly when Grok has not written it yet.
+func TestGrokReadsItsOwnFileAndRunsNothing(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("GROK_HOME", root)
+	t.Setenv("PATH", t.TempDir()) // no grok binary to run
+	Forget("grok")
+	if _, err := Read(t.Context(), "grok", "", true); err == nil || !strings.Contains(err.Error(), "sign in and open Grok once") {
+		t.Fatalf("no file: err = %v", err)
+	}
+	raw, err := os.ReadFile("testdata/grok-models-cache.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "models_cache.json"), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := Read(t.Context(), "grok", "", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.CLI != "grok" || len(rep.Models) != 2 {
+		t.Fatalf("report = %+v", rep)
+	}
+}

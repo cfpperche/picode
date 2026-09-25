@@ -7,7 +7,7 @@ export function fleetAgents(fleet) {
 }
 
 export function canvasTerminalHost(kind, target, cwd, fleet, tabs) {
-  const id = kind === "agent" ? resolveInteractiveTerminal(target, fleet.terminals, cwd)?.id : target?.id;
+  const id = kind === "agent" ? resolveInteractiveTerminal(target, fleet.terminals)?.id : target?.id;
   const owner = fleetAgents(fleet).find((a) => a.terminalId === id);
   const owned = !!id && (tabs.includes("t:" + id) || (kind === "agent" && tabs.includes(target.id)) || !!(owner && tabs.includes(owner.id)));
   return { id, owned, epoch: fleet.termEpochs?.[kind === "agent" ? target?.id : owner?.id] || 0 };

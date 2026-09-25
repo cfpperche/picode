@@ -353,13 +353,6 @@ func registerAll(mux Registrar, deps Deps) {
 
 	bridge := term.Bridge(deps.Tmux, termOptionResolver(deps), terminalInterruptObserver(deps))
 	mux.Handle("/ws/term", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Preserve existing agent tabs and bookmarks after lazy migration.
-		q := r.URL.Query()
-		if name := q.Get("session"); strings.HasPrefix(name, "picode-") && !strings.HasPrefix(name, "picode-sh-") {
-			q.Set("session", deps.agentSession(strings.TrimPrefix(name, "picode-")))
-			r = r.Clone(r.Context())
-			r.URL.RawQuery = q.Encode()
-		}
 		bridge.ServeHTTP(w, r)
 	}))
 	mux.Handle("/ws/agent", agentWS(deps))

@@ -50,3 +50,7 @@ Old `#/clis/packages/pi*` rewrite. Persistence unchanged.
 
 The [work plan](../plans/cli-native-packages.md) records acceptance conditions.
 The Cursor/t3code benchmark adaptation is contextual, reload-safe navigation.
+
+## Amendment 2026-09-25 — old addresses retired (owner)
+
+The owner retired the compatibility addresses this ADR kept. `#/packages*`, mobile `#/more/packages*` and `#/clis/packages*` no longer rewrite. Canonical: `#/clis/<cli>/packages[/config/<pkg>]`. An old bookmark now lands where any unknown address does.

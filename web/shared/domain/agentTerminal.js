@@ -1,27 +1,19 @@
 // Resolve the one terminal record an interactive agent owns. Both web shells
 // use this identity before choosing their presentation; no CLI is special.
 export function resolveAgentTerminal(agent, terminal) {
-  if (!agent || agent.mode === "managed" || agent.legacyInteractive || !agent.terminalId) return null;
+  if (!agent || agent.mode === "managed" || !agent.terminalId) return null;
   if (!terminal || terminal.id !== agent.terminalId) return null;
   return terminal;
 }
 
-// One addressing adapter for every TUI surface. A missing bound record is
-// not a legacy process: never guess a different session while the feed loads.
-export function resolveAgentTerminalView(agent, terminal, fallbackCwd = "") {
+// One addressing adapter for every TUI surface: the agent's bound terminal.
+// A missing bound record is not another process — never guess a session
+// while the feed loads. (The pre-ADR-0162 `picode-<id>` session this once
+// rendered was retired 2026-09-25.)
+export function resolveAgentTerminalView(agent, terminal) {
   if (!agent || agent.mode === "managed") return null;
   const bound = resolveAgentTerminal(agent, terminal) || resolveAgentTerminal(agent, agent.terminal);
-  if (bound) return { term: bound, owner: { kind: "term", id: bound.id }, canonical: true };
-  if ((!agent.legacyInteractive && agent.terminalId) || agent.mode !== "interactive") return null;
-  // ADR-0162: preserve an already-live legacy Pi process until explicit
-  // restart, but render it through the same terminal implementation.
-  if (agent.cli && agent.cli !== "pi") return null;
-  return {
-    term: { id: agent.id, name: agent.name, session: "picode-" + agent.id,
-      cwd: agent.workPath || fallbackCwd, launchCli: "pi", running: true },
-    owner: { kind: "agent", id: agent.id },
-    canonical: false,
-  };
+  return bound ? { term: bound, owner: { kind: "term", id: bound.id }, canonical: true } : null;
 }
 
 export function initialAgentView(agent, requested = "") {

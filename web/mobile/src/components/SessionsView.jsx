@@ -141,9 +141,10 @@ function PiRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact, targets, o
 
 function CliRow({ s, cliName, busy, onOpenTerminal, targets, onHandoff, cliNames, onOpenAgent }) {
   return (
-    <li className="mcp-row sess-row orphan">
+    <li className={"mcp-row sess-row" + (s.inUseBy ? "" : " orphan")}>
       <div className="mcp-row-main">
         <strong className="sess-name" title={s.name || s.path}>{s.name || s.id}</strong>
+        {s.inUseBy ? <span className="sess-badge in-use" title={"Current session of " + s.inUseBy.agentName}>in use · {s.inUseBy.agentName}</span> : null}
         {s.workspace ? <span className="sess-badge in-use">{s.workspace}</span> : null}
         <LineageBadges s={s} cliNames={cliNames} onOpenAgent={onOpenAgent} />
         {s.model ? <span className="sess-meta">{s.model}</span> : null}
@@ -155,15 +156,23 @@ function CliRow({ s, cliName, busy, onOpenTerminal, targets, onHandoff, cliNames
       </div>
       <div className="mcp-row-actions">
         {s.preview ? <span className="sess-preview" title={s.preview}>{s.preview}</span> : null}
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={() => onOpenTerminal(s)}
-          disabled={busy}
-          title={"Start a " + cliName + " agent in this session's folder with " + (s.resumeArgs || []).join(" ")}
-        >
-          Resume as agent
-        </button>
+        {s.inUseBy && onOpenAgent ? (
+          // The agent is already on this conversation: a second CLI on the
+          // same file would interleave two writers, so open that agent.
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenAgent(s.inUseBy.agentId)} title={"Open " + s.inUseBy.agentName + ", which is on this session"}>
+            Open agent
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => onOpenTerminal(s)}
+            disabled={busy}
+            title={"Start a " + cliName + " agent in this session's folder with " + (s.resumeArgs || []).join(" ")}
+          >
+            Resume as agent
+          </button>
+        )}
         <HandoffMenu s={s} targets={targets} busy={busy} onHandoff={onHandoff} />
       </div>
     </li>
@@ -188,17 +197,20 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
   const workspacePath = workspace?.path || "";
   const all = !wsId;
   const isPi = cli === "pi";
+  // Pi and Omp agents keep their own session folders; ?workspace= lets the
+  // server add each agent's folder to the workspace's shared one.
+  const byWorkspace = isPi || cli === "omp";
   const cliName = cliNames[cli] || cli;
   const targets = useMemo(() => handoffTargets(clis, cli), [clis, cli]);
 
   const load = useCallback(async () => {
     const generation = ++request.current;
     setError("");
-    if (!isPi && !all && !workspacePath) {
+    if (!byWorkspace && !all && !workspacePath) {
       if (wsReady) setError("That workspace is gone.");
       return;
     }
-    const query = isPi
+    const query = byWorkspace
       ? (all ? "" : "?workspace=" + encodeURIComponent(wsId))
       : (workspacePath ? "?cwd=" + encodeURIComponent(workspacePath) : "");
     try {
@@ -207,7 +219,7 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
     } catch (e) {
       if (generation === request.current) setError(e?.message || "Could not load sessions.");
     }
-  }, [wsId, all, isPi, cli, workspacePath, wsReady]);
+  }, [wsId, all, byWorkspace, cli, workspacePath, wsReady]);
 
   useEffect(() => {
     setData(null); setQuery(""); setOpenPick(null); setHandoff(null); load();

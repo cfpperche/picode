@@ -20,8 +20,8 @@ describe("mobileRoute", () => {
     assert.equal(parentHash(route), "#/more/apps");
     assert.equal(mobileHash("app", "docker"), "#/app/docker");
     assert.equal(mobileRoute("#/more/apps").section, "apps");
-    assert.equal(mobileRoute("#/app/inbox").screen, "inbox");
-    assert.deepEqual(mobileRoute("#/app/inbox/item/ib_1"), { screen: "inbox", id: "ib_1", section: "" });
+    // #/app/inbox was the Inbox's old address, retired 2026-09-25.
+    assert.equal(mobileRoute("#/app/inbox").screen, "now");
     assert.deepEqual(mobileRoute("#/app/docker/plan/qa%20review"), { screen: "app", id: "docker", section: "", path: "plan/qa review" });
   });
   it("parses the four tabs and the two pushed screens", () => {
@@ -36,9 +36,8 @@ describe("mobileRoute", () => {
     assert.deepEqual(mobileRoute("#/agent/ag%3A1"), { screen: "agent", id: "ag:1", section: "" });
     assert.deepEqual(mobileRoute("#/agent/ag%3A1?view=terminal"), { screen: "agent", id: "ag:1", section: "", view: "terminal" });
     assert.deepEqual(mobileRoute("#/term/t%201"), { screen: "term", id: "t 1", section: "" });
-    assert.deepEqual(mobileRoute("#/changes/a/ag1"), { screen: "inspector", id: "ag1", section: "agent", view: "changes" });
-    assert.deepEqual(mobileRoute("#/changes/w/ws%201"), { screen: "inspector", id: "ws 1", section: "workspace", view: "changes" });
-    assert.equal(mobileRoute("#/changes/x/ag1").screen, "now");
+    // The pre-Inspector #/changes/* address was retired 2026-09-25.
+    assert.notEqual(mobileRoute("#/changes/a/ag1").screen, "inspector");
     assert.deepEqual(mobileRoute("#/inspector/a/ag1"), { screen: "inspector", id: "ag1", section: "agent" });
     assert.deepEqual(mobileRoute("#/inspector/t/t%201?root=%2Fw%2Fapp&view=pr"), { screen: "inspector", id: "t 1", section: "term", root: "/w/app", view: "pr" });
     assert.equal(mobileHash("inspector", "t1", "term"), "#/inspector/t/t1");
@@ -49,7 +48,6 @@ describe("mobileRoute", () => {
   it("maps desktop hashes to the closest mobile section instead of a dead end", () => {
     assert.equal(mobileRoute("#/preferences/notifications").section, "preferences");
     assert.equal(mobileRoute("#/termset/t1").section, "preferences");
-    assert.equal(mobileRoute("#/app/inbox").screen, "inbox");
     assert.equal(mobileRoute("#/file/a/x/y").screen, "files");
     assert.equal(mobileRoute("#/whatever").screen, "now");
   });
@@ -87,7 +85,7 @@ describe("mobileRoute", () => {
     assert.deepEqual(mobileRoute("#/work/workspaces"), { screen: "work", id: "", section: "workspaces" });
     assert.deepEqual(mobileRoute("#/work/nope/x"), { screen: "work", id: "", section: "" });
     assert.equal(parentHash(mobileRoute("#/inspector/a/ag1")), "#/agent/ag1");
-    assert.equal(parentHash(mobileRoute("#/changes/t/t1")), "#/term/t1");
+    assert.equal(parentHash(mobileRoute("#/inspector/t/t1")), "#/term/t1");
     assert.equal(parentHash(mobileRoute("#/inspector/w/w1")), "#/work");
     assert.equal(tabOf(mobileRoute("#/inspector/a/ag1")), "work");
     assert.equal(parentHash(mobileRoute("#/inbox/x")), "#/inbox");

@@ -137,7 +137,7 @@ const paneListFields = 13
 // ServerSessions returns every session on the socket, PiCode's and the
 // user's alike, in tmux's own order. A server that is not running yields an
 // empty list, never an error (same contract as ListOwned).
-func (m *Manager) serverSessions(ctx context.Context) ([]ServerSession, error) {
+func (m *Manager) ServerSessions(ctx context.Context) ([]ServerSession, error) {
 	out, err := m.run(ctx, "list-panes", "-a", "-F", paneListFormat)
 	if err != nil {
 		if serverAbsent(out) {
@@ -222,7 +222,7 @@ func (m *Manager) serverSessions(ctx context.Context) ([]ServerSession, error) {
 // extended-keys format. Session counts belong to ServerSessions — this never
 // lists sessions, so the server read stays one call per fact, with liveness
 // and the version sharing one.
-func (m *Manager) serverInfo(ctx context.Context) ServerInfo {
+func (m *Manager) ServerInfo(ctx context.Context) ServerInfo {
 	var info ServerInfo
 	// One read carries liveness and the version: display-message fails when no
 	// server answers (and never starts one), and the two-field format only
@@ -253,7 +253,7 @@ func (m *Manager) serverInfo(ctx context.Context) ServerInfo {
 // SessionReceipt reads one session's identity plus its ownership markers —
 // two tmux calls, deliberately, because this is the read an irreversible
 // action is verified against and neither half may be skipped.
-func (m *Manager) sessionReceipt(ctx context.Context, name string) (SessionReceipt, error) {
+func (m *Manager) SessionReceipt(ctx context.Context, name string) (SessionReceipt, error) {
 	var r SessionReceipt
 	// name+":" targets the session's active pane (the same form the rest of
 	// this package uses; the "=" prefix means something else to send-keys).

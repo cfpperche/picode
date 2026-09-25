@@ -159,7 +159,7 @@ const steps = [
     run: () => {
       openDesktop("v23");
       if (!waitText("Atlas")) return false;
-      goTo("#/app/inbox");
+      goTo("#/inbox");
       return waitText("Inbox");
     },
   },

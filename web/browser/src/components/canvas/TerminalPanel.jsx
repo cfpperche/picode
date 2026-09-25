@@ -22,7 +22,7 @@ import { promptDoorFor } from "@picode/shared/domain/termPrompt.js";
 const liveRecords = new Map();
 
 const TerminalPanel = memo(function TerminalPanel({ kind, target, terminals, cwd, hidden, focused, owned, onOpenFile, attach, onAttachClose, onPasteFiles, find, onFindClose, placeholder }) {
-  const resolved = kind === "agent" ? resolveInteractiveTerminal(target, terminals, cwd) : null;
+  const resolved = kind === "agent" ? resolveInteractiveTerminal(target, terminals) : null;
   const id = kind === "agent" ? resolved?.id : target.id;
   const [live, setLive] = useState(() => liveRecords.get(id) || null);
   const [error, setError] = useState("");

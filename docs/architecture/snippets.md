@@ -138,7 +138,7 @@ for a draft with **no** origin — a handoff is not a crash.
 required names are listed; the body is still returned. `POST /api/snips/{id}/run`
 with `target.type=agent` expands with live `cwd` / workspace / agent name.
 Managed agents `SendTurn`. Interactive agents take ADR-0130 door 5:
-`deliverToInteractiveAgent` (receiver-or-paste into `picode-<id>`, source
+`deliverToInteractiveAgent` (receiver-or-paste into the agent's terminal session, source
 `"snippet"`, proof is tmux/receiver accept). Stopped is 409 `stopped`.
 `target.type=terminal` delivers through the **ADR-0089
 door** (shared `pasteToTerminal`): `termHoldsCLI` must hold, and the

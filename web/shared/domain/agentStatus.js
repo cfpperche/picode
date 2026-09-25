@@ -10,7 +10,7 @@ import { terminalActivityStamp, terminalStatus } from "./terminalCli.js";
 export function agentRowStatus(ag, live = {}) {
   const mode = (ag && ag.mode) || "stopped";
   const term = live.term || (ag && ag.terminal);
-  if (ag?.terminalId && !ag.legacyInteractive && mode !== "managed" && term) return terminalStatus(term);
+  if (ag?.terminalId && mode !== "managed" && term) return terminalStatus(term);
   const waiting = !!(ag && (ag.waiting || (live.waitingId && ag.id === live.waitingId)));
   const working = !waiting && !!(ag && (ag.streaming || (live.workingId && ag.id === live.workingId) || (live.workingIds || []).includes(ag.id)));
   if (waiting) return "needs-you";
@@ -55,7 +55,7 @@ export function agentStatusLabel(status) {
 // so the sidebar's "Working first" buckets and the row's own pill cannot
 // disagree about which terminal a row belongs to.
 export function agentTerm(ag, terms) {
-  if (!ag || ag.legacyInteractive || ag.mode === "managed" || !ag.terminalId) return null;
+  if (!ag || ag.mode === "managed" || !ag.terminalId) return null;
   return (terms || []).find((t) => t && t.id === ag.terminalId) || ag.terminal || null;
 }
 

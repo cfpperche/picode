@@ -11,12 +11,12 @@ export const supportsCliModels = (id) => MODELS_CLIS.includes(id);
 // CLIs PiCode can ask for their model list (internal/climodels.Supported();
 // a Go test holds the two in step). Having a reader is not having the Models
 // pane above: omp alone has that.
-export const MODEL_READERS = ["omp", "pi", "codex", "opencode", "muse"];
+export const MODEL_READERS = ["omp", "pi", "codex", "opencode", "muse", "grok"];
 
 // The native-settings text field each reader's list fills — the list is a
 // shortcut beside the field, never a replacement: a model the CLI does not
 // list (a new one, an alias) can still be typed.
-const MODEL_PICK_FIELDS = { codex: "model", opencode: "model", muse: "model" };
+const MODEL_PICK_FIELDS = { codex: "model", opencode: "model", muse: "model", grok: "models.default" };
 export const modelPickField = (cli, key) => MODEL_PICK_FIELDS[cli] === key;
 
 // The two keys the pane edits, in the CLI's own names.
