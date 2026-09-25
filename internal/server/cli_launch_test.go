@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/clilifecycle"
 	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -357,6 +358,61 @@ func TestCLIExecutableSkipsWrapperAndRejectsRelativePath(t *testing.T) {
 	}
 	if err := cleanCLILaunches(dir, "..", ""); err == nil {
 		t.Fatal("unbounded cleanup allowed")
+	}
+}
+
+// TestEveryWrapperFlavorKeepsTheLifecycleMenu pins the 2026-09-24 fix: every
+// shim PiCode writes must resolve to the real binary behind it, so the CLI's
+// install method stays classifiable and the lifecycle menu (canUpdate or its
+// siblings) survives. Only the "integration" shims regressed — the intercept
+// ones always matched — so the table lists each written flavor.
+func TestEveryWrapperFlavorKeepsTheLifecycleMenu(t *testing.T) {
+	for _, flavor := range []string{
+		"# PiCode intercept — Claude Code. Session PATH only.",
+		"# PiCode intercept — OpenCode. Session PATH only. OPENCODE_CONFIG plugin; no data-dir overlay.",
+		"# PiCode intercept — tmux guard (ADR-0138). Session PATH only.",
+		"# PiCode intercept — browser hand-off (ADR-0180). Session PATH only.",
+		"# PiCode Omp integration (omp is a Pi fork: pi-shaped extension).",
+		"# PiCode Muse Code integration.",
+		"# PiCode Antigravity integration.",
+		"# PiCode native Grok integration.",
+		"# PiCode native Hermes plugin.",
+	} {
+		shimDir, binDir := t.TempDir(), filepath.Join(t.TempDir(), "node_modules", ".bin")
+		if err := os.MkdirAll(binDir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(shimDir, "omp"), []byte("#!/bin/sh\n"+flavor+"\nexit 1\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(binDir, "omp"), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("PATH", shimDir+string(os.PathListSeparator)+binDir)
+		cli, _ := clilaunch.Find("omp")
+		executable, err := resolveCLIExecutable(cli, clilaunch.Config{})
+		if err != nil {
+			t.Fatalf("%s: shim was not skipped: %v", flavor, err)
+		}
+		if executable != filepath.Join(binDir, "omp") {
+			t.Fatalf("%s: resolved %s, want the real binary", flavor, executable)
+		}
+		lifecycle := describeLifecycle("omp", true, executable)
+		if !lifecycle.CanUpdate || !lifecycle.CanFix || lifecycle.Uninstall != clilifecycle.UninstallNpm {
+			t.Fatalf("%s: lifecycle %+v, want the managed npm plan", flavor, lifecycle)
+		}
+	}
+
+	// A vendor script without the header is the executable itself: the match
+	// must not widen past PiCode's own shims.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "omp"), []byte("#!/bin/sh\n# omp vendor updater\nexit 0\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	cli, _ := clilaunch.Find("omp")
+	if executable, err := resolveCLIExecutable(cli, clilaunch.Config{}); err != nil || executable != filepath.Join(dir, "omp") {
+		t.Fatalf("vendor script rejected: %s, %v", executable, err)
 	}
 }
 

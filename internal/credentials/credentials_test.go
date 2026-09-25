@@ -512,3 +512,42 @@ func TestHarvestRenewsTheMatchedRow(t *testing.T) {
 		t.Fatalf("stray writes during refused harvests: %q", saved.Access)
 	}
 }
+
+// A nameless login's row mirrors the CLI's file: a new sign-in and a rotated
+// refresh token both land, which Harvest cannot match. Named rows, keyed
+// credentials and missing rows are left alone.
+func TestMirrorFollowsANamelessLogin(t *testing.T) {
+	s := New(t.TempDir())
+	if _, err := s.Import("anthropic", json.RawMessage(`{"type":"oauth","access":"a-old","refresh":"r-old","expires":1000}`), "", "vault", ""); err != nil {
+		t.Fatal(err)
+	}
+	live := json.RawMessage(`{"type":"oauth","access":"a-new","refresh":"r-new","expires":2000}`)
+	if s.Harvest("anthropic", live) {
+		t.Fatal("Harvest matched a rotated refresh token")
+	}
+	if !s.Mirror("anthropic", live) {
+		t.Fatal("Mirror did not copy the live login")
+	}
+	row, _, _ := s.Row("anthropic", "6e306c515177")
+	var got struct {
+		Access, Refresh string
+		Expires         int64
+	}
+	_ = json.Unmarshal(row.Cred, &got)
+	if got.Access != "a-new" || got.Refresh != "r-new" || got.Expires != 2000 {
+		t.Fatalf("mirrored row = %+v", got)
+	}
+	if s.Mirror("anthropic", live) {
+		t.Fatal("an identical login reported a change")
+	}
+	if s.Mirror("openai-codex", live) {
+		t.Fatal("Mirror created a row for a provider with none")
+	}
+	if s.Mirror("anthropic", json.RawMessage(`{"type":"oauth","access":"x","refresh":"y","accountId":"acct-1"}`)) {
+		t.Fatal("a keyed credential names its own row; Mirror must not touch it")
+	}
+	rows, _ := s.Accounts("anthropic")
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, Mirror never adds one", len(rows))
+	}
+}

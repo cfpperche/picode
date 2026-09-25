@@ -18,11 +18,12 @@
 // kept verbatim, so the merge changes which component draws a control and not
 // what it says.
 
+import { PACKAGE_WORDS, readScope, writeScope } from "./scopes.js";
 export function cliPackagesHash(cli = "pi", { workspaceId = "", agentId = "", scope = "user", pkg = "" } = {}) {
   const query = new URLSearchParams();
   if (workspaceId) query.set("workspaceId", workspaceId);
   if (agentId) query.set("agentId", agentId);
-  if (scope !== "user") query.set("scope", scope);
+  writeScope(query, scope);
   return "#/clis/" + encodeURIComponent(cli || "pi") + "/packages" + (pkg ? "/config/" + encodeURIComponent(pkg) : "") + (query.size ? "?" + query : "");
 }
 
@@ -52,10 +53,12 @@ export function cliPackagesLocation(hash = "", legacyContext = {}) {
   const fallback = adoptPane ? legacyContext : {};
   const workspaceId = params.get("workspaceId") || fallback.workspaceId || "";
   const agentId = params.get("agentId") || fallback.agentId || "";
-  const scope = params.get("scope") || "user";
-  invalid ||= !["user", "project", "agent"].includes(scope);
-  const route = { view: "clis", pane: "packages", id, pkg, workspaceId, agentId, scope, legacy: legacy || strip, invalid, ...(adoptPane ? { adoptPane: true } : {}) };
-  return { ...route, redirect: !invalid && !nested ? cliPackagesHash(id, route) : "" };
+  // The address speaks the shared scope words (scopes.js); the pane keeps its own.
+  const read = readScope(params, PACKAGE_WORDS);
+  const scope = read.value || "user";
+  invalid ||= read.invalid;
+  const route = { view: "clis", pane: "packages", id, pkg, workspaceId, agentId, scope, ...(read.kind ? { scopeKind: read.kind } : {}), legacy: legacy || strip, invalid, ...(adoptPane ? { adoptPane: true } : {}) };
+  return { ...route, redirect: !invalid && (!nested || read.alias) ? cliPackagesHash(id, route) : "" };
 }
 
 const missing = message => Object.assign(new Error(message), { status: 404 });

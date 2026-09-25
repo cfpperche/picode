@@ -54,6 +54,14 @@ func TestDeliveryModesTable(t *testing.T) {
 			t.Errorf("hermes %s must be a slash command, got %+v", m, s)
 		}
 	}
+	// Hermes /queue renders only at turn end; Omp queues with Ctrl+Q and
+	// keeps the payload's lines (re-measured 2026-09-24).
+	if s := deliverySeqFor("hermes", deliveryFollowUp); !s.lateRender {
+		t.Error("hermes /queue must take the accepted receipt")
+	}
+	if s := deliverySeqFor("omp", deliveryFollowUp); s.key != "C-q" || s.command != "" {
+		t.Errorf("omp follow-up %+v, want Ctrl+Q with no command", s)
+	}
 }
 
 func TestMidTurnText(t *testing.T) {
@@ -65,6 +73,7 @@ func TestMidTurnText(t *testing.T) {
 		{seqEnter, "look\n@a.png\n", "look\n@a.png"},
 		{&deliverySeq{command: "/steer ", key: "Enter"}, "look  here\n@a.png", "/steer look here @a.png"},
 		{&deliverySeq{command: "/queue ", key: "Enter"}, "one", "/queue one"},
+		{deliveryAdapters["omp"].followUp, "after that:\n1. say BRAVO\n2. say CHARLIE", "after that:\n1. say BRAVO\n2. say CHARLIE"},
 	}
 	for _, c := range cases {
 		if got := midTurnText(c.seq, c.payload); got != c.want {
@@ -226,14 +235,17 @@ func TestAttachDeliveryMidTurnOnTmux(t *testing.T) {
 		t.Skip("tmux not available")
 	}
 	rows := []struct {
-		name, script, want string
+		name, cli, mode, script, want string
 	}{
-		{"renders the queue", `stty -echo; while IFS= read -r l; do printf 'QUEUED %s\n' "$l"; done`, "queued"},
-		{"renders nothing", `stty -echo; cat >/dev/null`, "unconfirmed"},
+		{"renders the queue", "opencode", "steer", `stty -echo; while IFS= read -r l; do printf 'QUEUED %s\n' "$l"; done`, "queued"},
+		{"renders nothing", "opencode", "steer", `stty -echo; cat >/dev/null`, "unconfirmed"},
+		// Hermes /queue: the row held the command, then let it go.
+		{"late render, row took it", "hermes", "follow_up", `cat >/dev/null`, "accepted"},
+		{"late render, row never held it", "hermes", "follow_up", `stty -echo; cat >/dev/null`, "unconfirmed"},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
-			ts, term, states := deliveryHarness(t, "opencode")
+			ts, term, states := deliveryHarness(t, row.cli)
 			name := tmux.ShellSessionName(term.ID)
 			if err := m.NewSession(context.Background(), name, term.Cwd, "sh", "-c", row.script); err != nil {
 				t.Fatalf("fixture session: %v", err)
@@ -245,8 +257,8 @@ func TestAttachDeliveryMidTurnOnTmux(t *testing.T) {
 				_ = m.KillSession(ctx, name)
 			})
 			time.Sleep(300 * time.Millisecond)
-			states.Set(term.ID, TermWorking, "opencode", time.Now())
-			code, page := postRaw(t, ts, "/api/terminals/"+term.ID+"/prompt", `{"message":"also write BRAVO at the end","delivery":"steer"}`)
+			states.Set(term.ID, TermWorking, row.cli, time.Now())
+			code, page := postRaw(t, ts, "/api/terminals/"+term.ID+"/prompt", `{"message":"also write BRAVO at the end","delivery":"`+row.mode+`"}`)
 			if code != http.StatusOK || page["delivery"] != row.want {
 				t.Fatalf("code=%d page=%v want delivery %s", code, page, row.want)
 			}
@@ -314,18 +326,23 @@ func TestAttachInterruptOnTmux(t *testing.T) {
 	t.Cleanup(func() { interruptSettle = prevSettle })
 	stops := `stty -echo -icanon min 1; while IFS= read -r -s -n1 -d '' c; do if [[ $c == $'\e' ]]; then printf 'Interrupted\n'; else printf '%s' "$c" >> got; fi; done`
 	ignores := `stty -echo -icanon min 1; while IFS= read -r -s -n1 -d '' c; do printf '%s' "$c" >> got; done`
+	// Omp stopped before its first output: no stop line, only its
+	// "esc Working…" row going away.
+	quietStop := `stty -echo -icanon min 1; printf '  esc Working\n'; while IFS= read -r -s -n1 -d '' c; do if [[ $c == $'\e' ]]; then printf '\e[2J\e[H'; else printf '%s' "$c" >> got; fi; done`
 	rows := []struct {
-		name, script string
-		code         int
-		reason       string
-		sent         bool
+		name, cli, script string
+		code              int
+		reason            string
+		sent              bool
 	}{
-		{"stops, then sends", stops, http.StatusOK, "", true},
-		{"never stops, nothing sent", ignores, http.StatusConflict, "not-stopped", false},
+		{"stops, then sends", "claude-code", stops, http.StatusOK, "", true},
+		{"never stops, nothing sent", "claude-code", ignores, http.StatusConflict, "not-stopped", false},
+		{"working row gone, then sends", "omp", quietStop, http.StatusOK, "", true},
+		{"no working row to watch", "claude-code", quietStop, http.StatusConflict, "not-stopped", false},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
-			ts, term, states := deliveryHarness(t, "claude-code")
+			ts, term, states := deliveryHarness(t, row.cli)
 			name := tmux.ShellSessionName(term.ID)
 			if err := m.NewSession(context.Background(), name, term.Cwd, "bash", "-c", row.script); err != nil {
 				t.Fatalf("fixture session: %v", err)
@@ -336,7 +353,7 @@ func TestAttachInterruptOnTmux(t *testing.T) {
 				_ = m.KillSession(ctx, name)
 			})
 			time.Sleep(300 * time.Millisecond)
-			states.Set(term.ID, TermWorking, "claude-code", time.Now())
+			states.Set(term.ID, TermWorking, row.cli, time.Now())
 			code, page := postRaw(t, ts, "/api/terminals/"+term.ID+"/prompt", `{"message":"use the other file","delivery":"interrupt"}`)
 			if code != row.code || (row.reason != "" && page["reason"] != row.reason) {
 				t.Fatalf("code=%d page=%v want %d %s", code, page, row.code, row.reason)

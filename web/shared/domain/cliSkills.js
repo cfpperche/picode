@@ -1,6 +1,7 @@
 // The Skills pane's browser-side contract (ADR-0196, docs/plans/skills.md):
 // the address, the words for each status, and the filters. Pure, tested in
 // cliSkills.test.js; both apps render from it.
+import { SKILL_WORDS, readScope, writeScope } from "./scopes.js";
 import { terminalCliLabel } from "./terminalCli.js";
 
 // The CLIs with a skills declaration, in the server's order
@@ -19,19 +20,21 @@ export function cliSkillsHash(cli, { workspaceId = "", agentId = "", scope = "" 
   const q = new URLSearchParams();
   if (workspaceId) q.set("workspaceId", workspaceId);
   if (agentId) q.set("agentId", agentId);
-  if (scope && scope !== "machine" && SKILL_SCOPES.includes(scope)) q.set("scope", scope);
+  writeScope(q, scope);
   const qs = q.toString();
   return "#/clis/" + encodeURIComponent(cli) + "/skills" + (qs ? "?" + qs : "");
 }
 
 // The query half of the pane's address, as cliLocation reads it.
 export function cliSkillsQuery(params) {
-  const scope = params.get("scope") || "machine";
+  const read = readScope(params, SKILL_WORDS);
   return {
     workspaceId: params.get("workspaceId") || "",
     agentId: params.get("agentId") || "",
-    scope: SKILL_SCOPES.includes(scope) ? scope : "machine",
-    invalid: !SKILL_SCOPES.includes(scope),
+    scope: read.value || "machine",
+    ...(read.kind ? { scopeKind: read.kind } : {}),
+    invalid: read.invalid,
+    ...(read.alias ? { alias: true } : {}),
   };
 }
 

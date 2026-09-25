@@ -61,6 +61,14 @@ export function deliveryNotice(res, delivery) {
     : "Sent, but PiCode could not confirm it left the composer. Check the terminal.";
 }
 
+// deliveryInfo: the receipt the pane cannot show yet. A CLI whose queue
+// renders only at turn end (Hermes /queue) answers "accepted" — the field
+// took the message — so the composer says where it will appear.
+export function deliveryInfo(res) {
+  if (!res || res.delivery !== "accepted") return "";
+  return "Queued. The CLI shows it when the current turn ends.";
+}
+
 // What the composer says while a send is in flight: Stop and send waits for
 // the CLI to stop (up to a few seconds), so it names that wait.
 export function deliveryBusyText(delivery) {

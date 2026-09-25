@@ -3,7 +3,7 @@
 ## Next
 
 - Dashboard throughput (tokens/s): definition (generation vs turn), per-CLI coverage, UI gates. Codex's `duration_ms`/`time_to_first_token_ms` still unread; Grok's timings shipped.
-- **Only Codex reports quota windows.** Claude Code, Grok and the rest have plan limits PiCode never reads, so `Limits` is a one-CLI panel with a coverage footnote. Reading a second CLI's windows is the next real improvement there, not more UI.
+- Limits: the `plans` rows (the Providers usage cache) already cover Anthropic, xAI, Z.ai, Codex, OpenRouter and Kimi beside Codex's rollout windows (measured 2026-09-24). Anthropic had shown "Sign in again" because its vault row held a dead token; fixed by `feat/anthropic-usage` (the row mirrors Claude Code's login, ADR-0166 amendment).
 - Per-model price overrides (2026-09-22, ADR-0185 deferred them): t3code lets the user set a model's rates; PiCode has no surface for it yet, so a model LiteLLM omits (Grok's `-build` ids, Codex's `gpt-5.3-codex-spark`) stays unpriced.
 
 ## Debts

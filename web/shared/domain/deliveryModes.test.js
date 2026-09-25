@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deliveryOptions, pickDelivery, deliveryPlaceholder, deliveryNotice, deliverySendLabel, deliveryBusyText } from "./deliveryModes.js";
+import { deliveryOptions, pickDelivery, deliveryPlaceholder, deliveryNotice, deliveryInfo, deliverySendLabel, deliveryBusyText } from "./deliveryModes.js";
 
 test("idle hides the selector; working offers the busy modes the CLI has", () => {
   assert.deepEqual(deliveryOptions(["prompt", "steer", "follow_up"], "idle"), []);
@@ -26,6 +26,9 @@ test("placeholder and receipt copy", () => {
   assert.match(deliveryNotice({ delivery: "unconfirmed" }, "prompt"), /left the composer/);
   assert.equal(deliveryNotice({ delivery: "queued" }, "steer"), "");
   assert.equal(deliveryNotice({ delivery: "verified" }, "prompt"), "");
+  assert.equal(deliveryNotice({ delivery: "accepted" }, "follow_up"), "");
+  assert.match(deliveryInfo({ delivery: "accepted", reason: "shows-at-turn-end" }), /when the current turn ends/);
+  assert.equal(deliveryInfo({ delivery: "queued" }), "");
 });
 
 test("stop and send is offered while working but never the default", () => {

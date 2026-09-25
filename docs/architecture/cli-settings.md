@@ -41,7 +41,7 @@ A CLI with one file gets **no layer switcher and no invented project scope**,
 and a write to a scope it does not have is refused. A CLI that *does* declare a
 workspace file, opened without a workspace, still shows the layer with one line
 saying what it needs and no form: hiding it made a link carrying
-`?layer=project` silently edit the machine file instead (found in live QA,
+a workspace layer (`?scope=workspace`, then `?layer=project`) silently edit the machine file instead (found in live QA,
 2026-09-20).
 
 **A row says what happens if you leave it alone.** A boolean is the Radix
@@ -374,7 +374,7 @@ gutter; mobile uses the full page width. Route IDs do not control page sizing.
 ## Pane shape (2026-09-12, `docs/plans/cli-settings-ux.md`)
 
 The pane edits **one layer at a time**. A labelled switcher (*This machine*,
-the workspace, the agent) writes `layer=global|project|agent` onto the route
+the workspace, the agent) writes `scope=global|workspace|agent` onto the route (the shared scope words, `web/shared/domain/scopes.js`; the old `layer=` still reads and rewrites)
 beside `agentId`, the body renders only that layer's rows, and the file it
 writes is named under the switcher. Values a layer does not set come from its
 parent, and the row says so (`From Global`, `Pi default`); a row this

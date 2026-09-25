@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { cliModelsHash, cliPaneHash, paneScope } from "@picode/shared/domain/cliLaunch.js";
+import { cliModelsHash, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
+import { MEMORY_WORDS, MODEL_WORDS, PACKAGE_WORDS, SKILL_WORDS } from "@picode/shared/domain/scopes.js";
 import { cliSettingsHash, cliSettingsQuery } from "@picode/shared/domain/cliSettings.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliMemoryHash } from "@picode/shared/domain/cliNative.js";
@@ -37,11 +38,11 @@ export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
   // The keyboard map is machine-wide, but the link keeps the settings context:
   // going there and back must not move the reader to another agent, workspace or layer.
   if (pane === "keyboard") return cliPaneHash(cli, "keyboard") + cliSettingsQuery({ workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", layer: ctx.layer || "" });
-  if (pane === "models") return cliModelsHash(cli, { workspaceId: ctx.workspaceId || "", layer: ctx.layer || "" });
-  if (pane === "memory") return cliMemoryHash(cli, { workspaceId: ctx.workspaceId || "", scope: ctx.scope === "workspace" || ctx.scope === "global" ? ctx.scope : "" });
-  if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: paneScope("packages", ctx.scope) || "user" });
-  if (pane === "skills") return cliSkillsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: paneScope("skills", ctx.scope) });
-  if (pane === "connectors") return cliConnectorsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: paneScope("connectors", ctx.scope) || "user" });
+  if (pane === "models") return cliModelsHash(cli, { workspaceId: ctx.workspaceId || "", layer: MODEL_WORDS[ctx.scope] || "" });
+  if (pane === "memory") return cliMemoryHash(cli, { workspaceId: ctx.workspaceId || "", scope: MEMORY_WORDS[ctx.scope] || "" });
+  if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: PACKAGE_WORDS[ctx.scope] || "user" });
+  if (pane === "skills") return cliSkillsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: SKILL_WORDS[ctx.scope] || "" });
+  if (pane === "connectors") return cliConnectorsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: PACKAGE_WORDS[ctx.scope] || "user" });
   return cliPaneHash(cli, pane, pane === "sessions" ? workspace : "");
 }
 
@@ -82,7 +83,7 @@ function Tab({ cli, pane, workspace, ctx, item, extra, activeRef }) {
   );
 }
 
-export default function CliPaneTabs({ cli, pane = "launch", panes = null, workspace = "", workspaceId = "", agentId = "", scope = "user", focus = "", layer = "", actions = null, hasPackageUpdates = false }) {
+export default function CliPaneTabs({ cli, pane = "launch", panes = null, workspace = "", workspaceId = "", agentId = "", scope = "", focus = "", layer = "", actions = null, hasPackageUpdates = false }) {
   const ctx = { workspaceId, agentId, scope, focus, layer };
   // panes comes from cliPanes(cli). Every CLI carries the setup group; the
   // ones without a native editor render it as an in-development placeholder

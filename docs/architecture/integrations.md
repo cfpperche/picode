@@ -4,7 +4,7 @@
 
 The core owns `#/integrations/webhooks` for subscription lifecycle and generic
 outbound HTTP delivery. Connectors (MCP) live at `#/clis/<cli>/connectors`
-(the install scope travels on the route — `?scope=user|project|agent` — and
+(the install scope travels on the route — `?scope=global|workspace|agent`, the shared scope words — and
 `#/mcps`, `#/integrations`, `#/integrations/connectors` rewrite there).
 Vendor tools remain external MCP servers or optional Pi packages; there is no
 in-process vendor adapter, second package manager or credential database.

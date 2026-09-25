@@ -79,6 +79,10 @@ folder, with a digest, up to eight recent reported attempts and bounded evidence
 references. Native transcripts, file contents and credentials are omitted.
 Evidence remains accessible through `show`. Browser retries retain the exact
 original request payload, including its version, across form reloads.
+Browser and mobile detail views place a **Read evidence** action beside the
+review controls. It opens the criterion reports for the review revision;
+individual historical evidence records can also be expanded in History. Notes
+may name local files, but those names are references, not attached content.
 
 ## Where Delivery begins
 

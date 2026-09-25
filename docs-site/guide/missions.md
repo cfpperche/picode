@@ -122,6 +122,14 @@ reload.
 
 ## Evidence and review
 
+Open a Mission and choose **Read evidence** beside its action buttons. The
+review section shows the latest report for each acceptance criterion at the
+reviewed version. Open **Read this evidence** in History to inspect an older
+entry. The status says what the reporter claimed; it is not PiCode's own test
+verdict. Paths named in note text are references, not attached screenshots or
+logs. File evidence stores a path and digest, but its content is not displayed
+in the Mission screen.
+
 Use **Add evidence** once or more for each acceptance criterion. The form
 asks for the criterion, evidence type, value, and a reported **Pass** or
 **Fail**. The most recent evidence for each criterion must pass in the

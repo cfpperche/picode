@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { api } from "@picode/shared/client/api.js";
-import { cliSettingsHash, supportsCliSettings, loadPiSettingsContext } from "@picode/shared/domain/cliSettings.js";
+import { cliSettingsHash, settingsLayerOf, supportsCliSettings, loadPiSettingsContext } from "@picode/shared/domain/cliSettings.js";
 import { supportsNativeSettings } from "@picode/shared/domain/cliNative.js";
 import { keyboardRow } from "@picode/shared/domain/cliKeys.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
@@ -93,7 +93,7 @@ function SettingsEditor({ route, catalog, onAgentConfig, pane = "settings" }) {
     location.hash = cliSettingsHash(route.id, {
       workspaceId: next.workspaceId ?? q.get("workspaceId") ?? route.workspaceId,
       agentId: next.agentId ?? q.get("agentId") ?? route.agentId,
-      layer: next.layer ?? q.get("layer") ?? route.layer,
+      layer: next.layer ?? settingsLayerOf(q) ?? route.layer,
       tab: next.tab ?? q.get("tab") ?? route.tab,
     });
   };
