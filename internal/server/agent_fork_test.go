@@ -1,8 +1,6 @@
 package server
 
 import (
-	"context"
-	"encoding/base64"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -50,29 +48,12 @@ func readArgs(t *testing.T, out string) []string {
 	return strings.Split(raw, "\x00")
 }
 
-// shortForkTaskWait keeps a test's background task delivery from
-// outliving it: the fakes are not TUIs, so the door never delivers.
-func shortForkTaskWait(t *testing.T) {
-	oldWait, oldEvery := forkTaskWait, forkTaskEvery
-	forkTaskWait, forkTaskEvery = 600*time.Millisecond, 200*time.Millisecond
-	t.Cleanup(func() {
-		time.Sleep(forkTaskWait + forkTaskEvery)
-		forkTaskWait, forkTaskEvery = oldWait, oldEvery
-	})
-}
-
-// Claude Code reads its own screen for the prompt door, so the fork recipe
-// carries no task: the task (line breaks kept, the staged file named) goes
-// through the door once the TUI is at its prompt, and a restart can never
-// send it twice.
-func TestForkAgentClaudeCarriesTaskAndFiles(t *testing.T) {
-	shortForkTaskWait(t)
-	srcID, proj, out, deps, fork := forkSource(t, "claude-code", "cc-1")
-	res := fork(map[string]any{
-		"name":   "fix the race",
-		"prompt": "-fix the failure\nyou found",
-		"files":  []map[string]any{{"name": "trace.txt", "mime": "text/plain", "data": base64.StdEncoding.EncodeToString([]byte("panic: race"))}},
-	})
+// A fork opens the copy waiting (owner, 2026-09-25): the recipe carries no
+// task, the copy is pinned at once where the CLI took the pre-assigned id,
+// and the lineage row names the source.
+func TestForkAgentClaudeOpensTheCopy(t *testing.T) {
+	srcID, _, out, deps, fork := forkSource(t, "claude-code", "cc-1")
+	res := fork(map[string]any{"name": "fix the race"})
 	if res["status"] != "201" {
 		t.Fatalf("fork: %v", res)
 	}
@@ -81,18 +62,11 @@ func TestForkAgentClaudeCarriesTaskAndFiles(t *testing.T) {
 
 	args := readArgs(t, out)
 	if len(args) != 5 || !reflect.DeepEqual(args[:4], []string{"--resume", "cc-1", "--fork-session", "--session-id"}) {
-		t.Fatalf("claude fork args = %q (the task must not ride the launch)", args)
+		t.Fatalf("claude fork args = %q", args)
 	}
 	newID := args[4]
-	if body["task"] != "pending" {
-		t.Fatalf("task = %v, want pending", body["task"])
-	}
-	drops, _ := filepath.Glob(filepath.Join(proj, ".picode", "drop", "*-trace.txt"))
-	if len(drops) != 1 {
-		t.Fatalf("staged files = %v", drops)
-	}
-	if b, err := os.ReadFile(drops[0]); err != nil || string(b) != "panic: race" {
-		t.Fatalf("staged file %s: %q %v", drops[0], b, err)
+	if _, ok := body["task"]; ok {
+		t.Fatalf("a fork has no task: %v", body["task"])
 	}
 
 	forked := body["agent"].(map[string]any)
@@ -115,21 +89,17 @@ func TestForkAgentClaudeCarriesTaskAndFiles(t *testing.T) {
 }
 
 func TestForkAgentCodexInAnotherFolder(t *testing.T) {
-	shortForkTaskWait(t)
 	_, _, out, deps, fork := forkSource(t, "codex", "cx-1")
 	wt := filepath.Join(t.TempDir(), "wt")
 	if err := os.MkdirAll(wt, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	res := fork(map[string]any{"prompt": "fix it", "workPath": wt})
+	res := fork(map[string]any{"workPath": wt})
 	if res["status"] != "201" {
 		t.Fatalf("fork: %v", res)
 	}
 	body := res["body"].(map[string]any)
 	cleanupTerm(t, body)
-	if body["task"] != "pending" {
-		t.Fatalf("task = %v, want pending", body["task"])
-	}
 	if args := readArgs(t, out); !reflect.DeepEqual(args, []string{"fork", "cx-1"}) {
 		t.Fatalf("codex fork args = %q", args)
 	}
@@ -148,36 +118,28 @@ func TestForkAgentCodexInAnotherFolder(t *testing.T) {
 	}
 }
 
-// Omp's composer is read for unattended senders (ADR-0217), and the fork's
-// task is one: the launch carries no task, the door sends it, line breaks
-// kept, whatever its length.
-func TestForkAgentOmpSendsTheTaskThroughTheDoor(t *testing.T) {
-	shortForkTaskWait(t)
+func TestForkAgentOmpOpensTheCopy(t *testing.T) {
 	_, _, out, _, fork := forkSource(t, "omp", "om-1")
-	res := fork(map[string]any{"prompt": "first\nsecond " + strings.Repeat("x ", 5000)})
+	res := fork(map[string]any{})
 	if res["status"] != "201" {
 		t.Fatalf("fork: %v", res)
 	}
-	body := res["body"].(map[string]any)
-	cleanupTerm(t, body)
-	if body["task"] != "pending" {
-		t.Fatalf("task = %v, want pending", body["task"])
-	}
-	if args := readArgs(t, out); len(args) < 2 || !reflect.DeepEqual(args[:2], []string{"--fork", "om-1"}) || strings.Contains(strings.Join(args, " "), "first") {
-		t.Fatalf("omp fork args = %q (the task must not ride the launch)", args)
+	cleanupTerm(t, res["body"].(map[string]any))
+	if args := readArgs(t, out); len(args) < 2 || !reflect.DeepEqual(args[:2], []string{"--fork", "om-1"}) {
+		t.Fatalf("omp fork args = %q", args)
 	}
 }
 
 func TestForkAgentRefusals(t *testing.T) {
 	t.Run("no conversation yet", func(t *testing.T) {
 		_, _, _, _, fork := forkSource(t, "claude-code", "")
-		if res := fork(map[string]any{"prompt": "x"}); res["status"] != "409" {
+		if res := fork(map[string]any{}); res["status"] != "409" {
 			t.Fatalf("got %v", res)
 		}
 	})
 	t.Run("a CLI without a command-line fork", func(t *testing.T) {
 		_, _, out, _, fork := forkSource(t, "hermes", "h-1")
-		res := fork(map[string]any{"prompt": "x"})
+		res := fork(map[string]any{})
 		if res["status"] != "400" || !strings.Contains(res["body"].(map[string]any)["error"].(string), "can't fork") {
 			t.Fatalf("got %v", res)
 		}
@@ -186,10 +148,11 @@ func TestForkAgentRefusals(t *testing.T) {
 			t.Fatal("a refused fork launched something")
 		}
 	})
-	t.Run("too many files", func(t *testing.T) {
+	// The dialog has no task any more; a client still sending one is refused
+	// rather than having it silently dropped.
+	t.Run("a task is not part of a fork", func(t *testing.T) {
 		_, _, _, _, fork := forkSource(t, "codex", "cx-1")
-		res := fork(map[string]any{"paths": []string{"a", "b", "c"}, "files": []map[string]any{{"name": "d", "data": "ZA=="}, {"name": "e", "data": "ZQ=="}}})
-		if res["status"] != "400" {
+		if res := fork(map[string]any{"prompt": "x"}); res["status"] != "400" {
 			t.Fatalf("got %v", res)
 		}
 	})
@@ -205,7 +168,7 @@ func TestForkAgentRefusals(t *testing.T) {
 // source's live name while it exists, its name at fork time once removed.
 func TestForkAgentListsItsOrigin(t *testing.T) {
 	srcID, _, _, deps, fork := forkSource(t, "codex", "cx-1")
-	res := fork(map[string]any{"name": "side quest", "prompt": "x"})
+	res := fork(map[string]any{"name": "side quest"})
 	if res["status"] != "201" {
 		t.Fatalf("fork: %v", res)
 	}
@@ -247,10 +210,6 @@ func TestForkAgentListsItsOrigin(t *testing.T) {
 // with `muse resume <id>`, and gets its task — line breaks kept — through
 // the prompt door once the TUI is up.
 func TestForkAgentMuseForksThroughItsProtocol(t *testing.T) {
-	oldWait, oldEvery := forkTaskWait, forkTaskEvery
-	forkTaskWait, forkTaskEvery = 8*time.Second, 300*time.Millisecond
-	t.Cleanup(func() { forkTaskWait, forkTaskEvery = oldWait, oldEvery })
-
 	ts, deps, _, home := handoffServer(t)
 	proj := filepath.Join(t.TempDir(), "proj")
 	if err := os.MkdirAll(proj, 0o755); err != nil {
@@ -287,15 +246,12 @@ exec cat
 	}
 	_ = os.Remove(out + ".args")
 
-	res := cliRequestFull(t, ts, "POST", "/api/agents/"+created["agentId"].(string)+"/fork-agent", map[string]any{"name": "muse fork", "prompt": "first line\nsecond line"})
+	res := cliRequestFull(t, ts, "POST", "/api/agents/"+created["agentId"].(string)+"/fork-agent", map[string]any{"name": "muse fork"})
 	if res["status"] != "201" {
 		t.Fatalf("fork: %v", res)
 	}
 	body := res["body"].(map[string]any)
 	cleanupTerm(t, body)
-	if body["task"] != "pending" {
-		t.Fatalf("task = %v, want pending", body["task"])
-	}
 	if req := string(waitCLIFile(t, out+".fork-request")); !strings.Contains(req, `"session/fork"`) || !strings.Contains(req, `"sessionId":"ms-1"`) || !strings.Contains(req, `"commandId":"`) {
 		t.Fatalf("fork request = %s", req)
 	}
@@ -314,43 +270,5 @@ exec cat
 	h := body["handoff"].(map[string]any)
 	if h["mode"] != "fork" || h["targetId"] != "mfork-1" {
 		t.Fatalf("lineage = %v", h)
-	}
-
-	// The task reaches the new TUI (here `cat`, which echoes what it got),
-	// or — if the door never takes it — lands in the Inbox with its text.
-	pane := tmux.ShellSessionName(*a.TerminalID)
-	deadline := time.Now().Add(forkTaskWait + 3*time.Second)
-	for {
-		screen, _ := tmux.New().CaptureTail(context.Background(), pane, 40)
-		if strings.Contains(screen, "second line") {
-			return
-		}
-		items, _ := deps.Store.ListInboxItems(store.InboxFilter{})
-		for _, it := range items {
-			if it.Reason == "fork task not delivered" {
-				if !strings.Contains(it.Body, "first line\nsecond line") {
-					t.Fatalf("inbox body lost the task: %q", it.Body)
-				}
-				t.Logf("task went to the Inbox: %s", it.Body)
-				return
-			}
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("task neither delivered nor reported; pane:\n%s", screen)
-		}
-		time.Sleep(300 * time.Millisecond)
-	}
-}
-
-// forkPrompt is the fallback for a CLI that forks by flag but whose screen
-// the door cannot read: the task becomes one launch argument (one line,
-// an operand even when it starts with a dash, at most 8192 characters).
-func TestForkPromptIsOneOperand(t *testing.T) {
-	got, err := forkPrompt("-fix it\nnow", []string{".picode/drop/a.txt"})
-	if err != nil || got != " -fix it now @.picode/drop/a.txt" {
-		t.Fatalf("%q %v", got, err)
-	}
-	if _, err := forkPrompt(strings.Repeat("x ", 5000), nil); err == nil {
-		t.Fatal("a task over 8192 characters was accepted")
 	}
 }

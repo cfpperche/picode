@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "./MobileSheet.jsx";
-import WorkspaceAttach from "./WorkspaceAttach.jsx";
-import { IconClip, IconFile, IconImage, IconX } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { forkAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { forkRequest, forkSlug, forkWorktreePath } from "@picode/shared/domain/forkAgent.js";
-import { planAttachFiles, readAttachFile, MAX_ATTACH } from "@picode/shared/domain/termPrompt.js";
 import { deliverGitCommand } from "../lib/gitDelivery.js";
-import { toast } from "../lib/toast.js";
 
 const json = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -19,20 +15,16 @@ const PREPARED_WAIT_MS = 600_000;
 
 // ForkAgentSheet — Fork agent… on the phone: the desktop dialog's flow in a
 // sheet (ADR-0072). A new agent of the same CLI starts on a copy of this
-// agent's conversation with a task of its own; the source keeps running.
+// agent's conversation and opens waiting — its task is given there (owner,
+// 2026-09-25); the source keeps running.
 // The worktree is made in the open through the git door (ADR-0096,
 // lib/gitDelivery.js). When another agent is writing the repository the
 // command is only typed (ADR-0078): the sheet closes, `onPrepared` opens
 // that terminal for the Enter, and the fork follows in the background.
 export default function ForkAgentSheet({ open, agent, cliName, terminals = [], workspaceId = "", onClose, onDone, onPrepared, onBackgroundError }) {
-  const imgPick = useRef(null);
-  const filePick = useRef(null);
   const cancelled = useRef(false);
   const [name, setName] = useState("");
   const [where, setWhere] = useState("worktree");
-  const [text, setText] = useState("");
-  const [items, setItems] = useState([]);
-  const [pick, setPick] = useState(false);
   const [graph, setGraph] = useState(null); // null loading, false: not a repository
   const [phase, setPhase] = useState(""); // "" | worktree | waiting | starting
   const [error, setError] = useState("");
@@ -43,7 +35,7 @@ export default function ForkAgentSheet({ open, agent, cliName, terminals = [], w
     if (!open || !agent) return;
     cancelled.current = false;
     setName(agent.name + " fork");
-    setText(""); setItems([]); setError(""); setNameError(""); setPhase(""); setGraph(null); setWhere("worktree");
+    setError(""); setNameError(""); setPhase(""); setGraph(null); setWhere("worktree");
     let live = true;
     api("/api/agents/" + encodeURIComponent(agent.id) + "/git?limit=1")
       .then((g) => { if (live) setGraph(g && g.root ? g : false); })
@@ -60,29 +52,6 @@ export default function ForkAgentSheet({ open, agent, cliName, terminals = [], w
   function close() {
     cancelled.current = true;
     onClose();
-  }
-
-  async function addFiles(list) {
-    const plan = planAttachFiles(list, items.length);
-    if (plan.tooMany) toast.error("Up to 4 files.");
-    if (plan.tooLarge) toast.error("Each file must be under 4 MB.");
-    const next = items.slice();
-    for (const f of plan.files) {
-      try {
-        const row = await readAttachFile(f);
-        next.push({ id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + next.length, ...row });
-      } catch (err) {
-        if (err && err.message === "too-large") toast.error("Each file must be under 4 MB.");
-      }
-    }
-    setItems(next);
-  }
-
-  function addFromFolder(hit) {
-    setPick(false);
-    if (!hit || !hit.path) return;
-    if (items.length >= MAX_ATTACH) { toast.error("Up to 4 files."); return; }
-    setItems((cur) => cur.concat([{ id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()), name: hit.name, path: hit.path }]));
   }
 
   async function makeWorktree(slug, run) {
@@ -124,7 +93,7 @@ export default function ForkAgentSheet({ open, agent, cliName, terminals = [], w
         if (!workPath) return;
       }
       if (!run.background) setPhase("starting");
-      const res = await api("/api/agents/" + encodeURIComponent(agent.id) + "/fork-agent", json(forkRequest({ name: got.value.name, text, items, workPath })));
+      const res = await api("/api/agents/" + encodeURIComponent(agent.id) + "/fork-agent", json(forkRequest({ name: got.value.name, workPath })));
       if (run.background) { onDone(res); return; }
       if (cancelled.current) return;
       setPhase("");
@@ -190,39 +159,6 @@ export default function ForkAgentSheet({ open, agent, cliName, terminals = [], w
               </div>
             </fieldset>
 
-            <div className="fork-task">
-              <span className="fork-task-label">Task</span>
-              <WorkspaceAttach open={pick} agentId={agent.id} onPick={addFromFolder} onClose={() => setPick(false)} />
-              {items.length ? (
-                <div className="term-attach-chips">
-                  {items.map((it) => (
-                    <span key={it.id} className="pin-att composer-pic">
-                      <span className="pin-att-face" title={it.name}>
-                        {it.image && it.url ? <img src={it.url} alt="" /> : <span className="pin-att-ext">{extOf(it.name)}</span>}
-                      </span>
-                      <button type="button" className="pin-att-x" title="Remove" onClick={() => setItems((cur) => cur.filter((x) => x.id !== it.id))}><IconX size={12} /></button>
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              <textarea
-                className="dlg-input fork-task-input"
-                rows={3}
-                data-vaul-no-drag
-                value={text}
-                disabled={busy}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="What should the fork do? Left empty, it opens waiting."
-                aria-label="Task"
-              />
-              <input ref={imgPick} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-              <input ref={filePick} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-              <div className="term-attach-row" data-align-row>
-                <button type="button" className="icon-btn composer-attach term-attach-choice" disabled={busy} aria-label="Attach image" onClick={() => imgPick.current && imgPick.current.click()}><IconImage /><span>Photo</span></button>
-                <button type="button" className="icon-btn composer-attach term-attach-choice" disabled={busy} aria-label="Attach file" onClick={() => filePick.current && filePick.current.click()}><IconFile /><span>File</span></button>
-                <button type="button" className="icon-btn composer-attach term-attach-choice" disabled={busy} aria-label="Attach from folder" onClick={() => setPick(true)}><IconClip /><span>Folder</span></button>
-              </div>
-            </div>
           </form>
 
           {status ? <p className="handoff-status" role="status">{status}</p> : null}
@@ -238,9 +174,4 @@ export default function ForkAgentSheet({ open, agent, cliName, terminals = [], w
       </Dialog.Portal>
     </Dialog.Root>
   );
-}
-
-function extOf(name = "") {
-  const m = /\.([a-z0-9]{1,5})$/i.exec(name);
-  return m ? m[1].toUpperCase() : "FILE";
 }

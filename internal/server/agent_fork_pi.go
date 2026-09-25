@@ -19,8 +19,7 @@ import (
 // and keeps its sessions in a private folder (ADR-0040), so the copy is
 // made by pi's own `--fork` in the new agent's folder after the agent
 // exists and before it starts, and becomes that agent's session: a restart
-// reopens the copy, never forks again. The task, line breaks and all,
-// travels through the prompt door once the TUI is ready (deliverForkTask).
+// reopens the copy, never forks again. It opens waiting for its first task.
 func forkPiAgent(deps Deps, r *http.Request, agent store.Agent, req forkRequest) (map[string]any, int, error) {
 	forker, ok := clisession.AgentForkerFor(store.CLIPi)
 	cli, found := clilaunch.Find(store.CLIPi)
@@ -30,9 +29,6 @@ func forkPiAgent(deps Deps, r *http.Request, agent store.Agent, req forkRequest)
 	src := piAgentSessionFile(deps, agent)
 	if src == "" {
 		return nil, http.StatusConflict, errors.New("This agent has no conversation to fork yet.")
-	}
-	if len(req.Files)+len(req.Paths) > maxForkFiles {
-		return nil, http.StatusBadRequest, errors.New("Up to 4 files.")
 	}
 	cwd := strings.TrimSpace(req.WorkPath)
 	if cwd == "" {
@@ -45,11 +41,6 @@ func forkPiAgent(deps Deps, r *http.Request, agent store.Agent, req forkRequest)
 		return nil, http.StatusBadRequest, err
 	}
 	cwd = filepath.Clean(cwd)
-	paths, err := forkAttachments(cwd, req)
-	if err != nil {
-		return nil, http.StatusBadRequest, err
-	}
-	task := buildPromptPaste(req.Prompt, paths)
 
 	// The source's other launch settings carry over, as for every fork.
 	var overrides clilaunch.Overrides
@@ -74,10 +65,6 @@ func forkPiAgent(deps Deps, r *http.Request, agent store.Agent, req forkRequest)
 		return nil, status, err
 	}
 	out := map[string]any{"agent": agentView{Agent: forked, Mode: string(modeStopped)}, "terminal": view}
-	if strings.TrimSpace(task) != "" && forked.TerminalID != nil {
-		out["task"] = "pending"
-		go deliverForkTask(deps, *forked.TerminalID, forked.WorkspaceID, name, task)
-	}
 	row := store.SessionHandoff{
 		SourceCLI: cli.ID, SourceID: ref.ID, SourcePath: src,
 		TargetCLI: cli.ID, TargetID: newID,

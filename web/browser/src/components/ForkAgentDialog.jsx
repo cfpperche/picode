@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
-import AttachComposer from "./AttachComposer.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { forkAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
@@ -18,9 +17,9 @@ const WORKTREE_WAIT_MS = 120_000;
 const PREPARED_WAIT_MS = 600_000;
 
 // ForkAgentDialog — Fork agent…: a new agent of the same CLI on a copy of
-// this agent's conversation, with a task of its own. The source keeps
-// running. The task composer is the terminal's attach composer, so the
-// fork can start with photos, files and sketches. The default checkout is
+// this agent's conversation. The source keeps running, and the fork opens
+// waiting: its first task is given in the new session, like any agent's
+// (owner, 2026-09-25). The default checkout is
 // the field's "one worktree per agent session" (Conductor, Claude Squad —
 // docs/benchmarks/2026-09-07-git-graph-write-actions.md §4), created in
 // the open through the git door rather than behind the user's back.
@@ -34,8 +33,6 @@ const PREPARED_WAIT_MS = 600_000;
 export default function ForkAgentDialog({ open, agent, cliName, deliverGit, onClose, onDone, onBackground, onBackgroundError }) {
   const [name, setName] = useState("");
   const [where, setWhere] = useState("worktree");
-  const [text, setText] = useState("");
-  const [items, setItems] = useState([]);
   const [graph, setGraph] = useState(null); // null loading, false: not a repository
   const [phase, setPhase] = useState(""); // "" | worktree | waiting | starting
   const [error, setError] = useState("");
@@ -47,7 +44,7 @@ export default function ForkAgentDialog({ open, agent, cliName, deliverGit, onCl
     if (!open || !agent) return;
     cancelled.current = false;
     setName(agent.name + " fork");
-    setText(""); setItems([]); setError(""); setNameError(""); setPhase(""); setGraph(null); setWhere("worktree");
+    setError(""); setNameError(""); setPhase(""); setGraph(null); setWhere("worktree");
     let live = true;
     api("/api/agents/" + encodeURIComponent(agent.id) + "/git?limit=1")
       .then((g) => { if (live) setGraph(g && g.root ? g : false); })
@@ -106,7 +103,7 @@ export default function ForkAgentDialog({ open, agent, cliName, deliverGit, onCl
         if (!workPath) return;
       }
       if (!run.background) setPhase("starting");
-      const res = await api("/api/agents/" + encodeURIComponent(agent.id) + "/fork-agent", json(forkRequest({ name: got.value.name, text, items, workPath })));
+      const res = await api("/api/agents/" + encodeURIComponent(agent.id) + "/fork-agent", json(forkRequest({ name: got.value.name, workPath })));
       if (run.background) { onDone(res); return; }
       if (cancelled.current) return;
       setPhase("");
@@ -173,22 +170,6 @@ export default function ForkAgentDialog({ open, agent, cliName, deliverGit, onCl
             </fieldset>
           </form>
 
-          <div className="fork-task">
-            <span className="fork-task-label">Task</span>
-            <AttachComposer
-              className="attach-composer"
-              text={text}
-              setText={setText}
-              items={items}
-              setItems={setItems}
-              onSubmit={submit}
-              busy={busy}
-              agentId={agent.id}
-              placeholder="What should the fork do?"
-              hideSend
-              autoFocus={false}
-            />
-          </div>
 
           {status ? <p className="handoff-status" role="status"><PiSpinner /> {status}</p> : null}
           {error ? <p className="handoff-error" role="alert">{error}</p> : null}
