@@ -17,3 +17,4 @@ tables, lists and emphasis on save. A shipped on `feat/md-preview`, B (Split wit
 - [ ] Relative file links are inert text in canvas file panels and chat file cards (no `onOpenPath` at those mounts); tree, file tab and mobile Files open them.
 - [ ] Opening `other.md#section` opens the file at its top; the fragment is not scrolled to after load.
 - [ ] Raw HTML in markdown now renders after GitHub's sanitizer allow-list (no script, style, event handlers or unprefixed ids). No ADR was written: the owner may want one, since it widens what file content reaches the app DOM.
+- [ ] `.workspace-view.file-on` is `overflow: hidden` with content taller than its box, so any `scrollIntoView` inside a file tab can scroll the clipped ancestor and push the file toolbar off-screen; MarkdownDoc avoids scrollIntoView for this reason.
